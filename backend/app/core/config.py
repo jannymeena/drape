@@ -11,5 +11,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg2://admin:password@localhost:5433/drape"
 
+    firebase_credentials_path: str | None = None
+
 
 settings = Settings()

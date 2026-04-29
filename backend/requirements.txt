@@ -7,3 +7,6 @@ pydantic-settings
 sqlalchemy>=2
 alembic
 psycopg2-binary
+
+# Phase 3: auth
+firebase-admin
