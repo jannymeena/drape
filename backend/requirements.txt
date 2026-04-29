@@ -2,3 +2,8 @@ fastapi
 uvicorn[standard]
 pydantic[email]>=2
 pydantic-settings
+
+# Phase 2: database
+sqlalchemy>=2
+alembic
+psycopg2-binary

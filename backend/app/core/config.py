@@ -9,5 +9,7 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     environment: str = "local"
 
+    database_url: str = "postgresql+psycopg2://admin:password@localhost:5433/drape"
+
 
 settings = Settings()

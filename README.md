@@ -86,7 +86,7 @@ All env vars live in `backend/.env` (gitignored). A template `.env.example` is c
 | Variable                     | Phase | Purpose                                                                |
 |------------------------------|-------|------------------------------------------------------------------------|
 | `ENVIRONMENT`                | 1     | `local` \| `dev` \| `prod`. `local` enables mock auth.                 |
-| `DATABASE_URL`               | 2     | e.g. `postgresql+psycopg2://admin:password@localhost:5432/my_app_db`   |
+| `DATABASE_URL`               | 2     | e.g. `postgresql+psycopg2://admin:password@localhost:5433/drape`       |
 | `FIREBASE_CREDENTIALS_PATH`  | 3     | Path to Firebase service-account JSON. Unused when `ENVIRONMENT=local`.|
 | `OPENAI_API_KEY`             | 4     | Set later when AI services come online.                                |
 
@@ -123,10 +123,10 @@ alembic upgrade head
 alembic downgrade -1
 
 # Tail Postgres logs
-docker-compose logs -f db
+docker compose logs -f db
 
 # Shell into the database
-docker-compose exec db psql -U admin -d my_app_db
+docker compose exec db psql -U admin -d drape
 ```
 
 ---
@@ -155,5 +155,5 @@ You shouldn't be initializing it locally — confirm `ENVIRONMENT=local` is actu
 **Swagger says 401 even with a valid token**
 Confirm `ENVIRONMENT` matches the token issuer's project, and that `FIREBASE_CREDENTIALS_PATH` points at the service-account JSON for the same project.
 
-**Port 5432 already in use**
-You probably have another Postgres running locally. Either stop it, or change the host port mapping in `docker-compose.yml`.
+**Port already in use**
+The compose file maps Postgres to host port `5433` (not the default `5432`) to avoid conflicting with other local Postgres instances. If `5433` is also taken, change the left side of the `ports:` mapping in `docker-compose.yml` and update `DATABASE_URL` accordingly.
