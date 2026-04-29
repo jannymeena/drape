@@ -24,7 +24,7 @@ def _ensure_firebase() -> None:
 
     if not settings.firebase_credentials_path:
         raise RuntimeError(
-            "FIREBASE_CREDENTIALS_PATH must be set when ENVIRONMENT is not 'local'"
+            "FIREBASE_CREDENTIALS_PATH must be set when ENVIRONMENT is 'tbd' or 'prd'"
         )
     if not firebase_admin._apps:
         firebase_admin.initialize_app(credentials.Certificate(settings.firebase_credentials_path))
@@ -50,7 +50,7 @@ def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_security),
     db: Session = Depends(get_db),
 ) -> User:
-    if settings.environment == "local":
+    if settings.environment == "dev":
         return _get_or_create_user(
             db,
             firebase_uid=MOCK_UID,

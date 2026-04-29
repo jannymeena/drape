@@ -131,19 +131,20 @@ app/db/
 **Goal:** Firebase JWT verification in production, mock user injection in local mode, role checks on protected routes.
 
 ### 3.1 Decide on env switch
-- `ENVIRONMENT=local` → bypass Firebase, return mock user
-- `ENVIRONMENT=dev|prod` → verify real Firebase JWT
-- Add `FIREBASE_CREDENTIALS_PATH` (or JSON-encoded env var) to `core/config.py`
+- `ENVIRONMENT=dev` (default) → bypass Firebase, return mock user
+- `ENVIRONMENT=tbd|prd` → verify real Firebase JWT
+- Allowed values are constrained at startup via `Literal["dev", "tbd", "prd"]` in `core/config.py`
+- `FIREBASE_CREDENTIALS_PATH` is required (validated at startup) when env is `tbd` or `prd`
 - Document expected `.env` keys in `.env.example`
 
 ### 3.2 New dependencies
 - `firebase-admin`
 
 ### 3.3 Auth dependency (`app/api/dependencies/auth.py`)
-- Initialize `firebase_admin` once at app startup (idempotent guard, only when not local)
-- `oauth2_scheme = HTTPBearer(auto_error=True)`
+- Initialize `firebase_admin` lazily on first non-dev request (idempotent guard)
+- `HTTPBearer(auto_error=False)` so dev requests can omit the header
 - `get_current_user(creds, db)`:
-  1. If `ENVIRONMENT == "local"`: return a mock principal **and** upsert a corresponding user row so DB FKs work
+  1. If `ENVIRONMENT == "dev"`: return a mock principal **and** upsert a corresponding user row so DB FKs work
   2. Else: `auth.verify_id_token(creds.credentials)` → extract `uid`, `email`
   3. Look up `users` row by `firebase_uid`; if missing, auto-create on first login (just-in-time provisioning)
   4. Return the ORM `User` (not just claims) — handlers get `current_user: User`
@@ -172,9 +173,9 @@ app/db/
 - Optional: a `last_login_at` column updated on each authenticated request
 
 ### 3.7 Verify
-- **Local mode:** Swagger "Authorize" with any string, mock user gets injected, all endpoints work
-- **Real mode:** Generate a Firebase ID token (emulator or a tiny Web SDK script), paste into Swagger, verify 200; corrupted token → 401; customer hitting admin route → 403
-- **Exit criteria:** Same Swagger flow works under both `ENVIRONMENT=local` and `ENVIRONMENT=dev` with a real Firebase project
+- **Dev mode (`ENVIRONMENT=dev`):** Swagger "Authorize" with any string (or nothing), mock user gets injected, all endpoints work
+- **Real mode (`ENVIRONMENT=tbd`):** Generate a Firebase ID token (emulator or a tiny Web SDK script), paste into Swagger, verify 200; corrupted token → 401; customer hitting admin route → 403
+- **Exit criteria:** Same Swagger flow works under both `ENVIRONMENT=dev` and `ENVIRONMENT=tbd` with a real Firebase project
 
 ---
 

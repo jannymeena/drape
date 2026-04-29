@@ -30,7 +30,7 @@ drape/
 | Docker + Compose| latest     | Runs local Postgres (`pgvector/pgvector:pg16`)                        |
 | Git             | any        | —                                                                     |
 | Flutter         | stable     | Only needed for Phase 6                                               |
-| Firebase project| —          | Only needed when `ENVIRONMENT != local` (Phase 3 onwards)             |
+| Firebase project| —          | Only needed when `ENVIRONMENT` is `tbd` or `prd` (Phase 3 onwards)    |
 
 Optional:
 - `direnv` — the repo ships an `.envrc` that points `CLAUDE_CONFIG_DIR` at a project-local Claude Code config.
@@ -79,29 +79,43 @@ Open http://localhost:8000/docs — that's Swagger UI, your primary tool for exe
 
 ---
 
-## Environment variables
+## Environments and configuration
 
-All env vars live in `backend/.env` (gitignored). A template `.env.example` is committed.
+The app supports three environments, modeled after the Java/Node `dev` / `tbd` / `prd` convention:
 
-| Variable                     | Phase | Purpose                                                                |
-|------------------------------|-------|------------------------------------------------------------------------|
-| `ENVIRONMENT`                | 1     | `local` \| `dev` \| `prod`. `local` enables mock auth.                 |
-| `DATABASE_URL`               | 2     | e.g. `postgresql+psycopg2://admin:password@localhost:5433/drape`       |
-| `FIREBASE_CREDENTIALS_PATH`  | 3     | Path to Firebase service-account JSON. Unused when `ENVIRONMENT=local`.|
-| `OPENAI_API_KEY`             | 4     | Set later when AI services come online.                                |
+| Env   | Default? | Auth                                | DB                                            |
+|-------|----------|-------------------------------------|-----------------------------------------------|
+| `dev` | yes      | Mock auth — bypasses Firebase       | Local docker-compose Postgres (`localhost:5433`) |
+| `tbd` | no       | Real Firebase JWT verification      | Testbed RDS (URL set by deploy infra)         |
+| `prd` | no       | Real Firebase JWT verification      | Production RDS (URL set by deploy infra)      |
 
-**Never commit `.env`.** `.gitignore` already excludes it; double-check before pushing.
+Set the env via the `ENVIRONMENT` variable. Pydantic validates it at startup — anything other than `dev`, `tbd`, or `prd` fails fast.
+
+### `.env` policy (same across all environments)
+
+- `backend/.env` is **always gitignored** because it contains secrets.
+- `backend/.env.example` is the canonical list of every key the app reads — copy it and fill in values.
+- In `dev`: developers author `.env` locally.
+- In `tbd` / `prd`: a deploy step (CI/CD job, ECS entrypoint, Secrets Manager sidecar) materializes `.env` on the container before the app starts. The Docker image itself never ships secrets.
+
+| Variable                     | Required in            | Purpose                                                            |
+|------------------------------|------------------------|--------------------------------------------------------------------|
+| `ENVIRONMENT`                | all (default `dev`)    | One of `dev`, `tbd`, `prd`.                                        |
+| `DATABASE_URL`               | all                    | Postgres connection string. Each env points at its own database.   |
+| `FIREBASE_CREDENTIALS_PATH`  | `tbd`, `prd`           | Path to Firebase service-account JSON inside the container.        |
+| `OPENAI_API_KEY`             | Phase 4+               | Set later when AI services come online.                            |
 
 ---
 
 ## Authentication during local development
 
-When `ENVIRONMENT=local`:
+When `ENVIRONMENT=dev`:
 - Firebase verification is bypassed.
-- A mock user (`uid=mock_123`, role `customer`) is injected on every authenticated request.
-- In Swagger, click **Authorize** and paste any non-empty string — it's ignored, but `HTTPBearer` requires a value.
+- A single mock user is JIT-provisioned on first authenticated request and reused thereafter.
+- In Swagger, the **Authorize** dialog is satisfied by any value (or none) — the bearer token is ignored in dev.
+- Multi-user dev (a real `/auth/local/login` flow) is planned but not yet built.
 
-When `ENVIRONMENT=dev` or `prod`:
+When `ENVIRONMENT=tbd` or `prd`:
 - Generate a real Firebase ID token (e.g. via the Firebase Auth emulator or a small Web SDK script).
 - Paste it into Swagger's **Authorize** dialog as `Bearer <token>`.
 
@@ -149,8 +163,11 @@ Track current progress against `PHASE_PLAN.md`. Each phase has explicit **Exit c
 **`alembic upgrade head` fails with `relation does not exist` / `enum already exists`**
 The migration history and DB schema have drifted. For local dev only: `docker-compose down -v` to nuke the volume, then `up -d` and re-run migrations.
 
-**`firebase_admin` errors at startup in local mode**
-You shouldn't be initializing it locally — confirm `ENVIRONMENT=local` is actually set (`echo $ENVIRONMENT` from your venv shell, or check `.env`).
+**`firebase_admin` errors at startup in dev**
+You shouldn't be initializing it in dev — confirm `ENVIRONMENT=dev` is actually set (`echo $ENVIRONMENT` from your venv shell, or check `.env`).
+
+**App fails at startup with `FIREBASE_CREDENTIALS_PATH is required ...`**
+You set `ENVIRONMENT=tbd` or `prd` without providing a service-account JSON path. Either set it, or drop back to `ENVIRONMENT=dev`.
 
 **Swagger says 401 even with a valid token**
 Confirm `ENVIRONMENT` matches the token issuer's project, and that `FIREBASE_CREDENTIALS_PATH` points at the service-account JSON for the same project.
