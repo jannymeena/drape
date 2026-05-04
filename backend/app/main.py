@@ -1,10 +1,24 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import health, users
 from app.core.config import settings
+from app.core.logging import RequestIdMiddleware, bridge_uvicorn_logging, configure_logging
 
-app = FastAPI(title=settings.app_name, version=settings.app_version)
+configure_logging(settings)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # uvicorn (re)installs its own log handlers between import-time configure_logging()
+    # and the app starting; reset them so all logs flow through structlog.
+    bridge_uvicorn_logging()
+    yield
+
+
+app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -13,6 +27,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIdMiddleware)
 
 app.include_router(health.router, prefix=settings.api_v1_prefix)
 app.include_router(users.router, prefix=settings.api_v1_prefix)
