@@ -26,7 +26,7 @@ from app.schemas.user import Role  # noqa: E402
 from app.services.providers.hash.bcrypt import BcryptPasswordHasher  # noqa: E402
 
 DEV_EMAIL = "dev@example.com"
-DEV_PASSWORD = "password"
+DEV_PASSWORD = "password1"  # passes the signup rule (≥8 chars, ≥1 letter, ≥1 number)
 DEV_DISPLAY_NAME = "Dev User"
 
 
@@ -47,7 +47,7 @@ def main() -> int:
                 display_name=DEV_DISPLAY_NAME,
                 role=Role.customer,
                 password_hash=hasher.hash(DEV_PASSWORD),
-                auth_method=AuthMethod.password,
+                auth_method=AuthMethod.email,
                 agreed_to_terms=True,
                 agreed_to_privacy=True,
                 terms_agreed_at=datetime.now(timezone.utc),

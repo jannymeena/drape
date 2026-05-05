@@ -2,6 +2,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from uuid import UUID
 
 import jwt
 
@@ -12,7 +13,7 @@ class InvalidToken(Exception):
     pass
 
 
-def create_access_token(*, user_id: int, role: str, extra: dict[str, Any] | None = None) -> str:
+def create_access_token(*, user_id: UUID, role: str, extra: dict[str, Any] | None = None) -> str:
     now = datetime.now(timezone.utc)
     payload: dict[str, Any] = {
         "sub": str(user_id),

@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -26,6 +27,6 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: UUID
     role: Role
     created_at: datetime

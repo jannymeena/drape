@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -30,7 +32,7 @@ def get_current_user(
         raise _unauthorized("Invalid or expired token")
 
     try:
-        user_id = int(payload["sub"])
+        user_id = UUID(payload["sub"])
     except (KeyError, ValueError):
         raise _unauthorized("Invalid token payload")
 

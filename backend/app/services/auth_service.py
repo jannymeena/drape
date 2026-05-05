@@ -15,13 +15,17 @@ from app.core.security import (
     refresh_token_expiry,
 )
 from app.db.models import AuthMethod, PasswordResetToken, RefreshToken, User
-from app.schemas.auth import TokenPair
+from app.schemas.auth import AuthResponse
 from app.schemas.user import Role
 from app.services.providers.email.base import EmailProvider
 from app.services.providers.hash.base import PasswordHasher
 from app.services.providers.oauth.base import OAuthVerifier
 
 _log = structlog.get_logger("auth")
+
+# After signup, the next required onboarding step (per CTO doc §Cat 3).
+_FIRST_ONBOARDING_STEP = "shopping_style_selection"
+_DASHBOARD = "today_dashboard"
 
 
 class AuthError(Exception):
@@ -36,7 +40,13 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _issue_tokens(db: Session, user: User) -> TokenPair:
+def _next_step(user: User) -> str:
+    if user.onboarding_completed:
+        return _DASHBOARD
+    return user.onboarding_last_step or _FIRST_ONBOARDING_STEP
+
+
+def _build_response(db: Session, user: User) -> AuthResponse:
     access = create_access_token(user_id=user.id, role=user.role.value)
     raw_refresh, hashed = generate_opaque_token()
     db.add(
@@ -48,10 +58,17 @@ def _issue_tokens(db: Session, user: User) -> TokenPair:
         )
     )
     db.commit()
-    return TokenPair(access_token=access, refresh_token=raw_refresh)
+    return AuthResponse(
+        user_id=user.id,
+        email=user.email,
+        access_token=access,
+        refresh_token=raw_refresh,
+        onboarding_completed=user.onboarding_completed,
+        next_step=_next_step(user),
+    )
 
 
-def signup(
+def signup_email(
     db: Session,
     *,
     hasher: PasswordHasher,
@@ -60,7 +77,7 @@ def signup(
     display_name: str,
     agreed_to_terms: bool,
     agreed_to_privacy: bool,
-) -> TokenPair:
+) -> AuthResponse:
     if not agreed_to_terms or not agreed_to_privacy:
         raise AuthError("consent_required", "Must agree to terms and privacy policy")
 
@@ -69,7 +86,7 @@ def signup(
         display_name=display_name,
         role=Role.customer,
         password_hash=hasher.hash(password),
-        auth_method=AuthMethod.password,
+        auth_method=AuthMethod.email,
         agreed_to_terms=True,
         agreed_to_privacy=True,
         terms_agreed_at=_now(),
@@ -79,30 +96,107 @@ def signup(
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise AuthError("email_taken", "Email already registered")
+        raise AuthError("email_already_exists", "Email already registered")
     db.refresh(user)
-    _log.info("auth.signup", user_id=user.id, email=email)
-    return _issue_tokens(db, user)
+    _log.info("auth.signup.email", user_id=str(user.id), email=email)
+    return _build_response(db, user)
 
 
-def login(
+async def signup_oauth(
+    db: Session,
+    *,
+    verifier: OAuthVerifier,
+    provider: Literal["apple", "google"],
+    id_token: str,
+    agreed_to_terms: bool,
+    agreed_to_privacy: bool,
+) -> AuthResponse:
+    if not agreed_to_terms or not agreed_to_privacy:
+        raise AuthError("consent_required", "Must agree to terms and privacy policy")
+    user = await _upsert_oauth_user(db, verifier=verifier, provider=provider, id_token=id_token)
+    _log.info("auth.signup.oauth", user_id=str(user.id), provider=provider)
+    return _build_response(db, user)
+
+
+def login_email(
     db: Session,
     *,
     hasher: PasswordHasher,
     email: str,
     password: str,
-) -> TokenPair:
+) -> AuthResponse:
     user = db.scalar(select(User).where(User.email == email))
     # Constant message regardless of which check fails — don't leak which emails exist.
     if user is None or not user.password_hash or not hasher.verify(password, user.password_hash):
         raise AuthError("invalid_credentials", "Invalid email or password")
     if not user.is_active:
         raise AuthError("inactive", "Account is inactive")
-    _log.info("auth.login", user_id=user.id)
-    return _issue_tokens(db, user)
+    _log.info("auth.login.email", user_id=str(user.id))
+    return _build_response(db, user)
 
 
-def refresh(db: Session, *, raw_refresh: str) -> TokenPair:
+async def login_oauth(
+    db: Session,
+    *,
+    verifier: OAuthVerifier,
+    provider: Literal["apple", "google"],
+    id_token: str,
+) -> AuthResponse:
+    # OAuth login is functionally identical to OAuth signup — verify, get-or-create, issue.
+    # The client picks signup vs login based on which screen fired, but the server treats
+    # both as idempotent.
+    user = await _upsert_oauth_user(db, verifier=verifier, provider=provider, id_token=id_token)
+    _log.info("auth.login.oauth", user_id=str(user.id), provider=provider)
+    return _build_response(db, user)
+
+
+async def _upsert_oauth_user(
+    db: Session,
+    *,
+    verifier: OAuthVerifier,
+    provider: Literal["apple", "google"],
+    id_token: str,
+) -> User:
+    if provider == "apple":
+        claims = await verifier.verify_apple(id_token)
+        oauth_id_field = "apple_id"
+        method = AuthMethod.apple
+    else:
+        claims = await verifier.verify_google(id_token)
+        oauth_id_field = "google_id"
+        method = AuthMethod.google
+
+    sub = claims.get("sub")
+    email = claims.get("email")
+    if not sub or not email:
+        raise AuthError("oauth_missing_claims", "OAuth provider did not return sub/email")
+
+    user = db.scalar(select(User).where(getattr(User, oauth_id_field) == sub))
+    if user is None:
+        # Try to link by email if a password account already exists at the same address.
+        user = db.scalar(select(User).where(User.email == email))
+        if user is None:
+            user = User(
+                email=email,
+                display_name=claims.get("name") or email.split("@")[0],
+                role=Role.customer,
+                auth_method=method,
+                agreed_to_terms=True,
+                agreed_to_privacy=True,
+                terms_agreed_at=_now(),
+            )
+            setattr(user, oauth_id_field, sub)
+            db.add(user)
+        else:
+            setattr(user, oauth_id_field, sub)
+        db.commit()
+        db.refresh(user)
+    if not user.is_active:
+        raise AuthError("inactive", "Account is inactive")
+    return user
+
+
+def refresh(db: Session, *, raw_refresh: str) -> AuthResponse:
     hashed = hash_opaque_token(raw_refresh)
     row = db.scalar(select(RefreshToken).where(RefreshToken.token_hash == hashed))
     if row is None or row.revoked_at is not None or row.expires_at <= _now():
@@ -113,7 +207,7 @@ def refresh(db: Session, *, raw_refresh: str) -> TokenPair:
     # Rotate: revoke the old, issue a new pair.
     row.revoked_at = _now()
     db.commit()
-    return _issue_tokens(db, user)
+    return _build_response(db, user)
 
 
 def logout(db: Session, *, raw_refresh: str) -> None:
@@ -153,7 +247,7 @@ async def forgot_password(
         subject="Drape — reset your password",
         body=f"Reset your password with this link (valid 30 minutes): {reset_url}",
     )
-    _log.info("auth.forgot_password.sent", user_id=user.id)
+    _log.info("auth.forgot_password.sent", user_id=str(user.id))
 
 
 def reset_password(
@@ -177,49 +271,4 @@ def reset_password(
         RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None)
     ).update({RefreshToken.revoked_at: _now()})
     db.commit()
-    _log.info("auth.reset_password", user_id=user.id)
-
-
-async def oauth_login(
-    db: Session,
-    *,
-    verifier: OAuthVerifier,
-    provider: Literal["apple", "google"],
-    id_token: str,
-) -> TokenPair:
-    if provider == "apple":
-        claims = await verifier.verify_apple(id_token)
-        oauth_id_field = "apple_id"
-        method = AuthMethod.apple
-    else:
-        claims = await verifier.verify_google(id_token)
-        oauth_id_field = "google_id"
-        method = AuthMethod.google
-
-    sub = claims.get("sub")
-    email = claims.get("email")
-    if not sub or not email:
-        raise AuthError("oauth_missing_claims", "OAuth provider did not return sub/email")
-
-    user = db.scalar(select(User).where(getattr(User, oauth_id_field) == sub))
-    if user is None:
-        # Try to link by email if a password account already exists at the same address.
-        user = db.scalar(select(User).where(User.email == email))
-        if user is None:
-            user = User(
-                email=email,
-                display_name=claims.get("name") or email.split("@")[0],
-                role=Role.customer,
-                auth_method=method,
-                agreed_to_terms=True,
-                agreed_to_privacy=True,
-                terms_agreed_at=_now(),
-            )
-            setattr(user, oauth_id_field, sub)
-            db.add(user)
-        else:
-            setattr(user, oauth_id_field, sub)
-        db.commit()
-        db.refresh(user)
-    _log.info("auth.oauth_login", user_id=user.id, provider=provider)
-    return _issue_tokens(db, user)
+    _log.info("auth.reset_password", user_id=str(user.id))

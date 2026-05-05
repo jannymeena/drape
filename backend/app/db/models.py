@@ -1,8 +1,9 @@
+import uuid
 from datetime import datetime
 from enum import Enum as PyEnum
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String
+from sqlalchemy import UUID, Boolean, DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -10,7 +11,7 @@ from app.schemas.user import Role
 
 
 class AuthMethod(str, PyEnum):
-    password = "password"
+    email = "email"
     apple = "apple"
     google = "google"
 
@@ -18,7 +19,9 @@ class AuthMethod(str, PyEnum):
 class User(Base, TimestampMixin):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     role: Mapped[Role] = mapped_column(
         Enum(Role, name="user_role"), nullable=False, default=Role.customer
@@ -42,6 +45,12 @@ class User(Base, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
 
+    # Onboarding state (filled in by Phase 5 routes; defaults are correct for new signups).
+    onboarding_completed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    onboarding_last_step: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
     profile: Mapped[Optional["Profile"]] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
@@ -50,9 +59,14 @@ class User(Base, TimestampMixin):
 class Profile(Base, TimestampMixin):
     __tablename__ = "profiles"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
     )
     avatar_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     bio: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
@@ -63,9 +77,14 @@ class Profile(Base, TimestampMixin):
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
     )
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -80,9 +99,14 @@ class RefreshToken(Base):
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
     )
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

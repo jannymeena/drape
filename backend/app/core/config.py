@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg2://admin:password@localhost:5433/drape"
 
     jwt_secret: str = _DEV_JWT_SECRET
-    jwt_access_ttl_minutes: int = 60
+    jwt_access_ttl_minutes: int = 1440  # 24h, per CTO doc
     jwt_refresh_ttl_days: int = 30
 
     apple_client_id: str | None = None

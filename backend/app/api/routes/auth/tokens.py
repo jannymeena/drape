@@ -2,15 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.auth import LogoutRequest, RefreshRequest, TokenPair
+from app.schemas.auth import AuthResponse, LogoutRequest, RefreshRequest
 from app.services import auth_service
 from app.services.auth_service import AuthError
 
 router = APIRouter()
 
 
-@router.post("/refresh", response_model=TokenPair)
-def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> TokenPair:
+@router.post("/refresh-token", response_model=AuthResponse)
+def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> AuthResponse:
     try:
         return auth_service.refresh(db, raw_refresh=payload.refresh_token)
     except AuthError as e:
