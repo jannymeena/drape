@@ -8,12 +8,10 @@ sqlalchemy>=2
 alembic
 psycopg2-binary
 
-# Phase 3: auth (Firebase — superseded; removed in Phase 4 step 4)
-firebase-admin
-
 # Phase 4: own-JWT auth, providers, structured logging
 pyjwt
-passlib[bcrypt]
+bcrypt
 structlog
 httpx
 cryptography
+boto3

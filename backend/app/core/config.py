@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["dev", "tbd", "prd"]
 
-_DEV_JWT_SECRET = "dev-only-not-for-tbd-or-prd"
+_DEV_JWT_SECRET = "dev-only-do-not-use-in-tbd-or-prd-min-32-bytes"
 
 
 class Settings(BaseSettings):
@@ -19,8 +19,6 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg2://admin:password@localhost:5433/drape"
 
-    firebase_credentials_path: str | None = None
-
     jwt_secret: str = _DEV_JWT_SECRET
     jwt_access_ttl_minutes: int = 60
     jwt_refresh_ttl_days: int = 30
@@ -33,6 +31,7 @@ class Settings(BaseSettings):
 
     ses_region: str | None = None
     ses_from_address: str | None = None
+    password_reset_url_template: str = "https://drape.local/reset?token={token}"
 
     anthropic_api_key: str | None = None
 
@@ -43,10 +42,6 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _validate(self) -> "Settings":
         if self.environment in ("tbd", "prd"):
-            if not self.firebase_credentials_path:
-                raise ValueError(
-                    f"FIREBASE_CREDENTIALS_PATH is required when ENVIRONMENT={self.environment!r}"
-                )
             if self.jwt_secret == _DEV_JWT_SECRET:
                 raise ValueError(
                     f"JWT_SECRET must be overridden when ENVIRONMENT={self.environment!r}"
