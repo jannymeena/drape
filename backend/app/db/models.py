@@ -185,12 +185,14 @@ class WardrobeItem(Base, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
 
-    # Starter wardrobe — FK to starter_wardrobe_templates lands in Phase 5d.
+    # Starter wardrobe — Phase 5d.
     is_starter_wardrobe: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, index=True
     )
     starter_template_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("starter_wardrobe_templates.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     # Provenance
@@ -260,6 +262,105 @@ class UserMeasurements(Base, TimestampMixin):
     )
     # Reserved for KMS DEK rotation (Phase 7). Null while running on LocalAesEncryptor.
     encryption_key_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class StarterWardrobeTemplate(Base, TimestampMixin):
+    """Curated outfit kit for new users to bootstrap outfit generation before
+    they've added their own items. Seeded as static data in the init migration;
+    `template_id` is a stable string the seed/code uses to reference a row.
+
+    `items` is a JSONB array of item-shaped dicts (name/category/color_hex/...)
+    matching the WardrobeItem column set the assignment service materializes.
+    """
+
+    __tablename__ = "starter_wardrobe_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    template_id: Mapped[str] = mapped_column(
+        String(100), unique=True, index=True, nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    gender: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    age_range: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    style_profile: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    total_items: Mapped[int] = mapped_column(Integer, nullable=False)
+    items: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
+
+
+class UserStarterWardrobe(Base):
+    """Records that a user was assigned a starter wardrobe template, and
+    whether it's still active. Auto-deactivates when the user has 15 real
+    (non-starter) items — the threshold lives in starter_wardrobe_service.
+    """
+
+    __tablename__ = "user_starter_wardrobes"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    template_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("starter_wardrobe_templates.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    deactivated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    deactivation_reason: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+
+class WardrobeTransitionTracking(Base):
+    """One row per user. Updated whenever a wardrobe item is added or removed,
+    plus when a starter wardrobe is assigned. Drives the "X% built from your
+    own pieces" UX in the wardrobe tab and the auto-deactivation trigger."""
+
+    __tablename__ = "wardrobe_transition_tracking"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    real_items_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    starter_items_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    percentage_real: Mapped[float] = mapped_column(
+        Numeric(5, 2), nullable=False, default=0, server_default="0"
+    )
+    # 1.00 = use 100% starter items in outfits; 0.00 = use 100% real.
+    blending_ratio: Mapped[float] = mapped_column(
+        Numeric(3, 2), nullable=False, default=1.0, server_default="1.00"
+    )
+    last_updated: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
 
 
 class PasswordResetToken(Base):

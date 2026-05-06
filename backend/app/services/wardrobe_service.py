@@ -23,6 +23,7 @@ from app.schemas.wardrobe import (
     WardrobeItemUpdate,
     WardrobeListQuery,
 )
+from app.services import starter_wardrobe_service
 
 _log = structlog.get_logger("wardrobe")
 
@@ -99,6 +100,8 @@ def create_item(
     )
     item.cost_per_wear = _compute_cost_per_wear(payload.purchase_price, 0)
     db.add(item)
+    db.flush()
+    starter_wardrobe_service.recompute_transition(db, user=user)
     db.commit()
     db.refresh(item)
     _log.info(
@@ -137,6 +140,8 @@ def update_item(
 def delete_item(db: Session, *, user: User, item_id: UUID) -> None:
     item = _get_owned(db, user=user, item_id=item_id)
     db.delete(item)
+    db.flush()
+    starter_wardrobe_service.recompute_transition(db, user=user)
     db.commit()
     _log.info("wardrobe.item.deleted", user_id=str(user.id), item_id=str(item_id))
 

@@ -1,0 +1,107 @@
+[
+  {
+    "template_id": "women_18_24_versatile",
+    "name": "Versatile Starter — Women 18–24",
+    "gender": "female",
+    "age_range": "18-24",
+    "style_profile": "versatile_casual",
+    "items": [
+      {"name": "White cotton t-shirt", "category": "tops", "subcategory": "tee", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "solid", "formality": "casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Black cropped tee", "category": "tops", "subcategory": "tee", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "casual", "season": ["spring", "summer"]},
+      {"name": "Mid-rise blue jeans", "category": "bottoms", "subcategory": "jeans", "color_hex": "#3B5C8C", "color_name": "blue", "pattern": "solid", "formality": "casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Black bike shorts", "category": "bottoms", "subcategory": "shorts", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "casual", "season": ["summer"]},
+      {"name": "Floral mini dress", "category": "dresses", "subcategory": "mini", "color_hex": "#E8C4D8", "color_name": "pink", "pattern": "floral", "formality": "casual", "season": ["spring", "summer"]},
+      {"name": "White low-top sneakers", "category": "shoes", "subcategory": "sneakers", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "solid", "formality": "casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Brown leather sandals", "category": "shoes", "subcategory": "sandals", "color_hex": "#7A5C3E", "color_name": "brown", "pattern": "solid", "formality": "casual", "season": ["summer"]},
+      {"name": "Oversized denim jacket", "category": "outerwear", "subcategory": "denim_jacket", "color_hex": "#5C7099", "color_name": "blue", "pattern": "solid", "formality": "casual", "season": ["spring", "fall"]}
+    ]
+  },
+  {
+    "template_id": "women_25_34_polished",
+    "name": "Polished Capsule — Women 25–34",
+    "gender": "female",
+    "age_range": "25-34",
+    "style_profile": "polished_workwear",
+    "items": [
+      {"name": "Cream silk blouse", "category": "tops", "subcategory": "blouse", "color_hex": "#F5EDD8", "color_name": "cream", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Striped boatneck top", "category": "tops", "subcategory": "tee", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "striped", "formality": "smart_casual", "season": ["spring", "summer"]},
+      {"name": "Tailored black trousers", "category": "bottoms", "subcategory": "trousers", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Camel midi skirt", "category": "bottoms", "subcategory": "skirt", "color_hex": "#C19A6B", "color_name": "camel", "pattern": "solid", "formality": "smart_casual", "season": ["fall", "winter"]},
+      {"name": "Navy wrap dress", "category": "dresses", "subcategory": "midi", "color_hex": "#1F2A44", "color_name": "navy", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Black leather loafers", "category": "shoes", "subcategory": "loafers", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Tan ankle boots", "category": "shoes", "subcategory": "boots", "color_hex": "#A0764C", "color_name": "tan", "pattern": "solid", "formality": "smart_casual", "season": ["fall", "winter"]},
+      {"name": "Camel wool coat", "category": "outerwear", "subcategory": "coat", "color_hex": "#C19A6B", "color_name": "camel", "pattern": "solid", "formality": "smart_casual", "season": ["fall", "winter"]},
+      {"name": "Black leather tote", "category": "bags", "subcategory": "tote", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "summer", "fall", "winter"]}
+    ]
+  },
+  {
+    "template_id": "women_35_44_refined",
+    "name": "Refined Essentials — Women 35–44",
+    "gender": "female",
+    "age_range": "35-44",
+    "style_profile": "refined_classic",
+    "items": [
+      {"name": "White cotton button-up", "category": "tops", "subcategory": "shirt", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "summer", "fall", "winter"]},
+      {"name": "Charcoal cashmere crewneck", "category": "tops", "subcategory": "sweater", "color_hex": "#3A3A3A", "color_name": "charcoal", "pattern": "solid", "formality": "smart_casual", "season": ["fall", "winter"]},
+      {"name": "Dark wash straight-leg jeans", "category": "bottoms", "subcategory": "jeans", "color_hex": "#22344C", "color_name": "indigo", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Navy A-line skirt", "category": "bottoms", "subcategory": "skirt", "color_hex": "#1F2A44", "color_name": "navy", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Black sheath dress", "category": "dresses", "subcategory": "midi", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "formal", "season": ["spring", "summer", "fall", "winter"]},
+      {"name": "Nude leather pumps", "category": "shoes", "subcategory": "heels", "color_hex": "#D9B89E", "color_name": "nude", "pattern": "solid", "formality": "formal", "season": ["spring", "summer", "fall"]},
+      {"name": "White leather sneakers", "category": "shoes", "subcategory": "sneakers", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "solid", "formality": "casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Black tailored blazer", "category": "outerwear", "subcategory": "blazer", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Cognac leather crossbody", "category": "bags", "subcategory": "crossbody", "color_hex": "#9F6F4E", "color_name": "cognac", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "summer", "fall", "winter"]}
+    ]
+  },
+  {
+    "template_id": "men_18_24_versatile",
+    "name": "Versatile Starter — Men 18–24",
+    "gender": "male",
+    "age_range": "18-24",
+    "style_profile": "versatile_casual",
+    "items": [
+      {"name": "White crew tee", "category": "tops", "subcategory": "tee", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "solid", "formality": "casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Black graphic tee", "category": "tops", "subcategory": "tee", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "graphic", "formality": "casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Slim blue jeans", "category": "bottoms", "subcategory": "jeans", "color_hex": "#3B5C8C", "color_name": "blue", "pattern": "solid", "formality": "casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Khaki chino shorts", "category": "bottoms", "subcategory": "shorts", "color_hex": "#B8A37E", "color_name": "khaki", "pattern": "solid", "formality": "casual", "season": ["summer"]},
+      {"name": "White low-top sneakers", "category": "shoes", "subcategory": "sneakers", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "solid", "formality": "casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Black canvas slip-ons", "category": "shoes", "subcategory": "sneakers", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Olive bomber jacket", "category": "outerwear", "subcategory": "jacket", "color_hex": "#4F5D3A", "color_name": "olive", "pattern": "solid", "formality": "casual", "season": ["spring", "fall"]},
+      {"name": "Heather grey hoodie", "category": "outerwear", "subcategory": "hoodie", "color_hex": "#9A9A9A", "color_name": "grey", "pattern": "solid", "formality": "casual", "season": ["fall", "winter"]}
+    ]
+  },
+  {
+    "template_id": "men_25_34_polished",
+    "name": "Polished Capsule — Men 25–34",
+    "gender": "male",
+    "age_range": "25-34",
+    "style_profile": "polished_workwear",
+    "items": [
+      {"name": "White oxford button-down", "category": "tops", "subcategory": "shirt", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "summer", "fall", "winter"]},
+      {"name": "Light blue oxford shirt", "category": "tops", "subcategory": "shirt", "color_hex": "#BCD2E8", "color_name": "light blue", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Navy merino crewneck", "category": "tops", "subcategory": "sweater", "color_hex": "#1F2A44", "color_name": "navy", "pattern": "solid", "formality": "smart_casual", "season": ["fall", "winter"]},
+      {"name": "Charcoal wool trousers", "category": "bottoms", "subcategory": "trousers", "color_hex": "#3A3A3A", "color_name": "charcoal", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Dark wash straight jeans", "category": "bottoms", "subcategory": "jeans", "color_hex": "#22344C", "color_name": "indigo", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Brown leather chelsea boots", "category": "shoes", "subcategory": "boots", "color_hex": "#5A3A22", "color_name": "brown", "pattern": "solid", "formality": "smart_casual", "season": ["fall", "winter"]},
+      {"name": "Minimal white sneakers", "category": "shoes", "subcategory": "sneakers", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Navy tailored blazer", "category": "outerwear", "subcategory": "blazer", "color_hex": "#1F2A44", "color_name": "navy", "pattern": "solid", "formality": "smart_casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Charcoal wool overcoat", "category": "outerwear", "subcategory": "coat", "color_hex": "#3A3A3A", "color_name": "charcoal", "pattern": "solid", "formality": "smart_casual", "season": ["fall", "winter"]}
+    ]
+  },
+  {
+    "template_id": "neutral_default",
+    "name": "Neutral Starter Kit",
+    "gender": "neutral",
+    "age_range": null,
+    "style_profile": "versatile_casual",
+    "items": [
+      {"name": "White crew tee", "category": "tops", "subcategory": "tee", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "solid", "formality": "casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Black crew tee", "category": "tops", "subcategory": "tee", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Heather grey sweatshirt", "category": "tops", "subcategory": "sweater", "color_hex": "#9A9A9A", "color_name": "grey", "pattern": "solid", "formality": "casual", "season": ["fall", "winter"]},
+      {"name": "Mid-blue jeans", "category": "bottoms", "subcategory": "jeans", "color_hex": "#3B5C8C", "color_name": "blue", "pattern": "solid", "formality": "casual", "season": ["spring", "fall", "winter"]},
+      {"name": "Black joggers", "category": "bottoms", "subcategory": "joggers", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "casual", "season": ["fall", "winter"]},
+      {"name": "White low-top sneakers", "category": "shoes", "subcategory": "sneakers", "color_hex": "#FFFFFF", "color_name": "white", "pattern": "solid", "formality": "casual", "season": ["spring", "summer", "fall"]},
+      {"name": "Black bomber jacket", "category": "outerwear", "subcategory": "jacket", "color_hex": "#1A1A1A", "color_name": "black", "pattern": "solid", "formality": "casual", "season": ["spring", "fall"]},
+      {"name": "Canvas backpack", "category": "bags", "subcategory": "backpack", "color_hex": "#3A3A3A", "color_name": "charcoal", "pattern": "solid", "formality": "casual", "season": ["spring", "summer", "fall", "winter"]}
+    ]
+  }
+]

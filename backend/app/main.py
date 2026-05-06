@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, health, profile, users, wardrobe
+from app.api.routes import auth, health, profile, starter_wardrobe, users, wardrobe
 from app.core.config import settings
 from app.core.logging import RequestIdMiddleware, bridge_uvicorn_logging, configure_logging
 
@@ -36,3 +36,4 @@ app.include_router(auth.router, prefix=settings.api_v1_prefix)
 app.include_router(users.router, prefix=settings.api_v1_prefix)
 app.include_router(profile.router, prefix=settings.api_v1_prefix)
 app.include_router(wardrobe.router, prefix=settings.api_v1_prefix)
+app.include_router(starter_wardrobe.router, prefix=settings.api_v1_prefix)

@@ -18,7 +18,7 @@ Category = Literal[
 Formality = Literal["casual", "smart_casual", "formal"]
 Pattern = Literal["solid", "striped", "plaid", "floral", "graphic", "abstract", "other"]
 Season = Literal["spring", "summer", "fall", "winter"]
-AddedVia = Literal["manual", "scan", "batch_upload"]
+AddedVia = Literal["manual", "scan", "batch_upload", "starter_seed"]
 
 # Categorical filters use exact-match. Pagination caps at 200 — the tab is
 # scrolled list, not a CSV export.
