@@ -6,8 +6,9 @@ from abc import ABC, abstractmethod
 class ImageStorageProvider(ABC):
     """Stores wardrobe / avatar / outfit images.
 
-    Phase 5c: interface only — no route currently uploads. Phase 5e wires the
-    real S3 impl behind /wardrobe/items image attachment + batch-upload.
+    Dev: `LocalFsStorage` (writes to ./uploads, served via StaticFiles).
+    Tbd/prd: `S3ImageStorage` (boto3 PUT, optional CloudFront URL).
+    Wired in Phase 5e behind `POST /wardrobe/items/{id}/images`.
     """
 
     @abstractmethod

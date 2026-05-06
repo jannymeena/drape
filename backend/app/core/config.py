@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     kms_key_id: str | None = None
     aws_region: str = "ca-central-1"
     image_bucket: str | None = None
+    image_cdn_base_url: str | None = None
+
+    # Dev-only (LocalFsStorage). Files land under `local_image_dir` and are
+    # served back at `local_image_base_url` via FastAPI's StaticFiles mount.
+    local_image_dir: str = "uploads"
+    local_image_base_url: str = "http://localhost:8000/uploads"
 
     @model_validator(mode="after")
     def _validate(self) -> "Settings":

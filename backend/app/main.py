@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import auth, health, profile, starter_wardrobe, users, wardrobe
 from app.core.config import settings
@@ -37,3 +39,10 @@ app.include_router(users.router, prefix=settings.api_v1_prefix)
 app.include_router(profile.router, prefix=settings.api_v1_prefix)
 app.include_router(wardrobe.router, prefix=settings.api_v1_prefix)
 app.include_router(starter_wardrobe.router, prefix=settings.api_v1_prefix)
+
+# Dev only: serve the LocalFsStorage upload root so URLs returned by the image
+# provider are fetchable. Tbd/prd serves images directly via S3/CloudFront.
+if settings.environment == "dev":
+    _uploads_root = Path(settings.local_image_dir)
+    _uploads_root.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(_uploads_root)), name="uploads")

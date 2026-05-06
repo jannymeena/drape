@@ -12,7 +12,7 @@ from app.services.providers.email.ses import SesEmailProvider
 from app.services.providers.hash.base import PasswordHasher
 from app.services.providers.hash.bcrypt import BcryptPasswordHasher
 from app.services.providers.image.base import ImageStorageProvider
-from app.services.providers.image.local_noop import LocalNoopImageStorage
+from app.services.providers.image.local_fs import LocalFsStorage
 from app.services.providers.image.s3 import S3ImageStorage
 from app.services.providers.oauth.base import OAuthVerifier
 from app.services.providers.oauth.real import RealOAuthVerifier
@@ -67,9 +67,17 @@ class Providers:
     @staticmethod
     def _build_image_storage(s: Settings) -> ImageStorageProvider:
         if s.environment == "dev":
-            return LocalNoopImageStorage()
+            from pathlib import Path
+            return LocalFsStorage(
+                root=Path(s.local_image_dir),
+                base_url=s.local_image_base_url,
+            )
         assert s.image_bucket
-        return S3ImageStorage(bucket=s.image_bucket, region=s.aws_region)
+        return S3ImageStorage(
+            bucket=s.image_bucket,
+            region=s.aws_region,
+            cdn_base_url=s.image_cdn_base_url,
+        )
 
     @staticmethod
     def _build_ai(s: Settings) -> AIProvider | None:

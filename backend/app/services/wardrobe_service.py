@@ -24,6 +24,10 @@ from app.schemas.wardrobe import (
     WardrobeListQuery,
 )
 from app.services import starter_wardrobe_service
+from app.services.providers.image.base import ImageStorageProvider
+
+# CTO doc: max 4 photos per item.
+MAX_IMAGES_PER_ITEM = 4
 
 _log = structlog.get_logger("wardrobe")
 
@@ -180,6 +184,48 @@ def log_worn(
         already_logged_today=already,
     )
     return item, already
+
+
+def add_images(
+    db: Session,
+    *,
+    user: User,
+    item_id: UUID,
+    uploads: list[tuple[bytes, str]],
+    storage: ImageStorageProvider,
+) -> WardrobeItem:
+    """Persist `uploads` (each `(bytes, content_type)`) to image storage and
+    append the resulting URLs to `wardrobe_items.images`. Sets `primary_image_url`
+    if the item had none. Caps total images at MAX_IMAGES_PER_ITEM."""
+    item = _get_owned(db, user=user, item_id=item_id)
+    existing = list(item.images or [])
+    if len(existing) + len(uploads) > MAX_IMAGES_PER_ITEM:
+        raise WardrobeError(
+            "too_many_images",
+            f"At most {MAX_IMAGES_PER_ITEM} images per item "
+            f"(have {len(existing)}, trying to add {len(uploads)}).",
+        )
+    new_urls: list[str] = []
+    for content, content_type in uploads:
+        url = storage.upload(
+            content=content,
+            content_type=content_type,
+            key_hint=f"wardrobe/{user.id}/{item.id}",
+        )
+        new_urls.append(url)
+    item.images = existing + new_urls
+    if not item.primary_image_url and new_urls:
+        item.primary_image_url = new_urls[0]
+    db.commit()
+    db.refresh(item)
+    _log.info(
+        "wardrobe.item.images_added",
+        user_id=str(user.id),
+        item_id=str(item.id),
+        added=len(new_urls),
+        total=len(item.images or []),
+    )
+    return item
 
 
 def toggle_favorite(

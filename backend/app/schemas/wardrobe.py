@@ -48,7 +48,8 @@ class WardrobeItemBase(BaseModel):
 
 
 class WardrobeItemCreate(WardrobeItemBase):
-    """Manual-entry create. Scanner / batch-upload paths land in 6b / 5e."""
+    """Manual-entry create. Photos are attached separately via
+    POST /wardrobe/items/{id}/images. Scanner/batch-upload lands in 6b."""
 
 
 class WardrobeItemUpdate(BaseModel):

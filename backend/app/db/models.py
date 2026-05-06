@@ -152,7 +152,7 @@ class WardrobeItem(Base, TimestampMixin):
     category: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     subcategory: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
-    # Images — populated client-side until Phase 5e wires ImageStorageProvider.
+    # Images — uploaded via POST /wardrobe/items/{id}/images (Phase 5e).
     images: Mapped[Optional[list[str]]] = mapped_column(JSONB, nullable=True)
     primary_image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 

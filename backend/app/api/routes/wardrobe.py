@@ -7,10 +7,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.providers import get_image_storage
 from app.db.models import User
 from app.db.session import get_db
 from app.schemas.wardrobe import (
@@ -24,7 +25,11 @@ from app.schemas.wardrobe import (
     WardrobeListResponse,
 )
 from app.services import wardrobe_service
+from app.services.providers.image.base import ImageStorageProvider
 from app.services.wardrobe_service import WardrobeError
+
+_ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+_MAX_IMAGE_BYTES = 8 * 1024 * 1024  # 8 MiB
 
 router = APIRouter(prefix="/wardrobe", tags=["wardrobe"])
 
@@ -33,6 +38,27 @@ def _translate(err: WardrobeError) -> HTTPException:
     if err.code == "not_found":
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
+
+
+async def _read_image(upload: UploadFile) -> tuple[bytes, str]:
+    if upload.content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Unsupported content type {upload.content_type!r}; "
+            f"expected one of {sorted(_ALLOWED_IMAGE_TYPES)}",
+        )
+    content = await upload.read()
+    if len(content) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Empty file upload",
+        )
+    if len(content) > _MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds {_MAX_IMAGE_BYTES} bytes",
+        )
+    return content, upload.content_type
 
 
 @router.get("", response_model=WardrobeListResponse)
@@ -122,6 +148,29 @@ def log_worn(
         cost_per_wear=item.cost_per_wear,
         already_logged_today=already,
     )
+
+
+@router.post("/items/{item_id}/images", response_model=WardrobeItemResponse)
+async def add_images(
+    item_id: UUID,
+    files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    storage: ImageStorageProvider = Depends(get_image_storage),
+) -> WardrobeItemResponse:
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one file is required",
+        )
+    uploads = [await _read_image(f) for f in files]
+    try:
+        item = wardrobe_service.add_images(
+            db, user=user, item_id=item_id, uploads=uploads, storage=storage
+        )
+    except WardrobeError as e:
+        raise _translate(e)
+    return WardrobeItemResponse.model_validate(item)
 
 
 @router.post("/items/{item_id}/toggle-favorite", response_model=ToggleFavoriteResponse)

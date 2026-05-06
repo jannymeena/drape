@@ -15,3 +15,6 @@ structlog
 httpx
 cryptography
 boto3
+
+# Phase 5e: multipart image uploads (FastAPI's UploadFile requires this)
+python-multipart
