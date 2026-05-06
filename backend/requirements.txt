@@ -18,3 +18,7 @@ boto3
 
 # Phase 5e: multipart image uploads (FastAPI's UploadFile requires this)
 python-multipart
+
+# Phase 6a: AI (Anthropic Claude — text + vision)
+anthropic
+

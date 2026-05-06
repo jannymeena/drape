@@ -3,6 +3,7 @@ import structlog
 from app.core.config import Settings, settings
 from app.services.providers.ai.anthropic import AnthropicProvider
 from app.services.providers.ai.base import AIProvider
+from app.services.providers.ai.mock import MockAIProvider
 from app.services.providers.crypto.base import Encryptor
 from app.services.providers.crypto.kms_envelope import KmsEnvelopeEncryptor
 from app.services.providers.crypto.local_aes import LocalAesEncryptor
@@ -16,6 +17,8 @@ from app.services.providers.image.local_fs import LocalFsStorage
 from app.services.providers.image.s3 import S3ImageStorage
 from app.services.providers.oauth.base import OAuthVerifier
 from app.services.providers.oauth.real import RealOAuthVerifier
+from app.services.providers.weather.base import WeatherProvider
+from app.services.providers.weather.open_meteo import OpenMeteoProvider
 
 _log = structlog.get_logger("providers")
 
@@ -27,7 +30,8 @@ class Providers:
         self.oauth: OAuthVerifier | None = self._build_oauth(s)
         self.encryptor: Encryptor = self._build_encryptor(s)
         self.image_storage: ImageStorageProvider = self._build_image_storage(s)
-        self.ai: AIProvider | None = self._build_ai(s)
+        self.ai: AIProvider = self._build_ai(s)
+        self.weather: WeatherProvider = self._build_weather(s)
         _log.info(
             "providers.built",
             environment=s.environment,
@@ -36,7 +40,8 @@ class Providers:
             oauth=type(self.oauth).__name__ if self.oauth else None,
             encryptor=type(self.encryptor).__name__,
             image_storage=type(self.image_storage).__name__,
-            ai=type(self.ai).__name__ if self.ai else None,
+            ai=type(self.ai).__name__,
+            weather=type(self.weather).__name__,
         )
 
     @staticmethod
@@ -80,10 +85,17 @@ class Providers:
         )
 
     @staticmethod
-    def _build_ai(s: Settings) -> AIProvider | None:
-        if not s.anthropic_api_key:
-            return None
-        return AnthropicProvider(s.anthropic_api_key)
+    def _build_ai(s: Settings) -> AIProvider:
+        if s.anthropic_api_key:
+            return AnthropicProvider(s.anthropic_api_key)
+        if s.environment == "dev":
+            return MockAIProvider()
+        # Unreachable: config validator requires ANTHROPIC_API_KEY in tbd/prd.
+        raise RuntimeError("ANTHROPIC_API_KEY is required outside dev")
+
+    @staticmethod
+    def _build_weather(_s: Settings) -> WeatherProvider:
+        return OpenMeteoProvider()
 
 
 providers = Providers(settings)
