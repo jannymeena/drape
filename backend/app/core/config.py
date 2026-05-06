@@ -38,9 +38,17 @@ class Settings(BaseSettings):
     measurement_dek_dev: str | None = None
     kms_key_id: str | None = None
     aws_region: str = "ca-central-1"
+    image_bucket: str | None = None
 
     @model_validator(mode="after")
     def _validate(self) -> "Settings":
+        if self.environment == "dev":
+            if not self.measurement_dek_dev:
+                raise ValueError(
+                    "MEASUREMENT_DEK_DEV is required when ENVIRONMENT=dev "
+                    "(Phase 5b — measurements encryption). Generate one with: "
+                    'python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"'
+                )
         if self.environment in ("tbd", "prd"):
             if self.jwt_secret == _DEV_JWT_SECRET:
                 raise ValueError(
@@ -53,6 +61,7 @@ class Settings(BaseSettings):
                 "SES_REGION": self.ses_region,
                 "SES_FROM_ADDRESS": self.ses_from_address,
                 "KMS_KEY_ID": self.kms_key_id,
+                "IMAGE_BUCKET": self.image_bucket,
             }
             missing = [k for k, v in required.items() if not v]
             if missing:

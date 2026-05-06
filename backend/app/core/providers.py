@@ -11,6 +11,9 @@ from app.services.providers.email.log import LogEmailProvider
 from app.services.providers.email.ses import SesEmailProvider
 from app.services.providers.hash.base import PasswordHasher
 from app.services.providers.hash.bcrypt import BcryptPasswordHasher
+from app.services.providers.image.base import ImageStorageProvider
+from app.services.providers.image.local_noop import LocalNoopImageStorage
+from app.services.providers.image.s3 import S3ImageStorage
 from app.services.providers.oauth.base import OAuthVerifier
 from app.services.providers.oauth.real import RealOAuthVerifier
 
@@ -22,7 +25,8 @@ class Providers:
         self.password_hasher: PasswordHasher = BcryptPasswordHasher()
         self.email: EmailProvider = self._build_email(s)
         self.oauth: OAuthVerifier | None = self._build_oauth(s)
-        self.encryptor: Encryptor | None = self._build_encryptor(s)
+        self.encryptor: Encryptor = self._build_encryptor(s)
+        self.image_storage: ImageStorageProvider = self._build_image_storage(s)
         self.ai: AIProvider | None = self._build_ai(s)
         _log.info(
             "providers.built",
@@ -30,7 +34,8 @@ class Providers:
             password_hasher=type(self.password_hasher).__name__,
             email=type(self.email).__name__,
             oauth=type(self.oauth).__name__ if self.oauth else None,
-            encryptor=type(self.encryptor).__name__ if self.encryptor else None,
+            encryptor=type(self.encryptor).__name__,
+            image_storage=type(self.image_storage).__name__,
             ai=type(self.ai).__name__ if self.ai else None,
         )
 
@@ -52,15 +57,19 @@ class Providers:
         )
 
     @staticmethod
-    def _build_encryptor(s: Settings) -> Encryptor | None:
+    def _build_encryptor(s: Settings) -> Encryptor:
         if s.environment == "dev":
-            # Phase 5 will require MEASUREMENT_DEK_DEV; until then it's optional so dev startup
-            # doesn't break for contributors who haven't set it yet.
-            if not s.measurement_dek_dev:
-                return None
+            assert s.measurement_dek_dev  # config validator guarantees this
             return LocalAesEncryptor(s.measurement_dek_dev)
         assert s.kms_key_id
         return KmsEnvelopeEncryptor(key_id=s.kms_key_id, region=s.aws_region)
+
+    @staticmethod
+    def _build_image_storage(s: Settings) -> ImageStorageProvider:
+        if s.environment == "dev":
+            return LocalNoopImageStorage()
+        assert s.image_bucket
+        return S3ImageStorage(bucket=s.image_bucket, region=s.aws_region)
 
     @staticmethod
     def _build_ai(s: Settings) -> AIProvider | None:

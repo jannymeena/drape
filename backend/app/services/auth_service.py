@@ -17,15 +17,12 @@ from app.core.security import (
 from app.db.models import AuthMethod, PasswordResetToken, RefreshToken, User
 from app.schemas.auth import AuthResponse
 from app.schemas.user import Role
+from app.services.profile_service import next_step as onboarding_next_step
 from app.services.providers.email.base import EmailProvider
 from app.services.providers.hash.base import PasswordHasher
 from app.services.providers.oauth.base import OAuthVerifier
 
 _log = structlog.get_logger("auth")
-
-# After signup, the next required onboarding step (per CTO doc §Cat 3).
-_FIRST_ONBOARDING_STEP = "shopping_style_selection"
-_DASHBOARD = "today_dashboard"
 
 
 class AuthError(Exception):
@@ -38,12 +35,6 @@ class AuthError(Exception):
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def _next_step(user: User) -> str:
-    if user.onboarding_completed:
-        return _DASHBOARD
-    return user.onboarding_last_step or _FIRST_ONBOARDING_STEP
 
 
 def _build_response(db: Session, user: User) -> AuthResponse:
@@ -64,7 +55,7 @@ def _build_response(db: Session, user: User) -> AuthResponse:
         access_token=access,
         refresh_token=raw_refresh,
         onboarding_completed=user.onboarding_completed,
-        next_step=_next_step(user),
+        next_step=onboarding_next_step(user),
     )
 
 
