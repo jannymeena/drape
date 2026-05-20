@@ -6,11 +6,35 @@ import '../../modules/auth/screens/forgot_password_screen.dart';
 import '../../modules/auth/screens/login_screen.dart';
 import '../../modules/auth/screens/sign_up_screen.dart';
 import '../../modules/auth/screens/welcome_screen.dart';
+import '../../modules/onboarding/screens/age_range_screen.dart';
+import '../../modules/onboarding/screens/avatar_reveal_screen.dart';
+import '../../modules/onboarding/screens/chest_measurement_screen.dart';
+import '../../modules/onboarding/screens/height_input_screen.dart';
+import '../../modules/onboarding/screens/hips_measurement_screen.dart';
+import '../../modules/onboarding/screens/inseam_measurement_screen.dart';
+import '../../modules/onboarding/screens/lifestyle_occasions_screen.dart';
+import '../../modules/onboarding/screens/manual_entry_screen.dart';
+import '../../modules/onboarding/screens/pre_measurement_screen.dart';
+import '../../modules/onboarding/screens/profile_complete_screen.dart';
+import '../../modules/onboarding/screens/shopping_style_screen.dart';
+import '../../modules/onboarding/screens/shoulders_screen.dart';
+import '../../modules/onboarding/screens/splash_screen.dart';
+import '../../modules/onboarding/screens/style_goals_screen.dart';
+import '../../modules/onboarding/screens/waist_measurement_screen.dart';
+import '../../modules/onboarding/screens/wardrobe_setup_screen.dart';
+import '../../modules/onboarding/screens/weight_input_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: WelcomeScreen.path,
+    initialLocation: SplashScreen.path,
     routes: [
+      // ─── Boot ─────────────────────────────────────────────────
+      GoRoute(
+        path: SplashScreen.path,
+        name: SplashScreen.name,
+        builder: (_, __) => const SplashScreen(),
+      ),
+
       // ─── Auth ─────────────────────────────────────────────────
       GoRoute(
         path: WelcomeScreen.path,
@@ -33,6 +57,92 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ForgotPasswordScreen(),
       ),
 
+      // ─── Onboarding: style profile ────────────────────────────
+      GoRoute(
+        path: ShoppingStyleScreen.path,
+        name: ShoppingStyleScreen.name,
+        builder: (_, __) => const ShoppingStyleScreen(),
+      ),
+      GoRoute(
+        path: AgeRangeScreen.path,
+        name: AgeRangeScreen.name,
+        builder: (_, __) => const AgeRangeScreen(),
+      ),
+      GoRoute(
+        path: StyleGoalsScreen.path,
+        name: StyleGoalsScreen.name,
+        builder: (_, __) => const StyleGoalsScreen(),
+      ),
+      GoRoute(
+        path: LifestyleOccasionsScreen.path,
+        name: LifestyleOccasionsScreen.name,
+        builder: (_, __) => const LifestyleOccasionsScreen(),
+      ),
+
+      // ─── Onboarding: measurements ─────────────────────────────
+      GoRoute(
+        path: PreMeasurementScreen.path,
+        name: PreMeasurementScreen.name,
+        builder: (_, __) => const PreMeasurementScreen(),
+      ),
+      GoRoute(
+        path: HeightInputScreen.path,
+        name: HeightInputScreen.name,
+        builder: (_, __) => const HeightInputScreen(),
+      ),
+      GoRoute(
+        path: WeightInputScreen.path,
+        name: WeightInputScreen.name,
+        builder: (_, __) => const WeightInputScreen(),
+      ),
+      GoRoute(
+        path: ChestMeasurementScreen.path,
+        name: ChestMeasurementScreen.name,
+        builder: (_, __) => const ChestMeasurementScreen(),
+      ),
+      GoRoute(
+        path: WaistMeasurementScreen.path,
+        name: WaistMeasurementScreen.name,
+        builder: (_, __) => const WaistMeasurementScreen(),
+      ),
+      GoRoute(
+        path: HipsMeasurementScreen.path,
+        name: HipsMeasurementScreen.name,
+        builder: (_, __) => const HipsMeasurementScreen(),
+      ),
+      GoRoute(
+        path: InseamMeasurementScreen.path,
+        name: InseamMeasurementScreen.name,
+        builder: (_, __) => const InseamMeasurementScreen(),
+      ),
+      GoRoute(
+        path: ShouldersScreen.path,
+        name: ShouldersScreen.name,
+        builder: (_, __) => const ShouldersScreen(),
+      ),
+      GoRoute(
+        path: ManualEntryScreen.path,
+        name: ManualEntryScreen.name,
+        builder: (_, __) => const ManualEntryScreen(),
+      ),
+
+      // ─── Onboarding: wardrobe + avatar ────────────────────────
+      GoRoute(
+        path: WardrobeSetupScreen.path,
+        name: WardrobeSetupScreen.name,
+        builder: (_, __) => const WardrobeSetupScreen(),
+      ),
+      GoRoute(
+        path: AvatarRevealScreen.path,
+        name: AvatarRevealScreen.name,
+        builder: (_, __) => const AvatarRevealScreen(),
+      ),
+      GoRoute(
+        path: ProfileCompleteScreen.path,
+        name: ProfileCompleteScreen.name,
+        builder: (_, __) => const ProfileCompleteScreen(),
+      ),
+
       // ─── Debug ────────────────────────────────────────────────
       GoRoute(
         path: ThemeGalleryScreen.path,
@@ -40,7 +150,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ThemeGalleryScreen(),
       ),
 
-      // Phase C2 adds splash + onboarding routes here.
+      // Phase C3 adds today routes here.
     ],
   );
 });
