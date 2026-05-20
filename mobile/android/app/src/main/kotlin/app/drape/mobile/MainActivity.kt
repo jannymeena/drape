@@ -1,4 +1,4 @@
-package app.drape
+package app.drape.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

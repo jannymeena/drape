@@ -1,6 +1,6 @@
-# drape_app
+# mobile
 
-A new Flutter project.
+A fashion app
 
 ## Getting Started
 
