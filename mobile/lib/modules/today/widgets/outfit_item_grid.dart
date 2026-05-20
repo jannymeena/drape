@@ -68,7 +68,7 @@ class _OutfitGridCell extends StatelessWidget {
                 fit: BoxFit.cover,
                 width: double.infinity,
                 height: double.infinity,
-                errorBuilder: (_, __, ___) => const Icon(
+                errorBuilder: (_, _, _) => const Icon(
                   Icons.checkroom_outlined,
                   size: 36,
                   color: AppColors.taupeSoft,

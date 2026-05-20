@@ -43,7 +43,7 @@ class _ShimmerSkeletonState extends State<ShimmerSkeleton>
       borderRadius: widget.borderRadius,
       child: AnimatedBuilder(
         animation: _controller,
-        builder: (_, __) {
+        builder: (_, _) {
           final t = _controller.value;
           return Container(
             width: widget.width,

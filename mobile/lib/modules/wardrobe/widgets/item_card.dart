@@ -61,7 +61,7 @@ class ItemCard extends StatelessWidget {
                             : Image.network(
                                 item.imageUrl!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Center(
+                                errorBuilder: (_, _, _) => const Center(
                                   child: Icon(
                                     Icons.checkroom_outlined,
                                     color: AppColors.taupeSoft,

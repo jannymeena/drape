@@ -101,7 +101,7 @@ class _MixMatchSheetState extends State<MixMatchSheet> {
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _occasions.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
                         itemBuilder: (_, i) => _OccasionPill(
                           label: _occasions[i],
                           selected: i == _occasionIndex,
@@ -359,7 +359,7 @@ class _ItemRow extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (_, i) => _MixItemTile(item: items[i]),
       ),
     );

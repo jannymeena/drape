@@ -59,115 +59,115 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: SplashScreen.path,
         name: SplashScreen.name,
-        builder: (_, __) => const SplashScreen(),
+        builder: (_, _) => const SplashScreen(),
       ),
 
       // ─── Auth ─────────────────────────────────────────────────
       GoRoute(
         path: WelcomeScreen.path,
         name: WelcomeScreen.name,
-        builder: (_, __) => const WelcomeScreen(),
+        builder: (_, _) => const WelcomeScreen(),
       ),
       GoRoute(
         path: SignUpScreen.path,
         name: SignUpScreen.name,
-        builder: (_, __) => const SignUpScreen(),
+        builder: (_, _) => const SignUpScreen(),
       ),
       GoRoute(
         path: LoginScreen.path,
         name: LoginScreen.name,
-        builder: (_, __) => const LoginScreen(),
+        builder: (_, _) => const LoginScreen(),
       ),
       GoRoute(
         path: ForgotPasswordScreen.path,
         name: ForgotPasswordScreen.name,
-        builder: (_, __) => const ForgotPasswordScreen(),
+        builder: (_, _) => const ForgotPasswordScreen(),
       ),
 
       // ─── Onboarding: style profile ────────────────────────────
       GoRoute(
         path: ShoppingStyleScreen.path,
         name: ShoppingStyleScreen.name,
-        builder: (_, __) => const ShoppingStyleScreen(),
+        builder: (_, _) => const ShoppingStyleScreen(),
       ),
       GoRoute(
         path: AgeRangeScreen.path,
         name: AgeRangeScreen.name,
-        builder: (_, __) => const AgeRangeScreen(),
+        builder: (_, _) => const AgeRangeScreen(),
       ),
       GoRoute(
         path: StyleGoalsScreen.path,
         name: StyleGoalsScreen.name,
-        builder: (_, __) => const StyleGoalsScreen(),
+        builder: (_, _) => const StyleGoalsScreen(),
       ),
       GoRoute(
         path: LifestyleOccasionsScreen.path,
         name: LifestyleOccasionsScreen.name,
-        builder: (_, __) => const LifestyleOccasionsScreen(),
+        builder: (_, _) => const LifestyleOccasionsScreen(),
       ),
 
       // ─── Onboarding: measurements ─────────────────────────────
       GoRoute(
         path: PreMeasurementScreen.path,
         name: PreMeasurementScreen.name,
-        builder: (_, __) => const PreMeasurementScreen(),
+        builder: (_, _) => const PreMeasurementScreen(),
       ),
       GoRoute(
         path: HeightInputScreen.path,
         name: HeightInputScreen.name,
-        builder: (_, __) => const HeightInputScreen(),
+        builder: (_, _) => const HeightInputScreen(),
       ),
       GoRoute(
         path: WeightInputScreen.path,
         name: WeightInputScreen.name,
-        builder: (_, __) => const WeightInputScreen(),
+        builder: (_, _) => const WeightInputScreen(),
       ),
       GoRoute(
         path: ChestMeasurementScreen.path,
         name: ChestMeasurementScreen.name,
-        builder: (_, __) => const ChestMeasurementScreen(),
+        builder: (_, _) => const ChestMeasurementScreen(),
       ),
       GoRoute(
         path: WaistMeasurementScreen.path,
         name: WaistMeasurementScreen.name,
-        builder: (_, __) => const WaistMeasurementScreen(),
+        builder: (_, _) => const WaistMeasurementScreen(),
       ),
       GoRoute(
         path: HipsMeasurementScreen.path,
         name: HipsMeasurementScreen.name,
-        builder: (_, __) => const HipsMeasurementScreen(),
+        builder: (_, _) => const HipsMeasurementScreen(),
       ),
       GoRoute(
         path: InseamMeasurementScreen.path,
         name: InseamMeasurementScreen.name,
-        builder: (_, __) => const InseamMeasurementScreen(),
+        builder: (_, _) => const InseamMeasurementScreen(),
       ),
       GoRoute(
         path: ShouldersScreen.path,
         name: ShouldersScreen.name,
-        builder: (_, __) => const ShouldersScreen(),
+        builder: (_, _) => const ShouldersScreen(),
       ),
       GoRoute(
         path: ManualEntryScreen.path,
         name: ManualEntryScreen.name,
-        builder: (_, __) => const ManualEntryScreen(),
+        builder: (_, _) => const ManualEntryScreen(),
       ),
 
       // ─── Onboarding: wardrobe + avatar ────────────────────────
       GoRoute(
         path: WardrobeSetupScreen.path,
         name: WardrobeSetupScreen.name,
-        builder: (_, __) => const WardrobeSetupScreen(),
+        builder: (_, _) => const WardrobeSetupScreen(),
       ),
       GoRoute(
         path: AvatarRevealScreen.path,
         name: AvatarRevealScreen.name,
-        builder: (_, __) => const AvatarRevealScreen(),
+        builder: (_, _) => const AvatarRevealScreen(),
       ),
       GoRoute(
         path: ProfileCompleteScreen.path,
         name: ProfileCompleteScreen.name,
-        builder: (_, __) => const ProfileCompleteScreen(),
+        builder: (_, _) => const ProfileCompleteScreen(),
       ),
 
       // ─── Main app shell (Today / Wardrobe / Shop / Profile) ──
@@ -181,12 +181,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: TodayDashboardScreen.path,
                 name: TodayDashboardScreen.name,
-                builder: (_, __) => const TodayDashboardScreen(),
+                builder: (_, _) => const TodayDashboardScreen(),
                 routes: [
                   GoRoute(
                     path: 'history',
                     name: OutfitHistoryScreen.name,
-                    builder: (_, __) => const OutfitHistoryScreen(),
+                    builder: (_, _) => const OutfitHistoryScreen(),
                   ),
                   GoRoute(
                     path: 'outfit/:id/reasoning',
@@ -196,7 +196,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                       opaque: false,
                       barrierDismissible: true,
                       fullscreenDialog: true,
-                      transitionsBuilder: (_, animation, __, child) {
+                      transitionsBuilder: (_, animation, _, child) {
                         return SlideTransition(
                           position: Tween<Offset>(
                             begin: const Offset(0, 1),
@@ -223,33 +223,33 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: WardrobeScreen.path,
                 name: WardrobeScreen.name,
-                builder: (_, __) => const WardrobeScreen(),
+                builder: (_, _) => const WardrobeScreen(),
                 routes: [
                   GoRoute(
                     path: ScannerScreen.path,
                     name: ScannerScreen.name,
                     parentNavigatorKey: _rootNavKey,
-                    builder: (_, __) => const ScannerScreen(),
+                    builder: (_, _) => const ScannerScreen(),
                   ),
                   GoRoute(
                     path: BatchUploadScreen.path,
                     name: BatchUploadScreen.name,
-                    builder: (_, __) => const BatchUploadScreen(),
+                    builder: (_, _) => const BatchUploadScreen(),
                   ),
                   GoRoute(
                     path: wardrobe_manual.ManualEntryScreen.path,
                     name: wardrobe_manual.ManualEntryScreen.name,
-                    builder: (_, __) => const wardrobe_manual.ManualEntryScreen(),
+                    builder: (_, _) => const wardrobe_manual.ManualEntryScreen(),
                   ),
                   GoRoute(
                     path: IntelligenceReportScreen.path,
                     name: IntelligenceReportScreen.name,
-                    builder: (_, __) => const IntelligenceReportScreen(),
+                    builder: (_, _) => const IntelligenceReportScreen(),
                   ),
                   GoRoute(
                     path: WeeklyRecapScreen.path,
                     name: WeeklyRecapScreen.name,
-                    builder: (_, __) => const WeeklyRecapScreen(),
+                    builder: (_, _) => const WeeklyRecapScreen(),
                   ),
                   GoRoute(
                     path: ItemDetailScreen.path,
@@ -268,7 +268,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: ShopPlaceholderScreen.path,
                 name: ShopPlaceholderScreen.name,
-                builder: (_, __) => const ShopPlaceholderScreen(),
+                builder: (_, _) => const ShopPlaceholderScreen(),
               ),
             ],
           ),
@@ -278,7 +278,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: ProfilePlaceholderScreen.path,
                 name: ProfilePlaceholderScreen.name,
-                builder: (_, __) => const ProfilePlaceholderScreen(),
+                builder: (_, _) => const ProfilePlaceholderScreen(),
               ),
             ],
           ),
@@ -289,7 +289,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: ThemeGalleryScreen.path,
         name: ThemeGalleryScreen.name,
-        builder: (_, __) => const ThemeGalleryScreen(),
+        builder: (_, _) => const ThemeGalleryScreen(),
       ),
     ],
   );
