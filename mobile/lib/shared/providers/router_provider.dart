@@ -24,7 +24,15 @@ import '../../modules/onboarding/screens/style_goals_screen.dart';
 import '../../modules/onboarding/screens/waist_measurement_screen.dart';
 import '../../modules/onboarding/screens/wardrobe_setup_screen.dart';
 import '../../modules/onboarding/screens/weight_input_screen.dart';
-import '../../modules/profile/screens/profile_placeholder_screen.dart';
+import '../../modules/profile/screens/account_settings_screen.dart';
+import '../../modules/profile/screens/appearance_settings_screen.dart';
+import '../../modules/profile/screens/edit_profile_screen.dart';
+import '../../modules/profile/screens/email_password_settings_screen.dart';
+import '../../modules/profile/screens/notifications_preferences_screen.dart';
+import '../../modules/profile/screens/payment_methods_screen.dart';
+import '../../modules/profile/screens/profile_intelligence_screen.dart';
+import '../../modules/profile/screens/settings_screen.dart';
+import '../../modules/profile/screens/style_preferences_screen.dart';
 import '../../modules/shop/screens/shop_placeholder_screen.dart';
 import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
 import '../../modules/today/screens/outfit_history_screen.dart';
@@ -276,9 +284,51 @@ final routerProvider = Provider<GoRouter>((ref) {
             navigatorKey: _profileNavKey,
             routes: [
               GoRoute(
-                path: ProfilePlaceholderScreen.path,
-                name: ProfilePlaceholderScreen.name,
-                builder: (_, _) => const ProfilePlaceholderScreen(),
+                path: ProfileIntelligenceScreen.path,
+                name: ProfileIntelligenceScreen.name,
+                builder: (_, _) => const ProfileIntelligenceScreen(),
+                routes: [
+                  GoRoute(
+                    path: SettingsScreen.path,
+                    name: SettingsScreen.name,
+                    builder: (_, _) => const SettingsScreen(),
+                  ),
+                  GoRoute(
+                    path: AccountSettingsScreen.path,
+                    name: AccountSettingsScreen.name,
+                    builder: (_, _) => const AccountSettingsScreen(),
+                  ),
+                  GoRoute(
+                    path: EditProfileScreen.path,
+                    name: EditProfileScreen.name,
+                    builder: (_, _) => const EditProfileScreen(),
+                  ),
+                  GoRoute(
+                    path: EmailPasswordSettingsScreen.path,
+                    name: EmailPasswordSettingsScreen.name,
+                    builder: (_, _) => const EmailPasswordSettingsScreen(),
+                  ),
+                  GoRoute(
+                    path: PaymentMethodsScreen.path,
+                    name: PaymentMethodsScreen.name,
+                    builder: (_, _) => const PaymentMethodsScreen(),
+                  ),
+                  GoRoute(
+                    path: NotificationsPreferencesScreen.path,
+                    name: NotificationsPreferencesScreen.name,
+                    builder: (_, _) => const NotificationsPreferencesScreen(),
+                  ),
+                  GoRoute(
+                    path: AppearanceSettingsScreen.path,
+                    name: AppearanceSettingsScreen.name,
+                    builder: (_, _) => const AppearanceSettingsScreen(),
+                  ),
+                  GoRoute(
+                    path: StylePreferencesScreen.path,
+                    name: StylePreferencesScreen.name,
+                    builder: (_, _) => const StylePreferencesScreen(),
+                  ),
+                ],
               ),
             ],
           ),
