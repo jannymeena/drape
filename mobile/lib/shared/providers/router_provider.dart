@@ -26,13 +26,18 @@ import '../../modules/onboarding/screens/wardrobe_setup_screen.dart';
 import '../../modules/onboarding/screens/weight_input_screen.dart';
 import '../../modules/profile/screens/account_settings_screen.dart';
 import '../../modules/profile/screens/appearance_settings_screen.dart';
+import '../../modules/profile/screens/billing_history_screen.dart';
+import '../../modules/profile/screens/compare_plans_screen.dart';
 import '../../modules/profile/screens/edit_profile_screen.dart';
 import '../../modules/profile/screens/email_password_settings_screen.dart';
+import '../../modules/profile/screens/final_cancellation_confirmation_screen.dart';
 import '../../modules/profile/screens/notifications_preferences_screen.dart';
 import '../../modules/profile/screens/payment_methods_screen.dart';
 import '../../modules/profile/screens/profile_intelligence_screen.dart';
+import '../../modules/profile/screens/retention_offer_screen.dart';
 import '../../modules/profile/screens/settings_screen.dart';
 import '../../modules/profile/screens/style_preferences_screen.dart';
+import '../../modules/profile/screens/subscription_management_screen.dart';
 import '../../modules/shop/screens/shop_placeholder_screen.dart';
 import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
 import '../../modules/today/screens/outfit_history_screen.dart';
@@ -327,6 +332,31 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: StylePreferencesScreen.path,
                     name: StylePreferencesScreen.name,
                     builder: (_, _) => const StylePreferencesScreen(),
+                  ),
+                  GoRoute(
+                    path: SubscriptionManagementScreen.path,
+                    name: SubscriptionManagementScreen.name,
+                    builder: (_, _) => const SubscriptionManagementScreen(),
+                  ),
+                  GoRoute(
+                    path: BillingHistoryScreen.path,
+                    name: BillingHistoryScreen.name,
+                    builder: (_, _) => const BillingHistoryScreen(),
+                  ),
+                  GoRoute(
+                    path: RetentionOfferScreen.path,
+                    name: RetentionOfferScreen.name,
+                    builder: (_, _) => const RetentionOfferScreen(),
+                  ),
+                  GoRoute(
+                    path: FinalCancellationConfirmationScreen.path,
+                    name: FinalCancellationConfirmationScreen.name,
+                    builder: (_, _) => const FinalCancellationConfirmationScreen(),
+                  ),
+                  GoRoute(
+                    path: ComparePlansScreen.path,
+                    name: ComparePlansScreen.name,
+                    builder: (_, _) => const ComparePlansScreen(),
                   ),
                 ],
               ),
