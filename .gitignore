@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -39,6 +39,9 @@ env/
 *.db
 *.sqlite3
 
+# --- Phase 5e: LocalFsStorage dev image uploads ---
+backend/uploads/
+
 # --- Testing / Coverage ---
 .pytest_cache/
 .tox/
@@ -59,3 +62,7 @@ coverage.xml
 # --- Logs ---
 *.log
 pip-log.txt
+
+
+docs/
+screens/
