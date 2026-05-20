@@ -1,14 +1,13 @@
-"""init schema 5d starter wardrobe
+"""init schema 6d usage
 
-Squashed init covering Phases 1–5d (per feedback_preprod_schema: while pre-prod,
-schema-affecting migrations rewrite this single init rather than ALTER on top
-of it). Seeds the starter_wardrobe_templates table from
-backend/data/starter_wardrobe_templates.json so downstream tests have data
-without an additional bootstrap step.
+Squashed init covering Phases 1–6d (per feedback_preprod_schema). Adds
+`usage_tracking` on top of the prior 6c schema; re-seeds
+`starter_wardrobe_templates` from JSON so a fresh `alembic upgrade head` lands
+with data the outfit generator can draw from on day one.
 
-Revision ID: 1b09ad440db1
+Revision ID: 6b13316bc906
 Revises:
-Create Date: 2026-05-07 04:23:02.236801
+Create Date: 2026-05-07 10:42:40.893060
 
 """
 import json
@@ -21,7 +20,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '1b09ad440db1'
+revision: str = '6b13316bc906'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -79,6 +78,28 @@ def upgrade() -> None:
     op.create_index(op.f('ix_users_apple_id'), 'users', ['apple_id'], unique=True)
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.create_index(op.f('ix_users_google_id'), 'users', ['google_id'], unique=True)
+    op.create_table('outfits',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('occasion', sa.String(length=50), nullable=False),
+    sa.Column('items', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('image_url', sa.String(length=500), nullable=True),
+    sa.Column('ai_reasoning_short', sa.String(length=500), nullable=True),
+    sa.Column('ai_reasoning_full', sa.String(length=4000), nullable=True),
+    sa.Column('compatibility_score', sa.Integer(), nullable=True),
+    sa.Column('weather_context', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('using_starter_wardrobe', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('generation_method', sa.String(length=50), nullable=False),
+    sa.Column('is_logged', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('logged_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('worn_count', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_outfits_is_logged'), 'outfits', ['is_logged'], unique=False)
+    op.create_index(op.f('ix_outfits_user_id'), 'outfits', ['user_id'], unique=False)
     op.create_table('password_reset_tokens',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -114,6 +135,33 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_refresh_tokens_token_hash'), 'refresh_tokens', ['token_hash'], unique=True)
     op.create_index(op.f('ix_refresh_tokens_user_id'), 'refresh_tokens', ['user_id'], unique=False)
+    op.create_table('streak_tracking',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('current_streak', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('longest_streak', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('last_logged_date', sa.Date(), nullable=True),
+    sa.Column('streak_started_at', sa.Date(), nullable=True),
+    sa.Column('total_outfits_logged', sa.Integer(), server_default='0', nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id')
+    )
+    op.create_table('usage_tracking',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('week_start_date', sa.Date(), nullable=False),
+    sa.Column('outfits_generated', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('mix_and_match_sessions', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('outfit_limit', sa.Integer(), server_default='21', nullable=False),
+    sa.Column('mix_limit', sa.Integer(), server_default='3', nullable=False),
+    sa.Column('last_reset', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('next_reset', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'week_start_date', name='uq_usage_user_week')
+    )
+    op.create_index(op.f('ix_usage_tracking_user_id'), 'usage_tracking', ['user_id'], unique=False)
     op.create_table('user_measurements',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -192,6 +240,20 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id')
     )
+    op.create_table('outfit_history',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('outfit_id', sa.UUID(), nullable=False),
+    sa.Column('logged_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('shared', sa.Boolean(), server_default='false', nullable=False),
+    sa.ForeignKeyConstraint(['outfit_id'], ['outfits.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'outfit_id', 'logged_at', name='uq_outfit_history_user_outfit_at')
+    )
+    op.create_index(op.f('ix_outfit_history_logged_at'), 'outfit_history', ['logged_at'], unique=False)
+    op.create_index(op.f('ix_outfit_history_outfit_id'), 'outfit_history', ['outfit_id'], unique=False)
+    op.create_index(op.f('ix_outfit_history_user_id'), 'outfit_history', ['user_id'], unique=False)
     op.create_table('wardrobe_wear_log',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -212,11 +274,9 @@ def upgrade() -> None:
 
 
 def _seed_starter_wardrobe_templates() -> None:
-    """Insert the curated starter-wardrobe templates from JSON.
-
-    Source-of-truth lives in backend/data/starter_wardrobe_templates.json so
-    the file can be reviewed/edited as data, not Python. Re-running this
-    migration on a fresh DB (the squash workflow) reseeds from the file."""
+    """Insert the curated starter-wardrobe templates from JSON. Carried over
+    from the prior squashed init — re-running this migration on a fresh DB
+    reseeds from the file."""
     templates = json.loads(_TEMPLATES_JSON.read_text())
     rows = [
         {
@@ -253,6 +313,10 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_wardrobe_wear_log_user_id'), table_name='wardrobe_wear_log')
     op.drop_index(op.f('ix_wardrobe_wear_log_item_id'), table_name='wardrobe_wear_log')
     op.drop_table('wardrobe_wear_log')
+    op.drop_index(op.f('ix_outfit_history_user_id'), table_name='outfit_history')
+    op.drop_index(op.f('ix_outfit_history_outfit_id'), table_name='outfit_history')
+    op.drop_index(op.f('ix_outfit_history_logged_at'), table_name='outfit_history')
+    op.drop_table('outfit_history')
     op.drop_table('wardrobe_transition_tracking')
     op.drop_index(op.f('ix_wardrobe_items_worn_count'), table_name='wardrobe_items')
     op.drop_index(op.f('ix_wardrobe_items_user_id'), table_name='wardrobe_items')
@@ -263,6 +327,9 @@ def downgrade() -> None:
     op.drop_table('wardrobe_items')
     op.drop_table('user_starter_wardrobes')
     op.drop_table('user_measurements')
+    op.drop_index(op.f('ix_usage_tracking_user_id'), table_name='usage_tracking')
+    op.drop_table('usage_tracking')
+    op.drop_table('streak_tracking')
     op.drop_index(op.f('ix_refresh_tokens_user_id'), table_name='refresh_tokens')
     op.drop_index(op.f('ix_refresh_tokens_token_hash'), table_name='refresh_tokens')
     op.drop_table('refresh_tokens')
@@ -270,6 +337,9 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_password_reset_tokens_user_id'), table_name='password_reset_tokens')
     op.drop_index(op.f('ix_password_reset_tokens_token_hash'), table_name='password_reset_tokens')
     op.drop_table('password_reset_tokens')
+    op.drop_index(op.f('ix_outfits_user_id'), table_name='outfits')
+    op.drop_index(op.f('ix_outfits_is_logged'), table_name='outfits')
+    op.drop_table('outfits')
     op.drop_index(op.f('ix_users_google_id'), table_name='users')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_index(op.f('ix_users_apple_id'), table_name='users')

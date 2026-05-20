@@ -1,0 +1,9 @@
+# Dev/test-only deps. Install with:
+#     pip install -r requirements-dev.txt
+#
+# Keep app deps in requirements.txt — those land in the prd Docker image too.
+-r requirements.txt
+
+pytest>=8
+pytest-asyncio>=0.23
+pytest-cov>=4

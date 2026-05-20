@@ -16,6 +16,8 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from sqlalchemy import select  # noqa: F401  -- used below
+
 from app.db.models import User, WardrobeItem, WardrobeWearLog
 from app.schemas.wardrobe import (
     LogWornRequest,
@@ -28,6 +30,9 @@ from app.services.providers.image.base import ImageStorageProvider
 
 # CTO doc: max 4 photos per item.
 MAX_IMAGES_PER_ITEM = 4
+
+# CTO doc 3 §"Free tier" — 30 real (non-starter) items free; Pro unlimited.
+FREE_TIER_REAL_ITEM_LIMIT = 30
 
 _log = structlog.get_logger("wardrobe")
 
@@ -91,9 +96,36 @@ def list_for_user(
     return list(rows), int(total)
 
 
+def _real_item_count(db: Session, *, user_id: UUID) -> int:
+    return int(
+        db.scalar(
+            select(func.count(WardrobeItem.id)).where(
+                WardrobeItem.user_id == user_id,
+                WardrobeItem.is_starter_wardrobe.is_(False),
+            )
+        )
+        or 0
+    )
+
+
+def _enforce_free_item_limit(db: Session, *, user: User) -> None:
+    """Free tier caps real wardrobe items at FREE_TIER_REAL_ITEM_LIMIT. Starter
+    items don't count — they exist whether the user invited them or not."""
+    if (user.subscription_tier or "free") == "pro":
+        return
+    real = _real_item_count(db, user_id=user.id)
+    if real >= FREE_TIER_REAL_ITEM_LIMIT:
+        raise WardrobeError(
+            "limit_reached",
+            f"Free-tier wardrobe is capped at {FREE_TIER_REAL_ITEM_LIMIT} real items "
+            f"(you have {real}). Upgrade to Drape Pro for unlimited storage.",
+        )
+
+
 def create_item(
     db: Session, *, user: User, payload: WardrobeItemCreate
 ) -> WardrobeItem:
+    _enforce_free_item_limit(db, user=user)
     item = WardrobeItem(
         user_id=user.id,
         added_via="manual",

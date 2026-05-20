@@ -363,6 +363,155 @@ class WardrobeTransitionTracking(Base):
     )
 
 
+class Outfit(Base, TimestampMixin):
+    """A generated outfit suggestion. Items reference wardrobe_items by id but
+    are denormalized into JSONB so that historical outfits remain readable even
+    if the user later edits or deletes the underlying items.
+
+    `image_url` is intentionally nullable — per `plan.md` decision #2 we don't
+    render flat-lay composites server-side; the client lays out the 4-item grid
+    from the per-item primary_image_url stored in `items`.
+    """
+
+    __tablename__ = "outfits"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    occasion: Mapped[str] = mapped_column(String(50), nullable=False)
+    items: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
+    image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    ai_reasoning_short: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    ai_reasoning_full: Mapped[Optional[str]] = mapped_column(String(4000), nullable=True)
+    compatibility_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    weather_context: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    using_starter_wardrobe: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    generation_method: Mapped[str] = mapped_column(String(50), nullable=False)
+    is_logged: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false", index=True
+    )
+    logged_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    worn_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
+
+class OutfitHistory(Base):
+    """One row per (user, outfit, logged_at). Drives history queries and feeds
+    the streak tracker. Deduped on (user_id, outfit_id, logged_at) to make
+    repeated taps on Log idempotent within the same instant."""
+
+    __tablename__ = "outfit_history"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "outfit_id", "logged_at", name="uq_outfit_history_user_outfit_at"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    outfit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("outfits.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    logged_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    shared: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+
+
+class UsageTracking(Base):
+    """One row per (user, week_start_date). Counts outfit generations and
+    mix-and-match sessions inside the user's local timezone week. Limits are
+    columns (not constants) so a future Pro upgrade can rewrite them in-place
+    without touching service code."""
+
+    __tablename__ = "usage_tracking"
+    __table_args__ = (
+        UniqueConstraint("user_id", "week_start_date", name="uq_usage_user_week"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # Monday in user's timezone — see usage_service._week_window_local.
+    week_start_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    outfits_generated: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    mix_and_match_sessions: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    outfit_limit: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=21, server_default="21"
+    )
+    mix_limit: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=3, server_default="3"
+    )
+    last_reset: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    next_reset: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class StreakTracking(Base):
+    """One row per user. Updated whenever an outfit is logged. The 6d analytics
+    will read from this; 6c writes the row on every successful /outfits/{id}/log
+    so the toast metadata can decide between milestone, streak, and default."""
+
+    __tablename__ = "streak_tracking"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    current_streak: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    longest_streak: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    last_logged_date: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
+    streak_started_at: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
+    total_outfits_logged: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
+
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 
