@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -23,6 +24,9 @@ import '../../modules/onboarding/screens/style_goals_screen.dart';
 import '../../modules/onboarding/screens/waist_measurement_screen.dart';
 import '../../modules/onboarding/screens/wardrobe_setup_screen.dart';
 import '../../modules/onboarding/screens/weight_input_screen.dart';
+import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
+import '../../modules/today/screens/outfit_history_screen.dart';
+import '../../modules/today/screens/today_dashboard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -143,14 +147,50 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ProfileCompleteScreen(),
       ),
 
+      // ─── Today ────────────────────────────────────────────────
+      GoRoute(
+        path: TodayDashboardScreen.path,
+        name: TodayDashboardScreen.name,
+        builder: (_, __) => const TodayDashboardScreen(),
+        routes: [
+          GoRoute(
+            path: 'history',
+            name: OutfitHistoryScreen.name,
+            builder: (_, __) => const OutfitHistoryScreen(),
+          ),
+          GoRoute(
+            path: 'outfit/:id/reasoning',
+            name: AiReasoningDetailScreen.name,
+            pageBuilder: (_, state) => CustomTransitionPage(
+              opaque: false,
+              barrierDismissible: true,
+              fullscreenDialog: true,
+              transitionsBuilder: (_, animation, __, child) {
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 1),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  )),
+                  child: child,
+                );
+              },
+              child: AiReasoningDetailScreen(
+                outfitId: state.pathParameters['id']!,
+              ),
+            ),
+          ),
+        ],
+      ),
+
       // ─── Debug ────────────────────────────────────────────────
       GoRoute(
         path: ThemeGalleryScreen.path,
         name: ThemeGalleryScreen.name,
         builder: (_, __) => const ThemeGalleryScreen(),
       ),
-
-      // Phase C3 adds today routes here.
     ],
   );
 });
