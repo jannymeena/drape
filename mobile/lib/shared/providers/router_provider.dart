@@ -27,6 +27,13 @@ import '../../modules/onboarding/screens/weight_input_screen.dart';
 import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
 import '../../modules/today/screens/outfit_history_screen.dart';
 import '../../modules/today/screens/today_dashboard_screen.dart';
+import '../../modules/wardrobe/screens/batch_upload_screen.dart';
+import '../../modules/wardrobe/screens/intelligence_report_screen.dart';
+import '../../modules/wardrobe/screens/item_detail_screen.dart';
+import '../../modules/wardrobe/screens/manual_entry_screen.dart' as wardrobe_manual;
+import '../../modules/wardrobe/screens/scanner_screen.dart';
+import '../../modules/wardrobe/screens/wardrobe_screen.dart';
+import '../../modules/wardrobe/screens/weekly_recap_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -180,6 +187,47 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: AiReasoningDetailScreen(
                 outfitId: state.pathParameters['id']!,
               ),
+            ),
+          ),
+        ],
+      ),
+
+      // ─── Wardrobe ─────────────────────────────────────────────
+      GoRoute(
+        path: WardrobeScreen.path,
+        name: WardrobeScreen.name,
+        builder: (_, __) => const WardrobeScreen(),
+        routes: [
+          GoRoute(
+            path: ScannerScreen.path,
+            name: ScannerScreen.name,
+            builder: (_, __) => const ScannerScreen(),
+          ),
+          GoRoute(
+            path: BatchUploadScreen.path,
+            name: BatchUploadScreen.name,
+            builder: (_, __) => const BatchUploadScreen(),
+          ),
+          GoRoute(
+            path: wardrobe_manual.ManualEntryScreen.path,
+            name: wardrobe_manual.ManualEntryScreen.name,
+            builder: (_, __) => const wardrobe_manual.ManualEntryScreen(),
+          ),
+          GoRoute(
+            path: IntelligenceReportScreen.path,
+            name: IntelligenceReportScreen.name,
+            builder: (_, __) => const IntelligenceReportScreen(),
+          ),
+          GoRoute(
+            path: WeeklyRecapScreen.path,
+            name: WeeklyRecapScreen.name,
+            builder: (_, __) => const WeeklyRecapScreen(),
+          ),
+          GoRoute(
+            path: ItemDetailScreen.path,
+            name: ItemDetailScreen.name,
+            builder: (_, state) => ItemDetailScreen(
+              itemId: state.pathParameters['id']!,
             ),
           ),
         ],
