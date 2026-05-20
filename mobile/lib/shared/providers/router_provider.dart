@@ -24,6 +24,8 @@ import '../../modules/onboarding/screens/style_goals_screen.dart';
 import '../../modules/onboarding/screens/waist_measurement_screen.dart';
 import '../../modules/onboarding/screens/wardrobe_setup_screen.dart';
 import '../../modules/onboarding/screens/weight_input_screen.dart';
+import '../../modules/profile/screens/profile_placeholder_screen.dart';
+import '../../modules/shop/screens/shop_placeholder_screen.dart';
 import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
 import '../../modules/today/screens/outfit_history_screen.dart';
 import '../../modules/today/screens/today_dashboard_screen.dart';
@@ -34,10 +36,24 @@ import '../../modules/wardrobe/screens/manual_entry_screen.dart' as wardrobe_man
 import '../../modules/wardrobe/screens/scanner_screen.dart';
 import '../../modules/wardrobe/screens/wardrobe_screen.dart';
 import '../../modules/wardrobe/screens/weekly_recap_screen.dart';
+import '../widgets/main_shell_scaffold.dart';
+
+final _rootNavKey = GlobalKey<NavigatorState>();
+final _todayNavKey = GlobalKey<NavigatorState>();
+final _wardrobeNavKey = GlobalKey<NavigatorState>();
+final _shopNavKey = GlobalKey<NavigatorState>();
+final _profileNavKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
+    navigatorKey: _rootNavKey,
     initialLocation: SplashScreen.path,
+    // Placeholder for Phase E auth gating; returning null keeps the requested
+    // location. When auth lands, return LoginScreen.path for protected routes
+    // when the user isn't authenticated, and respect deep-link redirect.
+    redirect: (context, state) {
+      return null;
+    },
     routes: [
       // ─── Boot ─────────────────────────────────────────────────
       GoRoute(
@@ -154,81 +170,117 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ProfileCompleteScreen(),
       ),
 
-      // ─── Today ────────────────────────────────────────────────
-      GoRoute(
-        path: TodayDashboardScreen.path,
-        name: TodayDashboardScreen.name,
-        builder: (_, __) => const TodayDashboardScreen(),
-        routes: [
-          GoRoute(
-            path: 'history',
-            name: OutfitHistoryScreen.name,
-            builder: (_, __) => const OutfitHistoryScreen(),
-          ),
-          GoRoute(
-            path: 'outfit/:id/reasoning',
-            name: AiReasoningDetailScreen.name,
-            pageBuilder: (_, state) => CustomTransitionPage(
-              opaque: false,
-              barrierDismissible: true,
-              fullscreenDialog: true,
-              transitionsBuilder: (_, animation, __, child) {
-                return SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 1),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOutCubic,
-                  )),
-                  child: child,
-                );
-              },
-              child: AiReasoningDetailScreen(
-                outfitId: state.pathParameters['id']!,
+      // ─── Main app shell (Today / Wardrobe / Shop / Profile) ──
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            MainShellScaffold(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            navigatorKey: _todayNavKey,
+            routes: [
+              GoRoute(
+                path: TodayDashboardScreen.path,
+                name: TodayDashboardScreen.name,
+                builder: (_, __) => const TodayDashboardScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'history',
+                    name: OutfitHistoryScreen.name,
+                    builder: (_, __) => const OutfitHistoryScreen(),
+                  ),
+                  GoRoute(
+                    path: 'outfit/:id/reasoning',
+                    name: AiReasoningDetailScreen.name,
+                    parentNavigatorKey: _rootNavKey,
+                    pageBuilder: (_, state) => CustomTransitionPage(
+                      opaque: false,
+                      barrierDismissible: true,
+                      fullscreenDialog: true,
+                      transitionsBuilder: (_, animation, __, child) {
+                        return SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0, 1),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          )),
+                          child: child,
+                        );
+                      },
+                      child: AiReasoningDetailScreen(
+                        outfitId: state.pathParameters['id']!,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-
-      // ─── Wardrobe ─────────────────────────────────────────────
-      GoRoute(
-        path: WardrobeScreen.path,
-        name: WardrobeScreen.name,
-        builder: (_, __) => const WardrobeScreen(),
-        routes: [
-          GoRoute(
-            path: ScannerScreen.path,
-            name: ScannerScreen.name,
-            builder: (_, __) => const ScannerScreen(),
+          StatefulShellBranch(
+            navigatorKey: _wardrobeNavKey,
+            routes: [
+              GoRoute(
+                path: WardrobeScreen.path,
+                name: WardrobeScreen.name,
+                builder: (_, __) => const WardrobeScreen(),
+                routes: [
+                  GoRoute(
+                    path: ScannerScreen.path,
+                    name: ScannerScreen.name,
+                    parentNavigatorKey: _rootNavKey,
+                    builder: (_, __) => const ScannerScreen(),
+                  ),
+                  GoRoute(
+                    path: BatchUploadScreen.path,
+                    name: BatchUploadScreen.name,
+                    builder: (_, __) => const BatchUploadScreen(),
+                  ),
+                  GoRoute(
+                    path: wardrobe_manual.ManualEntryScreen.path,
+                    name: wardrobe_manual.ManualEntryScreen.name,
+                    builder: (_, __) => const wardrobe_manual.ManualEntryScreen(),
+                  ),
+                  GoRoute(
+                    path: IntelligenceReportScreen.path,
+                    name: IntelligenceReportScreen.name,
+                    builder: (_, __) => const IntelligenceReportScreen(),
+                  ),
+                  GoRoute(
+                    path: WeeklyRecapScreen.path,
+                    name: WeeklyRecapScreen.name,
+                    builder: (_, __) => const WeeklyRecapScreen(),
+                  ),
+                  GoRoute(
+                    path: ItemDetailScreen.path,
+                    name: ItemDetailScreen.name,
+                    builder: (_, state) => ItemDetailScreen(
+                      itemId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          GoRoute(
-            path: BatchUploadScreen.path,
-            name: BatchUploadScreen.name,
-            builder: (_, __) => const BatchUploadScreen(),
+          StatefulShellBranch(
+            navigatorKey: _shopNavKey,
+            routes: [
+              GoRoute(
+                path: ShopPlaceholderScreen.path,
+                name: ShopPlaceholderScreen.name,
+                builder: (_, __) => const ShopPlaceholderScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: wardrobe_manual.ManualEntryScreen.path,
-            name: wardrobe_manual.ManualEntryScreen.name,
-            builder: (_, __) => const wardrobe_manual.ManualEntryScreen(),
-          ),
-          GoRoute(
-            path: IntelligenceReportScreen.path,
-            name: IntelligenceReportScreen.name,
-            builder: (_, __) => const IntelligenceReportScreen(),
-          ),
-          GoRoute(
-            path: WeeklyRecapScreen.path,
-            name: WeeklyRecapScreen.name,
-            builder: (_, __) => const WeeklyRecapScreen(),
-          ),
-          GoRoute(
-            path: ItemDetailScreen.path,
-            name: ItemDetailScreen.name,
-            builder: (_, state) => ItemDetailScreen(
-              itemId: state.pathParameters['id']!,
-            ),
+          StatefulShellBranch(
+            navigatorKey: _profileNavKey,
+            routes: [
+              GoRoute(
+                path: ProfilePlaceholderScreen.path,
+                name: ProfilePlaceholderScreen.name,
+                builder: (_, __) => const ProfilePlaceholderScreen(),
+              ),
+            ],
           ),
         ],
       ),
