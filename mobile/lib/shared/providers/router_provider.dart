@@ -27,17 +27,24 @@ import '../../modules/onboarding/screens/weight_input_screen.dart';
 import '../../modules/profile/screens/account_settings_screen.dart';
 import '../../modules/profile/screens/appearance_settings_screen.dart';
 import '../../modules/profile/screens/billing_history_screen.dart';
+import '../../modules/profile/screens/bug_report_success_screen.dart';
 import '../../modules/profile/screens/compare_plans_screen.dart';
+import '../../modules/profile/screens/contact_us_screen.dart';
 import '../../modules/profile/screens/delete_account_screen.dart';
 import '../../modules/profile/screens/edit_profile_screen.dart';
 import '../../modules/profile/screens/email_password_settings_screen.dart';
 import '../../modules/profile/screens/export_my_data_screen.dart';
+import '../../modules/profile/screens/faqs_screen.dart';
+import '../../modules/profile/screens/feature_request_screen.dart';
+import '../../modules/profile/screens/feature_request_success_screen.dart';
 import '../../modules/profile/screens/final_cancellation_confirmation_screen.dart';
+import '../../modules/profile/screens/help_center_hub_screen.dart';
 import '../../modules/profile/screens/how_drape_uses_data_screen.dart';
 import '../../modules/profile/screens/notifications_preferences_screen.dart';
 import '../../modules/profile/screens/payment_methods_screen.dart';
 import '../../modules/profile/screens/privacy_data_screen.dart';
 import '../../modules/profile/screens/profile_intelligence_screen.dart';
+import '../../modules/profile/screens/report_bug_screen.dart';
 import '../../modules/profile/screens/retention_offer_screen.dart';
 import '../../modules/profile/screens/settings_screen.dart';
 import '../../modules/profile/screens/style_preferences_screen.dart';
@@ -381,6 +388,41 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: DeleteAccountScreen.path,
                     name: DeleteAccountScreen.name,
                     builder: (_, _) => const DeleteAccountScreen(),
+                  ),
+                  GoRoute(
+                    path: HelpCenterHubScreen.path,
+                    name: HelpCenterHubScreen.name,
+                    builder: (_, _) => const HelpCenterHubScreen(),
+                  ),
+                  GoRoute(
+                    path: FaqsScreen.path,
+                    name: FaqsScreen.name,
+                    builder: (_, _) => const FaqsScreen(),
+                  ),
+                  GoRoute(
+                    path: ContactUsScreen.path,
+                    name: ContactUsScreen.name,
+                    builder: (_, _) => const ContactUsScreen(),
+                  ),
+                  GoRoute(
+                    path: ReportBugScreen.path,
+                    name: ReportBugScreen.name,
+                    builder: (_, _) => const ReportBugScreen(),
+                  ),
+                  GoRoute(
+                    path: BugReportSuccessScreen.path,
+                    name: BugReportSuccessScreen.name,
+                    builder: (_, _) => const BugReportSuccessScreen(),
+                  ),
+                  GoRoute(
+                    path: FeatureRequestScreen.path,
+                    name: FeatureRequestScreen.name,
+                    builder: (_, _) => const FeatureRequestScreen(),
+                  ),
+                  GoRoute(
+                    path: FeatureRequestSuccessScreen.path,
+                    name: FeatureRequestSuccessScreen.name,
+                    builder: (_, _) => const FeatureRequestSuccessScreen(),
                   ),
                 ],
               ),
