@@ -44,77 +44,90 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const DrapeAppBar(),
+      // Content is centered vertically when there's spare room, and becomes
+      // scrollable once the keyboard reduces the available height.
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-          children: [
-            Text(
-              'Welcome back',
-              style: Theme.of(context).textTheme.headlineLarge,
-            ),
-            const SizedBox(height: 28),
-            OAuthButtons(
-              onApple: () => debugPrint('login: apple'),
-              onGoogle: () => debugPrint('login: google'),
-            ),
-            DrapeTextField(
-              label: 'Email address',
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-            ),
-            const SizedBox(height: 16),
-            DrapeTextField(
-              label: 'Password',
-              controller: _passwordController,
-              obscureText: true,
-              textInputAction: TextInputAction.done,
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () =>
-                    context.goNamed(ForgotPasswordScreen.name),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 0),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  'Forgot password?',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.espresso,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            DrapeButton(label: 'Sign In', onPressed: _onSignIn),
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton(
-                onPressed: () => context.goNamed(SignUpScreen.name),
-                child: Text.rich(
-                  TextSpan(
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    children: const [
-                      TextSpan(text: 'No account?  '),
-                      TextSpan(
-                        text: 'Create one free',
-                        style: TextStyle(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.underline,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Welcome back',
+                      style: Theme.of(context).textTheme.headlineLarge,
+                    ),
+                    const SizedBox(height: 28),
+                    OAuthButtons(
+                      onApple: () => debugPrint('login: apple'),
+                      onGoogle: () => debugPrint('login: google'),
+                    ),
+                    DrapeTextField(
+                      label: 'Email address',
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 16),
+                    DrapeTextField(
+                      label: 'Password',
+                      controller: _passwordController,
+                      obscureText: true,
+                      textInputAction: TextInputAction.done,
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () =>
+                            context.goNamed(ForgotPasswordScreen.name),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(0, 0),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Forgot password?',
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: AppColors.espresso,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 16),
+                    DrapeButton(label: 'Sign In', onPressed: _onSignIn),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: TextButton(
+                        onPressed: () => context.goNamed(SignUpScreen.name),
+                        child: Text.rich(
+                          TextSpan(
+                            style: Theme.of(context).textTheme.bodyMedium,
+                            children: const [
+                              TextSpan(text: 'No account?  '),
+                              TextSpan(
+                                text: 'Create one free',
+                                style: TextStyle(
+                                  color: AppColors.ink,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

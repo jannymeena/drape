@@ -41,92 +41,112 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const DrapeAppBar(title: 'Create Account'),
+      // Content is centered vertically when there's spare room, and becomes
+      // scrollable once the keyboard reduces the available height.
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-          children: [
-            OAuthButtons(
-              onApple: () => debugPrint('signup: apple'),
-              onGoogle: () => debugPrint('signup: google'),
-            ),
-            DrapeTextField(
-              label: 'Email address',
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-            ),
-            const SizedBox(height: 16),
-            PasswordField(controller: _passwordController),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                const Icon(Icons.lock_outline, size: 16, color: AppColors.inkSoft),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      style: Theme.of(context).textTheme.bodySmall,
-                      children: const [
-                        TextSpan(text: 'Your data is stored securely in Canada. '),
-                        TextSpan(text: '🇨🇦'),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OAuthButtons(
+                      onApple: () => debugPrint('signup: apple'),
+                      onGoogle: () => debugPrint('signup: google'),
+                    ),
+                    DrapeTextField(
+                      label: 'Email address',
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 16),
+                    PasswordField(controller: _passwordController),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.lock_outline,
+                          size: 16,
+                          color: AppColors.inkSoft,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text.rich(
+                            TextSpan(
+                              style: Theme.of(context).textTheme.bodySmall,
+                              children: const [
+                                TextSpan(
+                                  text:
+                                      'Your data is stored securely in Canada. ',
+                                ),
+                                TextSpan(text: '🇨🇦'),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text.rich(
-              TextSpan(
-                style: Theme.of(context).textTheme.bodySmall,
-                children: const [
-                  TextSpan(text: 'By continuing, you agree to our '),
-                  TextSpan(
-                    text: 'Terms',
-                    style: TextStyle(
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                  TextSpan(text: ' and '),
-                  TextSpan(
-                    text: 'Privacy Policy',
-                    style: TextStyle(
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                  TextSpan(text: '.'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            DrapeButton(label: 'Create Account', onPressed: _onCreate),
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton(
-                onPressed: () => context.goNamed(LoginScreen.name),
-                child: Text.rich(
-                  TextSpan(
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    children: const [
-                      TextSpan(text: 'Already have an account?  '),
+                    const SizedBox(height: 8),
+                    Text.rich(
                       TextSpan(
-                        text: 'Sign In',
-                        style: TextStyle(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.underline,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        children: const [
+                          TextSpan(text: 'By continuing, you agree to our '),
+                          TextSpan(
+                            text: 'Terms',
+                            style: TextStyle(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                          TextSpan(text: ' and '),
+                          TextSpan(
+                            text: 'Privacy Policy',
+                            style: TextStyle(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                          TextSpan(text: '.'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    DrapeButton(label: 'Create Account', onPressed: _onCreate),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: TextButton(
+                        onPressed: () => context.goNamed(LoginScreen.name),
+                        child: Text.rich(
+                          TextSpan(
+                            style: Theme.of(context).textTheme.bodyMedium,
+                            children: const [
+                              TextSpan(text: 'Already have an account?  '),
+                              TextSpan(
+                                text: 'Sign In',
+                                style: TextStyle(
+                                  color: AppColors.ink,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
