@@ -52,6 +52,13 @@ import '../../modules/profile/screens/subscription_management_screen.dart';
 import '../../modules/shop/screens/ai_advisor_conversation_screen.dart';
 import '../../modules/shop/screens/ai_advisor_history_screen.dart';
 import '../../modules/shop/screens/ai_advisor_initial_screen.dart';
+import '../../modules/shop/screens/buy_dont_buy_choose_image_screen.dart';
+import '../../modules/shop/screens/buy_dont_buy_confirm_product_screen.dart';
+import '../../modules/shop/screens/buy_dont_buy_limit_reached_screen.dart';
+import '../../modules/shop/screens/buy_dont_buy_scan_screen.dart';
+import '../../modules/shop/screens/buy_dont_buy_scanning_screen.dart';
+import '../../modules/shop/screens/buy_dont_buy_verdict_buy_screen.dart';
+import '../../modules/shop/screens/buy_dont_buy_verdict_dont_buy_screen.dart';
 import '../../modules/shop/screens/gap_analysis_screen.dart';
 import '../../modules/shop/screens/shop_feed_empty_screen.dart';
 import '../../modules/shop/screens/shop_feed_loading_screen.dart';
@@ -329,6 +336,41 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: GapAnalysisScreen.path,
                     name: GapAnalysisScreen.name,
                     builder: (_, _) => const GapAnalysisScreen(),
+                  ),
+                  GoRoute(
+                    path: BuyDontBuyScanScreen.path,
+                    name: BuyDontBuyScanScreen.name,
+                    builder: (_, _) => const BuyDontBuyScanScreen(),
+                  ),
+                  GoRoute(
+                    path: BuyDontBuyScanningScreen.path,
+                    name: BuyDontBuyScanningScreen.name,
+                    builder: (_, _) => const BuyDontBuyScanningScreen(),
+                  ),
+                  GoRoute(
+                    path: ConfirmProductScreen.path,
+                    name: ConfirmProductScreen.name,
+                    builder: (_, _) => const ConfirmProductScreen(),
+                  ),
+                  GoRoute(
+                    path: ChooseProductImageScreen.path,
+                    name: ChooseProductImageScreen.name,
+                    builder: (_, _) => const ChooseProductImageScreen(),
+                  ),
+                  GoRoute(
+                    path: BuyDontBuyVerdictBuyScreen.path,
+                    name: BuyDontBuyVerdictBuyScreen.name,
+                    builder: (_, _) => const BuyDontBuyVerdictBuyScreen(),
+                  ),
+                  GoRoute(
+                    path: BuyDontBuyVerdictDontBuyScreen.path,
+                    name: BuyDontBuyVerdictDontBuyScreen.name,
+                    builder: (_, _) => const BuyDontBuyVerdictDontBuyScreen(),
+                  ),
+                  GoRoute(
+                    path: BuyDontBuyLimitReachedScreen.path,
+                    name: BuyDontBuyLimitReachedScreen.name,
+                    builder: (_, _) => const BuyDontBuyLimitReachedScreen(),
                   ),
                 ],
               ),
