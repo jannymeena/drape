@@ -44,6 +44,10 @@ dependencies:
   # Typography (Cormorant Garamond + DM Sans) — used in Phase B
   google_fonts: ^6.2.1
 
+  # Mock session persistence (Phase C dev ergonomics — replaced by
+  # flutter_secure_storage + real JWT in Phase D/E)
+  shared_preferences: ^2.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
