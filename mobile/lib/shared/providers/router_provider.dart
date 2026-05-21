@@ -28,11 +28,15 @@ import '../../modules/profile/screens/account_settings_screen.dart';
 import '../../modules/profile/screens/appearance_settings_screen.dart';
 import '../../modules/profile/screens/billing_history_screen.dart';
 import '../../modules/profile/screens/compare_plans_screen.dart';
+import '../../modules/profile/screens/delete_account_screen.dart';
 import '../../modules/profile/screens/edit_profile_screen.dart';
 import '../../modules/profile/screens/email_password_settings_screen.dart';
+import '../../modules/profile/screens/export_my_data_screen.dart';
 import '../../modules/profile/screens/final_cancellation_confirmation_screen.dart';
+import '../../modules/profile/screens/how_drape_uses_data_screen.dart';
 import '../../modules/profile/screens/notifications_preferences_screen.dart';
 import '../../modules/profile/screens/payment_methods_screen.dart';
+import '../../modules/profile/screens/privacy_data_screen.dart';
 import '../../modules/profile/screens/profile_intelligence_screen.dart';
 import '../../modules/profile/screens/retention_offer_screen.dart';
 import '../../modules/profile/screens/settings_screen.dart';
@@ -357,6 +361,26 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: ComparePlansScreen.path,
                     name: ComparePlansScreen.name,
                     builder: (_, _) => const ComparePlansScreen(),
+                  ),
+                  GoRoute(
+                    path: PrivacyDataScreen.path,
+                    name: PrivacyDataScreen.name,
+                    builder: (_, _) => const PrivacyDataScreen(),
+                  ),
+                  GoRoute(
+                    path: HowDrapeUsesDataScreen.path,
+                    name: HowDrapeUsesDataScreen.name,
+                    builder: (_, _) => const HowDrapeUsesDataScreen(),
+                  ),
+                  GoRoute(
+                    path: ExportMyDataScreen.path,
+                    name: ExportMyDataScreen.name,
+                    builder: (_, _) => const ExportMyDataScreen(),
+                  ),
+                  GoRoute(
+                    path: DeleteAccountScreen.path,
+                    name: DeleteAccountScreen.name,
+                    builder: (_, _) => const DeleteAccountScreen(),
                   ),
                 ],
               ),
