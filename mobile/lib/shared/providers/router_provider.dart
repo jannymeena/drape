@@ -49,7 +49,13 @@ import '../../modules/profile/screens/retention_offer_screen.dart';
 import '../../modules/profile/screens/settings_screen.dart';
 import '../../modules/profile/screens/style_preferences_screen.dart';
 import '../../modules/profile/screens/subscription_management_screen.dart';
-import '../../modules/shop/screens/shop_placeholder_screen.dart';
+import '../../modules/shop/screens/ai_advisor_conversation_screen.dart';
+import '../../modules/shop/screens/ai_advisor_history_screen.dart';
+import '../../modules/shop/screens/ai_advisor_initial_screen.dart';
+import '../../modules/shop/screens/gap_analysis_screen.dart';
+import '../../modules/shop/screens/shop_feed_empty_screen.dart';
+import '../../modules/shop/screens/shop_feed_loading_screen.dart';
+import '../../modules/shop/screens/shop_feed_screen.dart';
 import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
 import '../../modules/today/screens/outfit_history_screen.dart';
 import '../../modules/today/screens/today_dashboard_screen.dart';
@@ -290,9 +296,41 @@ final routerProvider = Provider<GoRouter>((ref) {
             navigatorKey: _shopNavKey,
             routes: [
               GoRoute(
-                path: ShopPlaceholderScreen.path,
-                name: ShopPlaceholderScreen.name,
-                builder: (_, _) => const ShopPlaceholderScreen(),
+                path: ShopFeedScreen.path,
+                name: ShopFeedScreen.name,
+                builder: (_, _) => const ShopFeedScreen(),
+                routes: [
+                  GoRoute(
+                    path: ShopFeedEmptyScreen.path,
+                    name: ShopFeedEmptyScreen.name,
+                    builder: (_, _) => const ShopFeedEmptyScreen(),
+                  ),
+                  GoRoute(
+                    path: ShopFeedLoadingScreen.path,
+                    name: ShopFeedLoadingScreen.name,
+                    builder: (_, _) => const ShopFeedLoadingScreen(),
+                  ),
+                  GoRoute(
+                    path: AiAdvisorInitialScreen.path,
+                    name: AiAdvisorInitialScreen.name,
+                    builder: (_, _) => const AiAdvisorInitialScreen(),
+                  ),
+                  GoRoute(
+                    path: AiAdvisorConversationScreen.path,
+                    name: AiAdvisorConversationScreen.name,
+                    builder: (_, _) => const AiAdvisorConversationScreen(),
+                  ),
+                  GoRoute(
+                    path: AiAdvisorHistoryScreen.path,
+                    name: AiAdvisorHistoryScreen.name,
+                    builder: (_, _) => const AiAdvisorHistoryScreen(),
+                  ),
+                  GoRoute(
+                    path: GapAnalysisScreen.path,
+                    name: GapAnalysisScreen.name,
+                    builder: (_, _) => const GapAnalysisScreen(),
+                  ),
+                ],
               ),
             ],
           ),
