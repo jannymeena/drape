@@ -59,6 +59,40 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  # Native launch screen + app icon generators (build-time only — these read
+  # assets/branding/* and write the native Android/iOS resources). Re-run after
+  # changing the brand assets:
+  #   dart run flutter_native_splash:create
+  #   dart run flutter_launcher_icons
+  flutter_native_splash: ^2.4.3
+  flutter_launcher_icons: ^0.14.1
+
+# Native launch screen: espressoDeep background + DRAPE wordmark, so the OS-level
+# launch screen matches the in-app SplashScreen widget (no white flash). The
+# android_12 block replaces the default Flutter icon shown by the Android 12+
+# system splash with the Drape "D" monogram.
+flutter_native_splash:
+  color: "#18100A"
+  image: assets/branding/splash_logo.png
+  android: true
+  ios: true
+  web: false
+  android_12:
+    color: "#18100A"
+    image: assets/branding/splash_logo_android12.png
+
+# App launcher icon: ivory "D" monogram on espressoDeep. Replaces the default
+# Flutter logo on the home screen (and the Android 12 system-splash icon).
+flutter_launcher_icons:
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/branding/app_icon.png"
+  adaptive_icon_background: "#18100A"
+  adaptive_icon_foreground: "assets/branding/app_icon_foreground.png"
+  web:
+    generate: false
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
