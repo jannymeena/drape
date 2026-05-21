@@ -60,9 +60,11 @@ import '../../modules/shop/screens/buy_dont_buy_scanning_screen.dart';
 import '../../modules/shop/screens/buy_dont_buy_verdict_buy_screen.dart';
 import '../../modules/shop/screens/buy_dont_buy_verdict_dont_buy_screen.dart';
 import '../../modules/shop/screens/gap_analysis_screen.dart';
+import '../../modules/shop/screens/in_app_browser_screen.dart';
 import '../../modules/shop/screens/shop_feed_empty_screen.dart';
 import '../../modules/shop/screens/shop_feed_loading_screen.dart';
 import '../../modules/shop/screens/shop_feed_screen.dart';
+import '../../modules/shop/screens/wishlist_screen.dart';
 import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
 import '../../modules/today/screens/outfit_history_screen.dart';
 import '../../modules/today/screens/today_dashboard_screen.dart';
@@ -371,6 +373,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: BuyDontBuyLimitReachedScreen.path,
                     name: BuyDontBuyLimitReachedScreen.name,
                     builder: (_, _) => const BuyDontBuyLimitReachedScreen(),
+                  ),
+                  GoRoute(
+                    path: InAppBrowserScreen.path,
+                    name: InAppBrowserScreen.name,
+                    builder: (_, _) => const InAppBrowserScreen(),
+                  ),
+                  GoRoute(
+                    path: WishlistScreen.path,
+                    name: WishlistScreen.name,
+                    builder: (_, _) => const WishlistScreen(),
                   ),
                 ],
               ),
