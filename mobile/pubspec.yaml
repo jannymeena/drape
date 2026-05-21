@@ -78,8 +78,11 @@ flutter_native_splash:
   ios: true
   web: false
   android_12:
+    # Android 12+ masks the splash icon to a circle, so the wide DRAPE wordmark
+    # can't fit. Use a solid-espresso icon that blends into the matching #18100A
+    # background → a clean dark splash (no 'D'), then the Flutter DRAPE splash.
     color: "#18100A"
-    image: assets/branding/splash_logo_android12.png
+    image: assets/branding/splash_android12_blank.png
 
 # App launcher icon: ivory "D" monogram on espressoDeep. Replaces the default
 # Flutter logo on the home screen (and the Android 12 system-splash icon).
