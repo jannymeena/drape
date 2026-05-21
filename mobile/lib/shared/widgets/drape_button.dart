@@ -9,8 +9,19 @@ class DrapeButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final DrapeButtonVariant variant;
   final Widget? leading;
+  final Widget? trailing;
   final bool fullWidth;
   final bool loading;
+
+  /// Fully-rounded (stadium) shape instead of the default 14dp radius.
+  final bool pill;
+
+  /// Material elevation for a soft drop shadow (0 = flat, the default).
+  final double elevation;
+
+  /// Overrides the default label text style (defaults to `titleSmall`); the
+  /// foreground color is always applied on top. Use for larger hero CTAs.
+  final TextStyle? labelStyle;
 
   const DrapeButton({
     super.key,
@@ -18,8 +29,12 @@ class DrapeButton extends StatelessWidget {
     required this.onPressed,
     this.variant = DrapeButtonVariant.filled,
     this.leading,
+    this.trailing,
     this.fullWidth = true,
     this.loading = false,
+    this.pill = false,
+    this.elevation = 0,
+    this.labelStyle,
   });
 
   const DrapeButton.outlined({
@@ -29,7 +44,11 @@ class DrapeButton extends StatelessWidget {
     this.leading,
     this.fullWidth = true,
     this.loading = false,
-  }) : variant = DrapeButtonVariant.outlined;
+  })  : variant = DrapeButtonVariant.outlined,
+        trailing = null,
+        pill = false,
+        elevation = 0,
+        labelStyle = null;
 
   const DrapeButton.text({
     super.key,
@@ -38,7 +57,11 @@ class DrapeButton extends StatelessWidget {
     this.leading,
     this.fullWidth = false,
     this.loading = false,
-  }) : variant = DrapeButtonVariant.text;
+  })  : variant = DrapeButtonVariant.text,
+        trailing = null,
+        pill = false,
+        elevation = 0,
+        labelStyle = null;
 
   const DrapeButton.apple({
     super.key,
@@ -47,7 +70,11 @@ class DrapeButton extends StatelessWidget {
     this.fullWidth = true,
     this.loading = false,
   })  : variant = DrapeButtonVariant.apple,
-        leading = const Icon(Icons.apple, color: AppColors.white, size: 20);
+        leading = const Icon(Icons.apple, color: AppColors.white, size: 20),
+        trailing = null,
+        pill = false,
+        elevation = 0,
+        labelStyle = null;
 
   const DrapeButton.google({
     super.key,
@@ -56,15 +83,17 @@ class DrapeButton extends StatelessWidget {
     this.fullWidth = true,
     this.loading = false,
   })  : variant = DrapeButtonVariant.google,
-        leading = const _GoogleLogo();
+        leading = const _GoogleLogo(),
+        trailing = null,
+        pill = false,
+        elevation = 0,
+        labelStyle = null;
 
   @override
   Widget build(BuildContext context) {
     final colors = _colorsFor(variant);
-    final textStyle = Theme.of(context).textTheme.titleSmall?.copyWith(
-          color: colors.foreground,
-          fontWeight: FontWeight.w600,
-        );
+    final textStyle = (labelStyle ?? Theme.of(context).textTheme.titleSmall)
+        ?.copyWith(color: colors.foreground);
 
     final child = loading
         ? SizedBox(
@@ -84,20 +113,26 @@ class DrapeButton extends StatelessWidget {
                 const SizedBox(width: 10),
               ],
               Text(label, style: textStyle),
+              if (trailing != null) ...[
+                const SizedBox(width: 10),
+                trailing!,
+              ],
             ],
           );
 
+    final radius = BorderRadius.circular(pill ? 999 : 14);
+    final border = colors.border == null
+        ? BorderSide.none
+        : BorderSide(color: colors.border!, width: 1);
+
     final button = Material(
       color: colors.background,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: colors.border == null
-            ? BorderSide.none
-            : BorderSide(color: colors.border!, width: 1),
-      ),
+      elevation: elevation,
+      shadowColor: AppColors.espressoDeep.withValues(alpha: 0.25),
+      shape: RoundedRectangleBorder(borderRadius: radius, side: border),
       child: InkWell(
         onTap: loading ? null : onPressed,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: radius,
         child: SizedBox(
           height: 56,
           child: Center(child: child),
