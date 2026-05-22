@@ -72,6 +72,17 @@ class AuthController extends StateNotifier<AuthState> {
     return _service.requestPasswordReset(email: email);
   }
 
+  /// Sets a new password from the reset-email token. On success the backend
+  /// revokes all refresh tokens, so the caller routes to login. Throws
+  /// [ApiException] on an invalid/expired token or weak password. No local
+  /// session change (the reset flow runs signed-out).
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) {
+    return _service.resetPassword(token: token, newPassword: newPassword);
+  }
+
   /// On launch: if an access token is stored, hydrate identity via `/users/me`.
   /// An expired access token is refreshed transparently by the
   /// RefreshInterceptor (using the stored refresh token), so this succeeds for

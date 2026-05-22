@@ -88,6 +88,26 @@ class AuthService {
     }
   }
 
+  /// `POST /auth/reset-password` — sets a new password using the opaque token
+  /// from the reset email. On success (204) the backend revokes all of the
+  /// user's refresh tokens, so they must sign in again.
+  ///
+  /// Throws [ApiException] on an invalid/expired/used token (400
+  /// `invalid_reset_token`), a weak password (422), or transport errors.
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await _dio.post<void>(
+        '/auth/reset-password',
+        data: {'token': token, 'new_password': newPassword},
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   /// `GET /users/me` — the signed-in user's identity (bearer attached by the
   /// auth interceptor). Throws [ApiException] (401 on an expired/invalid token).
   Future<CurrentUser> fetchCurrentUser() async {

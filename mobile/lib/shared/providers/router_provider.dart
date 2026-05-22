@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../debug/theme_gallery_screen.dart';
 import '../../modules/auth/screens/forgot_password_screen.dart';
 import '../../modules/auth/screens/login_screen.dart';
+import '../../modules/auth/screens/reset_password_screen.dart';
 import '../../modules/auth/screens/sign_up_screen.dart';
 import '../../modules/auth/screens/welcome_screen.dart';
 import '../../modules/onboarding/screens/age_range_screen.dart';
@@ -135,6 +136,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: ForgotPasswordScreen.path,
         name: ForgotPasswordScreen.name,
         builder: (_, _) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        // Entry point for the reset-email deep link: /auth/reset-password?token=…
+        path: ResetPasswordScreen.path,
+        name: ResetPasswordScreen.name,
+        builder: (_, state) =>
+            ResetPasswordScreen(token: state.uri.queryParameters['token']),
       ),
 
       // ─── Onboarding: style profile ────────────────────────────

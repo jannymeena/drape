@@ -20,7 +20,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg2://admin:password@localhost:5433/drape"
 
     jwt_secret: str = _DEV_JWT_SECRET
-    jwt_access_ttl_minutes: int = 1440  # 24h, per CTO doc
+    # Short-lived access token; the client silently refreshes it via the
+    # 30-day rotating refresh token. Override per env with JWT_ACCESS_TTL_MINUTES
+    # (dev .env already sets 60). Keep this default short so any env that omits
+    # the override doesn't inherit a long-lived token.
+    jwt_access_ttl_minutes: int = 60
     jwt_refresh_ttl_days: int = 30
 
     apple_client_id: str | None = None
