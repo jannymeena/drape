@@ -2,18 +2,20 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/api_config.dart';
+import 'session_store.dart';
 import 'storage_service.dart';
 
 /// Builds the single shared [Dio] instance for the whole app.
 ///
 /// Interceptors (per `MOBILE_PLAN.md` §"Phase D"):
 /// - [_AuthInterceptor]    — attaches the bearer access token from storage.
+/// - [_RefreshInterceptor] — on 401, silently refreshes the (short-lived)
+///   access token via the rotating refresh token and retries the request.
 /// - [_LoggingInterceptor] — structlog-style request/response/error in debug.
 ///
-/// NOT yet wired: the RefreshInterceptor (queue concurrent 401s → one
-/// `POST /auth/refresh-token` → retry). It needs the refresh endpoint + a
-/// request queue; it lands when the rest of Phase D does. Until then an expired
-/// access token surfaces as a 401 the caller handles (login simply re-auths).
+/// The refresh interceptor is added *after* auth so it sees the 401 with the
+/// (now-stale) bearer that auth attached, and *before* logging so a recovered
+/// request's retry is what gets logged.
 Dio buildDio(StorageService storage) {
   final dio = Dio(
     BaseOptions(
@@ -25,6 +27,7 @@ Dio buildDio(StorageService storage) {
   );
 
   dio.interceptors.add(_AuthInterceptor(storage));
+  dio.interceptors.add(_RefreshInterceptor(storage: storage, client: dio));
   if (kDebugMode) {
     dio.interceptors.add(_LoggingInterceptor());
   }
@@ -51,6 +54,121 @@ class _AuthInterceptor extends Interceptor {
       }
     }
     handler.next(options);
+  }
+}
+
+/// Silent token refresh on `401`.
+///
+/// The access token is short-lived; the refresh token lives ~30 days and
+/// rotates (single-use) on each refresh. When an authed call comes back `401`,
+/// this interceptor calls `POST /auth/refresh-token` once, stores the new pair,
+/// and replays the original request with the fresh access token — so the user
+/// stays signed in until the *refresh* token expires, not the access token.
+///
+/// Extends [QueuedInterceptor] so concurrent 401s are handled one at a time:
+/// the first triggers the refresh; the rest see the already-rotated token in
+/// storage and simply retry (no duplicate refresh against a now-revoked token).
+///
+/// The refresh call and the replayed request both go through a **bare** Dio
+/// ([_bare]) with no interceptors — never back through this queued interceptor.
+/// That's deliberate: re-entering the error queue from inside an error handler
+/// (e.g. when the refresh itself 401s) would deadlock the queue. A request is
+/// retried at most once (guarded by `extra['__refresh_retried__']`). When
+/// refresh itself fails (refresh token expired/revoked), local session state is
+/// cleared so the router falls back to Welcome.
+class _RefreshInterceptor extends QueuedInterceptor {
+  _RefreshInterceptor({required this.storage, required this.client});
+
+  final StorageService storage;
+  final Dio client;
+
+  static const _retriedFlag = '__refresh_retried__';
+
+  /// Interceptor-free client for the refresh POST and the replayed request, so
+  /// neither re-enters this interceptor's (occupied) error queue. Shares
+  /// [client]'s adapter — the real one in production, a fake in tests.
+  late final Dio _bare = Dio(
+    BaseOptions(
+      baseUrl: client.options.baseUrl,
+      connectTimeout: client.options.connectTimeout,
+      receiveTimeout: client.options.receiveTimeout,
+      contentType: Headers.jsonContentType,
+    ),
+  );
+
+  @override
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
+    final options = err.requestOptions;
+    final is401 = err.response?.statusCode == 401;
+    final isAuthRoute = options.path.startsWith('/auth/');
+    final alreadyRetried = options.extra[_retriedFlag] == true;
+
+    if (!is401 || isAuthRoute || alreadyRetried) {
+      return handler.next(err);
+    }
+
+    // A concurrent 401 may have already refreshed the token while this one was
+    // queued — if storage now holds a different access token, just retry.
+    final usedAuth = options.headers['Authorization'] as String?;
+    final storedAccess = await storage.getAccessToken();
+    if (storedAccess != null && usedAuth != 'Bearer $storedAccess') {
+      return _retry(options, storedAccess, handler);
+    }
+
+    final refreshToken = await storage.getRefreshToken();
+    if (refreshToken == null) {
+      await _onRefreshFailed();
+      return handler.next(err);
+    }
+
+    try {
+      final tokens = await _refresh(refreshToken);
+      await storage.saveTokens(
+        accessToken: tokens.access,
+        refreshToken: tokens.refresh,
+      );
+      return _retry(options, tokens.access, handler);
+    } catch (_) {
+      await _onRefreshFailed();
+      return handler.next(err);
+    }
+  }
+
+  Future<({String access, String refresh})> _refresh(String refreshToken) async {
+    _bare.httpClientAdapter = client.httpClientAdapter;
+    final resp = await _bare.post<Map<String, dynamic>>(
+      '/auth/refresh-token',
+      data: {'refresh_token': refreshToken},
+    );
+    final data = resp.data!;
+    return (
+      access: data['access_token'] as String,
+      refresh: data['refresh_token'] as String,
+    );
+  }
+
+  Future<void> _retry(
+    RequestOptions options,
+    String accessToken,
+    ErrorInterceptorHandler handler,
+  ) async {
+    options.headers['Authorization'] = 'Bearer $accessToken';
+    options.extra[_retriedFlag] = true;
+    _bare.httpClientAdapter = client.httpClientAdapter;
+    try {
+      final response = await _bare.fetch<dynamic>(options);
+      handler.resolve(response);
+    } on DioException catch (e) {
+      handler.next(e);
+    }
+  }
+
+  Future<void> _onRefreshFailed() async {
+    await storage.clearAll();
+    await SessionStore.clear();
   }
 }
 

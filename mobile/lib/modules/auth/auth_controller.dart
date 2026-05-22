@@ -72,10 +72,13 @@ class AuthController extends StateNotifier<AuthState> {
     return _service.requestPasswordReset(email: email);
   }
 
-  /// On launch: if an access token is stored, validate + hydrate identity via
-  /// `/users/me`. Returns true when a live session was restored. A rejected
-  /// token (401 — refresh-on-401 is deferred) clears local state so the router
-  /// falls back to Welcome. Returns false when there's no stored token.
+  /// On launch: if an access token is stored, hydrate identity via `/users/me`.
+  /// An expired access token is refreshed transparently by the
+  /// RefreshInterceptor (using the stored refresh token), so this succeeds for
+  /// any user whose refresh token is still valid. Only a refresh that itself
+  /// fails (refresh token expired/revoked ~30 days idle) surfaces as an
+  /// [ApiException] here — we clear local state so the router falls back to
+  /// Welcome. Returns true when a live session was restored, false otherwise.
   Future<bool> bootstrap() async {
     if (!await _storage.hasSession()) return false;
     try {
