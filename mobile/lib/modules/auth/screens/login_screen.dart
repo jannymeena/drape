@@ -1,29 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/services/session_store.dart';
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
+import '../../onboarding/screens/shopping_style_screen.dart';
 import '../../today/screens/today_dashboard_screen.dart';
+import '../auth_controller.dart';
 import '../widgets/oauth_buttons.dart';
 import 'forgot_password_screen.dart';
 import 'sign_up_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   static const path = '/auth/login';
   static const name = 'login';
 
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  bool _submitting = false;
+  String? _errorText;
 
   @override
   void dispose() {
@@ -33,11 +39,40 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _onSignIn() async {
-    // Phase E will wire AuthService.login here. For now persist a mock session
-    // so subsequent launches skip straight to Today.
-    debugPrint('login: ${_emailController.text}');
-    await SessionStore.setLoggedIn(true);
-    if (mounted) context.goNamed(TodayDashboardScreen.name);
+    if (_submitting) return;
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _errorText = 'Enter your email and password.');
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _errorText = null;
+    });
+
+    try {
+      final result = await ref
+          .read(authControllerProvider.notifier)
+          .loginWithEmail(email: email, password: password);
+      if (!mounted) return;
+      // Completed users land on Today; everyone else resumes onboarding.
+      context.goNamed(
+        result.onboardingCompleted
+            ? TodayDashboardScreen.name
+            : ShoppingStyleScreen.name,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _errorText = e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorText = 'Something went wrong. Please try again.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -71,6 +106,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() => _errorText = null);
+                        }
+                      },
                     ),
                     const SizedBox(height: 16),
                     DrapeTextField(
@@ -78,6 +118,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordController,
                       obscureText: true,
                       textInputAction: TextInputAction.done,
+                      errorText: _errorText,
+                      onChanged: (_) {
+                        if (_errorText != null) {
+                          setState(() => _errorText = null);
+                        }
+                      },
                     ),
                     const SizedBox(height: 8),
                     Align(
@@ -100,7 +146,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    DrapeButton(label: 'Sign In', onPressed: _onSignIn),
+                    DrapeButton(
+                      label: 'Sign In',
+                      loading: _submitting,
+                      onPressed: _onSignIn,
+                    ),
                     const SizedBox(height: 16),
                     Center(
                       child: TextButton(

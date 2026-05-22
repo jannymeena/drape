@@ -48,6 +48,12 @@ dependencies:
   # flutter_secure_storage + real JWT in Phase D/E)
   shared_preferences: ^2.3.0
 
+  # HTTP client for the backend API (Phase D — API connection layer)
+  dio: ^5.7.0
+
+  # Secure token storage: Keychain (iOS) / EncryptedSharedPreferences (Android)
+  flutter_secure_storage: ^9.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

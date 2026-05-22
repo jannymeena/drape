@@ -75,6 +75,7 @@ import '../../modules/wardrobe/screens/manual_entry_screen.dart' as wardrobe_man
 import '../../modules/wardrobe/screens/scanner_screen.dart';
 import '../../modules/wardrobe/screens/wardrobe_screen.dart';
 import '../../modules/wardrobe/screens/weekly_recap_screen.dart';
+import '../services/session_store.dart';
 import '../widgets/main_shell_scaffold.dart';
 
 final _rootNavKey = GlobalKey<NavigatorState>();
@@ -87,10 +88,23 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavKey,
     initialLocation: SplashScreen.path,
-    // Placeholder for Phase E auth gating; returning null keeps the requested
-    // location. When auth lands, return LoginScreen.path for protected routes
-    // when the user isn't authenticated, and respect deep-link redirect.
+    // Re-run `redirect` whenever the session flag flips (login / logout).
+    refreshListenable: SessionStore.state,
+    // Auth gate: the four main-shell tabs require a session. Auth, onboarding,
+    // splash, and debug routes stay open. Logged-out access to a protected
+    // route bounces to Welcome.
     redirect: (context, state) {
+      const protectedPrefixes = [
+        TodayDashboardScreen.path,
+        WardrobeScreen.path,
+        ShopFeedScreen.path,
+        ProfileIntelligenceScreen.path,
+      ];
+      final loc = state.matchedLocation;
+      final isProtected = protectedPrefixes.any((p) => loc.startsWith(p));
+      if (isProtected && !SessionStore.state.value) {
+        return WelcomeScreen.path;
+      }
       return null;
     },
     routes: [
