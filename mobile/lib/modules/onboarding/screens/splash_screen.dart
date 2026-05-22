@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/services/session_store.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
+import '../../auth/auth_controller.dart';
 import '../../auth/screens/welcome_screen.dart';
 import '../../today/screens/today_dashboard_screen.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   static const path = '/splash';
   static const name = 'splash';
 
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
@@ -25,12 +26,17 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _boot() async {
-    // Phase E: replace with /profile/onboarding-status check → resume route.
-    final loggedIn = await SessionStore.isLoggedIn();
-    await Future.delayed(const Duration(seconds: 2));
+    // Restore + validate any stored session against `/users/me`, while the
+    // splash mark holds for its minimum dwell. A stale token clears itself
+    // inside bootstrap() and we fall through to Welcome.
+    final results = await Future.wait([
+      ref.read(authControllerProvider.notifier).bootstrap(),
+      Future<void>.delayed(const Duration(seconds: 2)),
+    ]);
+    final restored = results.first as bool;
     if (!mounted) return;
     context.goNamed(
-      loggedIn ? TodayDashboardScreen.name : WelcomeScreen.name,
+      restored ? TodayDashboardScreen.name : WelcomeScreen.name,
     );
   }
 
