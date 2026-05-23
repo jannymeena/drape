@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../auth/models/current_user.dart';
+import '../profile_service.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
 
-class ProfileIntelligenceScreen extends StatelessWidget {
+class ProfileIntelligenceScreen extends ConsumerWidget {
   static const path = '/profile';
   static const name = 'profile_intelligence';
 
   const ProfileIntelligenceScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Identity (GET /users/me) hydrates the header; tier (usage/current-week)
+    // drives the Pro/Free badge. Both are best-effort — the rest of the page is
+    // stub content (Phase 8), so a slow/failed fetch shows placeholders rather
+    // than blocking the screen.
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    final isPro = ref.watch(profileIsProProvider).valueOrNull ?? false;
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -24,7 +33,11 @@ class ProfileIntelligenceScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               sliver: SliverList(
                 delegate: SliverChildListDelegate.fixed([
-                  _ProfileHeader(onEdit: () => context.goNamed(EditProfileScreen.name)),
+                  _ProfileHeader(
+                    user: user,
+                    isPro: isPro,
+                    onEdit: () => context.goNamed(EditProfileScreen.name),
+                  ),
                   const SizedBox(height: 24),
                   Text(
                     'WARDROBE INTELLIGENCE',
@@ -89,11 +102,18 @@ class _TopBar extends StatelessWidget {
 }
 
 class _ProfileHeader extends StatelessWidget {
+  final CurrentUser? user;
+  final bool isPro;
   final VoidCallback onEdit;
-  const _ProfileHeader({required this.onEdit});
+  const _ProfileHeader({
+    required this.user,
+    required this.isPro,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final name = user?.displayName ?? '…';
     return Row(
       children: [
         Container(
@@ -105,7 +125,7 @@ class _ProfileHeader extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: Text(
-            'AC',
+            user == null ? '–' : _initials(name),
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   color: AppColors.white,
                   fontWeight: FontWeight.w600,
@@ -121,39 +141,44 @@ class _ProfileHeader extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      'Alex Ch…',
+                      name,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.gold,
-                      borderRadius: BorderRadius.circular(4),
+                  if (isPro) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.gold,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'DRAPE PRO',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppColors.espressoDark,
+                              letterSpacing: 1.2,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
                     ),
-                    child: Text(
-                      'DRAPE PRO',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.espressoDark,
-                            letterSpacing: 1.2,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
+                  ],
                 ],
               ),
               const SizedBox(height: 2),
               Text(
-                'Pro Member ✦',
+                isPro ? 'Pro Member ✦' : 'Free Member',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.gold,
+                      color: isPro ? AppColors.gold : AppColors.taupe,
                       fontWeight: FontWeight.w600,
                     ),
               ),
               Text(
-                'Member since March 2025',
+                user == null
+                    ? 'Loading your profile…'
+                    : 'Member since ${_memberSince(user!.createdAt)}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -571,4 +596,23 @@ class _SettingsEntryCard extends StatelessWidget {
       ),
     );
   }
+}
+
+const _months = [
+  'January', 'February', 'March', 'April', 'May', 'June', //
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/// Up to two uppercase initials from the display name (e.g. "Alex Chen" → "AC",
+/// "alex" → "A"). Falls back to "?" for an empty name.
+String _initials(String name) {
+  final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
+  if (words.isEmpty) return '?';
+  final letters = words.take(2).map((w) => w[0].toUpperCase()).join();
+  return letters.isEmpty ? '?' : letters;
+}
+
+String _memberSince(DateTime created) {
+  final local = created.toLocal();
+  return '${_months[local.month - 1]} ${local.year}';
 }

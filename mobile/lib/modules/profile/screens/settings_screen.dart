@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/services/session_store.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../auth/auth_controller.dart';
 import '../../auth/screens/welcome_screen.dart';
 import '../widgets/settings_row.dart';
 import '../widgets/settings_section.dart';
@@ -26,14 +27,14 @@ import 'subscription_management_screen.dart';
 import '../widgets/cancellation_reason_sheet.dart';
 import 'retention_offer_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   static const path = 'settings';
   static const name = 'profile_settings';
 
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -190,7 +191,13 @@ class SettingsScreen extends StatelessWidget {
                         iconColor: AppColors.error,
                         iconBackground: AppColors.errorContainer,
                         onTap: () async {
-                          await SessionStore.clear();
+                          // Revoke the refresh token server-side (best-effort)
+                          // and clear local tokens + session, then return to
+                          // Welcome — the router redirect bounces protected
+                          // routes once the session flag flips.
+                          await ref
+                              .read(authControllerProvider.notifier)
+                              .logout();
                           if (context.mounted) {
                             context.goNamed(WelcomeScreen.name);
                           }

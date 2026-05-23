@@ -1,27 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
+import '../../auth/auth_controller.dart';
+import '../../auth/models/current_user.dart';
+import '../profile_service.dart';
 
-class EditProfileScreen extends StatefulWidget {
+class EditProfileScreen extends ConsumerStatefulWidget {
   static const path = 'edit';
   static const name = 'profile_edit';
 
   const EditProfileScreen({super.key});
 
   @override
-  State<EditProfileScreen> createState() => _EditProfileScreenState();
+  ConsumerState<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen> {
-  final _name = TextEditingController(text: 'Alex Chen');
-  final _email = TextEditingController(text: 'alex.chen@email.com');
+class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
+  // Name + email are the only fields the backend persists (`UserUpdate`); the
+  // rest below (phone, gender, age range, location, photo, styling chips) have
+  // no backend yet (Phase 8) and are not sent on save.
+  final _name = TextEditingController();
+  final _email = TextEditingController();
   final _phone = TextEditingController(text: '+1 (555) 123-4567');
   final _location = TextEditingController(text: 'Toronto, ON');
   String _gender = 'Male';
   String _ageRange = '25-34';
+
+  bool _prefilled = false;
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -32,8 +43,67 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  /// Populate name + email from `/users/me` once it resolves (one-shot, so it
+  /// doesn't clobber the user's in-progress edits on rebuild).
+  void _prefill(CurrentUser user) {
+    if (_prefilled) return;
+    _prefilled = true;
+    _name.text = user.displayName;
+    _email.text = user.email;
+  }
+
+  /// Sends only the changed fields via `PATCH /users/{id}`. If nothing changed,
+  /// just closes. On success the new identity is pushed into [AuthController] so
+  /// the profile header reflects it; failures (e.g. an email already in use)
+  /// surface as a SnackBar.
+  Future<void> _save(CurrentUser user) async {
+    final name = _name.text.trim();
+    final email = _email.text.trim();
+    if (name.isEmpty) {
+      _toast('Name cannot be empty.');
+      return;
+    }
+    if (!email.contains('@') || !email.contains('.')) {
+      _toast('Enter a valid email address.');
+      return;
+    }
+    final displayName = name != user.displayName ? name : null;
+    final newEmail = email != user.email ? email : null;
+    if (displayName == null && newEmail == null) {
+      context.pop();
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final updated = await ref.read(profileServiceProvider).updateProfile(
+            userId: user.id,
+            displayName: displayName,
+            email: newEmail,
+          );
+      ref.read(authControllerProvider.notifier).applyCurrentUser(updated);
+      if (!mounted) return;
+      _toast('Profile updated.');
+      context.pop();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _toast(e.message);
+    }
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    if (user != null) _prefill(user);
+    final canSave = user != null && !_saving;
+
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -42,10 +112,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           children: [
             _Header(
               onBack: () => context.pop(),
-              onSave: () {
-                debugPrint('edit profile: save');
-                context.pop();
-              },
+              saving: _saving,
+              onSave: canSave ? () => _save(user) : null,
             ),
             Expanded(
               child: ListView(
@@ -201,11 +269,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   const SizedBox(height: 28),
                   DrapeButton(
-                    label: 'Save Changes',
-                    onPressed: () {
-                      debugPrint('edit profile: save changes');
-                      context.pop();
-                    },
+                    label: _saving ? 'Saving…' : 'Save Changes',
+                    onPressed: canSave ? () => _save(user) : null,
                   ),
                 ],
               ),
@@ -219,8 +284,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
-  final VoidCallback onSave;
-  const _Header({required this.onBack, required this.onSave});
+  final VoidCallback? onSave;
+  final bool saving;
+  const _Header({required this.onBack, required this.onSave, this.saving = false});
 
   @override
   Widget build(BuildContext context) {
@@ -241,16 +307,26 @@ class _Header extends StatelessWidget {
                   ),
             ),
           ),
-          TextButton(
-            onPressed: onSave,
-            child: Text(
-              'Save',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.espresso,
-                    fontWeight: FontWeight.w700,
+          saving
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: AppColors.espresso),
                   ),
-            ),
-          ),
+                )
+              : TextButton(
+                  onPressed: onSave,
+                  child: Text(
+                    'Save',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: AppColors.espresso,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
         ],
       ),
     );

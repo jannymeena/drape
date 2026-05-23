@@ -118,6 +118,13 @@ class AuthController extends StateNotifier<AuthState> {
     await _clearSession();
   }
 
+  /// Replaces the hydrated identity (e.g. after a profile edit via
+  /// `PATCH /users/{id}`) so every widget watching `currentUser` re-renders
+  /// with the new name/email. Session tokens are unchanged.
+  void applyCurrentUser(CurrentUser user) {
+    state = AuthState(session: state.session, currentUser: user);
+  }
+
   Future<void> _persistSession(AuthResponse response) async {
     await _storage.saveTokens(
       accessToken: response.accessToken,
