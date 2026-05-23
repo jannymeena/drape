@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../models/wardrobe_item.dart';
+import '../wardrobe_controller.dart';
 import '../widgets/add_to_wardrobe_chooser.dart';
-import '../widgets/capacity_warning_banner.dart';
 import '../widgets/category_filter_chips.dart';
 import '../widgets/item_card.dart';
 import 'batch_upload_screen.dart';
@@ -11,61 +13,30 @@ import 'item_detail_screen.dart';
 import 'manual_entry_screen.dart' as wardrobe_manual;
 import 'scanner_screen.dart';
 
-class WardrobeScreen extends StatefulWidget {
+class WardrobeScreen extends ConsumerStatefulWidget {
   static const path = '/wardrobe';
   static const name = 'wardrobe';
 
   const WardrobeScreen({super.key});
 
   @override
-  State<WardrobeScreen> createState() => _WardrobeScreenState();
+  ConsumerState<WardrobeScreen> createState() => _WardrobeScreenState();
 }
 
-class _WardrobeScreenState extends State<WardrobeScreen> {
-  static const _categories = [
-    'All Pieces',
-    'Tops',
-    'Bottoms',
-    'Outerwear',
-    'Shoes',
-    'Knitwear',
-  ];
-  int _categoryIndex = 0;
-  final _items = const <WardrobeItemData>[
-    WardrobeItemData(
-      id: 'i1',
-      name: 'Cashmere Blend Trench',
-      category: 'Outerwear',
-      imageUrl:
-          'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400',
-      starter: true,
-    ),
-    WardrobeItemData(
-      id: 'i2',
-      name: 'Ivory Satin Shirt',
-      category: 'Tops',
-      imageUrl:
-          'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400',
-    ),
-    WardrobeItemData(
-      id: 'i3',
-      name: 'Raw Indigo Denim',
-      category: 'Bottoms',
-      imageUrl:
-          'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400',
-    ),
-    WardrobeItemData(
-      id: 'i4',
-      name: 'Oatmeal Cable Knit',
-      category: 'Knitwear',
-      imageUrl:
-          'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400',
-      favorited: true,
-    ),
-  ];
+class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ref.read(wardrobeControllerProvider.notifier).load(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(wardrobeControllerProvider);
+    final controller = ref.read(wardrobeControllerProvider.notifier);
+
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -74,67 +45,38 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
           children: [
             _TopBar(onAdd: _openAddSheet),
             Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-                    child: Text(
-                      'Wardrobe',
-                      style: Theme.of(context).textTheme.headlineLarge,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _SearchField(),
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: CapacityWarningBanner(
-                      used: 24,
-                      total: 30,
-                      level: CapacityLevel.soft,
-                      onUpgrade: () => debugPrint('wardrobe: upgrade'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  CategoryFilterChips(
-                    categories: _categories,
-                    selectedIndex: _categoryIndex,
-                    onSelected: (i) => setState(() => _categoryIndex = i),
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _items.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 20,
-                        childAspectRatio: 0.72,
-                      ),
-                      itemBuilder: (_, i) => ItemCard(
-                        item: _items[i],
-                        onTap: () => context.goNamed(
-                          ItemDetailScreen.name,
-                          pathParameters: {'id': _items[i].id},
-                        ),
-                        onFavorite: () => debugPrint('fav ${_items[i].id}'),
+              child: RefreshIndicator(
+                onRefresh: controller.load,
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                      child: Text(
+                        'Wardrobe',
+                        style: Theme.of(context).textTheme.headlineLarge,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: _GrowYourWardrobeCard(onAdd: _openAddSheet),
-                  ),
-                  const SizedBox(height: 24),
-                ],
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _SearchField(onChanged: controller.setSearch),
+                    ),
+                    const SizedBox(height: 16),
+                    // NOTE: capacity banner deferred to SP2 — the free-tier cap
+                    // (30 non-starter items) is tier-gated and not exposed by
+                    // the list endpoint; it belongs with the create/429 flow.
+                    CategoryFilterChips(
+                      categories:
+                          WardrobeCategoryFilter.values.map((f) => f.label).toList(),
+                      selectedIndex: state.category.index,
+                      onSelected: (i) => controller
+                          .selectCategory(WardrobeCategoryFilter.values[i]),
+                    ),
+                    const SizedBox(height: 16),
+                    ..._buildBody(context, state, controller),
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
           ],
@@ -142,6 +84,108 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
       ),
     );
   }
+
+  List<Widget> _buildBody(
+    BuildContext context,
+    WardrobeState state,
+    WardrobeController controller,
+  ) {
+    if (state.loading && !state.hasData) {
+      return const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 64),
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.espresso),
+          ),
+        ),
+      ];
+    }
+
+    if (state.error != null && !state.hasData) {
+      return [
+        _MessageBlock(
+          message: state.error!.message,
+          actionLabel: 'Try again',
+          onAction: controller.load,
+        ),
+      ];
+    }
+
+    final items = state.visibleItems;
+    if (items.isEmpty) {
+      final searching = state.search.trim().isNotEmpty;
+      return [
+        _MessageBlock(
+          message: searching
+              ? 'No pieces match "${state.search.trim()}".'
+              : 'No pieces here yet. Add your first item to get started.',
+        ),
+        if (!searching) ...[
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _GrowYourWardrobeCard(onAdd: _openAddSheet),
+          ),
+        ],
+      ];
+    }
+
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 20,
+            childAspectRatio: 0.72,
+          ),
+          itemBuilder: (_, i) => ItemCard(
+            item: _toCardData(items[i]),
+            onTap: () => context.goNamed(
+              ItemDetailScreen.name,
+              pathParameters: {'id': items[i].id},
+            ),
+            // Favorite toggle is wired in SP2 (POST /toggle-favorite).
+            onFavorite: () => debugPrint('fav ${items[i].id}'),
+          ),
+        ),
+      ),
+      // "Load more" only when there are unloaded server pages and no active
+      // client-side search (search filters the loaded set, not the server).
+      if (state.hasMore && state.search.trim().isEmpty) ...[
+        const SizedBox(height: 16),
+        Center(
+          child: state.loadingMore
+              ? const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: CircularProgressIndicator(color: AppColors.espresso),
+                )
+              : TextButton(
+                  onPressed: controller.loadMore,
+                  child: const Text('Load more'),
+                ),
+        ),
+      ],
+      const SizedBox(height: 24),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: _GrowYourWardrobeCard(onAdd: _openAddSheet),
+      ),
+    ];
+  }
+
+  WardrobeItemData _toCardData(WardrobeItem item) => WardrobeItemData(
+        id: item.id,
+        name: item.name,
+        category: item.categoryLabel,
+        imageUrl: item.displayImageUrl,
+        favorited: item.isFavorite,
+        starter: item.isStarterWardrobe,
+      );
 
   void _openAddSheet() {
     showModalBottomSheet<void>(
@@ -157,7 +201,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
           minChildSize: 0.5,
           maxChildSize: 0.95,
           expand: false,
-          builder: (_, controller) => Column(
+          builder: (_, scrollController) => Column(
             children: [
               const SizedBox(height: 10),
               Container(
@@ -170,10 +214,9 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
               ),
               Expanded(
                 child: SingleChildScrollView(
-                  controller: controller,
+                  controller: scrollController,
                   child: AddToWardrobeChooser(
-                    used: 24,
-                    remaining: 6,
+                    // Capacity (used/remaining) deferred to SP2.
                     onUpgrade: () => debugPrint('add: upgrade'),
                     onChoice: (choice) {
                       Navigator.of(ctx).pop();
@@ -219,10 +262,6 @@ class _TopBar extends StatelessWidget {
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.search, color: AppColors.espresso),
-            onPressed: () => debugPrint('wardrobe: search'),
-          ),
-          IconButton(
             icon: const Icon(Icons.add, color: AppColors.espresso),
             onPressed: onAdd,
           ),
@@ -233,6 +272,9 @@ class _TopBar extends StatelessWidget {
 }
 
 class _SearchField extends StatelessWidget {
+  final ValueChanged<String> onChanged;
+  const _SearchField({required this.onChanged});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -248,6 +290,7 @@ class _SearchField extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
+              onChanged: onChanged,
               decoration: InputDecoration(
                 isCollapsed: true,
                 border: InputBorder.none,
@@ -258,6 +301,37 @@ class _SearchField extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MessageBlock extends StatelessWidget {
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const _MessageBlock({required this.message, this.actionLabel, this.onAction});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(40, 48, 40, 24),
+      child: Column(
+        children: [
+          const Icon(Icons.checkroom_outlined,
+              color: AppColors.taupeSoft, size: 48),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          if (actionLabel != null) ...[
+            const SizedBox(height: 12),
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
+          ],
         ],
       ),
     );
@@ -308,8 +382,8 @@ class _GrowYourWardrobeCard extends StatelessWidget {
               onTap: onAdd,
               borderRadius: BorderRadius.circular(12),
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 child: Text(
                   'Add New Item',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(

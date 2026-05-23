@@ -5,15 +5,17 @@ import '../../../shared/theme/app_colors.dart';
 enum AddToWardrobeChoice { upload, scan, manual }
 
 class AddToWardrobeChooser extends StatelessWidget {
-  final int used;
-  final int remaining;
+  /// Free-tier capacity. Both null → the capacity banner is hidden (SP1, where
+  /// the tier-gated cap isn't sourced yet); SP2 wires real values.
+  final int? used;
+  final int? remaining;
   final ValueChanged<AddToWardrobeChoice> onChoice;
   final VoidCallback? onUpgrade;
 
   const AddToWardrobeChooser({
     super.key,
-    required this.used,
-    required this.remaining,
+    this.used,
+    this.remaining,
     required this.onChoice,
     this.onUpgrade,
   });
@@ -32,49 +34,52 @@ class AddToWardrobeChooser extends StatelessWidget {
           'The more items you add, the better your daily outfits.',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF8EC),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0x4DC8901C)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.info_outline,
-                  color: Color(0xFFC8901C), size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'You have $used items. Add $remaining more to reach your limit.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: const Color(0xFF7D5A11),
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    GestureDetector(
-                      onTap: onUpgrade,
-                      child: Text(
-                        'Upgrade for unlimited storage',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: AppColors.espresso,
-                              decoration: TextDecoration.underline,
-                              fontWeight: FontWeight.w700,
+        if (used != null && remaining != null) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8EC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0x4DC8901C)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline,
+                    color: Color(0xFFC8901C), size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'You have $used items. Add $remaining more to reach your limit.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: const Color(0xFF7D5A11),
+                              fontWeight: FontWeight.w600,
                             ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: onUpgrade,
+                        child: Text(
+                          'Upgrade for unlimited storage',
+                          style:
+                              Theme.of(context).textTheme.labelLarge?.copyWith(
+                                    color: AppColors.espresso,
+                                    decoration: TextDecoration.underline,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
         const SizedBox(height: 20),
         _ChoiceCard(
           icon: Icons.photo_library_outlined,

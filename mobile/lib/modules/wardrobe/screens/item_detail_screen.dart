@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../models/wardrobe_item.dart';
+import '../wardrobe_service.dart';
 import '../widgets/remove_confirmation_modal.dart';
 
-class ItemDetailScreen extends StatelessWidget {
+/// Wardrobe item detail (`GET /wardrobe/items/{id}`). SP1 is read-only: the
+/// hero image, attributes, and cost-per-wear are all live. The bottom actions
+/// (log-worn / remove) and the edit affordance stay stubs until SP2 wires the
+/// mutation endpoints. The "appeared in N outfits" section is omitted — there's
+/// no backend endpoint that lists the outfits an item belongs to.
+class ItemDetailScreen extends ConsumerWidget {
   static const path = 'items/:id';
   static const name = 'wardrobe_item_detail';
 
@@ -12,123 +21,106 @@ class ItemDetailScreen extends StatelessWidget {
 
   const ItemDetailScreen({super.key, required this.itemId});
 
-  static const _appearances = <_AppearanceMock>[
-    _AppearanceMock(),
-    _AppearanceMock(),
-    _AppearanceMock(),
-  ];
-
-  static const _attributes = <_Attribute>[
-    _Attribute(label: 'Added', value: 'March 2024'),
-    _Attribute(label: 'Color', value: 'White'),
-    _Attribute(label: 'Material', value: 'Cotton'),
-    _Attribute(label: 'Season', value: 'All'),
-    _Attribute(label: 'Last worn', value: '2 days ago'),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final item = ref.watch(wardrobeItemProvider(itemId));
+
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            _TopBar(
-              onBack: () => context.pop(),
-              onMore: () => debugPrint('item: more'),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
-                children: [
-                  _HeroImage(),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'White Oxford Shirt',
-                          style:
-                              Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Brand · Added March 2024',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 16),
-                        _CostPerWearCard(),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Appeared in 8 outfits',
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () =>
-                                  debugPrint('item: view all outfits'),
-                              child: Text(
-                                'View All',
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(
-                                      color: AppColors.espresso,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 96,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _appearances.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 12),
-                            itemBuilder: (_, _) => const _AppearanceTile(),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppColors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.taupeSoft),
-                          ),
-                          child: Column(
-                            children: [
-                              for (var i = 0; i < _attributes.length; i++)
-                                _AttributeRow(
-                                  attribute: _attributes[i],
-                                  showDivider: i < _attributes.length - 1,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
+        child: item.when(
+          loading: () => Column(
+            children: [
+              _TopBar(onBack: () => context.pop(), onMore: null),
+              const Expanded(
+                child: Center(
+                  child: CircularProgressIndicator(color: AppColors.espresso),
+                ),
+              ),
+            ],
+          ),
+          error: (e, _) => Column(
+            children: [
+              _TopBar(onBack: () => context.pop(), onMore: null),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(
+                      e is ApiException
+                          ? e.message
+                          : "We couldn't load this item.",
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-            _BottomActions(itemId: itemId),
-          ],
+            ],
+          ),
+          data: (item) => Column(
+            children: [
+              _TopBar(
+                onBack: () => context.pop(),
+                onMore: () => debugPrint('item: more'),
+              ),
+              Expanded(child: _Body(item: item)),
+              _BottomActions(item: item),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
+class _Body extends StatelessWidget {
+  final WardrobeItem item;
+  const _Body({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = [
+      if (item.brand != null && item.brand!.isNotEmpty) item.brand,
+      'Added ${item.addedLabel}',
+    ].join(' · ');
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
+      children: [
+        _HeroImage(item: item),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(item.name, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 4),
+              Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 16),
+              _CostPerWearCard(item: item),
+              const SizedBox(height: 20),
+              _AttributesCard(item: item),
+              if (item.description != null && item.description!.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text('Notes', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 6),
+                Text(item.description!,
+                    style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _TopBar extends StatelessWidget {
   final VoidCallback onBack;
-  final VoidCallback onMore;
+  final VoidCallback? onMore;
   const _TopBar({required this.onBack, required this.onMore});
 
   @override
@@ -153,8 +145,12 @@ class _TopBar extends StatelessWidget {
 }
 
 class _HeroImage extends StatelessWidget {
+  final WardrobeItem item;
+  const _HeroImage({required this.item});
+
   @override
   Widget build(BuildContext context) {
+    final imageUrl = item.displayImageUrl;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: ClipRRect(
@@ -164,28 +160,36 @@ class _HeroImage extends StatelessWidget {
           child: Stack(
             children: [
               Positioned.fill(
-                child: Container(
-                  color: AppColors.tanFixed,
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.checkroom_outlined,
-                    color: AppColors.espresso,
-                    size: 96,
-                  ),
-                ),
+                child: imageUrl == null
+                    ? Container(
+                        color: AppColors.tanFixed,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.checkroom_outlined,
+                            color: AppColors.espresso, size: 96),
+                      )
+                    : Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          color: AppColors.tanFixed,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.checkroom_outlined,
+                              color: AppColors.espresso, size: 96),
+                        ),
+                      ),
               ),
               Positioned(
                 top: 12,
                 right: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.espresso,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    'TOP',
+                    item.categoryLabel.toUpperCase(),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: AppColors.white,
                           letterSpacing: 1.4,
@@ -194,6 +198,7 @@ class _HeroImage extends StatelessWidget {
                   ),
                 ),
               ),
+              // Edit affordance is wired in SP2 (PATCH /wardrobe/items/{id}).
               Positioned(
                 bottom: 12,
                 right: 12,
@@ -205,8 +210,8 @@ class _HeroImage extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
-                  child:
-                      const Icon(Icons.edit, color: AppColors.espresso, size: 18),
+                  child: const Icon(Icons.edit,
+                      color: AppColors.espresso, size: 18),
                 ),
               ),
             ],
@@ -218,8 +223,13 @@ class _HeroImage extends StatelessWidget {
 }
 
 class _CostPerWearCard extends StatelessWidget {
+  final WardrobeItem item;
+  const _CostPerWearCard({required this.item});
+
   @override
   Widget build(BuildContext context) {
+    final cpw = item.costPerWear;
+    final hasData = cpw != null;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -229,46 +239,17 @@ class _CostPerWearCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'COST PER WEAR',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.brandText.withValues(alpha: 0.7),
-                      letterSpacing: 1.4,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.sageDim,
-                  borderRadius: BorderRadius.circular(6),
+          Text(
+            'COST PER WEAR',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.brandText.withValues(alpha: 0.7),
+                  letterSpacing: 1.4,
+                  fontWeight: FontWeight.w700,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.trending_up,
-                        color: AppColors.sage, size: 12),
-                    const SizedBox(width: 4),
-                    Text(
-                      'IMPROVING',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.sageContent,
-                            letterSpacing: 1.2,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ),
           const SizedBox(height: 6),
           Text(
-            r'$3.20',
+            hasData ? '\$${cpw.toStringAsFixed(2)}' : '—',
             style: Theme.of(context).textTheme.displaySmall?.copyWith(
                   color: AppColors.brandText,
                   fontWeight: FontWeight.w800,
@@ -276,7 +257,10 @@ class _CostPerWearCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            r'$3.20 per wear (22 wears, $70.40 purchase price)',
+            hasData
+                ? '${item.wornCount} wears'
+                    '${item.purchasePrice != null ? ' · \$${item.purchasePrice!.toStringAsFixed(2)} purchase price' : ''}'
+                : 'Add a purchase price and log wears to track cost per wear.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.brandText.withValues(alpha: 0.7),
                 ),
@@ -287,20 +271,56 @@ class _CostPerWearCard extends StatelessWidget {
   }
 }
 
+class _AttributesCard extends StatelessWidget {
+  final WardrobeItem item;
+  const _AttributesCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <_Attribute>[
+      _Attribute('Added', item.addedLabel),
+      _Attribute('Category', item.categoryLabel),
+      if (item.colorName != null) _Attribute('Color', item.colorName!),
+      if (item.pattern != null) _Attribute('Pattern', _titleCase(item.pattern!)),
+      if (item.material != null) _Attribute('Material', item.material!),
+      if (item.formality != null)
+        _Attribute('Formality', _titleCase(item.formality!)),
+      if (item.season != null && item.season!.isNotEmpty)
+        _Attribute('Season', item.season!.map(_titleCase).join(', ')),
+      _Attribute('Worn', item.wornCount == 1 ? 'Once' : '${item.wornCount} times'),
+      _Attribute('Last worn', item.lastWornLabel ?? 'Never'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.taupeSoft),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++)
+            _AttributeRow(
+              attribute: rows[i],
+              showDivider: i < rows.length - 1,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Attribute {
   final String label;
   final String value;
-  const _Attribute({required this.label, required this.value});
+  const _Attribute(this.label, this.value);
 }
 
 class _AttributeRow extends StatelessWidget {
   final _Attribute attribute;
   final bool showDivider;
 
-  const _AttributeRow({
-    required this.attribute,
-    required this.showDivider,
-  });
+  const _AttributeRow({required this.attribute, required this.showDivider});
 
   @override
   Widget build(BuildContext context) {
@@ -336,34 +356,9 @@ class _AttributeRow extends StatelessWidget {
   }
 }
 
-class _AppearanceMock {
-  const _AppearanceMock();
-}
-
-class _AppearanceTile extends StatelessWidget {
-  const _AppearanceTile();
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 80,
-        color: AppColors.ivoryWarm,
-        alignment: Alignment.center,
-        child: const Icon(
-          Icons.checkroom_outlined,
-          color: AppColors.taupeSoft,
-          size: 32,
-        ),
-      ),
-    );
-  }
-}
-
 class _BottomActions extends StatelessWidget {
-  final String itemId;
-  const _BottomActions({required this.itemId});
+  final WardrobeItem item;
+  const _BottomActions({required this.item});
 
   @override
   Widget build(BuildContext context) {
@@ -373,11 +368,12 @@ class _BottomActions extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
         child: Column(
           children: [
+            // Both actions are wired in SP2 (log-worn / delete).
             Material(
               color: AppColors.espresso,
               borderRadius: BorderRadius.circular(14),
               child: InkWell(
-                onTap: () => debugPrint('item: log as worn today'),
+                onTap: () => debugPrint('item ${item.id}: log as worn today'),
                 borderRadius: BorderRadius.circular(14),
                 child: SizedBox(
                   width: double.infinity,
@@ -405,10 +401,10 @@ class _BottomActions extends StatelessWidget {
                 onTap: () async {
                   final confirmed = await RemoveConfirmationModal.show(
                     context,
-                    itemName: 'White Oxford Shirt',
+                    itemName: item.name,
                   );
                   if (confirmed && context.mounted) {
-                    debugPrint('item $itemId removed');
+                    debugPrint('item ${item.id} removed');
                     context.pop();
                   }
                 },
@@ -434,3 +430,8 @@ class _BottomActions extends StatelessWidget {
     );
   }
 }
+
+String _titleCase(String s) => s
+    .split('_')
+    .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+    .join(' ');

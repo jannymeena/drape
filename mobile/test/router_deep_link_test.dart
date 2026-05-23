@@ -7,7 +7,9 @@ import 'package:mobile/modules/today/models/outfit_reasoning.dart';
 import 'package:mobile/modules/today/screens/ai_reasoning_detail_screen.dart';
 import 'package:mobile/modules/today/today_controller.dart';
 import 'package:mobile/modules/today/today_service.dart';
+import 'package:mobile/modules/wardrobe/models/wardrobe_item.dart';
 import 'package:mobile/modules/wardrobe/screens/item_detail_screen.dart';
+import 'package:mobile/modules/wardrobe/wardrobe_service.dart';
 import 'package:mobile/shared/providers/router_provider.dart';
 import 'package:mobile/shared/services/session_store.dart';
 
@@ -18,6 +20,36 @@ class _StubTodayController extends TodayController {
   _StubTodayController() : super(TodayService(Dio()));
   @override
   Future<void> load() async {}
+}
+
+/// A wardrobe service that returns canned data instantly, so the wardrobe
+/// branch (list + the deep-linked detail) doesn't fire real network calls —
+/// the list controller's load and `wardrobeItemProvider` both resolve fast.
+class _FakeWardrobeService extends WardrobeService {
+  _FakeWardrobeService() : super(Dio());
+
+  @override
+  Future<WardrobeListResult> getItems({
+    String? category,
+    bool? isFavorite,
+    bool? isStarter,
+    int limit = 50,
+    int offset = 0,
+  }) async =>
+      const WardrobeListResult(items: [], total: 0, limit: 50, offset: 0);
+
+  @override
+  Future<WardrobeItem> getItem(String itemId) async => WardrobeItem(
+        id: itemId,
+        name: 'Stub Item',
+        category: 'tops',
+        wornCount: 0,
+        isFavorite: false,
+        isStarterWardrobe: false,
+        addedVia: 'manual',
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+      );
 }
 
 /// Verifies the `:id` path parameters extract correctly for the two detail
@@ -32,12 +64,21 @@ void main() {
 
   testWidgets('Deep link /wardrobe/items/abc-123 resolves with id="abc-123"',
       (tester) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [
+        wardrobeServiceProvider.overrideWithValue(_FakeWardrobeService()),
+      ],
+    );
     addTearDown(container.dispose);
     final router = container.read(routerProvider);
 
     router.go('/wardrobe/items/abc-123');
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
     await tester.pumpAndSettle();
 
     final detail = tester.widget<ItemDetailScreen>(find.byType(ItemDetailScreen));
