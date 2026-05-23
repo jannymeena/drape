@@ -44,10 +44,14 @@ class ApiException implements Exception {
     final status = response?.statusCode;
     final detail = (response?.data is Map) ? (response!.data as Map)['detail'] : null;
 
-    // Our own HTTPException shape: detail is a {code, message} object.
+    // Our own HTTPException shape: detail is a {code, message} object. The
+    // usage (429) and AI-gateway (502) errors key the slug as `error` instead
+    // of `code` (e.g. {"error": "limit_reached", ...}), so fall back to that.
     if (detail is Map) {
       return ApiException(
-        code: (detail['code'] as String?) ?? 'error',
+        code: (detail['code'] as String?) ??
+            (detail['error'] as String?) ??
+            'error',
         message: (detail['message'] as String?) ?? _statusFallback(status),
         statusCode: status,
       );

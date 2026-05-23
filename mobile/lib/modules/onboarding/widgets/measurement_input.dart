@@ -11,6 +11,18 @@ class MeasurementInput extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final MeasurementUnit initialUnit;
 
+  /// Imperial→metric multiplier applied when the imperial unit is selected:
+  /// 2.54 for length (in→cm), 0.45359237 for weight (lbs→kg).
+  final double imperialFactor;
+
+  /// Reports the entered value already converted to metric (null when the field
+  /// is empty or unparseable), plus the unit currently selected. Fires on every
+  /// keystroke and unit toggle.
+  final void Function(double? metric, MeasurementUnit unit)? onReading;
+
+  /// Optional text to prefill (used to restore a value on back-navigation).
+  final String? initialValue;
+
   const MeasurementInput({
     super.key,
     this.metricLabel = 'cm',
@@ -18,6 +30,9 @@ class MeasurementInput extends StatefulWidget {
     this.hint,
     this.onChanged,
     this.initialUnit = MeasurementUnit.metric,
+    this.imperialFactor = 2.54,
+    this.onReading,
+    this.initialValue,
   });
 
   @override
@@ -32,12 +47,25 @@ class _MeasurementInputState extends State<MeasurementInput> {
   void initState() {
     super.initState();
     _unit = widget.initialUnit;
+    if (widget.initialValue != null) _controller.text = widget.initialValue!;
   }
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Parses the field, converts to metric when imperial, and reports it.
+  void _emitReading() {
+    final parsed = double.tryParse(_controller.text.trim());
+    double? metric;
+    if (parsed != null && parsed > 0) {
+      metric = _unit == MeasurementUnit.metric
+          ? parsed
+          : parsed * widget.imperialFactor;
+    }
+    widget.onReading?.call(metric, _unit);
   }
 
   @override
@@ -48,7 +76,10 @@ class _MeasurementInputState extends State<MeasurementInput> {
           unit: _unit,
           metricLabel: widget.metricLabel,
           imperialLabel: widget.imperialLabel,
-          onChanged: (u) => setState(() => _unit = u),
+          onChanged: (u) {
+            setState(() => _unit = u);
+            _emitReading();
+          },
         ),
         const SizedBox(height: 20),
         Container(
@@ -77,7 +108,10 @@ class _MeasurementInputState extends State<MeasurementInput> {
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
-                  onChanged: widget.onChanged,
+                  onChanged: (v) {
+                    widget.onChanged?.call(v);
+                    _emitReading();
+                  },
                 ),
               ),
               Text(

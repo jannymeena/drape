@@ -18,8 +18,8 @@ class AuthResponse {
   final String tokenType;
   final bool onboardingCompleted;
 
-  /// e.g. `shopping_style`, `measurements_step_8`, `today_dashboard` — drives
-  /// onboarding resume via `onboardingResumeRoutes`.
+  /// e.g. `age_range`, `measurements_step_8`, `today_dashboard` — drives
+  /// onboarding resume via `routeForNextStep` (see `resume_route_map.dart`).
   final String nextStep;
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {

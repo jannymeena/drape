@@ -1,27 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../models/measurements_draft.dart';
+import '../onboarding_controller.dart';
+import '../onboarding_flow.dart';
 import '../widgets/measurement_input.dart';
 import '../widgets/onboarding_progress_bar.dart';
-import 'avatar_reveal_screen.dart';
+import 'wardrobe_setup_screen.dart';
 
-class ShouldersScreen extends StatelessWidget {
+/// Final measurement screen (step 8). "Continue" stores the shoulders value and
+/// then submits the whole set in one `POST /profile/measurements`; on success
+/// the flow moves on to wardrobe setup.
+class ShouldersScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/measurements/shoulders';
   static const name = 'shoulders';
 
   const ShouldersScreen({super.key});
 
   @override
+  ConsumerState<ShouldersScreen> createState() => _ShouldersScreenState();
+}
+
+class _ShouldersScreenState extends ConsumerState<ShouldersScreen> {
+  double? _cm;
+  bool _imperial = false;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.shoulders);
+  }
+
+  Future<void> _onSubmit() async {
+    if (_cm == null || _submitting) return;
+    final notifier = ref.read(onboardingControllerProvider.notifier);
+    notifier.setMeasurement(MeasurementField.shoulders, _cm, imperial: _imperial);
+
+    setState(() => _submitting = true);
+    try {
+      await notifier.submitMeasurements();
+      if (!mounted) return;
+      context.goNamed(WardrobeSetupScreen.name);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: DrapeAppBar(
-        title: 'Your DRAPE Profile — Step 7 of 8',
+        title: 'Your DRAPE Profile — Step 8 of 8',
         actions: [
           TextButton(
-            onPressed: () => context.goNamed(AvatarRevealScreen.name),
+            onPressed: () =>
+                confirmSkipMeasurements(context, ref, step: 'measurements_step_8'),
             child: Text(
               'Skip for\nNow',
               textAlign: TextAlign.right,
@@ -36,7 +79,7 @@ class ShouldersScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            const OnboardingProgressBar(step: 7, totalSteps: 8),
+            const OnboardingProgressBar(step: 8, totalSteps: 8),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
@@ -71,17 +114,6 @@ class ShouldersScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Center(
-                    child: Text(
-                      'STEP 03',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: AppColors.inkSoft,
-                            letterSpacing: 1.4,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   Text(
                     'Shoulders',
                     style: Theme.of(context).textTheme.headlineLarge,
@@ -94,7 +126,15 @@ class ShouldersScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 28),
-                  const MeasurementInput(metricLabel: 'CM', imperialLabel: 'in'),
+                  MeasurementInput(
+                    metricLabel: 'cm',
+                    imperialLabel: 'in',
+                    initialValue: _cm != null ? formatMeasurement(_cm!) : null,
+                    onReading: (metric, unit) => setState(() {
+                      _cm = metric;
+                      _imperial = unit == MeasurementUnit.imperial;
+                    }),
+                  ),
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(14),
@@ -114,7 +154,7 @@ class ShouldersScreen extends StatelessWidget {
                               style: Theme.of(context).textTheme.bodySmall,
                               children: const [
                                 TextSpan(
-                                  text: 'WEEK 3 ENCRYPTION\n',
+                                  text: 'ENCRYPTED PROFILE\n',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.espresso,
@@ -122,7 +162,7 @@ class ShouldersScreen extends StatelessWidget {
                                   ),
                                 ),
                                 TextSpan(
-                                  text: 'Your profile lives only on your device. Not even DRAPE can access it without permission.',
+                                  text: 'Your measurements are encrypted before they ever leave your device.',
                                 ),
                               ],
                             ),
@@ -137,8 +177,9 @@ class ShouldersScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
               child: DrapeButton(
-                label: 'CONTINUE',
-                onPressed: () => context.goNamed(AvatarRevealScreen.name),
+                label: 'Continue',
+                loading: _submitting,
+                onPressed: _cm == null ? null : _onSubmit,
               ),
             ),
           ],

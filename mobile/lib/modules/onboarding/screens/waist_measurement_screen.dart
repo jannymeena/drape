@@ -1,18 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../models/measurements_draft.dart';
+import '../onboarding_controller.dart';
 import '../widgets/measurement_guide.dart';
 import '../widgets/measurement_input.dart';
 import 'hips_measurement_screen.dart';
 
-class WaistMeasurementScreen extends StatelessWidget {
+class WaistMeasurementScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/measurements/waist';
   static const name = 'waist';
 
   const WaistMeasurementScreen({super.key});
+
+  @override
+  ConsumerState<WaistMeasurementScreen> createState() =>
+      _WaistMeasurementScreenState();
+}
+
+class _WaistMeasurementScreenState extends ConsumerState<WaistMeasurementScreen> {
+  double? _cm;
+  bool _imperial = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.waist);
+  }
+
+  void _onContinue() {
+    if (_cm == null) return;
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .setMeasurement(MeasurementField.waist, _cm, imperial: _imperial);
+    context.goNamed(HipsMeasurementScreen.name);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +74,15 @@ class WaistMeasurementScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 28),
-                  const MeasurementInput(metricLabel: 'cm', imperialLabel: 'in'),
+                  MeasurementInput(
+                    metricLabel: 'cm',
+                    imperialLabel: 'in',
+                    initialValue: _cm != null ? formatMeasurement(_cm!) : null,
+                    onReading: (metric, unit) => setState(() {
+                      _cm = metric;
+                      _imperial = unit == MeasurementUnit.imperial;
+                    }),
+                  ),
                 ],
               ),
             ),
@@ -56,7 +90,7 @@ class WaistMeasurementScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
               child: DrapeButton(
                 label: 'Keep Going',
-                onPressed: () => context.goNamed(HipsMeasurementScreen.name),
+                onPressed: _cm == null ? null : _onContinue,
                 leading: const Icon(Icons.arrow_forward,
                     color: AppColors.white, size: 18),
               ),

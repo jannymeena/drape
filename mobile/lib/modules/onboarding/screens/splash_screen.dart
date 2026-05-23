@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
 import '../../auth/auth_controller.dart';
 import '../../auth/screens/welcome_screen.dart';
 import '../../today/screens/today_dashboard_screen.dart';
+import '../onboarding_controller.dart';
+import '../resume_route_map.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   static const path = '/splash';
@@ -35,9 +38,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     ]);
     final restored = results.first as bool;
     if (!mounted) return;
-    context.goNamed(
-      restored ? TodayDashboardScreen.name : WelcomeScreen.name,
-    );
+    if (!restored) {
+      context.goNamed(WelcomeScreen.name);
+      return;
+    }
+
+    // Signed in: resume where onboarding left off (or Today if it's done).
+    // A status fetch that fails shouldn't strand the user — they have a valid
+    // session, so default to Today.
+    try {
+      final status =
+          await ref.read(onboardingControllerProvider.notifier).loadStatus();
+      if (!mounted) return;
+      if (status.onboardingCompleted || isOnboardingDone(status.nextStep)) {
+        context.goNamed(TodayDashboardScreen.name);
+      } else {
+        context.goNamed(routeForNextStep(status.nextStep));
+      }
+    } on ApiException {
+      if (mounted) context.goNamed(TodayDashboardScreen.name);
+    }
   }
 
   @override

@@ -1,24 +1,27 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../onboarding_controller.dart';
 import 'profile_complete_screen.dart';
 
-class AvatarRevealScreen extends StatefulWidget {
+class AvatarRevealScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/avatar-reveal';
   static const name = 'avatar_reveal';
 
   const AvatarRevealScreen({super.key});
 
   @override
-  State<AvatarRevealScreen> createState() => _AvatarRevealScreenState();
+  ConsumerState<AvatarRevealScreen> createState() => _AvatarRevealScreenState();
 }
 
-class _AvatarRevealScreenState extends State<AvatarRevealScreen> {
+class _AvatarRevealScreenState extends ConsumerState<AvatarRevealScreen> {
   bool _generated = false;
   Timer? _timer;
 
@@ -34,6 +37,21 @@ class _AvatarRevealScreenState extends State<AvatarRevealScreen> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  /// Records the avatar step before moving on so that, on a later relaunch,
+  /// `onboarding-status` reports `next_step: today_dashboard` and the splash
+  /// resumes the user to Today rather than back here. (There's no avatar
+  /// backend yet — this stands in until `/avatar/generate` lands.)
+  Future<void> _onContinue() async {
+    try {
+      await ref
+          .read(onboardingControllerProvider.notifier)
+          .saveProgress('avatar_reveal');
+    } on ApiException {
+      // Best-effort: don't block finishing onboarding on a failed save.
+    }
+    if (mounted) context.goNamed(ProfileCompleteScreen.name);
   }
 
   @override
@@ -69,9 +87,7 @@ class _AvatarRevealScreenState extends State<AvatarRevealScreen> {
               const SizedBox(height: 24),
               DrapeButton(
                 label: _generated ? 'See My Profile' : 'Building…',
-                onPressed: _generated
-                    ? () => context.goNamed(ProfileCompleteScreen.name)
-                    : null,
+                onPressed: _generated ? _onContinue : null,
                 loading: !_generated,
               ),
             ],

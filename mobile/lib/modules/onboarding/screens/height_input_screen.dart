@@ -1,23 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../models/measurements_draft.dart';
+import '../onboarding_controller.dart';
+import '../onboarding_flow.dart';
 import '../widgets/measurement_input.dart';
 import '../widgets/onboarding_progress_bar.dart';
-import '../widgets/save_progress_sheet.dart';
 import 'weight_input_screen.dart';
 
-class HeightInputScreen extends StatelessWidget {
+class HeightInputScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/measurements/height';
   static const name = 'height';
 
   const HeightInputScreen({super.key});
 
-  Future<void> _onSkip(BuildContext context) async {
-    final exit = await showSaveProgressDialog(context);
-    if (exit && context.mounted) Navigator.pop(context);
+  @override
+  ConsumerState<HeightInputScreen> createState() => _HeightInputScreenState();
+}
+
+class _HeightInputScreenState extends ConsumerState<HeightInputScreen> {
+  double? _cm;
+  bool _imperial = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.height);
+  }
+
+  void _onContinue() {
+    if (_cm == null) return;
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .setMeasurement(MeasurementField.height, _cm, imperial: _imperial);
+    context.goNamed(WeightInputScreen.name);
   }
 
   @override
@@ -27,7 +47,8 @@ class HeightInputScreen extends StatelessWidget {
         title: 'Your DRAPE Profile — Step 1 of 8',
         actions: [
           TextButton(
-            onPressed: () => _onSkip(context),
+            onPressed: () =>
+                confirmSkipMeasurements(context, ref, step: 'measurements_step_1'),
             child: Text(
               'Skip for\nNow',
               textAlign: TextAlign.right,
@@ -73,10 +94,15 @@ class HeightInputScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 28),
-                  const MeasurementInput(
+                  MeasurementInput(
                     metricLabel: 'cm',
                     imperialLabel: 'in',
-                    hint: 'e.g., 175 cm or 5\'9"',
+                    hint: 'e.g., 175 cm or 69 in',
+                    initialValue: _cm != null ? formatMeasurement(_cm!) : null,
+                    onReading: (metric, unit) => setState(() {
+                      _cm = metric;
+                      _imperial = unit == MeasurementUnit.imperial;
+                    }),
                   ),
                   const SizedBox(height: 20),
                   _PrivacyBanner(),
@@ -87,7 +113,7 @@ class HeightInputScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
               child: DrapeButton(
                 label: 'Continue',
-                onPressed: () => context.goNamed(WeightInputScreen.name),
+                onPressed: _cm == null ? null : _onContinue,
               ),
             ),
           ],

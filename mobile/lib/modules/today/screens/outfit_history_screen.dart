@@ -1,25 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../models/outfit_history.dart';
+import '../today_service.dart';
 import '../widgets/streak_pill.dart';
+import 'ai_reasoning_detail_screen.dart';
 
-class OutfitHistoryScreen extends StatefulWidget {
+/// Logged-outfit history (`GET /outfits/history`). Only worn outfits land here,
+/// grouped by month, with the live streak summary up top. The filter chips map
+/// to the backend `HistoryFilter` literals; switching one watches a different
+/// [outfitHistoryProvider] key (and so refetches). Tapping an entry opens its
+/// reasoning sheet. Share actions stay stubs (no backend).
+class OutfitHistoryScreen extends ConsumerStatefulWidget {
   static const path = '/today/history';
   static const name = 'outfit_history';
 
   const OutfitHistoryScreen({super.key});
 
   @override
-  State<OutfitHistoryScreen> createState() => _OutfitHistoryScreenState();
+  ConsumerState<OutfitHistoryScreen> createState() =>
+      _OutfitHistoryScreenState();
 }
 
-class _OutfitHistoryScreenState extends State<OutfitHistoryScreen> {
-  static const _filters = ['This Week', 'This Month', 'Last 3 Months'];
-  int _filterIndex = 0;
+class _OutfitHistoryScreenState extends ConsumerState<OutfitHistoryScreen> {
+  HistoryFilter _filter = HistoryFilter.thisWeek;
 
   @override
   Widget build(BuildContext context) {
+    final history = ref.watch(outfitHistoryProvider(_filter.query));
+
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -31,78 +43,70 @@ class _OutfitHistoryScreenState extends State<OutfitHistoryScreen> {
               onShare: () => debugPrint('history: share'),
             ),
             _FilterChips(
-              filters: _filters,
-              selectedIndex: _filterIndex,
-              onSelected: (i) => setState(() => _filterIndex = i),
+              filters: HistoryFilter.values,
+              selected: _filter,
+              onSelected: (f) => setState(() => _filter = f),
             ),
             const SizedBox(height: 8),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                children: [
-                  StreakPill(
-                    days: 14,
-                    onShare: () => debugPrint('history: streak share'),
-                  ),
-                  const SizedBox(height: 24),
-                  _SectionHeader(label: 'April 2026'),
-                  const SizedBox(height: 8),
-                  _HistoryEntry(
-                    date: 'Sunday, April 12',
-                    occasion: 'Brunch',
-                    items: const ['Silk Blouse', 'Loafers'],
-                    itemCount: 3,
-                    imageUrl:
-                        'https://images.unsplash.com/photo-1542060748-10c28b62716f?w=400',
-                    worn: true,
-                  ),
-                  const SizedBox(height: 10),
-                  _HistoryEntry(
-                    date: 'Saturday, April 11',
-                    occasion: 'Work',
-                    items: const ['Wool Blazer'],
-                    itemCount: 4,
-                    imageUrl:
-                        'https://images.unsplash.com/photo-1551803091-e20673f15770?w=400',
-                    worn: true,
-                  ),
-                  const SizedBox(height: 10),
-                  _HistoryEntry(
-                    date: 'Friday, April 10',
-                    occasion: 'Home',
-                    items: const [],
-                    itemCount: 0,
-                    imageUrl: null,
-                    worn: false,
-                  ),
-                  const SizedBox(height: 10),
-                  _HistoryEntry(
-                    date: 'Thursday, April 9',
-                    occasion: 'Daily',
-                    items: const ['Knitwear'],
-                    itemCount: 2,
-                    imageUrl:
-                        'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400',
-                    worn: true,
-                  ),
-                  const SizedBox(height: 24),
-                  _SectionHeader(label: 'March 2026'),
-                  const SizedBox(height: 8),
-                  _HistoryEntry(
-                    date: 'Tuesday, March 31',
-                    occasion: 'Travel',
-                    items: const [],
-                    itemCount: 5,
-                    imageUrl:
-                        'https://images.unsplash.com/photo-1604176354204-9268737828e4?w=400',
-                    worn: true,
-                  ),
-                ],
+              child: history.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.espresso),
+                ),
+                error: (e, _) => _ErrorState(
+                  message: e is ApiException
+                      ? e.message
+                      : "We couldn't load your history.",
+                  onRetry: () =>
+                      ref.invalidate(outfitHistoryProvider(_filter.query)),
+                ),
+                data: (data) => data.isEmpty
+                    ? const _EmptyState()
+                    : _HistoryList(data: data),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HistoryList extends StatelessWidget {
+  final OutfitHistory data;
+  const _HistoryList({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = data.groupedByMonth();
+    final streakDays = data.currentStreak.days;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      children: [
+        if (streakDays > 0) ...[
+          StreakPill(
+            days: streakDays,
+            onShare: () => debugPrint('history: streak share'),
+          ),
+          const SizedBox(height: 24),
+        ],
+        for (final entry in groups.entries) ...[
+          _SectionHeader(label: entry.key),
+          const SizedBox(height: 8),
+          for (final item in entry.value) ...[
+            _HistoryEntryCard(
+              entry: item,
+              onTap: () => context.pushNamed(
+                AiReasoningDetailScreen.name,
+                pathParameters: {'id': item.outfitId},
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 14),
+        ],
+      ],
     );
   }
 }
@@ -143,13 +147,13 @@ class _Header extends StatelessWidget {
 }
 
 class _FilterChips extends StatelessWidget {
-  final List<String> filters;
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
+  final List<HistoryFilter> filters;
+  final HistoryFilter selected;
+  final ValueChanged<HistoryFilter> onSelected;
 
   const _FilterChips({
     required this.filters,
-    required this.selectedIndex,
+    required this.selected,
     required this.onSelected,
   });
 
@@ -163,21 +167,23 @@ class _FilterChips extends StatelessWidget {
         itemCount: filters.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
-          final selected = i == selectedIndex;
+          final filter = filters[i];
+          final isSelected = filter == selected;
           return Material(
-            color: selected ? AppColors.espresso : AppColors.tanFixed,
+            color: isSelected ? AppColors.espresso : AppColors.tanFixed,
             borderRadius: BorderRadius.circular(999),
             child: InkWell(
-              onTap: () => onSelected(i),
+              onTap: () => onSelected(filter),
               borderRadius: BorderRadius.circular(999),
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: Center(
                   child: Text(
-                    filters[i],
+                    filter.label,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: selected ? AppColors.white : AppColors.inkSoft,
+                          color:
+                              isSelected ? AppColors.white : AppColors.inkSoft,
                           fontWeight: FontWeight.w600,
                         ),
                   ),
@@ -208,152 +214,144 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _HistoryEntry extends StatelessWidget {
-  final String date;
-  final String occasion;
-  final List<String> items;
-  final int itemCount;
-  final String? imageUrl;
-  final bool worn;
+class _HistoryEntryCard extends StatelessWidget {
+  final HistoryEntry entry;
+  final VoidCallback onTap;
 
-  const _HistoryEntry({
-    required this.date,
-    required this.occasion,
-    required this.items,
-    required this.itemCount,
-    required this.imageUrl,
-    required this.worn,
-  });
+  const _HistoryEntryCard({required this.entry, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: worn ? 1 : 0.6,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.6)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0F000000),
-              blurRadius: 4,
-              offset: Offset(0, 1),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 80,
-                height: 106,
-                color: AppColors.ivoryWarm,
-                child: imageUrl == null
-                    ? const Center(
-                        child: Icon(
-                          Icons.block,
-                          color: AppColors.taglineGrey,
-                          size: 28,
-                        ),
-                      )
-                    : Image.network(
-                        imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(
-                          Icons.checkroom_outlined,
-                          color: AppColors.taupeSoft,
-                        ),
-                      ),
+    final itemNames =
+        entry.items.map((i) => i.name).where((n) => n.isNotEmpty).toList();
+
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border:
+                Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.6)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0F000000),
+                blurRadius: 4,
+                offset: Offset(0, 1),
               ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          date,
-                          style: Theme.of(context).textTheme.titleSmall,
+            ],
+          ),
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 80,
+                  height: 106,
+                  color: AppColors.ivoryWarm,
+                  child: entry.imageUrl == null
+                      ? const Center(
+                          child: Icon(
+                            Icons.checkroom_outlined,
+                            color: AppColors.taupeSoft,
+                            size: 28,
+                          ),
+                        )
+                      : Image.network(
+                          entry.imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const Icon(
+                            Icons.checkroom_outlined,
+                            color: AppColors.taupeSoft,
+                          ),
                         ),
-                      ),
-                      _StatusTag(worn: worn),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _OccasionPill(label: occasion, muted: !worn),
-                      if (worn && itemCount > 0)
-                        Text(
-                          '$itemCount items',
-                          style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            entry.dayLabel,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
                         ),
-                    ],
-                  ),
-                  if (items.isNotEmpty) ...[
+                        const _WornTag(),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: items
-                          .map((item) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.sand,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  item,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .labelMedium
-                                      ?.copyWith(color: AppColors.inkSoft),
-                                ),
-                              ))
-                          .toList(),
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        _OccasionPill(label: entry.occasionLabel),
+                        if (entry.itemsCount > 0)
+                          Text(
+                            '${entry.itemsCount} items',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                      ],
                     ),
+                    if (itemNames.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: itemNames
+                            .map((name) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.sand,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(color: AppColors.inkSoft),
+                                  ),
+                                ))
+                            .toList(),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _StatusTag extends StatelessWidget {
-  final bool worn;
-  const _StatusTag({required this.worn});
+class _WornTag extends StatelessWidget {
+  const _WornTag();
 
   @override
   Widget build(BuildContext context) {
-    final color = worn ? AppColors.sage : AppColors.taglineGrey;
-    final icon = worn ? Icons.thumb_up : Icons.fast_forward;
-    final label = worn ? 'Worn' : 'Skipped';
-
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: color, size: 14),
+        const Icon(Icons.thumb_up, color: AppColors.sage, size: 14),
         const SizedBox(width: 4),
         Text(
-          label,
+          'Worn',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: color,
+                color: AppColors.sage,
                 fontWeight: FontWeight.w700,
               ),
         ),
@@ -364,24 +362,81 @@ class _StatusTag extends StatelessWidget {
 
 class _OccasionPill extends StatelessWidget {
   final String label;
-  final bool muted;
-  const _OccasionPill({required this.label, this.muted = false});
+  const _OccasionPill({required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: muted ? AppColors.sand : AppColors.tanFixed,
+        color: AppColors.tanFixed,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label.toUpperCase(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: muted ? AppColors.inkSoft : AppColors.espressoDark,
+              color: AppColors.espressoDark,
               letterSpacing: 1.4,
               fontWeight: FontWeight.w700,
             ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.checkroom_outlined,
+                color: AppColors.taupeSoft, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'No outfits logged yet',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Log an outfit as worn from Today and it will show up here.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            TextButton(onPressed: onRetry, child: const Text('Try again')),
+          ],
+        ),
       ),
     );
   }

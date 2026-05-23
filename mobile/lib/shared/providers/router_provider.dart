@@ -22,6 +22,7 @@ import '../../modules/onboarding/screens/shopping_style_screen.dart';
 import '../../modules/onboarding/screens/shoulders_screen.dart';
 import '../../modules/onboarding/screens/splash_screen.dart';
 import '../../modules/onboarding/screens/style_goals_screen.dart';
+import '../../modules/onboarding/screens/thigh_measurement_screen.dart';
 import '../../modules/onboarding/screens/waist_measurement_screen.dart';
 import '../../modules/onboarding/screens/wardrobe_setup_screen.dart';
 import '../../modules/onboarding/screens/weight_input_screen.dart';
@@ -202,6 +203,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: InseamMeasurementScreen.path,
         name: InseamMeasurementScreen.name,
         builder: (_, _) => const InseamMeasurementScreen(),
+      ),
+      GoRoute(
+        path: ThighMeasurementScreen.path,
+        name: ThighMeasurementScreen.name,
+        builder: (_, _) => const ThighMeasurementScreen(),
       ),
       GoRoute(
         path: ShouldersScreen.path,

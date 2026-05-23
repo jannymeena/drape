@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../models/outfit_reasoning.dart';
+import '../today_service.dart';
 
-class AiReasoningDetailScreen extends StatelessWidget {
+/// "Why This Outfit Works" sheet. Fetches the real reasoning for [outfitId] via
+/// `GET /outfits/{id}/reasoning` — narrative, per-item rationales, the
+/// compatibility band, and the headline factors are all server-authored.
+class AiReasoningDetailScreen extends ConsumerWidget {
   static const path = '/today/outfit/:id/reasoning';
   static const name = 'ai_reasoning_detail';
 
@@ -12,35 +19,10 @@ class AiReasoningDetailScreen extends StatelessWidget {
 
   const AiReasoningDetailScreen({super.key, required this.outfitId});
 
-  static const _items = <_ReasoningItem>[
-    _ReasoningItem(
-      name: 'Navy Linen Shirt',
-      note: 'Cool undertone complements your palette.',
-      imageUrl:
-          'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=200',
-    ),
-    _ReasoningItem(
-      name: 'Terracotta Trousers',
-      note: 'Adds a sophisticated pop of color.',
-      imageUrl:
-          'https://images.unsplash.com/photo-1551803091-e20673f15770?w=200',
-    ),
-    _ReasoningItem(
-      name: 'Leather Loafers',
-      note: 'Classic footwear for a polished look.',
-      imageUrl:
-          'https://images.unsplash.com/photo-1542838686-37da4a9fd1b3?w=200',
-    ),
-    _ReasoningItem(
-      name: 'Silver Watch',
-      note: 'Subtle accessory to tie the look together.',
-      imageUrl:
-          'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=200',
-    ),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reasoning = ref.watch(outfitReasoningProvider(outfitId));
+
     return Scaffold(
       backgroundColor: AppColors.espressoDeep.withValues(alpha: 0.4),
       body: SafeArea(
@@ -57,8 +39,7 @@ class AiReasoningDetailScreen extends StatelessWidget {
             Container(
               decoration: const BoxDecoration(
                 color: AppColors.white,
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.88,
@@ -75,58 +56,31 @@ class AiReasoningDetailScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Why This Outfit Works',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                        ),
-                        Material(
-                          color: AppColors.ivoryDim,
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () => context.pop(),
-                            child: const SizedBox(
-                              width: 40,
-                              height: 40,
-                              child: Icon(Icons.close,
-                                  color: AppColors.espresso, size: 20),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _TitleRow(onClose: () => context.pop()),
                   Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _NarrativeBlock(),
-                          const SizedBox(height: 24),
-                          Text(
-                            'Item by Item',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(color: AppColors.espresso),
+                    child: reasoning.when(
+                      loading: () => const _BodyMessage(
+                        child: Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 48),
+                            child: CircularProgressIndicator(
+                                color: AppColors.espresso),
                           ),
-                          const SizedBox(height: 12),
-                          ..._items.map(
-                            (i) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _ItemRow(item: i),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          _CompatibilityScore(score: 87),
-                          const SizedBox(height: 24),
-                        ],
+                        ),
                       ),
+                      error: (e, _) => _BodyMessage(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Text(
+                            e is ApiException
+                                ? e.message
+                                : "We couldn't load the styling notes. Please try again.",
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ),
+                      data: (data) => _ReasoningBody(data: data),
                     ),
                   ),
                   Container(
@@ -134,9 +88,7 @@ class AiReasoningDetailScreen extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
                     decoration: const BoxDecoration(
                       color: AppColors.white,
-                      border: Border(
-                        top: BorderSide(color: AppColors.ivoryDim),
-                      ),
+                      border: Border(top: BorderSide(color: AppColors.ivoryDim)),
                     ),
                     child: DrapeButton(
                       label: 'Got It',
@@ -158,16 +110,117 @@ class AiReasoningDetailScreen extends StatelessWidget {
   }
 }
 
+class _TitleRow extends StatelessWidget {
+  final VoidCallback onClose;
+  const _TitleRow({required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Why This Outfit Works',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          Material(
+            color: AppColors.ivoryDim,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onClose,
+              child: const SizedBox(
+                width: 40,
+                height: 40,
+                child: Icon(Icons.close, color: AppColors.espresso, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Keeps the loading/error states inside the same scroll padding as the body so
+/// the sheet doesn't jump as content resolves.
+class _BodyMessage extends StatelessWidget {
+  final Widget child;
+  const _BodyMessage({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      child: child,
+    );
+  }
+}
+
+class _ReasoningBody extends StatelessWidget {
+  final OutfitReasoning data;
+  const _ReasoningBody({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _NarrativeBlock(text: data.fullText),
+          if (data.factors.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: data.factors.map((f) => _FactorChip(label: f)).toList(),
+            ),
+          ],
+          if (data.items.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text(
+              'Item by Item',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(color: AppColors.espresso),
+            ),
+            const SizedBox(height: 12),
+            ...data.items.map(
+              (i) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _ItemRow(item: i),
+              ),
+            ),
+          ],
+          if (data.compatibilityScore != null) ...[
+            const SizedBox(height: 24),
+            _CompatibilityScore(
+              score: data.compatibilityScore!,
+              label: data.compatibilityLabel,
+            ),
+          ],
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
 class _NarrativeBlock extends StatelessWidget {
+  final String? text;
+  const _NarrativeBlock({required this.text});
+
   @override
   Widget build(BuildContext context) {
     final base = Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.55);
-    final bold = TextStyle(
-      fontWeight: FontWeight.w700,
-      color: AppColors.espresso,
-      fontSize: base?.fontSize,
-      height: base?.height,
-    );
+    final body = (text == null || text!.trim().isEmpty)
+        ? "We don't have a detailed breakdown for this look yet — but the pieces were chosen to work together for the occasion."
+        : text!;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -175,45 +228,41 @@ class _NarrativeBlock extends StatelessWidget {
         color: AppColors.ivoryDim,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Text.rich(
-        TextSpan(
-          style: base,
-          children: [
-            const TextSpan(text: 'This outfit works on three levels: '),
-            TextSpan(text: 'Color harmony', style: bold),
-            const TextSpan(text: ' (cool navy balances warm terracotta), '),
-            TextSpan(text: 'occasion appropriateness', style: bold),
-            const TextSpan(
-                text:
-                    ' (blazer projects authority for client meetings), and '),
-            TextSpan(text: 'wardrobe rotation', style: bold),
-            const TextSpan(
-                text:
-                    " (you haven't worn these trousers in 6 weeks — time to bring them back)."),
-          ],
-        ),
+      child: Text(body, style: base),
+    );
+  }
+}
+
+class _FactorChip extends StatelessWidget {
+  final String label;
+  const _FactorChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.tanFixed,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: AppColors.espressoDark,
+              fontWeight: FontWeight.w600,
+            ),
       ),
     );
   }
 }
 
-class _ReasoningItem {
-  final String name;
-  final String note;
-  final String imageUrl;
-  const _ReasoningItem({
-    required this.name,
-    required this.note,
-    required this.imageUrl,
-  });
-}
-
 class _ItemRow extends StatelessWidget {
-  final _ReasoningItem item;
+  final ReasoningItem item;
   const _ItemRow({required this.item});
 
   @override
   Widget build(BuildContext context) {
+    final note = item.whyItWorks;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.sand.withValues(alpha: 0.4),
@@ -228,14 +277,17 @@ class _ItemRow extends StatelessWidget {
               width: 56,
               height: 56,
               color: AppColors.ivory,
-              child: Image.network(
-                item.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const Icon(
-                  Icons.checkroom_outlined,
-                  color: AppColors.taupeSoft,
-                ),
-              ),
+              child: item.imageUrl == null
+                  ? const Icon(Icons.checkroom_outlined,
+                      color: AppColors.taupeSoft)
+                  : Image.network(
+                      item.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Icon(
+                        Icons.checkroom_outlined,
+                        color: AppColors.taupeSoft,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 12),
@@ -243,11 +295,11 @@ class _ItemRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.name,
-                    style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 2),
-                Text(item.note,
-                    style: Theme.of(context).textTheme.bodySmall),
+                Text(item.name, style: Theme.of(context).textTheme.titleSmall),
+                if (note != null && note.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(note, style: Theme.of(context).textTheme.bodySmall),
+                ],
               ],
             ),
           ),
@@ -259,7 +311,8 @@ class _ItemRow extends StatelessWidget {
 
 class _CompatibilityScore extends StatelessWidget {
   final int score;
-  const _CompatibilityScore({required this.score});
+  final String label;
+  const _CompatibilityScore({required this.score, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -272,9 +325,10 @@ class _CompatibilityScore extends StatelessWidget {
             Expanded(
               child: Text(
                 'Compatibility Score',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.espresso,
-                    ),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(color: AppColors.espresso),
               ),
             ),
             Text(
@@ -296,13 +350,16 @@ class _CompatibilityScore extends StatelessWidget {
             valueColor: const AlwaysStoppedAnimation(AppColors.sage),
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'High match for your scheduled 2:00 PM presentation.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontStyle: FontStyle.italic,
-              ),
-        ),
+        if (label.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(fontStyle: FontStyle.italic),
+          ),
+        ],
       ],
     );
   }

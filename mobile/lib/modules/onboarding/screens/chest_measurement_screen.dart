@@ -1,18 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../models/measurements_draft.dart';
+import '../onboarding_controller.dart';
+import '../onboarding_flow.dart';
 import '../widgets/measurement_guide.dart';
 import '../widgets/measurement_input.dart';
 import 'waist_measurement_screen.dart';
 
-class ChestMeasurementScreen extends StatelessWidget {
+class ChestMeasurementScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/measurements/chest';
   static const name = 'chest';
 
   const ChestMeasurementScreen({super.key});
+
+  @override
+  ConsumerState<ChestMeasurementScreen> createState() =>
+      _ChestMeasurementScreenState();
+}
+
+class _ChestMeasurementScreenState extends ConsumerState<ChestMeasurementScreen> {
+  double? _cm;
+  bool _imperial = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.chest);
+  }
+
+  void _onContinue() {
+    if (_cm == null) return;
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .setMeasurement(MeasurementField.chest, _cm, imperial: _imperial);
+    context.goNamed(WaistMeasurementScreen.name);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,10 +73,17 @@ class ChestMeasurementScreen extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 28),
-                  const MeasurementInput(
+                  MeasurementInput(
                     metricLabel: 'cm',
                     imperialLabel: 'in',
-                    initialUnit: MeasurementUnit.imperial,
+                    initialUnit: _cm != null
+                        ? MeasurementUnit.metric
+                        : MeasurementUnit.imperial,
+                    initialValue: _cm != null ? formatMeasurement(_cm!) : null,
+                    onReading: (metric, unit) => setState(() {
+                      _cm = metric;
+                      _imperial = unit == MeasurementUnit.imperial;
+                    }),
                   ),
                 ],
               ),
@@ -60,15 +94,16 @@ class ChestMeasurementScreen extends StatelessWidget {
                 children: [
                   DrapeButton(
                     label: 'Keep Going',
-                    onPressed: () => context.goNamed(WaistMeasurementScreen.name),
+                    onPressed: _cm == null ? null : _onContinue,
                     leading: const Icon(Icons.arrow_forward,
                         color: AppColors.white, size: 18),
                   ),
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: () => context.goNamed(WaistMeasurementScreen.name),
+                    onPressed: () => confirmSkipMeasurements(context, ref,
+                        step: 'measurements_step_3'),
                     child: Text(
-                      'Skip chest for now',
+                      'Skip for now',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             color: AppColors.inkSoft,
                             decoration: TextDecoration.underline,

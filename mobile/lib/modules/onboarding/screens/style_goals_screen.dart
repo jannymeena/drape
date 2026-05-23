@@ -1,24 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../onboarding_controller.dart';
 import '../widgets/option_card.dart';
 import 'lifestyle_occasions_screen.dart';
 
-class StyleGoalsScreen extends StatefulWidget {
+class StyleGoalsScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/style-goals';
   static const name = 'style_goals';
 
   const StyleGoalsScreen({super.key});
 
   @override
-  State<StyleGoalsScreen> createState() => _StyleGoalsScreenState();
+  ConsumerState<StyleGoalsScreen> createState() => _StyleGoalsScreenState();
 }
 
-class _StyleGoalsScreenState extends State<StyleGoalsScreen> {
+class _StyleGoalsScreenState extends ConsumerState<StyleGoalsScreen> {
   final _selected = <int>{};
+  bool _submitting = false;
+
+  // Parallel to [_options]: the backend `StyleGoal` literal for each card.
+  static const _values = [
+    'time_saving',
+    'polished',
+    'maximize_wardrobe',
+    'discover_style',
+    'confidence',
+    'reduce_clutter',
+  ];
 
   static const _options = [
     ('Spend less time choosing outfits every morning', Icons.schedule_outlined),
@@ -28,6 +42,28 @@ class _StyleGoalsScreenState extends State<StyleGoalsScreen> {
     ('Feel more confident in what I wear', Icons.favorite_border),
     ('Reduce closet clutter and decision fatigue', Icons.cleaning_services_outlined),
   ];
+
+  Future<void> _onContinue() async {
+    if (_submitting || _selected.isEmpty) return;
+    final goals = [
+      for (final i in _selected) _values[i],
+    ];
+
+    setState(() => _submitting = true);
+    try {
+      await ref
+          .read(onboardingControllerProvider.notifier)
+          .setStyleGoals(goals);
+      if (!mounted) return;
+      context.goNamed(LifestyleOccasionsScreen.name);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,9 +91,12 @@ class _StyleGoalsScreenState extends State<StyleGoalsScreen> {
                       trailingIcon: _options[i].$2,
                       selected: _selected.contains(i),
                       selector: OptionSelector.checkbox,
-                      onTap: () => setState(() {
-                        if (!_selected.add(i)) _selected.remove(i);
-                      }),
+                      onTap: () {
+                        if (_submitting) return;
+                        setState(() {
+                          if (!_selected.add(i)) _selected.remove(i);
+                        });
+                      },
                     ),
                     if (i < _options.length - 1) const SizedBox(height: 12),
                   ],
@@ -80,9 +119,8 @@ class _StyleGoalsScreenState extends State<StyleGoalsScreen> {
                   const SizedBox(height: 12),
                   DrapeButton(
                     label: 'Continue with Selection',
-                    onPressed: count == 0
-                        ? null
-                        : () => context.goNamed(LifestyleOccasionsScreen.name),
+                    loading: _submitting,
+                    onPressed: count == 0 ? null : _onContinue,
                   ),
                   const SizedBox(height: 12),
                   Text(

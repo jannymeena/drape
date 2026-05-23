@@ -1,15 +1,56 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
+import '../onboarding_controller.dart';
 import 'avatar_reveal_screen.dart';
 
-class WardrobeSetupScreen extends StatelessWidget {
+/// Onboarding wardrobe step. The upload / scan / manual paths add the user's
+/// own items and belong to the (not-yet-built) Wardrobe module, so they're
+/// still stubs. The working forward path assigns a curated **starter wardrobe**
+/// so the user has outfits immediately; it auto-deactivates as they add real
+/// items.
+class WardrobeSetupScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/wardrobe-setup';
   static const name = 'wardrobe_setup';
 
   const WardrobeSetupScreen({super.key});
+
+  @override
+  ConsumerState<WardrobeSetupScreen> createState() =>
+      _WardrobeSetupScreenState();
+}
+
+class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
+  bool _assigning = false;
+
+  Future<void> _useStarterWardrobe() async {
+    if (_assigning) return;
+    setState(() => _assigning = true);
+    try {
+      final result = await ref
+          .read(onboardingControllerProvider.notifier)
+          .assignStarterWardrobe();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Added ${result.displayCount} starter pieces to your wardrobe.',
+          ),
+        ),
+      );
+      context.goNamed(AvatarRevealScreen.name);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _assigning = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,19 +126,20 @@ class WardrobeSetupScreen extends StatelessWidget {
               icon: Icons.photo_library_outlined,
               title: 'Upload Photos',
               body: 'Add multiple items at once from your camera roll',
-              onTap: () => debugPrint('wardrobe: upload'),
+              onTap: _assigning ? null : () => debugPrint('wardrobe: upload'),
             ),
             const SizedBox(height: 12),
             _ActionCard(
               icon: Icons.qr_code_scanner_outlined,
               title: 'Scan New Item',
               body: "Point at any garment for instant auto-tagging",
-              onTap: () => debugPrint('wardrobe: scan'),
+              onTap: _assigning ? null : () => debugPrint('wardrobe: scan'),
             ),
             const SizedBox(height: 24),
             Center(
               child: TextButton(
-                onPressed: () => debugPrint('wardrobe: manual'),
+                onPressed:
+                    _assigning ? null : () => debugPrint('wardrobe: manual'),
                 child: Text(
                   'Add manually instead',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -107,17 +149,24 @@ class WardrobeSetupScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 8),
             Center(
               child: TextButton(
-                onPressed: () => context.goNamed(AvatarRevealScreen.name),
-                child: Text(
-                  'SKIP FOR NOW',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.inkSoft,
-                        letterSpacing: 1.4,
-                        fontWeight: FontWeight.w700,
+                onPressed: _assigning ? null : _useStarterWardrobe,
+                child: _assigning
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        'START WITH A STARTER WARDROBE',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: AppColors.espresso,
+                              letterSpacing: 1.4,
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
-                ),
               ),
             ),
           ],
@@ -131,7 +180,7 @@ class _ActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String body;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   const _ActionCard({
     required this.icon,
     required this.title,

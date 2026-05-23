@@ -1,11 +1,24 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:mobile/modules/today/models/outfit_reasoning.dart';
 import 'package:mobile/modules/today/screens/ai_reasoning_detail_screen.dart';
+import 'package:mobile/modules/today/today_controller.dart';
+import 'package:mobile/modules/today/today_service.dart';
 import 'package:mobile/modules/wardrobe/screens/item_detail_screen.dart';
 import 'package:mobile/shared/providers/router_provider.dart';
 import 'package:mobile/shared/services/session_store.dart';
+
+/// A Today controller that never touches the network, so building the Today
+/// branch (which the reasoning deep link sits under) doesn't fire a real
+/// dashboard fetch during these routing-only tests.
+class _StubTodayController extends TodayController {
+  _StubTodayController() : super(TodayService(Dio()));
+  @override
+  Future<void> load() async {}
+}
 
 /// Verifies the `:id` path parameters extract correctly for the two detail
 /// routes wired in Phase C6. These are the deep-link entry points used by
@@ -34,12 +47,33 @@ void main() {
   testWidgets(
     'Deep link /today/outfit/mock-1/reasoning resolves with outfitId="mock-1"',
     (tester) async {
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          todayControllerProvider.overrideWith((ref) => _StubTodayController()),
+          // The reasoning screen now fetches on build; hand it a canned result
+          // so the loading spinner resolves and this routing-only test settles.
+          outfitReasoningProvider.overrideWith(
+            (ref, outfitId) => const OutfitReasoning(
+              outfitId: 'mock-1',
+              items: [],
+              compatibilityLabel: 'High compatibility',
+              factors: [],
+              fullText: 'Stubbed reasoning.',
+              compatibilityScore: 90,
+            ),
+          ),
+        ],
+      );
       addTearDown(container.dispose);
       final router = container.read(routerProvider);
 
       router.go('/today/outfit/mock-1/reasoning');
-      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
       await tester.pumpAndSettle();
 
       final detail = tester

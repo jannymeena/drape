@@ -1,24 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../onboarding_controller.dart';
 import '../widgets/onboarding_progress_bar.dart';
 import '../widgets/option_card.dart';
 import 'age_range_screen.dart';
 
-class ShoppingStyleScreen extends StatefulWidget {
+class ShoppingStyleScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/shopping-style';
   static const name = 'shopping_style';
 
   const ShoppingStyleScreen({super.key});
 
   @override
-  State<ShoppingStyleScreen> createState() => _ShoppingStyleScreenState();
+  ConsumerState<ShoppingStyleScreen> createState() =>
+      _ShoppingStyleScreenState();
 }
 
-class _ShoppingStyleScreenState extends State<ShoppingStyleScreen> {
+class _ShoppingStyleScreenState extends ConsumerState<ShoppingStyleScreen> {
   int? _selected;
+  bool _submitting = false;
+
+  // Parallel to [_options]: the backend `ShoppingStyle` literal for each card.
+  static const _values = ['womens', 'mens', 'both', 'prefer_not_to_say'];
 
   static const _options = [
     ('Women’s Fashion', Icons.dry_cleaning_outlined),
@@ -26,6 +34,26 @@ class _ShoppingStyleScreenState extends State<ShoppingStyleScreen> {
     ('Both / All Styles', Icons.style_outlined),
     ('Prefer not to say', Icons.help_outline),
   ];
+
+  Future<void> _onContinue() async {
+    final selected = _selected;
+    if (selected == null || _submitting) return;
+
+    setState(() => _submitting = true);
+    try {
+      await ref
+          .read(onboardingControllerProvider.notifier)
+          .setShoppingStyle(_values[selected]);
+      if (!mounted) return;
+      context.goNamed(AgeRangeScreen.name);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +82,10 @@ class _ShoppingStyleScreenState extends State<ShoppingStyleScreen> {
                       label: _options[i].$1,
                       icon: _options[i].$2,
                       selected: _selected == i,
-                      onTap: () => setState(() => _selected = i),
+                      onTap: () {
+                        if (_submitting) return;
+                        setState(() => _selected = i);
+                      },
                     ),
                     if (i < _options.length - 1) const SizedBox(height: 12),
                   ],
@@ -65,9 +96,8 @@ class _ShoppingStyleScreenState extends State<ShoppingStyleScreen> {
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
               child: DrapeButton(
                 label: 'Continue',
-                onPressed: _selected == null
-                    ? null
-                    : () => context.goNamed(AgeRangeScreen.name),
+                loading: _submitting,
+                onPressed: _selected == null ? null : _onContinue,
               ),
             ),
           ],

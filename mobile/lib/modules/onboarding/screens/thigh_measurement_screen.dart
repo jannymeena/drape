@@ -9,36 +9,39 @@ import '../models/measurements_draft.dart';
 import '../onboarding_controller.dart';
 import '../widgets/measurement_guide.dart';
 import '../widgets/measurement_input.dart';
-import 'thigh_measurement_screen.dart';
+import 'shoulders_screen.dart';
 
-class InseamMeasurementScreen extends ConsumerStatefulWidget {
-  static const path = '/onboarding/measurements/inseam';
-  static const name = 'inseam';
+/// Step 7 of the 8-step measurement flow. The backend requires `thigh_cm`, but
+/// no screen previously collected it (the indicator already read "of 8"); this
+/// fills that gap. Sits between inseam and shoulders.
+class ThighMeasurementScreen extends ConsumerStatefulWidget {
+  static const path = '/onboarding/measurements/thigh';
+  static const name = 'thigh';
 
-  const InseamMeasurementScreen({super.key});
+  const ThighMeasurementScreen({super.key});
 
   @override
-  ConsumerState<InseamMeasurementScreen> createState() =>
-      _InseamMeasurementScreenState();
+  ConsumerState<ThighMeasurementScreen> createState() =>
+      _ThighMeasurementScreenState();
 }
 
-class _InseamMeasurementScreenState
-    extends ConsumerState<InseamMeasurementScreen> {
+class _ThighMeasurementScreenState
+    extends ConsumerState<ThighMeasurementScreen> {
   double? _cm;
   bool _imperial = false;
 
   @override
   void initState() {
     super.initState();
-    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.inseam);
+    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.thigh);
   }
 
   void _onContinue() {
     if (_cm == null) return;
     ref
         .read(onboardingControllerProvider.notifier)
-        .setMeasurement(MeasurementField.inseam, _cm, imperial: _imperial);
-    context.goNamed(ThighMeasurementScreen.name);
+        .setMeasurement(MeasurementField.thigh, _cm, imperial: _imperial);
+    context.goNamed(ShouldersScreen.name);
   }
 
   @override
@@ -51,7 +54,7 @@ class _InseamMeasurementScreenState
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: Text(
-                'STEP 6 OF 8 — INSEAM',
+                'STEP 7 OF 8 — THIGH',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: AppColors.espresso,
                       letterSpacing: 1.4,
@@ -63,13 +66,13 @@ class _InseamMeasurementScreenState
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
                 children: [
-                  const MeasurementGuide(bodyPart: 'inseam'),
+                  const MeasurementGuide(bodyPart: 'thigh'),
                   const SizedBox(height: 24),
-                  Text('Inseam',
+                  Text('Thigh',
                       style: Theme.of(context).textTheme.headlineMedium),
                   const SizedBox(height: 8),
                   Text(
-                    'Measure from your crotch down to the floor along the inside of your leg.',
+                    'Tape around the fullest part of one thigh, just below where it meets your hip.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 28),

@@ -1,18 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../models/measurements_draft.dart';
+import '../onboarding_controller.dart';
+import '../onboarding_flow.dart';
 import '../widgets/measurement_input.dart';
 import '../widgets/onboarding_progress_bar.dart';
 import 'chest_measurement_screen.dart';
 
-class WeightInputScreen extends StatelessWidget {
+/// Weight is the one optional measurement, so Continue is always enabled — a
+/// blank field simply stores no weight (the bulk POST sends `weight_kg: null`).
+class WeightInputScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/measurements/weight';
   static const name = 'weight';
 
   const WeightInputScreen({super.key});
+
+  @override
+  ConsumerState<WeightInputScreen> createState() => _WeightInputScreenState();
+}
+
+class _WeightInputScreenState extends ConsumerState<WeightInputScreen> {
+  double? _kg;
+  bool _imperial = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _kg = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.weight);
+  }
+
+  void _onContinue() {
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .setMeasurement(MeasurementField.weight, _kg, imperial: _imperial);
+    context.goNamed(ChestMeasurementScreen.name);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +48,8 @@ class WeightInputScreen extends StatelessWidget {
         title: 'Your DRAPE Profile — Step 2 of 8',
         actions: [
           TextButton(
-            onPressed: () => context.goNamed(ChestMeasurementScreen.name),
+            onPressed: () =>
+                confirmSkipMeasurements(context, ref, step: 'measurements_step_2'),
             child: Text(
               'Skip for\nNow',
               textAlign: TextAlign.right,
@@ -67,10 +95,16 @@ class WeightInputScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 28),
-                  const MeasurementInput(
+                  MeasurementInput(
                     metricLabel: 'kg',
                     imperialLabel: 'lbs',
                     hint: 'e.g., 70 kg or 154 lbs',
+                    imperialFactor: 0.45359237,
+                    initialValue: _kg != null ? formatMeasurement(_kg!) : null,
+                    onReading: (metric, unit) => setState(() {
+                      _kg = metric;
+                      _imperial = unit == MeasurementUnit.imperial;
+                    }),
                   ),
                 ],
               ),
@@ -79,7 +113,7 @@ class WeightInputScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
               child: DrapeButton(
                 label: 'Continue',
-                onPressed: () => context.goNamed(ChestMeasurementScreen.name),
+                onPressed: _onContinue,
               ),
             ),
           ],
