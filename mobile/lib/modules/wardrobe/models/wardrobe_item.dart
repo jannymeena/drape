@@ -62,6 +62,49 @@ class WardrobeItem {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Folds an action result (favorite toggle / log-worn) back into the item
+  /// without a refetch. [favoritedAt] uses a sentinel so it can be set back to
+  /// null on unfavorite; [lastWorn] / [costPerWear] only move forward.
+  WardrobeItem copyWith({
+    bool? isFavorite,
+    Object? favoritedAt = _undefined,
+    int? wornCount,
+    DateTime? lastWorn,
+    double? costPerWear,
+  }) {
+    return WardrobeItem(
+      id: id,
+      name: name,
+      category: category,
+      subcategory: subcategory,
+      images: images,
+      primaryImageUrl: primaryImageUrl,
+      colorHex: colorHex,
+      colorName: colorName,
+      pattern: pattern,
+      material: material,
+      formality: formality,
+      season: season,
+      brand: brand,
+      purchasePrice: purchasePrice,
+      purchaseDate: purchaseDate,
+      description: description,
+      wornCount: wornCount ?? this.wornCount,
+      lastWorn: lastWorn ?? this.lastWorn,
+      costPerWear: costPerWear ?? this.costPerWear,
+      isFavorite: isFavorite ?? this.isFavorite,
+      favoritedAt: identical(favoritedAt, _undefined)
+          ? this.favoritedAt
+          : favoritedAt as DateTime?,
+      isStarterWardrobe: isStarterWardrobe,
+      starterTemplateId: starterTemplateId,
+      addedVia: addedVia,
+      aiDetectionConfidence: aiDetectionConfidence,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+
   /// First usable image for the card/hero (primary, else the first uploaded).
   String? get displayImageUrl {
     if (primaryImageUrl != null && primaryImageUrl!.isNotEmpty) {
@@ -96,6 +139,8 @@ class WardrobeItem {
     if (days < 30) return '${(days / 7).floor()} weeks ago';
     return '${_months[worn.month - 1]} ${worn.day}';
   }
+
+  static const _undefined = Object();
 
   static DateTime? _parseDate(Object? v) =>
       v == null ? null : DateTime.parse(v as String);

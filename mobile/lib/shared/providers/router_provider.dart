@@ -306,7 +306,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: wardrobe_manual.ManualEntryScreen.path,
                     name: wardrobe_manual.ManualEntryScreen.name,
-                    builder: (_, _) => const wardrobe_manual.ManualEntryScreen(),
+                    // `?id=` → edit that item; absent → create.
+                    builder: (_, state) => wardrobe_manual.ManualEntryScreen(
+                      itemId: state.uri.queryParameters['id'],
+                    ),
                   ),
                   GoRoute(
                     path: IntelligenceReportScreen.path,

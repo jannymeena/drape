@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/wardrobe_item.dart';
 import '../wardrobe_controller.dart';
+import '../wardrobe_service.dart';
 import '../widgets/add_to_wardrobe_chooser.dart';
+import '../widgets/capacity_warning_banner.dart';
 import '../widgets/category_filter_chips.dart';
 import '../widgets/item_card.dart';
 import 'batch_upload_screen.dart';
 import 'item_detail_screen.dart';
 import 'manual_entry_screen.dart' as wardrobe_manual;
 import 'scanner_screen.dart';
+import 'weekly_recap_screen.dart';
 
 class WardrobeScreen extends ConsumerStatefulWidget {
   static const path = '/wardrobe';
@@ -43,7 +47,10 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
         bottom: false,
         child: Column(
           children: [
-            _TopBar(onAdd: _openAddSheet),
+            _TopBar(
+              onAdd: _openAddSheet,
+              onInsights: () => context.goNamed(WeeklyRecapScreen.name),
+            ),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: controller.load,
@@ -62,9 +69,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                       child: _SearchField(onChanged: controller.setSearch),
                     ),
                     const SizedBox(height: 16),
-                    // NOTE: capacity banner deferred to SP2 — the free-tier cap
-                    // (30 non-starter items) is tier-gated and not exposed by
-                    // the list endpoint; it belongs with the create/429 flow.
+                    ..._buildCapacityBanner(),
                     CategoryFilterChips(
                       categories:
                           WardrobeCategoryFilter.values.map((f) => f.label).toList(),
@@ -149,8 +154,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
               ItemDetailScreen.name,
               pathParameters: {'id': items[i].id},
             ),
-            // Favorite toggle is wired in SP2 (POST /toggle-favorite).
-            onFavorite: () => debugPrint('fav ${items[i].id}'),
+            onFavorite: () => _onFavorite(items[i].id),
           ),
         ),
       ),
@@ -176,6 +180,40 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
         child: _GrowYourWardrobeCard(onAdd: _openAddSheet),
       ),
     ];
+  }
+
+  /// Capacity warning banner (free tier only, at/above the soft threshold).
+  /// Best-effort: while loading or on error, render nothing.
+  List<Widget> _buildCapacityBanner() {
+    final capacity = ref.watch(wardrobeCapacityProvider).valueOrNull;
+    if (capacity == null || !capacity.shouldShowBanner) return const [];
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: CapacityWarningBanner(
+          used: capacity.used,
+          total: capacity.cap,
+          level: switch (capacity.level) {
+            'blocked' => CapacityLevel.blocked,
+            'urgent' => CapacityLevel.urgent,
+            _ => CapacityLevel.soft,
+          },
+          onUpgrade: () => debugPrint('wardrobe: upgrade'),
+        ),
+      ),
+      const SizedBox(height: 16),
+    ];
+  }
+
+  Future<void> _onFavorite(String itemId) async {
+    try {
+      await ref.read(wardrobeControllerProvider.notifier).toggleFavorite(itemId);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    }
   }
 
   WardrobeItemData _toCardData(WardrobeItem item) => WardrobeItemData(
@@ -244,7 +282,8 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
 
 class _TopBar extends StatelessWidget {
   final VoidCallback onAdd;
-  const _TopBar({required this.onAdd});
+  final VoidCallback onInsights;
+  const _TopBar({required this.onAdd, required this.onInsights});
 
   @override
   Widget build(BuildContext context) {
@@ -261,6 +300,10 @@ class _TopBar extends StatelessWidget {
                 ),
           ),
           const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.insights_outlined, color: AppColors.espresso),
+            onPressed: onInsights,
+          ),
           IconButton(
             icon: const Icon(Icons.add, color: AppColors.espresso),
             onPressed: onAdd,

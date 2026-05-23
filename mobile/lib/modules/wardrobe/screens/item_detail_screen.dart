@@ -4,15 +4,17 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../image_pick.dart';
 import '../models/wardrobe_item.dart';
+import '../wardrobe_controller.dart';
 import '../wardrobe_service.dart';
 import '../widgets/remove_confirmation_modal.dart';
+import 'manual_entry_screen.dart';
 
-/// Wardrobe item detail (`GET /wardrobe/items/{id}`). SP1 is read-only: the
-/// hero image, attributes, and cost-per-wear are all live. The bottom actions
-/// (log-worn / remove) and the edit affordance stay stubs until SP2 wires the
-/// mutation endpoints. The "appeared in N outfits" section is omitted — there's
-/// no backend endpoint that lists the outfits an item belongs to.
+/// Wardrobe item detail (`GET /wardrobe/items/{id}`). SP2 wires the actions:
+/// log-worn, delete, favorite (in the ⋮ menu), and edit. The "appeared in N
+/// outfits" section is omitted — there's no backend endpoint that lists the
+/// outfits an item belongs to.
 class ItemDetailScreen extends ConsumerWidget {
   static const path = 'items/:id';
   static const name = 'wardrobe_item_detail';
@@ -32,7 +34,7 @@ class ItemDetailScreen extends ConsumerWidget {
         child: item.when(
           loading: () => Column(
             children: [
-              _TopBar(onBack: () => context.pop(), onMore: null),
+              _TopBar(onBack: () => context.pop()),
               const Expanded(
                 child: Center(
                   child: CircularProgressIndicator(color: AppColors.espresso),
@@ -42,7 +44,7 @@ class ItemDetailScreen extends ConsumerWidget {
           ),
           error: (e, _) => Column(
             children: [
-              _TopBar(onBack: () => context.pop(), onMore: null),
+              _TopBar(onBack: () => context.pop()),
               Expanded(
                 child: Center(
                   child: Padding(
@@ -63,21 +65,106 @@ class ItemDetailScreen extends ConsumerWidget {
             children: [
               _TopBar(
                 onBack: () => context.pop(),
-                onMore: () => debugPrint('item: more'),
+                isFavorite: item.isFavorite,
+                onEdit: () => _edit(context, ref),
+                onToggleFavorite: () => _toggleFavorite(context, ref),
+                onAddPhoto: () => _addPhoto(context, ref),
               ),
-              Expanded(child: _Body(item: item)),
-              _BottomActions(item: item),
+              Expanded(child: _Body(item: item, onEdit: () => _edit(context, ref))),
+              _BottomActions(
+                item: item,
+                onLogWorn: () => _logWorn(context, ref),
+                onRemove: () => _remove(context, ref, item.name),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
+  Future<void> _edit(BuildContext context, WidgetRef ref) async {
+    await context.pushNamed(
+      ManualEntryScreen.name,
+      queryParameters: {'id': itemId},
+    );
+    // The edit screen invalidates the provider on save; this catches any other
+    // return path so the detail reflects the latest item.
+    ref.invalidate(wardrobeItemProvider(itemId));
+  }
+
+  Future<void> _addPhoto(BuildContext context, WidgetRef ref) async {
+    final picked = await pickWardrobeImage(context);
+    if (picked == null || !context.mounted) return;
+    try {
+      await ref
+          .read(wardrobeControllerProvider.notifier)
+          .addImages(itemId, [picked]);
+      ref.invalidate(wardrobeItemProvider(itemId));
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Photo added')));
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _toggleFavorite(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(wardrobeControllerProvider.notifier).toggleFavorite(itemId);
+      ref.invalidate(wardrobeItemProvider(itemId));
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _logWorn(BuildContext context, WidgetRef ref) async {
+    try {
+      final result =
+          await ref.read(wardrobeControllerProvider.notifier).logWorn(itemId);
+      ref.invalidate(wardrobeItemProvider(itemId));
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.alreadyLoggedToday
+              ? 'Already logged today'
+              : 'Logged as worn today'),
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _remove(BuildContext context, WidgetRef ref, String name) async {
+    final confirmed =
+        await RemoveConfirmationModal.show(context, itemName: name);
+    if (!confirmed || !context.mounted) return;
+    try {
+      await ref.read(wardrobeControllerProvider.notifier).deleteItem(itemId);
+      ref.invalidate(wardrobeCapacityProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Removed from wardrobe')));
+      context.pop();
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
 }
 
 class _Body extends StatelessWidget {
   final WardrobeItem item;
-  const _Body({required this.item});
+  final VoidCallback onEdit;
+  const _Body({required this.item, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +176,7 @@ class _Body extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
       children: [
-        _HeroImage(item: item),
+        _HeroImage(item: item, onEdit: onEdit),
         const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -120,11 +207,23 @@ class _Body extends StatelessWidget {
 
 class _TopBar extends StatelessWidget {
   final VoidCallback onBack;
-  final VoidCallback? onMore;
-  const _TopBar({required this.onBack, required this.onMore});
+  final bool isFavorite;
+  final VoidCallback? onEdit;
+  final VoidCallback? onToggleFavorite;
+  final VoidCallback? onAddPhoto;
+
+  const _TopBar({
+    required this.onBack,
+    this.isFavorite = false,
+    this.onEdit,
+    this.onToggleFavorite,
+    this.onAddPhoto,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final hasMenu =
+        onEdit != null || onToggleFavorite != null || onAddPhoto != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
       child: Row(
@@ -134,10 +233,27 @@ class _TopBar extends StatelessWidget {
             onPressed: onBack,
           ),
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: AppColors.espresso),
-            onPressed: onMore,
-          ),
+          if (hasMenu)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: AppColors.espresso),
+              onSelected: (value) {
+                if (value == 'edit') onEdit?.call();
+                if (value == 'favorite') onToggleFavorite?.call();
+                if (value == 'photo') onAddPhoto?.call();
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                const PopupMenuItem(value: 'photo', child: Text('Add photo')),
+                PopupMenuItem(
+                  value: 'favorite',
+                  child: Text(
+                    isFavorite ? 'Remove from favorites' : 'Add to favorites',
+                  ),
+                ),
+              ],
+            )
+          else
+            const SizedBox(width: 48),
         ],
       ),
     );
@@ -146,7 +262,8 @@ class _TopBar extends StatelessWidget {
 
 class _HeroImage extends StatelessWidget {
   final WardrobeItem item;
-  const _HeroImage({required this.item});
+  final VoidCallback onEdit;
+  const _HeroImage({required this.item, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -198,20 +315,22 @@ class _HeroImage extends StatelessWidget {
                   ),
                 ),
               ),
-              // Edit affordance is wired in SP2 (PATCH /wardrobe/items/{id}).
               Positioned(
                 bottom: 12,
                 right: 12,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: AppColors.white,
-                    shape: BoxShape.circle,
+                child: GestureDetector(
+                  onTap: onEdit,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: AppColors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.edit,
+                        color: AppColors.espresso, size: 18),
                   ),
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.edit,
-                      color: AppColors.espresso, size: 18),
                 ),
               ),
             ],
@@ -358,7 +477,13 @@ class _AttributeRow extends StatelessWidget {
 
 class _BottomActions extends StatelessWidget {
   final WardrobeItem item;
-  const _BottomActions({required this.item});
+  final VoidCallback onLogWorn;
+  final VoidCallback onRemove;
+  const _BottomActions({
+    required this.item,
+    required this.onLogWorn,
+    required this.onRemove,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -368,12 +493,11 @@ class _BottomActions extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
         child: Column(
           children: [
-            // Both actions are wired in SP2 (log-worn / delete).
             Material(
               color: AppColors.espresso,
               borderRadius: BorderRadius.circular(14),
               child: InkWell(
-                onTap: () => debugPrint('item ${item.id}: log as worn today'),
+                onTap: onLogWorn,
                 borderRadius: BorderRadius.circular(14),
                 child: SizedBox(
                   width: double.infinity,
@@ -398,16 +522,7 @@ class _BottomActions extends StatelessWidget {
                 side: const BorderSide(color: AppColors.error, width: 1.2),
               ),
               child: InkWell(
-                onTap: () async {
-                  final confirmed = await RemoveConfirmationModal.show(
-                    context,
-                    itemName: item.name,
-                  );
-                  if (confirmed && context.mounted) {
-                    debugPrint('item ${item.id} removed');
-                    context.pop();
-                  }
-                },
+                onTap: onRemove,
                 borderRadius: BorderRadius.circular(14),
                 child: SizedBox(
                   width: double.infinity,

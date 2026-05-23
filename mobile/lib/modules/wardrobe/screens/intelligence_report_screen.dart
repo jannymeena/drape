@@ -1,46 +1,29 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../models/wardrobe_analytics.dart';
+import '../wardrobe_service.dart';
 
-class IntelligenceReportScreen extends StatelessWidget {
+/// Wardrobe analytics hub. Composes three reports: utilization-score and
+/// cost-per-wear are free (always shown); the intelligence-report is Pro — for
+/// free users it 402s and the color/hidden-gems block becomes an upgrade card.
+class IntelligenceReportScreen extends ConsumerWidget {
   static const path = 'intelligence';
   static const name = 'wardrobe_intelligence_report';
 
   const IntelligenceReportScreen({super.key});
 
-  static const _metrics = <_Metric>[
-    _Metric(
-      label: 'Tops',
-      mostWorn: 'White Oxford',
-      cost: r'$4.20',
-      items: 14,
-    ),
-    _Metric(
-      label: 'Bottoms',
-      mostWorn: 'Navy Chinos',
-      cost: r'$6.80',
-      items: 8,
-    ),
-    _Metric(
-      label: 'Shoes',
-      mostWorn: 'Brown Loafers',
-      cost: r'$12.10',
-      items: 5,
-    ),
-  ];
-
-  static const _palette = <_PaletteSlice>[
-    _PaletteSlice('Navy', 0.40, Color(0xFF1B2D5A)),
-    _PaletteSlice('White', 0.30, Color(0xFFE3DCD2)),
-    _PaletteSlice('Brown', 0.20, AppColors.espresso),
-    _PaletteSlice('Other', 0.10, AppColors.taupeSoft),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final utilization = ref.watch(utilizationScoreProvider);
+    final costPerWear = ref.watch(costPerWearProvider);
+    final intelligence = ref.watch(intelligenceReportProvider);
+
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -52,147 +35,44 @@ class IntelligenceReportScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                 children: [
-                  const Center(
-                    child: Text('🏆', style: TextStyle(fontSize: 28)),
-                  ),
+                  const Center(child: Text('🏆', style: TextStyle(fontSize: 28))),
                   const SizedBox(height: 4),
                   Text(
                     'Your Wardrobe\nIntelligence Report',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'WEEK OF APR 14 – 21, 2026',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.taupe,
-                          letterSpacing: 1.4,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
                   const SizedBox(height: 24),
                   const _Divider(),
                   const SizedBox(height: 18),
                   _SectionTitle('Utilization Score'),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: Text(
-                      '74/100',
-                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                            color: AppColors.sage,
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                  ),
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'YOU: 34% UTILIZATION',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.taupe,
-                              letterSpacing: 1.2,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      Text(
-                        'AVG: 28%',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.taupe,
-                              letterSpacing: 1.2,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "You're wearing your wardrobe 21% more efficiently than the community average this week.",
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  utilization.when(
+                    loading: () => const _SectionLoader(),
+                    error: (e, _) => _SectionError(error: e),
+                    data: (u) => _UtilizationBlock(score: u),
                   ),
                   const SizedBox(height: 24),
                   const _Divider(),
                   const SizedBox(height: 18),
-                  _SectionTitle('Efficiency Metrics'),
+                  _SectionTitle('Cost Per Wear'),
                   const SizedBox(height: 12),
-                  for (final m in _metrics) ...[
-                    _MetricCard(metric: m),
-                    const SizedBox(height: 10),
-                  ],
-                  const SizedBox(height: 14),
-                  const _Divider(),
-                  const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.diamond_outlined,
-                          color: AppColors.espresso, size: 16),
-                      const SizedBox(width: 6),
-                      _SectionTitle('Hidden Gems'),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: const [
-                      Expanded(child: _HiddenGemTile(label: 'CAMEL BLAZER')),
-                      SizedBox(width: 10),
-                      Expanded(child: _HiddenGemTile(label: 'CASHMERE KNIT')),
-                      SizedBox(width: 10),
-                      Expanded(child: _HiddenGemTile(label: 'SELVEDGE DENIM')),
-                    ],
+                  costPerWear.when(
+                    loading: () => const _SectionLoader(),
+                    error: (e, _) => _SectionError(error: e),
+                    data: (r) => _CostPerWearBlock(report: r),
                   ),
                   const SizedBox(height: 24),
                   const _Divider(),
                   const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.color_lens_outlined,
-                          color: AppColors.sage, size: 16),
-                      const SizedBox(width: 6),
-                      _SectionTitle('Variety'),
-                    ],
+                  // Pro-only block — 402 for free users.
+                  intelligence.when(
+                    loading: () => const _SectionLoader(),
+                    error: (e, _) => (e is ApiException && e.statusCode == 402)
+                        ? _ProLockCard(message: e.message)
+                        : _SectionError(error: e),
+                    data: (r) => _ProBlock(report: r),
                   ),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: Text(
-                      '12',
-                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                            color: AppColors.espresso,
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                  ),
-                  Center(
-                    child: Text(
-                      'UNIQUE OUTFITS',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: AppColors.taupe,
-                            letterSpacing: 1.4,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: Text(
-                      'No repeats this week! 🎉',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.sage,
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const _Divider(),
-                  const SizedBox(height: 18),
-                  _SectionTitle('Color Story'),
-                  const SizedBox(height: 12),
-                  _ColorStory(palette: _palette),
-                  const SizedBox(height: 16),
-                  _PaletteLegend(palette: _palette),
                   const SizedBox(height: 24),
                   _ShareButton(onPressed: () => debugPrint('intel: share')),
                   const SizedBox(height: 16),
@@ -201,6 +81,285 @@ class IntelligenceReportScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _UtilizationBlock extends StatelessWidget {
+  final UtilizationScore score;
+  const _UtilizationBlock({required this.score});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (score.label.toLowerCase()) {
+      'high' => AppColors.sage,
+      'moderate' => AppColors.gold,
+      _ => AppColors.taupe,
+    };
+    return Column(
+      children: [
+        Center(
+          child: Text(
+            '${score.score}/100',
+            style: Theme.of(context)
+                .textTheme
+                .displayLarge
+                ?.copyWith(color: color, fontWeight: FontWeight.w800),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${score.label.toUpperCase()} · ${score.itemsWornRecently} of '
+          '${score.itemsTotal} items worn in the last ${score.daysWindow} days',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.taupe,
+                letterSpacing: 1.0,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CostPerWearBlock extends StatelessWidget {
+  final CostPerWearReport report;
+  const _CostPerWearBlock({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    if (report.categories.isEmpty) {
+      return Text(
+        'Add purchase prices and log wears to see cost-per-wear.',
+        style: Theme.of(context).textTheme.bodyMedium,
+      );
+    }
+    return Column(
+      children: [
+        for (final c in report.categories) ...[
+          _CategoryCard(category: c),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _CategoryCard extends StatelessWidget {
+  final CostPerWearCategory category;
+  const _CategoryCard({required this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    final cpw = category.averageCostPerWear;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.tanFixed.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_titleCase(category.category),
+                    style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  '${category.itemCount} items · ${category.totalWears} wears',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.taupe,
+                        letterSpacing: 1.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            cpw == null ? '—' : '\$${cpw.toStringAsFixed(2)}',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProBlock extends StatelessWidget {
+  final IntelligenceReport report;
+  const _ProBlock({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final slices = _paletteSlices(report.colorPalette);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle('At a Glance'),
+        const SizedBox(height: 12),
+        _StatGrid(report: report),
+        const SizedBox(height: 24),
+        if (report.underutilizedItems.isNotEmpty) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.diamond_outlined,
+                  color: AppColors.espresso, size: 16),
+              const SizedBox(width: 6),
+              _SectionTitle('Hidden Gems'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...report.underutilizedItems.take(4).map(
+                (u) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _HiddenGemRow(item: u),
+                ),
+              ),
+          const SizedBox(height: 14),
+        ],
+        if (slices.isNotEmpty) ...[
+          Center(child: _SectionTitle('Color Story')),
+          const SizedBox(height: 12),
+          Center(child: _ColorStory(palette: slices)),
+          const SizedBox(height: 16),
+          _PaletteLegend(palette: slices),
+        ],
+      ],
+    );
+  }
+}
+
+class _StatGrid extends StatelessWidget {
+  final IntelligenceReport report;
+  const _StatGrid({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final cpw = report.averageCostPerWear;
+    final stats = <(String, String)>[
+      ('${report.totalItems}', 'ITEMS'),
+      ('${report.totalWears}', 'TOTAL WEARS'),
+      (cpw == null ? '—' : '\$${cpw.toStringAsFixed(2)}', 'AVG CPW'),
+      ('${(report.realVsStarterRatio * 100).round()}%', 'YOUR OWN PIECES'),
+    ];
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        for (final s in stats)
+          SizedBox(
+            width: (MediaQuery.of(context).size.width - 40 - 12) / 2,
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppColors.taupeSoft.withValues(alpha: 0.6)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(s.$1, style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 2),
+                  Text(
+                    s.$2,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.taupe,
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _HiddenGemRow extends StatelessWidget {
+  final IntelligenceUnderutilized item;
+  const _HiddenGemRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final since = item.daysSinceLastWorn;
+    final subtitle = since == null
+        ? 'Never worn'
+        : 'Last worn $since ${since == 1 ? 'day' : 'days'} ago';
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.tanFixed.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 48,
+              height: 48,
+              color: AppColors.ivory,
+              child: const Icon(Icons.checkroom_outlined,
+                  color: AppColors.taupeSoft),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.name, style: Theme.of(context).textTheme.titleSmall),
+                Text(subtitle,
+                    style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProLockCard extends StatelessWidget {
+  final String message;
+  const _ProLockCard({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE7EFFA),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.lock_outline, color: Color(0xFF4A6CB6), size: 28),
+          const SizedBox(height: 10),
+          Text('Atelier Intelligence',
+              style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 14),
+          FilledButton(
+            onPressed: () => debugPrint('intel: upgrade (paywall not built)'),
+            child: const Text('Upgrade to Pro'),
+          ),
+        ],
       ),
     );
   }
@@ -217,8 +376,8 @@ class _Header extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.menu, color: AppColors.espresso),
-            onPressed: () => debugPrint('intel: menu'),
+            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
+            onPressed: onBack,
           ),
           Expanded(
             child: Text(
@@ -244,12 +403,8 @@ class _Header extends StatelessWidget {
 class _Divider extends StatelessWidget {
   const _Divider();
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      color: AppColors.taupeSoft.withValues(alpha: 0.5),
-    );
-  }
+  Widget build(BuildContext context) =>
+      Container(height: 1, color: AppColors.taupeSoft.withValues(alpha: 0.5));
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -260,130 +415,91 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       label,
       textAlign: TextAlign.center,
-      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+      style:
+          Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
     );
   }
 }
 
-class _Metric {
-  final String label;
-  final String mostWorn;
-  final String cost;
-  final int items;
-
-  const _Metric({
-    required this.label,
-    required this.mostWorn,
-    required this.cost,
-    required this.items,
-  });
-}
-
-class _MetricCard extends StatelessWidget {
-  final _Metric metric;
-  const _MetricCard({required this.metric});
-
+class _SectionLoader extends StatelessWidget {
+  const _SectionLoader();
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.tanFixed.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: 52,
-              height: 52,
-              color: AppColors.ivory,
-              child: const Icon(Icons.checkroom_outlined,
-                  color: AppColors.taupeSoft),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(metric.label,
-                    style: Theme.of(context).textTheme.titleSmall),
-                Text(
-                  'MOST WORN: ${metric.mostWorn.toUpperCase()}',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.taupe,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(metric.cost,
-                  style: Theme.of(context).textTheme.titleMedium),
-              Text(
-                'AVG CPW · ${metric.items} ITEMS',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.taupe,
-                      letterSpacing: 1.2,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HiddenGemTile extends StatelessWidget {
-  final String label;
-  const _HiddenGemTile({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: Container(
-              color: AppColors.ivoryWarm,
-              alignment: Alignment.center,
-              child: const Icon(Icons.checkroom_outlined,
-                  color: AppColors.taupeSoft, size: 32),
-            ),
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child:
+                CircularProgressIndicator(strokeWidth: 2, color: AppColors.espresso),
           ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.taupe,
-                letterSpacing: 1.2,
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-      ],
+      );
+}
+
+class _SectionError extends StatelessWidget {
+  final Object error;
+  const _SectionError({required this.error});
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      error is ApiException
+          ? (error as ApiException).message
+          : "Couldn't load this section.",
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.bodySmall,
     );
   }
 }
+
+// ── color story (donut) ──────────────────────────────────────────────────
 
 class _PaletteSlice {
   final String label;
   final double percentage;
   final Color color;
   const _PaletteSlice(this.label, this.percentage, this.color);
+}
+
+List<_PaletteSlice> _paletteSlices(List<IntelligenceColorBucket> palette) {
+  final total = palette.fold<int>(0, (sum, b) => sum + b.itemCount);
+  if (total == 0) return const [];
+  return palette
+      .map((b) => _PaletteSlice(
+            b.colorName,
+            b.itemCount / total,
+            _colorForName(b.colorName),
+          ))
+      .toList();
+}
+
+Color _colorForName(String name) {
+  switch (name.toLowerCase()) {
+    case 'navy':
+      return const Color(0xFF1B2D5A);
+    case 'blue':
+      return const Color(0xFF2E5BBA);
+    case 'white':
+      return const Color(0xFFE3DCD2);
+    case 'black':
+      return const Color(0xFF1B1B1B);
+    case 'grey':
+    case 'gray':
+      return const Color(0xFF9C9A95);
+    case 'brown':
+    case 'camel':
+      return AppColors.espresso;
+    case 'green':
+    case 'olive':
+      return const Color(0xFF6C7833);
+    case 'red':
+      return const Color(0xFFB23A48);
+    case 'beige':
+    case 'tan':
+      return AppColors.tanFixed;
+    default:
+      return AppColors.taupeSoft;
+  }
 }
 
 class _ColorStory extends StatelessWidget {
@@ -420,11 +536,9 @@ class _DonutPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
-    final strokeWidth = 28.0;
-    final paintRect = Rect.fromCircle(
-      center: center,
-      radius: radius - strokeWidth / 2,
-    );
+    const strokeWidth = 28.0;
+    final paintRect =
+        Rect.fromCircle(center: center, radius: radius - strokeWidth / 2);
 
     var start = -pi / 2;
     for (final slice in palette) {
@@ -440,8 +554,7 @@ class _DonutPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _DonutPainter old) =>
-      old.palette != palette;
+  bool shouldRepaint(covariant _DonutPainter old) => old.palette != palette;
 }
 
 class _PaletteLegend extends StatelessWidget {
@@ -461,10 +574,8 @@ class _PaletteLegend extends StatelessWidget {
                   Container(
                     width: 10,
                     height: 10,
-                    decoration: BoxDecoration(
-                      color: slice.color,
-                      shape: BoxShape.circle,
-                    ),
+                    decoration:
+                        BoxDecoration(color: slice.color, shape: BoxShape.circle),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -498,21 +609,13 @@ class _ShareButton extends StatelessWidget {
           width: double.infinity,
           height: 52,
           child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'SHARE YOUR REPORT',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.espressoDark,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.6,
-                      ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.arrow_forward,
-                    color: AppColors.espressoDark, size: 18),
-              ],
+            child: Text(
+              'SHARE YOUR REPORT',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppColors.espressoDark,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.6,
+                  ),
             ),
           ),
         ),
@@ -520,3 +623,8 @@ class _ShareButton extends StatelessWidget {
     );
   }
 }
+
+String _titleCase(String s) => s
+    .split(RegExp(r'[\s_]+'))
+    .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+    .join(' ');

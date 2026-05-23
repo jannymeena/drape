@@ -1,34 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../models/wardrobe_analytics.dart';
+import '../wardrobe_service.dart';
+import 'intelligence_report_screen.dart';
 
-class WeeklyRecapScreen extends StatelessWidget {
+/// Free weekly recap (`GET /wardrobe/analytics/weekly-report`): activity, the
+/// week's most-worn items, the streak, and a Pro teaser that links to the
+/// intelligence report. (Neglected-items / next-week sections from the mock
+/// were dropped — they belong to the Pro intelligence report / have no
+/// backend.)
+class WeeklyRecapScreen extends ConsumerWidget {
   static const path = 'recap';
   static const name = 'wardrobe_weekly_recap';
 
   const WeeklyRecapScreen({super.key});
 
-  static const _mostWorn = <_MostWornEntry>[
-    _MostWornEntry(label: 'White Oxford', wears: 4),
-    _MostWornEntry(label: 'Navy Chinos', wears: 3),
-    _MostWornEntry(label: 'Brown Loafers', wears: 2),
-  ];
-
-  static const _neglected = <_NeglectedEntry>[
-    _NeglectedEntry(
-      label: 'Gray Blazer',
-      lastWorn: 'Last worn: Jan 15, 2026',
-      cta: 'See How to Style This →',
-    ),
-    _NeglectedEntry(
-      label: 'Striped Tee',
-      lastWorn: 'Last worn: Dec 20, 2025',
-    ),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final report = ref.watch(weeklyReportProvider);
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -37,67 +30,93 @@ class WeeklyRecapScreen extends StatelessWidget {
           children: [
             _Header(onBack: () => context.pop()),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                children: [
-                  Text(
-                    'Your Week in Style',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineLarge,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Apr 14–21, 2026',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  _Card(
-                    title: "THIS WEEK'S ACTIVITY",
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'You generated 12 outfits and wore 8 unique items.',
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                        const SizedBox(height: 24),
-                        _WeekStrip(),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _Card(
-                    title: 'MOST-WORN ITEMS',
-                    child: Row(
-                      children: _mostWorn
-                          .map((m) => Expanded(child: _MostWornTile(entry: m)))
-                          .toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _Card(
-                    title: 'NEGLECTED ITEMS',
-                    subtitle:
-                        "3 items haven't been touched in 90 days",
-                    child: Column(
-                      children: _neglected
-                          .map((entry) => _NeglectedRow(entry: entry))
-                          .toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _NextWeekCard(
-                    onTap: () => debugPrint('recap: see next week'),
-                  ),
-                  const SizedBox(height: 20),
-                  _ShareButton(onTap: () => debugPrint('recap: share')),
-                ],
+              child: report.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.espresso),
+                ),
+                error: (e, _) => _ErrorState(
+                  message: e is ApiException
+                      ? e.message
+                      : "We couldn't load your recap.",
+                  onRetry: () => ref.invalidate(weeklyReportProvider),
+                ),
+                data: (report) => _Body(report: report),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _Body extends StatelessWidget {
+  final WeeklyReport report;
+  const _Body({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      children: [
+        Text(
+          'Your Week in Style',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineLarge,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Week of ${_dateLabel(report.weekStartDate)}',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 20),
+        _Card(
+          title: "THIS WEEK'S ACTIVITY",
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'You logged ${report.outfitsLogged} '
+                '${report.outfitsLogged == 1 ? 'outfit' : 'outfits'} and wore '
+                '${report.itemsWornDistinct} unique '
+                '${report.itemsWornDistinct == 1 ? 'item' : 'items'}.',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.local_fire_department,
+                      color: AppColors.gold, size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${report.streakDays}-day streak',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (report.topItems.isNotEmpty)
+          _Card(
+            title: 'MOST-WORN ITEMS',
+            child: Row(
+              children: report.topItems
+                  .take(3)
+                  .map((m) => Expanded(child: _MostWornTile(entry: m)))
+                  .toList(),
+            ),
+          ),
+        if (report.topItems.isNotEmpty) const SizedBox(height: 16),
+        _ProTeaserCard(
+          text: report.proTeaser,
+          onTap: () => context.goNamed(IntelligenceReportScreen.name),
+        ),
+        const SizedBox(height: 20),
+        _ShareButton(onTap: () => debugPrint('recap: share')),
+      ],
     );
   }
 }
@@ -119,9 +138,10 @@ class _Header extends StatelessWidget {
           Expanded(
             child: Text(
               'Your Week in Style',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontStyle: FontStyle.italic,
-                  ),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontStyle: FontStyle.italic),
             ),
           ),
           IconButton(
@@ -136,13 +156,8 @@ class _Header extends StatelessWidget {
 
 class _Card extends StatelessWidget {
   final String title;
-  final String? subtitle;
   final Widget child;
-  const _Card({
-    required this.title,
-    required this.child,
-    this.subtitle,
-  });
+  const _Card({required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -153,11 +168,7 @@ class _Card extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.6)),
         boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 4,
-            offset: Offset(0, 1),
-          ),
+          BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 1)),
         ],
       ),
       child: Column(
@@ -171,15 +182,6 @@ class _Card extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontStyle: FontStyle.italic,
-                  ),
-            ),
-          ],
           const SizedBox(height: 12),
           child,
         ],
@@ -188,34 +190,8 @@ class _Card extends StatelessWidget {
   }
 }
 
-class _WeekStrip extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: labels
-          .map((d) => Text(
-                d,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.taupe,
-                      letterSpacing: 1.4,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ))
-          .toList(),
-    );
-  }
-}
-
-class _MostWornEntry {
-  final String label;
-  final int wears;
-  const _MostWornEntry({required this.label, required this.wears});
-}
-
 class _MostWornTile extends StatelessWidget {
-  final _MostWornEntry entry;
+  final WeeklyReportTopItem entry;
   const _MostWornTile({required this.entry});
 
   @override
@@ -243,15 +219,14 @@ class _MostWornTile extends StatelessWidget {
                 top: 6,
                 right: 6,
                 child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: const BoxDecoration(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
                     color: AppColors.gold,
-                    shape: BoxShape.circle,
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                  alignment: Alignment.center,
                   child: Text(
-                    '${entry.wears}x',
+                    '${entry.wornCount}x',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: AppColors.espressoDark,
                           fontWeight: FontWeight.w700,
@@ -263,13 +238,13 @@ class _MostWornTile extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            entry.label,
+            entry.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.ink,
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(context)
+                .textTheme
+                .labelLarge
+                ?.copyWith(color: AppColors.ink, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -277,120 +252,32 @@ class _MostWornTile extends StatelessWidget {
   }
 }
 
-class _NeglectedEntry {
-  final String label;
-  final String lastWorn;
-  final String? cta;
-  const _NeglectedEntry({
-    required this.label,
-    required this.lastWorn,
-    this.cta,
-  });
-}
-
-class _NeglectedRow extends StatelessWidget {
-  final _NeglectedEntry entry;
-  const _NeglectedRow({required this.entry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: 56,
-              height: 56,
-              color: AppColors.ivoryWarm,
-              alignment: Alignment.center,
-              child: const Icon(Icons.checkroom_outlined,
-                  color: AppColors.taupeSoft),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(entry.label,
-                    style: Theme.of(context).textTheme.titleSmall),
-                Text(entry.lastWorn,
-                    style: Theme.of(context).textTheme.bodySmall),
-                if (entry.cta != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    entry.cta!,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.gold,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NextWeekCard extends StatelessWidget {
+class _ProTeaserCard extends StatelessWidget {
+  final String text;
   final VoidCallback onTap;
-  const _NextWeekCard({required this.onTap});
+  const _ProTeaserCard({required this.text, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    const accent = Color(0xFF4A6CB6);
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFFE7EFFA),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              color: AppColors.white,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.auto_awesome, color: accent, size: 18),
-          ),
+          const Icon(Icons.auto_awesome, color: Color(0xFF4A6CB6), size: 22),
           const SizedBox(height: 10),
           Text(
-            'DRAPE has pre-planned 7 outfits for your week ahead.',
+            text,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 14),
-          Material(
-            color: AppColors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: accent, width: 1.4),
-            ),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 22, vertical: 12),
-                child: Text(
-                  'SEE NEXT WEEK',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: accent,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.6,
-                      ),
-                ),
-              ),
-            ),
+          FilledButton(
+            onPressed: onTap,
+            child: const Text('See Intelligence Report'),
           ),
         ],
       ),
@@ -427,4 +314,39 @@ class _ShareButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 16),
+            TextButton(onPressed: onRetry, child: const Text('Try again')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+const _months = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+String _dateLabel(DateTime d) {
+  final local = d.toLocal();
+  return '${_months[local.month - 1]} ${local.day}, ${local.year}';
 }

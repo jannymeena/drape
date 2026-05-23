@@ -1,60 +1,164 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
+import '../image_pick.dart';
+import '../models/wardrobe_item.dart';
+import '../models/wardrobe_mutations.dart';
+import '../wardrobe_controller.dart';
+import '../wardrobe_service.dart';
 
 /// Wardrobe-side manual entry — distinct from onboarding's manual_entry
-/// (which captures body measurements).
-class ManualEntryScreen extends StatefulWidget {
+/// (which captures body measurements). Doubles as the edit form: pass [itemId]
+/// (via `?id=`) to prefill from `GET /wardrobe/items/{id}` and PATCH on save;
+/// omit it to create. Photo capture is SP3 (the tile is a stub here).
+class ManualEntryScreen extends ConsumerStatefulWidget {
   static const path = 'manual-entry';
   static const name = 'wardrobe_manual_entry';
 
-  const ManualEntryScreen({super.key});
+  /// Non-null → edit that item; null → create.
+  final String? itemId;
+
+  const ManualEntryScreen({super.key, this.itemId});
 
   @override
-  State<ManualEntryScreen> createState() => _ManualEntryScreenState();
+  ConsumerState<ManualEntryScreen> createState() => _ManualEntryScreenState();
 }
 
-class _ManualEntryScreenState extends State<ManualEntryScreen> {
-  static const _categories = ['Tops', 'Bottoms', 'Skirts/Dresses', 'Outerwear', 'Shoes'];
+class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
+  // The selectable categories are the backend `Category` literals (minus the
+  // "all" filter), so any category can be created — not just the design's five.
+  static final _categories =
+      WardrobeCategoryFilter.values.where((f) => f != WardrobeCategoryFilter.all).toList();
   static const _colors = <_ColorSwatch>[
-    _ColorSwatch('White', Color(0xFFF6F2EC)),
-    _ColorSwatch('Black', Color(0xFF1B1B1B)),
-    _ColorSwatch('Navy', Color(0xFF1B2D5A)),
-    _ColorSwatch('Camel', Color(0xFFC18F5B)),
-    _ColorSwatch('Olive', Color(0xFF6C7833)),
-    _ColorSwatch('Grey', Color(0xFF9C9A95)),
+    _ColorSwatch('White', Color(0xFFF6F2EC), '#F6F2EC'),
+    _ColorSwatch('Black', Color(0xFF1B1B1B), '#1B1B1B'),
+    _ColorSwatch('Navy', Color(0xFF1B2D5A), '#1B2D5A'),
+    _ColorSwatch('Camel', Color(0xFFC18F5B), '#C18F5B'),
+    _ColorSwatch('Olive', Color(0xFF6C7833), '#6C7833'),
+    _ColorSwatch('Grey', Color(0xFF9C9A95), '#9C9A95'),
   ];
   static const _seasons = ['Spring', 'Summer', 'Fall', 'Winter'];
   static const _formality = ['Casual', 'Smart Casual', 'Formal'];
+  static const _formalityLiterals = ['casual', 'smart_casual', 'formal'];
 
-  int _categoryIndex = 2;
-  int _colorIndex = 0;
+  final _nameController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _descriptionController = TextEditingController();
+
+  int _categoryIndex = 0;
+  int? _colorIndex;
   final Set<int> _seasonIndices = {};
   int _formalityIndex = 0;
 
+  bool _submitting = false;
+  String? _nameError;
+  bool _prefilled = false;
+
+  bool get _isEditing => widget.itemId != null;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  void _prefill(WardrobeItem item) {
+    if (_prefilled) return;
+    _prefilled = true;
+    _nameController.text = item.name;
+    if (item.purchasePrice != null) {
+      _priceController.text = item.purchasePrice!.toStringAsFixed(2);
+    }
+    _descriptionController.text = item.description ?? '';
+    final cat = _categories.indexWhere((f) => f.query == item.category);
+    if (cat >= 0) _categoryIndex = cat;
+    if (item.colorName != null) {
+      final color = _colors
+          .indexWhere((c) => c.label.toLowerCase() == item.colorName!.toLowerCase());
+      if (color >= 0) _colorIndex = color;
+    }
+    for (final s in item.season ?? const <String>[]) {
+      final idx = _seasons.indexWhere((label) => label.toLowerCase() == s);
+      if (idx >= 0) _seasonIndices.add(idx);
+    }
+    final form = _formalityLiterals.indexWhere((f) => f == item.formality);
+    if (form >= 0) _formalityIndex = form;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // In edit mode, wait for the item, then prefill the form once.
+    if (_isEditing && !_prefilled) {
+      final item = ref.watch(wardrobeItemProvider(widget.itemId!));
+      return item.when(
+        loading: () => const _Scaffolded(
+          title: 'Edit Item',
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.espresso),
+          ),
+        ),
+        error: (e, _) => _Scaffolded(
+          title: 'Edit Item',
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                e is ApiException ? e.message : "We couldn't load this item.",
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ),
+        ),
+        data: (item) {
+          _prefill(item);
+          return _form(context);
+        },
+      );
+    }
+    return _form(context);
+  }
+
+  Widget _form(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            _Header(
+              title: _isEditing ? 'Edit Item' : 'Add Item',
+              onBack: () => context.pop(),
+            ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 children: [
-                  _PhotoTile(),
+                  _PhotoTile(
+                    label: _isEditing ? 'ADD PHOTO' : 'PHOTO AFTER SAVING',
+                    onTap: _photoTileTapped,
+                  ),
                   const SizedBox(height: 20),
-                  const DrapeTextField(label: 'Item Name'),
+                  DrapeTextField(
+                    label: 'Item Name',
+                    controller: _nameController,
+                    errorText: _nameError,
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) {
+                      if (_nameError != null) setState(() => _nameError = null);
+                    },
+                  ),
                   const SizedBox(height: 20),
                   _Section(
                     label: 'CATEGORY',
                     child: _ChipRow(
-                      options: _categories,
+                      options: _categories.map((f) => f.label).toList(),
                       selectedIndex: _categoryIndex,
                       onSelected: (i) => setState(() => _categoryIndex = i),
                     ),
@@ -65,7 +169,8 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
                     child: _ColorSwatchRow(
                       colors: _colors,
                       selectedIndex: _colorIndex,
-                      onSelected: (i) => setState(() => _colorIndex = i),
+                      onSelected: (i) => setState(
+                          () => _colorIndex = _colorIndex == i ? null : i),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -94,35 +199,158 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
                     child: _ChipRow(
                       options: _formality,
                       selectedIndex: _formalityIndex,
-                      onSelected: (i) =>
-                          setState(() => _formalityIndex = i),
+                      onSelected: (i) => setState(() => _formalityIndex = i),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const DrapeTextField(
+                  DrapeTextField(
                     label: r'$ Purchase Price',
-                    keyboardType: TextInputType.number,
+                    controller: _priceController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                   ),
                   const SizedBox(height: 20),
-                  const DrapeTextField(label: 'Description'),
+                  DrapeTextField(
+                    label: 'Description',
+                    controller: _descriptionController,
+                  ),
                 ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: DrapeButton(
-                label: 'Add to Wardrobe',
-                leading: const Icon(
-                  Icons.inventory_2_outlined,
-                  color: AppColors.white,
-                  size: 18,
-                ),
-                onPressed: () {
-                  debugPrint('manual: add to wardrobe');
-                  context.pop();
-                },
+                label: _isEditing ? 'Save Changes' : 'Add to Wardrobe',
+                loading: _submitting,
+                leading: const Icon(Icons.inventory_2_outlined,
+                    color: AppColors.white, size: 18),
+                onPressed: _submitting ? null : _submit,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  WardrobeItemInput _buildInput() {
+    final price = double.tryParse(_priceController.text.trim());
+    final color = _colorIndex == null ? null : _colors[_colorIndex!];
+    final description = _descriptionController.text.trim();
+    return WardrobeItemInput(
+      name: _nameController.text.trim(),
+      category: _categories[_categoryIndex].query,
+      colorName: color?.label.toLowerCase(),
+      colorHex: color?.hex,
+      formality: _formalityLiterals[_formalityIndex],
+      season: _seasonIndices.isEmpty
+          ? null
+          : (_seasonIndices.toList()..sort())
+              .map((i) => _seasons[i].toLowerCase())
+              .toList(),
+      purchasePrice: price,
+      description: description.isEmpty ? null : description,
+    );
+  }
+
+  Future<void> _photoTileTapped() async {
+    if (!_isEditing) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Save the item first, then add photos from its page.'),
+        ),
+      );
+      return;
+    }
+    final picked = await pickWardrobeImage(context);
+    if (picked == null || !mounted) return;
+    try {
+      await ref
+          .read(wardrobeControllerProvider.notifier)
+          .addImages(widget.itemId!, [picked]);
+      ref.invalidate(wardrobeItemProvider(widget.itemId!));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Photo added')));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_nameController.text.trim().isEmpty) {
+      setState(() => _nameError = 'Give your item a name.');
+      return;
+    }
+    setState(() => _submitting = true);
+    final controller = ref.read(wardrobeControllerProvider.notifier);
+    try {
+      if (_isEditing) {
+        await controller.updateItem(widget.itemId!, _buildInput());
+        ref.invalidate(wardrobeItemProvider(widget.itemId!));
+      } else {
+        await controller.createItem(_buildInput());
+        ref.invalidate(wardrobeCapacityProvider);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_isEditing ? 'Changes saved' : 'Added to wardrobe')),
+      );
+      context.pop();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      if (e.statusCode == 429) {
+        _showLimitDialog(e.message);
+      } else {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  void _showLimitDialog(String message) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Wardrobe full'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Not now'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              debugPrint('wardrobe: upgrade (paywall not built)');
+            },
+            child: const Text('Upgrade'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Minimal Scaffold used for the edit-mode loading/error states (keeps the
+/// header + back button while the item resolves).
+class _Scaffolded extends StatelessWidget {
+  final String title;
+  final Widget child;
+  const _Scaffolded({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.ivory,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _Header(title: title, onBack: () => context.pop()),
+            Expanded(child: child),
           ],
         ),
       ),
@@ -131,8 +359,9 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
 }
 
 class _Header extends StatelessWidget {
+  final String title;
   final VoidCallback onBack;
-  const _Header({required this.onBack});
+  const _Header({required this.title, required this.onBack});
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +375,7 @@ class _Header extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              'Add Item',
+              title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge,
             ),
@@ -159,30 +388,38 @@ class _Header extends StatelessWidget {
 }
 
 class _PhotoTile extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _PhotoTile({required this.label, required this.onTap});
+
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: AspectRatio(
         aspectRatio: 16 / 13,
-        child: Container(
+        child: Material(
           color: AppColors.tanFixed.withValues(alpha: 0.5),
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.add_a_photo_outlined,
-                  color: AppColors.espresso, size: 40),
-              const SizedBox(height: 8),
-              Text(
-                'UPDATE PHOTO',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.espresso,
-                      letterSpacing: 1.6,
-                      fontWeight: FontWeight.w700,
-                    ),
+          child: InkWell(
+            onTap: onTap,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_a_photo_outlined,
+                      color: AppColors.espresso, size: 40),
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.espresso,
+                          letterSpacing: 1.6,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -270,8 +507,7 @@ class _SelectChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -288,12 +524,13 @@ class _SelectChip extends StatelessWidget {
 class _ColorSwatch {
   final String label;
   final Color color;
-  const _ColorSwatch(this.label, this.color);
+  final String hex;
+  const _ColorSwatch(this.label, this.color, this.hex);
 }
 
 class _ColorSwatchRow extends StatelessWidget {
   final List<_ColorSwatch> colors;
-  final int selectedIndex;
+  final int? selectedIndex;
   final ValueChanged<int> onSelected;
 
   const _ColorSwatchRow({

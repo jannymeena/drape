@@ -1,11 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/modules/wardrobe/image_pick.dart';
 import 'package:mobile/modules/wardrobe/models/wardrobe_item.dart';
+import 'package:mobile/modules/wardrobe/models/wardrobe_mutations.dart';
 import 'package:mobile/modules/wardrobe/wardrobe_controller.dart';
 import 'package:mobile/modules/wardrobe/wardrobe_service.dart';
+import 'package:mobile/shared/models/api_error.dart';
 
 /// A wardrobe service with canned, call-recording responses so the controller's
-/// filter / search / paging logic can be tested without Dio.
+/// filter / search / paging / mutation logic can be tested without Dio.
 class _FakeWardrobeService extends WardrobeService {
   _FakeWardrobeService() : super(Dio());
 
@@ -13,6 +18,17 @@ class _FakeWardrobeService extends WardrobeService {
   int lastOffset = -1;
   int totalToReport = 0;
   List<WardrobeItem> Function(int offset)? pageBuilder;
+
+  // Mutation knobs.
+  ToggleFavoriteResult? favoriteResult;
+  ApiException? favoriteError;
+  LogWornResult? logResult;
+  WardrobeItem? createdResult;
+  WardrobeItem? addImagesResult;
+  int addImagesCalls = 0;
+  int createCalls = 0;
+  int? create429AfterNthSuccess; // throw 429 once this many are already created
+  String? deletedId;
 
   @override
   Future<WardrobeListResult> getItems({
@@ -31,6 +47,39 @@ class _FakeWardrobeService extends WardrobeService {
       limit: limit,
       offset: offset,
     );
+  }
+
+  @override
+  Future<ToggleFavoriteResult> toggleFavorite(String itemId) async {
+    if (favoriteError != null) throw favoriteError!;
+    return favoriteResult!;
+  }
+
+  @override
+  Future<LogWornResult> logWorn(String itemId, {DateTime? wornDate}) async =>
+      logResult!;
+
+  @override
+  Future<WardrobeItem> createItem(WardrobeItemInput input) async {
+    if (create429AfterNthSuccess != null &&
+        createCalls >= create429AfterNthSuccess!) {
+      throw const ApiException(
+          code: 'limit_reached', message: 'full', statusCode: 429);
+    }
+    createCalls++;
+    return createdResult ?? _item('created-$createCalls');
+  }
+
+  @override
+  Future<WardrobeItem> addImages(
+      String itemId, List<PickedImage> images) async {
+    addImagesCalls++;
+    return addImagesResult ?? _item(itemId);
+  }
+
+  @override
+  Future<void> deleteItem(String itemId) async {
+    deletedId = itemId;
   }
 }
 
@@ -116,5 +165,165 @@ void main() {
     service.lastOffset = -1;
     await controller.loadMore();
     expect(service.lastOffset, -1);
+  });
+
+  test('toggleFavorite optimistically flips, then confirms from the server',
+      () async {
+    service
+      ..totalToReport = 1
+      ..pageBuilder = (_) => [_item('a')]; // starts not-favorite
+    await controller.load();
+    service.favoriteResult = const ToggleFavoriteResult(
+      itemId: 'a',
+      isFavorite: true,
+    );
+
+    await controller.toggleFavorite('a');
+
+    expect(controller.state.items.single.isFavorite, isTrue);
+  });
+
+  test('toggleFavorite reverts and rethrows on error', () async {
+    service
+      ..totalToReport = 1
+      ..pageBuilder = (_) => [_item('a')];
+    await controller.load();
+    service.favoriteError = const ApiException(
+      code: 'server_error',
+      message: 'boom',
+      statusCode: 500,
+    );
+
+    await expectLater(
+      controller.toggleFavorite('a'),
+      throwsA(isA<ApiException>()),
+    );
+    // Optimistic flip was rolled back.
+    expect(controller.state.items.single.isFavorite, isFalse);
+  });
+
+  test('logWorn patches the worn counters in the grid', () async {
+    service
+      ..totalToReport = 1
+      ..pageBuilder = (_) => [_item('a')];
+    await controller.load();
+    service.logResult = LogWornResult.fromJson({
+      'item_id': 'a',
+      'worn_count': 1,
+      'last_worn': '2026-05-23',
+      'cost_per_wear': 9.99,
+      'already_logged_today': false,
+    });
+
+    final result = await controller.logWorn('a');
+
+    expect(result.alreadyLoggedToday, isFalse);
+    final item = controller.state.items.single;
+    expect(item.wornCount, 1);
+    expect(item.costPerWear, 9.99);
+  });
+
+  test('deleteItem removes the item and decrements total', () async {
+    service
+      ..totalToReport = 2
+      ..pageBuilder = (_) => [_item('a'), _item('b')];
+    await controller.load();
+
+    await controller.deleteItem('a');
+
+    expect(service.deletedId, 'a');
+    expect(controller.state.items.map((i) => i.id), ['b']);
+    expect(controller.state.total, 1);
+  });
+
+  test('createItem reloads the grid with the new item', () async {
+    service
+      ..totalToReport = 0
+      ..pageBuilder = (_) => const [];
+    await controller.load();
+    expect(controller.state.items, isEmpty);
+
+    // After create, the next load returns the created row.
+    service.createdResult = _item('new');
+    service
+      ..totalToReport = 1
+      ..pageBuilder = (_) => [_item('new')];
+
+    final created = await controller.createItem(const WardrobeItemInput(
+      name: 'New',
+      category: 'tops',
+    ));
+
+    expect(created.id, 'new');
+    expect(controller.state.items.single.id, 'new');
+  });
+
+  test('createItemWithImages creates, attaches the photo, then reloads',
+      () async {
+    service
+      ..totalToReport = 0
+      ..pageBuilder = (_) => const [];
+    await controller.load();
+
+    service.createdResult = _item('scanned');
+    service.addImagesResult = _item('scanned');
+    service
+      ..totalToReport = 1
+      ..pageBuilder = (_) => [_item('scanned')];
+
+    final created = await controller.createItemWithImages(
+      const WardrobeItemInput(name: 'White Tops', category: 'tops'),
+      [PickedImage(bytes: Uint8List(0), filename: 'x.jpg', mimeType: 'image/jpeg')],
+    );
+
+    expect(created.id, 'scanned');
+    expect(service.addImagesCalls, 1); // photo attached
+    expect(controller.state.items.single.id, 'scanned'); // grid reloaded
+  });
+
+  ({WardrobeItemInput input, PickedImage? image}) entry(String name,
+          {bool withImage = false}) =>
+      (
+        input: WardrobeItemInput(name: name, category: 'tops'),
+        image: withImage
+            ? PickedImage(
+                bytes: Uint8List(0), filename: 'x.jpg', mimeType: 'image/jpeg')
+            : null,
+      );
+
+  test('createBatch creates every entry and attaches photos where present',
+      () async {
+    service
+      ..totalToReport = 2
+      ..pageBuilder = (_) => [_item('a'), _item('b')];
+
+    final outcome = await controller.createBatch([
+      entry('One', withImage: true),
+      entry('Two'),
+      entry('Three', withImage: true),
+    ]);
+
+    expect(outcome.created, 3);
+    expect(outcome.limitReached, isFalse);
+    expect(outcome.error, isNull);
+    expect(service.addImagesCalls, 2); // only the two with images
+  });
+
+  test('createBatch stops at the 429 cap and reports how many got in',
+      () async {
+    service
+      ..totalToReport = 0
+      ..create429AfterNthSuccess = 2 // 3rd create 429s
+      ..pageBuilder = (_) => const [];
+
+    final outcome = await controller.createBatch([
+      entry('One'),
+      entry('Two'),
+      entry('Three'),
+      entry('Four'),
+    ]);
+
+    expect(outcome.created, 2);
+    expect(outcome.limitReached, isTrue);
   });
 }
