@@ -145,7 +145,7 @@ class _LifestyleOccasionsScreenState extends State<LifestyleOccasionsScreen> {
             const SizedBox(height: 24),
             DrapeButton(
               label: 'See My First Outfit',
-              onPressed: () => context.goNamed(PreMeasurementScreen.name),
+              onPressed: () => context.pushNamed(PreMeasurementScreen.name),
               leading: const Icon(Icons.arrow_forward,
                   color: AppColors.white, size: 18),
             ),

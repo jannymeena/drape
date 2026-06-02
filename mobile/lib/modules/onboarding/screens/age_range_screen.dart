@@ -47,7 +47,7 @@ class _AgeRangeScreenState extends ConsumerState<AgeRangeScreen> {
     try {
       await ref.read(onboardingControllerProvider.notifier).setAgeRange(value);
       if (!mounted) return;
-      context.goNamed(StyleGoalsScreen.name);
+      context.pushNamed(StyleGoalsScreen.name);
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)

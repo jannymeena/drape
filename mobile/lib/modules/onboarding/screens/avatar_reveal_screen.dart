@@ -51,7 +51,7 @@ class _AvatarRevealScreenState extends ConsumerState<AvatarRevealScreen> {
     } on ApiException {
       // Best-effort: don't block finishing onboarding on a failed save.
     }
-    if (mounted) context.goNamed(ProfileCompleteScreen.name);
+    if (mounted) context.pushNamed(ProfileCompleteScreen.name);
   }
 
   @override

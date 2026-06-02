@@ -21,13 +21,20 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
-  // Name + email are the only fields the backend persists (`UserUpdate`); the
-  // rest below (phone, gender, age range, location, photo, styling chips) have
-  // no backend yet (Phase 8) and are not sent on save.
+  // Name, email, phone, gender, age range and location all persist via
+  // `UserUpdate`. Only the photo + styling chips remain UI-only.
+  static const _genderOptions = [
+    'Male',
+    'Female',
+    'Non-binary',
+    'Prefer not to say',
+  ];
+  static const _ageOptions = ['18-24', '25-34', '35-44', '45-54', '55+'];
+
   final _name = TextEditingController();
   final _email = TextEditingController();
-  final _phone = TextEditingController(text: '+1 (555) 123-4567');
-  final _location = TextEditingController(text: 'Toronto, ON');
+  final _phone = TextEditingController();
+  final _location = TextEditingController();
   String _gender = 'Male';
   String _ageRange = '25-34';
 
@@ -43,13 +50,22 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     super.dispose();
   }
 
-  /// Populate name + email from `/users/me` once it resolves (one-shot, so it
-  /// doesn't clobber the user's in-progress edits on rebuild).
+  /// Populate the form from `/users/me` once it resolves (one-shot, so it
+  /// doesn't clobber the user's in-progress edits on rebuild). Dropdown values
+  /// only adopt a stored value if it's a known option (else keep the default).
   void _prefill(CurrentUser user) {
     if (_prefilled) return;
     _prefilled = true;
     _name.text = user.displayName;
     _email.text = user.email;
+    _phone.text = user.phone ?? '';
+    _location.text = user.location ?? '';
+    if (user.gender != null && _genderOptions.contains(user.gender)) {
+      _gender = user.gender!;
+    }
+    if (user.ageRange != null && _ageOptions.contains(user.ageRange)) {
+      _ageRange = user.ageRange!;
+    }
   }
 
   /// Sends only the changed fields via `PATCH /users/{id}`. If nothing changed,
@@ -67,9 +83,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       _toast('Enter a valid email address.');
       return;
     }
+    final phone = _phone.text.trim();
+    final location = _location.text.trim();
+
     final displayName = name != user.displayName ? name : null;
     final newEmail = email != user.email ? email : null;
-    if (displayName == null && newEmail == null) {
+    final newPhone = phone != (user.phone ?? '') ? phone : null;
+    final newLocation = location != (user.location ?? '') ? location : null;
+    final newGender = _gender != user.gender ? _gender : null;
+    final newAgeRange = _ageRange != user.ageRange ? _ageRange : null;
+    if (displayName == null &&
+        newEmail == null &&
+        newPhone == null &&
+        newLocation == null &&
+        newGender == null &&
+        newAgeRange == null) {
       context.pop();
       return;
     }
@@ -80,6 +108,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             userId: user.id,
             displayName: displayName,
             email: newEmail,
+            phone: newPhone,
+            location: newLocation,
+            gender: newGender,
+            ageRange: newAgeRange,
           );
       ref.read(authControllerProvider.notifier).applyCurrentUser(updated);
       if (!mounted) return;
@@ -202,7 +234,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             _FieldLabel('Gender'),
                             _Dropdown(
                               value: _gender,
-                              options: const ['Male', 'Female', 'Non-binary', 'Prefer not to say'],
+                              options: _genderOptions,
                               onChanged: (v) => setState(() => _gender = v!),
                             ),
                           ],
@@ -216,7 +248,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                             _FieldLabel('Age Range'),
                             _Dropdown(
                               value: _ageRange,
-                              options: const ['18-24', '25-34', '35-44', '45-54', '55+'],
+                              options: _ageOptions,
                               onChanged: (v) => setState(() => _ageRange = v!),
                             ),
                           ],

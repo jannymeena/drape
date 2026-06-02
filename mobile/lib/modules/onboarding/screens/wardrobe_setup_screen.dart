@@ -46,7 +46,7 @@ class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
           ),
         ),
       );
-      context.goNamed(AvatarRevealScreen.name);
+      context.pushNamed(AvatarRevealScreen.name);
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -182,7 +182,7 @@ class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
                   ),
                   onPressed: _assigning
                       ? null
-                      : () => context.goNamed(AvatarRevealScreen.name),
+                      : () => context.pushNamed(AvatarRevealScreen.name),
                   child: Text(
                     'CONTINUE WITH MY ITEMS',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(

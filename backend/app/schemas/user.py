@@ -22,6 +22,12 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     email: EmailStr | None = None
     display_name: str | None = None
+    # Profile-tab fields. All optional; `exclude_unset` (in update_user) means an
+    # omitted field is left untouched, while an explicit null clears it.
+    age_range: str | None = None
+    location: str | None = None
+    gender: str | None = None
+    phone: str | None = None
 
 
 class UserResponse(UserBase):
@@ -30,3 +36,12 @@ class UserResponse(UserBase):
     id: UUID
     role: Role
     created_at: datetime
+    # Profile-tab fields, so the client can rehydrate the Edit Profile form on a
+    # fresh install instead of falling back to placeholders.
+    age_range: str | None = None
+    location: str | None = None
+    timezone: str | None = None
+    gender: str | None = None
+    phone: str | None = None
+    shopping_style: str | None = None
+    style_goals: list[str] | None = None

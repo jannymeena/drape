@@ -14,9 +14,8 @@ import '../today/today_service.dart';
 /// `PATCH /users/{id}`. Every [DioException] becomes a typed [ApiException];
 /// the bearer is attached by the auth interceptor.
 ///
-/// The backend `UserUpdate` only supports `display_name` + `email` — the other
-/// Edit Profile fields (phone, gender, location, photo, styling) have no
-/// backend yet (Phase 8).
+/// The backend `UserUpdate` persists `display_name`, `email`, `age_range`,
+/// `location`, `gender`, and `phone`. Photo + styling chips are still UI-only.
 class ProfileService {
   ProfileService(this._dio);
 
@@ -33,11 +32,19 @@ class ProfileService {
     required String userId,
     String? displayName,
     String? email,
+    String? ageRange,
+    String? location,
+    String? gender,
+    String? phone,
   }) async {
     try {
       final body = <String, dynamic>{};
       if (displayName != null) body['display_name'] = displayName;
       if (email != null) body['email'] = email;
+      if (ageRange != null) body['age_range'] = ageRange;
+      if (location != null) body['location'] = location;
+      if (gender != null) body['gender'] = gender;
+      if (phone != null) body['phone'] = phone;
       final response = await _dio.patch<Map<String, dynamic>>(
         '/users/$userId',
         data: body,

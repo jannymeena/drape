@@ -38,7 +38,7 @@ class _InseamMeasurementScreenState
     ref
         .read(onboardingControllerProvider.notifier)
         .setMeasurement(MeasurementField.inseam, _cm, imperial: _imperial);
-    context.goNamed(ThighMeasurementScreen.name);
+    context.pushNamed(ThighMeasurementScreen.name);
   }
 
   @override

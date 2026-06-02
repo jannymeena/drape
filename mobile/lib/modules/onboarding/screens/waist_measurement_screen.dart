@@ -37,7 +37,7 @@ class _WaistMeasurementScreenState extends ConsumerState<WaistMeasurementScreen>
     ref
         .read(onboardingControllerProvider.notifier)
         .setMeasurement(MeasurementField.waist, _cm, imperial: _imperial);
-    context.goNamed(HipsMeasurementScreen.name);
+    context.pushNamed(HipsMeasurementScreen.name);
   }
 
   @override

@@ -37,7 +37,7 @@ class _HipsMeasurementScreenState extends ConsumerState<HipsMeasurementScreen> {
     ref
         .read(onboardingControllerProvider.notifier)
         .setMeasurement(MeasurementField.hips, _cm, imperial: _imperial);
-    context.goNamed(InseamMeasurementScreen.name);
+    context.pushNamed(InseamMeasurementScreen.name);
   }
 
   @override

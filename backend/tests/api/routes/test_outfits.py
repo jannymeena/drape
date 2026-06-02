@@ -26,10 +26,28 @@ from tests.factories import make_outfit, make_starter_wardrobe
 # ---------------------------------------------------------------------------
 
 
-def test_dashboard_with_empty_wardrobe_returns_400(authed_client):
+def test_dashboard_with_empty_wardrobe_returns_empty_state(authed_client):
+    # Too few items to compose an outfit: the dashboard degrades to a 200 with
+    # no outfits (the client renders its "add a few items" empty state) rather
+    # than erroring. Explicit force-generate still returns a clean 400 below.
     r = authed_client.get("/api/v1/today/dashboard")
+    assert r.status_code == 200, r.text
+    assert r.json()["outfits"] == []
+
+
+def test_force_generate_with_empty_wardrobe_returns_400(authed_client):
+    r = authed_client.post("/api/v1/today/generate-outfits", json={})
     assert r.status_code == 400, r.text
-    assert "wardrobe" in r.text.lower()
+    assert "wardrobe" in r.text.lower() or "item" in r.text.lower()
+
+
+def test_dashboard_with_single_item_wardrobe_does_not_500(authed_client, db):
+    # Regression: a 1-item wardrobe can't satisfy the proposal's >=2 min_length.
+    # Previously the heuristic fallback built an invalid proposal and 500'd.
+    make_starter_wardrobe(db, authed_client.test_user, count=1)
+    r = authed_client.get("/api/v1/today/dashboard")
+    assert r.status_code == 200, r.text
+    assert r.json()["outfits"] == []
 
 
 def test_dashboard_with_starter_wardrobe_returns_3_outfits(authed_client, db):

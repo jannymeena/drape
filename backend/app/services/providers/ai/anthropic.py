@@ -14,6 +14,10 @@ DEFAULT_MODEL = "claude-sonnet-4-6"
 
 
 class AnthropicProvider(AIProvider):
+    # Exposed as a class attribute so config/providers can resolve the fallback
+    # without re-importing the module constant. Kept in sync with DEFAULT_MODEL.
+    DEFAULT_MODEL = DEFAULT_MODEL
+
     def __init__(self, api_key: str, *, default_model: str = DEFAULT_MODEL) -> None:
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self._default_model = default_model

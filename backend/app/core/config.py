@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     password_reset_url_template: str = "https://drape.local/reset?token={token}"
 
     anthropic_api_key: str | None = None
+    # Claude model id for the AI provider. Override per env with ANTHROPIC_MODEL
+    # (e.g. a cheaper model in dev). None falls back to AnthropicProvider.DEFAULT_MODEL.
+    anthropic_model: str | None = None
 
     measurement_dek_dev: str | None = None
     kms_key_id: str | None = None

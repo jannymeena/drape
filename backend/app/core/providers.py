@@ -87,7 +87,8 @@ class Providers:
     @staticmethod
     def _build_ai(s: Settings) -> AIProvider:
         if s.anthropic_api_key:
-            return AnthropicProvider(s.anthropic_api_key)
+            model = s.anthropic_model or AnthropicProvider.DEFAULT_MODEL
+            return AnthropicProvider(s.anthropic_api_key, default_model=model)
         if s.environment == "dev":
             return MockAIProvider()
         # Unreachable: config validator requires ANTHROPIC_API_KEY in tbd/prd.

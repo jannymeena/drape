@@ -55,7 +55,7 @@ class _StyleGoalsScreenState extends ConsumerState<StyleGoalsScreen> {
           .read(onboardingControllerProvider.notifier)
           .setStyleGoals(goals);
       if (!mounted) return;
-      context.goNamed(LifestyleOccasionsScreen.name);
+      context.pushNamed(LifestyleOccasionsScreen.name);
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)

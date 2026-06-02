@@ -7,7 +7,6 @@ import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../models/measurements_draft.dart';
 import '../onboarding_controller.dart';
-import '../onboarding_flow.dart';
 import '../widgets/measurement_guide.dart';
 import '../widgets/measurement_input.dart';
 import 'waist_measurement_screen.dart';
@@ -38,7 +37,7 @@ class _ChestMeasurementScreenState extends ConsumerState<ChestMeasurementScreen>
     ref
         .read(onboardingControllerProvider.notifier)
         .setMeasurement(MeasurementField.chest, _cm, imperial: _imperial);
-    context.goNamed(WaistMeasurementScreen.name);
+    context.pushNamed(WaistMeasurementScreen.name);
   }
 
   @override
@@ -90,27 +89,11 @@ class _ChestMeasurementScreenState extends ConsumerState<ChestMeasurementScreen>
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-              child: Column(
-                children: [
-                  DrapeButton(
-                    label: 'Keep Going',
-                    onPressed: _cm == null ? null : _onContinue,
-                    leading: const Icon(Icons.arrow_forward,
-                        color: AppColors.white, size: 18),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => confirmSkipMeasurements(context, ref,
-                        step: 'measurements_step_3'),
-                    child: Text(
-                      'Skip for now',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: AppColors.inkSoft,
-                            decoration: TextDecoration.underline,
-                          ),
-                    ),
-                  ),
-                ],
+              child: DrapeButton(
+                label: 'Keep Going',
+                onPressed: _cm == null ? null : _onContinue,
+                leading: const Icon(Icons.arrow_forward,
+                    color: AppColors.white, size: 18),
               ),
             ),
           ],

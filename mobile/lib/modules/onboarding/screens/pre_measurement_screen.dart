@@ -126,7 +126,7 @@ class PreMeasurementScreen extends StatelessWidget {
             const SizedBox(height: 20),
             DrapeButton(
               label: 'Begin Measurements',
-              onPressed: () => context.goNamed(HeightInputScreen.name),
+              onPressed: () => context.pushNamed(HeightInputScreen.name),
               leading: const Icon(Icons.arrow_forward,
                   color: AppColors.white, size: 18),
             ),

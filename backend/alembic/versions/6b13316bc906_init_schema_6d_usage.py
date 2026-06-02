@@ -70,6 +70,8 @@ def upgrade() -> None:
     sa.Column('style_goals', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('timezone', sa.String(length=64), nullable=True),
     sa.Column('location', sa.String(length=120), nullable=True),
+    sa.Column('gender', sa.String(length=30), nullable=True),
+    sa.Column('phone', sa.String(length=40), nullable=True),
     sa.Column('subscription_tier', sa.String(length=20), server_default='free', nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),

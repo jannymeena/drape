@@ -430,12 +430,24 @@ def _heuristic_pick(items: Sequence[WardrobeItem]) -> list[WardrobeItem]:
     for it in items:
         by_cat.setdefault(it.category, []).append(it)
     pick: list[WardrobeItem] = []
+    picked_ids: set[UUID] = set()
     for cat in ("tops", "dresses", "bottoms", "shoes", "outerwear", "accessories"):
         bucket = by_cat.get(cat) or []
         if bucket:
             pick.append(bucket[0])
+            picked_ids.add(bucket[0].id)
         if len(pick) >= 4:
             break
+    # Category picking can yield <2 items (e.g. everything in one category), which
+    # would fail the proposal's min_length. Top up from the rest when we can.
+    if len(pick) < _MIN_ITEMS_PER_OUTFIT:
+        for it in items:
+            if it.id in picked_ids:
+                continue
+            pick.append(it)
+            picked_ids.add(it.id)
+            if len(pick) >= _MIN_ITEMS_PER_OUTFIT:
+                break
     if not pick:
         pick = list(items[:_MAX_ITEMS_PER_OUTFIT])
     return pick
@@ -458,6 +470,14 @@ async def generate_one(
         raise OutfitError(
             "no_wardrobe",
             "User has no wardrobe items yet — assign a starter wardrobe or add items.",
+        )
+    if len(all_items) < _MIN_ITEMS_PER_OUTFIT:
+        # A single-item wardrobe can't form a valid outfit (the proposal schema
+        # requires >= _MIN_ITEMS_PER_OUTFIT). Surface a clean 400 rather than
+        # letting the fallback build an invalid proposal and 500.
+        raise OutfitError(
+            "insufficient_items",
+            f"Add at least {_MIN_ITEMS_PER_OUTFIT} wardrobe items to generate an outfit.",
         )
     excluded_set = set(excluded_item_ids)
     pool = [i for i in all_items if i.id not in excluded_set]
@@ -607,6 +627,13 @@ async def load_dashboard_outfits(
     if len(existing) >= DAILY_OUTFIT_TARGET:
         # Newest 3 — older same-day generations sit silent in history.
         return existing[:DAILY_OUTFIT_TARGET], False
+
+    # An outfit needs at least _MIN_ITEMS_PER_OUTFIT pieces. With fewer, there's
+    # nothing to generate — return whatever exists (usually nothing) so the
+    # dashboard renders its "add a few items" empty state instead of raising.
+    # (Force-generate via generate_for_user still raises a clean OutfitError.)
+    if len(_user_wardrobe(db, user_id=user.id)) < _MIN_ITEMS_PER_OUTFIT:
+        return existing, False
 
     occasions = (
         list(request.occasions) if request and request.occasions else list(DEFAULT_OCCASIONS)

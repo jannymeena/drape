@@ -12,10 +12,30 @@ import '../models/wardrobe_mutations.dart';
 import '../wardrobe_controller.dart';
 import '../wardrobe_service.dart';
 
-/// Batch add: pick up to [_maxBatch] photos → `POST /wardrobe/batch-upload`
-/// (AI detection per image) → review the per-image results → create the
-/// selected ones (and attach their photos). The old hardcoded tile grid is
-/// gone.
+enum _ScanStatus { pending, scanning, ok, error }
+
+/// One picked image plus the result of its individual scan. The whole batch is
+/// held in memory here; each image is sent to the backend on its own.
+class _ScanSlot {
+  _ScanSlot(this.image);
+
+  final PickedImage image;
+  _ScanStatus status = _ScanStatus.pending;
+  ScanDetection? detection;
+  bool suggestManualEntry = false;
+  bool selected = false;
+  String? errorMessage;
+
+  bool get isError => status == _ScanStatus.error;
+  bool get isDone => status == _ScanStatus.ok;
+}
+
+/// Batch add: pick up to [_maxBatch] photos, then scan them **one at a time**
+/// via `POST /wardrobe/scan-item` (single-image AI detection). Each scan is its
+/// own short request fired sequentially in the background, so the UI fills in
+/// per-tile as results land and a slow vision call on one photo never stalls
+/// the others or trips the 30s client timeout (the old single batch request
+/// did). Review the per-image results → create the selected ones.
 class BatchUploadScreen extends ConsumerStatefulWidget {
   static const path = 'batch-upload';
   static const name = 'wardrobe_batch_upload';
@@ -29,11 +49,14 @@ class BatchUploadScreen extends ConsumerStatefulWidget {
 class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
   static const _maxBatch = 12; // backend MAX_BATCH_SIZE
 
-  final List<PickedImage> _images = [];
-  BatchUploadResult? _result;
-  final Set<int> _selected = {};
+  final List<_ScanSlot> _slots = [];
   bool _scanning = false;
   bool _creating = false;
+
+  int get _scannedCount =>
+      _slots.where((s) => s.status != _ScanStatus.pending && s.status != _ScanStatus.scanning).length;
+
+  int get _selectedCount => _slots.where((s) => s.isDone && s.selected).length;
 
   @override
   void initState() {
@@ -50,42 +73,60 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
         const SnackBar(content: Text('Only the first 12 photos were used.')),
       );
     }
+
+    // Hold every image in app state up front and render the grid immediately;
+    // the scan loop below fills each tile in as its result returns.
+    final start = _slots.length;
     setState(() {
-      _images
-        ..clear()
-        ..addAll(picked);
-      _result = null;
-      _selected.clear();
+      _slots.addAll(picked.map(_ScanSlot.new));
       _scanning = true;
     });
-    try {
-      final result = await ref.read(wardrobeServiceProvider).batchUpload(_images);
+
+    await _scanFrom(start);
+
+    if (mounted) setState(() => _scanning = false);
+  }
+
+  /// Sequentially scans slots [from]..end — one request at a time so we never
+  /// overload the backend or block the UI. State updates after every result.
+  Future<void> _scanFrom(int from) async {
+    final service = ref.read(wardrobeServiceProvider);
+    for (var i = from; i < _slots.length; i++) {
       if (!mounted) return;
-      setState(() {
-        _result = result;
-        _scanning = false;
-        // Pre-select everything the AI could detect (ok + low-confidence).
-        _selected
-          ..clear()
-          ..addAll(result.results.where((r) => !r.isError).map((r) => r.index));
-      });
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _scanning = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      final slot = _slots[i];
+      setState(() => slot.status = _ScanStatus.scanning);
+      try {
+        final result = await service.scanItem(slot.image);
+        if (!mounted) return;
+        setState(() {
+          slot
+            ..status = _ScanStatus.ok
+            ..detection = result.detection
+            ..suggestManualEntry = result.suggestManualEntry
+            ..selected = true; // pre-select everything we could detect
+        });
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        setState(() {
+          slot
+            ..status = _ScanStatus.error
+            ..errorMessage = e.code == 'low_confidence'
+                ? "Couldn't identify this item — add it manually."
+                : e.message
+            ..selected = false;
+        });
+      }
     }
   }
 
   Future<void> _addSelected() async {
-    final result = _result;
-    if (result == null || _selected.isEmpty) return;
+    if (_selectedCount == 0) return;
     setState(() => _creating = true);
 
     final entries = <({WardrobeItemInput input, PickedImage? image})>[];
-    for (final row in result.results) {
-      if (!_selected.contains(row.index) || row.detection == null) continue;
-      final d = row.detection!;
+    for (final slot in _slots) {
+      if (!slot.isDone || !slot.selected || slot.detection == null) continue;
+      final d = slot.detection!;
       entries.add((
         input: WardrobeItemInput(
           name: d.suggestedName,
@@ -94,7 +135,7 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
           pattern: d.pattern,
           formality: d.formality,
         ),
-        image: row.index < _images.length ? _images[row.index] : null,
+        image: slot.image,
       ));
     }
 
@@ -142,10 +183,9 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
     );
   }
 
-  void _toggle(int index) {
-    setState(() {
-      if (!_selected.add(index)) _selected.remove(index);
-    });
+  void _toggle(_ScanSlot slot) {
+    if (!slot.isDone) return;
+    setState(() => slot.selected = !slot.selected);
   }
 
   @override
@@ -158,17 +198,19 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
             _Header(onBack: () => context.pop()),
             _ProgressLabel(
               scanning: _scanning,
-              total: _result?.total ?? _images.length,
-              selected: _selected.length,
+              scanned: _scannedCount,
+              total: _slots.length,
+              selected: _selectedCount,
             ),
             const SizedBox(height: 12),
             Expanded(child: _buildBody()),
-            if (_result != null && !_scanning)
+            if (_slots.isNotEmpty)
               _BottomBar(
-                count: _selected.length,
+                count: _selectedCount,
                 creating: _creating,
+                scanning: _scanning,
                 onAddMore: _pickAndScan,
-                onContinue: _selected.isEmpty ? null : _addSelected,
+                onContinue: _selectedCount == 0 ? null : _addSelected,
               ),
           ],
         ),
@@ -177,25 +219,12 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
   }
 
   Widget _buildBody() {
-    if (_scanning) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(color: AppColors.espresso),
-            SizedBox(height: 16),
-            Text('Analyzing your photos…'),
-          ],
-        ),
-      );
-    }
-    final result = _result;
-    if (result == null) {
+    if (_slots.isEmpty) {
       return _EmptyPrompt(onPick: _pickAndScan);
     }
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: result.results.length,
+      itemCount: _slots.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 12,
@@ -203,15 +232,8 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
         childAspectRatio: 0.78,
       ),
       itemBuilder: (_, i) {
-        final row = result.results[i];
-        final bytes =
-            row.index < _images.length ? _images[row.index].bytes : null;
-        return _BatchItemTile(
-          row: row,
-          bytes: bytes,
-          selected: _selected.contains(row.index),
-          onTap: row.isError ? null : () => _toggle(row.index),
-        );
+        final slot = _slots[i];
+        return _ScanTile(slot: slot, onTap: () => _toggle(slot));
       },
     );
   }
@@ -247,10 +269,12 @@ class _Header extends StatelessWidget {
 
 class _ProgressLabel extends StatelessWidget {
   final bool scanning;
+  final int scanned;
   final int total;
   final int selected;
   const _ProgressLabel({
     required this.scanning,
+    required this.scanned,
     required this.total,
     required this.selected,
   });
@@ -271,9 +295,9 @@ class _ProgressLabel extends StatelessWidget {
                   ),
             ),
           ),
-          if (!scanning && total > 0)
+          if (total > 0)
             Text(
-              '$selected of $total selected',
+              scanning ? '$scanned of $total scanned' : '$selected of $total selected',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: AppColors.espresso,
                     fontWeight: FontWeight.w700,
@@ -314,24 +338,22 @@ class _EmptyPrompt extends StatelessWidget {
   }
 }
 
-class _BatchItemTile extends StatelessWidget {
-  final BatchUploadItem row;
-  final Uint8List? bytes;
-  final bool selected;
-  final VoidCallback? onTap;
+class _ScanTile extends StatelessWidget {
+  final _ScanSlot slot;
+  final VoidCallback onTap;
 
-  const _BatchItemTile({
-    required this.row,
-    required this.bytes,
-    required this.selected,
-    required this.onTap,
-  });
+  const _ScanTile({required this.slot, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final label = row.detection != null
-        ? row.detection!.category.toUpperCase()
-        : 'FAILED';
+    final Uint8List bytes = slot.image.bytes;
+    final selected = slot.isDone && slot.selected;
+    final label = switch (slot.status) {
+      _ScanStatus.pending => 'QUEUED',
+      _ScanStatus.scanning => 'SCANNING…',
+      _ScanStatus.ok => slot.detection!.category.toUpperCase(),
+      _ScanStatus.error => 'FAILED',
+    };
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -347,19 +369,13 @@ class _BatchItemTile extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (bytes != null)
-              Image.memory(bytes!, fit: BoxFit.cover)
-            else
-              const Center(
-                child: Icon(Icons.checkroom_outlined,
-                    color: AppColors.taupeSoft, size: 36),
-              ),
-            if (row.isError)
+            Image.memory(bytes, fit: BoxFit.cover),
+            if (slot.status != _ScanStatus.ok)
               Container(color: AppColors.black.withValues(alpha: 0.35)),
             Positioned(
               top: 6,
               right: 6,
-              child: _StatusBadge(row: row, selected: selected),
+              child: _StatusBadge(slot: slot, selected: selected),
             ),
             Positioned(
               left: 6,
@@ -392,21 +408,36 @@ class _BatchItemTile extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  final BatchUploadItem row;
+  final _ScanSlot slot;
   final bool selected;
-  const _StatusBadge({required this.row, required this.selected});
+  const _StatusBadge({required this.slot, required this.selected});
 
   @override
   Widget build(BuildContext context) {
+    if (slot.status == _ScanStatus.scanning ||
+        slot.status == _ScanStatus.pending) {
+      return Container(
+        width: 22,
+        height: 22,
+        decoration: const BoxDecoration(
+            color: AppColors.taupe, shape: BoxShape.circle),
+        padding: const EdgeInsets.all(4),
+        child: slot.status == _ScanStatus.scanning
+            ? const CircularProgressIndicator(
+                strokeWidth: 2, color: AppColors.white)
+            : const Icon(Icons.schedule, color: AppColors.white, size: 13),
+      );
+    }
+
     late final Color color;
     late final IconData icon;
-    if (row.isError) {
+    if (slot.isError) {
       color = AppColors.error;
       icon = Icons.close;
     } else if (!selected) {
       color = AppColors.taupe;
       icon = Icons.circle_outlined;
-    } else if (row.suggestManualEntry) {
+    } else if (slot.suggestManualEntry) {
       color = const Color(0xFFC8901C);
       icon = Icons.priority_high;
     } else {
@@ -426,18 +457,21 @@ class _StatusBadge extends StatelessWidget {
 class _BottomBar extends StatelessWidget {
   final int count;
   final bool creating;
+  final bool scanning;
   final VoidCallback onAddMore;
   final VoidCallback? onContinue;
 
   const _BottomBar({
     required this.count,
     required this.creating,
+    required this.scanning,
     required this.onAddMore,
     required this.onContinue,
   });
 
   @override
   Widget build(BuildContext context) {
+    final busy = creating || scanning;
     return SafeArea(
       top: false,
       child: Padding(
@@ -448,7 +482,7 @@ class _BottomBar extends StatelessWidget {
               color: AppColors.tanFixed,
               shape: const CircleBorder(),
               child: InkWell(
-                onTap: creating ? null : onAddMore,
+                onTap: busy ? null : onAddMore,
                 customBorder: const CircleBorder(),
                 child: const SizedBox(
                   width: 52,
@@ -472,9 +506,11 @@ class _BottomBar extends StatelessWidget {
                       child: Text(
                         creating
                             ? 'Adding…'
-                            : count == 0
-                                ? 'Select items to add'
-                                : 'Add $count ${count == 1 ? 'item' : 'items'}',
+                            : scanning
+                                ? 'Scanning…'
+                                : count == 0
+                                    ? 'Select items to add'
+                                    : 'Add $count ${count == 1 ? 'item' : 'items'}',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               color: AppColors.white,
                               fontWeight: FontWeight.w700,

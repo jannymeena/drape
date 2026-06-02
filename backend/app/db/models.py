@@ -73,6 +73,10 @@ class User(Base, TimestampMixin):
     style_goals: Mapped[Optional[list[str]]] = mapped_column(JSONB, nullable=True)
     timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     location: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
+    # Editable profile-tab fields (no onboarding step writes these; the Edit
+    # Profile screen does). Free-text, validated by Pydantic on the way in.
+    gender: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
     subscription_tier: Mapped[str] = mapped_column(
         String(20), nullable=False, default="free", server_default="free"
     )

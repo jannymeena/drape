@@ -8,7 +8,6 @@ import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../models/measurements_draft.dart';
 import '../onboarding_controller.dart';
-import '../onboarding_flow.dart';
 import '../widgets/measurement_input.dart';
 import '../widgets/onboarding_progress_bar.dart';
 import 'wardrobe_setup_screen.dart';
@@ -46,7 +45,7 @@ class _ShouldersScreenState extends ConsumerState<ShouldersScreen> {
     try {
       await notifier.submitMeasurements();
       if (!mounted) return;
-      context.goNamed(WardrobeSetupScreen.name);
+      context.pushNamed(WardrobeSetupScreen.name);
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -59,22 +58,8 @@ class _ShouldersScreenState extends ConsumerState<ShouldersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: DrapeAppBar(
+      appBar: const DrapeAppBar(
         title: 'Your DRAPE Profile — Step 8 of 8',
-        actions: [
-          TextButton(
-            onPressed: () =>
-                confirmSkipMeasurements(context, ref, step: 'measurements_step_8'),
-            child: Text(
-              'Skip for\nNow',
-              textAlign: TextAlign.right,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppColors.espresso,
-                    decoration: TextDecoration.underline,
-                  ),
-            ),
-          ),
-        ],
       ),
       body: SafeArea(
         child: Column(

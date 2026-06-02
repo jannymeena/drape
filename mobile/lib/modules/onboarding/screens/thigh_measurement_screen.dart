@@ -41,7 +41,7 @@ class _ThighMeasurementScreenState
     ref
         .read(onboardingControllerProvider.notifier)
         .setMeasurement(MeasurementField.thigh, _cm, imperial: _imperial);
-    context.goNamed(ShouldersScreen.name);
+    context.pushNamed(ShouldersScreen.name);
   }
 
   @override

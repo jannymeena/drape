@@ -21,13 +21,17 @@ class DrapeAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Only render the default back arrow when there's actually something to pop;
+    // otherwise it's a dead control (e.g. the first onboarding step, or a step
+    // resumed directly via `go`). A custom [onBack] always shows.
+    final canGoBack = onBack != null || Navigator.of(context).canPop();
     return AppBar(
       backgroundColor: AppColors.ivory,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
       automaticallyImplyLeading: false,
-      leading: showBack
+      leading: showBack && canGoBack
           ? IconButton(
               icon: const Icon(Icons.arrow_back, color: AppColors.ink),
               onPressed: onBack ?? () => Navigator.maybePop(context),

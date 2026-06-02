@@ -45,7 +45,7 @@ class _ShoppingStyleScreenState extends ConsumerState<ShoppingStyleScreen> {
           .read(onboardingControllerProvider.notifier)
           .setShoppingStyle(_values[selected]);
       if (!mounted) return;
-      context.goNamed(AgeRangeScreen.name);
+      context.pushNamed(AgeRangeScreen.name);
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)

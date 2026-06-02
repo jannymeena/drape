@@ -7,7 +7,6 @@ import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../models/measurements_draft.dart';
 import '../onboarding_controller.dart';
-import '../onboarding_flow.dart';
 import '../widgets/measurement_input.dart';
 import '../widgets/onboarding_progress_bar.dart';
 import 'weight_input_screen.dart';
@@ -37,28 +36,14 @@ class _HeightInputScreenState extends ConsumerState<HeightInputScreen> {
     ref
         .read(onboardingControllerProvider.notifier)
         .setMeasurement(MeasurementField.height, _cm, imperial: _imperial);
-    context.goNamed(WeightInputScreen.name);
+    context.pushNamed(WeightInputScreen.name);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: DrapeAppBar(
+      appBar: const DrapeAppBar(
         title: 'Your DRAPE Profile — Step 1 of 8',
-        actions: [
-          TextButton(
-            onPressed: () =>
-                confirmSkipMeasurements(context, ref, step: 'measurements_step_1'),
-            child: Text(
-              'Skip for\nNow',
-              textAlign: TextAlign.right,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppColors.espresso,
-                    decoration: TextDecoration.underline,
-                  ),
-            ),
-          ),
-        ],
       ),
       body: SafeArea(
         child: Column(
