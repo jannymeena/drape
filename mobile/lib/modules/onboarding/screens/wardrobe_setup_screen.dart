@@ -5,14 +5,18 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
+import '../../wardrobe/wardrobe_service.dart';
 import '../onboarding_controller.dart';
 import 'avatar_reveal_screen.dart';
 
-/// Onboarding wardrobe step. The upload / scan / manual paths add the user's
-/// own items and belong to the (not-yet-built) Wardrobe module, so they're
-/// still stubs. The working forward path assigns a curated **starter wardrobe**
-/// so the user has outfits immediately; it auto-deactivates as they add real
-/// items.
+/// Onboarding wardrobe step. Four forward paths:
+///   * Upload Photos → onboarding-scoped batch upload (AI detect → bulk add)
+///   * Scan New Item → onboarding-scoped single scan
+///   * Add manually instead → onboarding-scoped manual entry
+///   * Start with a starter wardrobe → curated set, auto-deactivates as the
+///     user adds real items
+/// The first three reuse the Wardrobe-module screens via onboarding-scoped
+/// routes so they pop back here instead of leaking into the main tab shell.
 class WardrobeSetupScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/wardrobe-setup';
   static const name = 'wardrobe_setup';
@@ -54,6 +58,14 @@ class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Real (non-starter) item count gates the "Continue with my items" CTA and
+    // drives the live "X of 10" hint. Sub-screens invalidate this provider
+    // after each create, so pushNamed→pop refreshes the count.
+    final capacity = ref.watch(wardrobeCapacityProvider);
+    final addedCount = capacity.maybeWhen(
+      data: (c) => c.used,
+      orElse: () => 0,
+    );
     return Scaffold(
       appBar: DrapeAppBar(
         title: 'Build Your Wardrobe',
@@ -110,7 +122,9 @@ class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Add at least 10 items to get your first outfit.',
+              addedCount >= 10
+                  ? "You're set — $addedCount items added."
+                  : 'Added $addedCount of 10 — get your first outfit at 10.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -126,20 +140,27 @@ class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
               icon: Icons.photo_library_outlined,
               title: 'Upload Photos',
               body: 'Add multiple items at once from your camera roll',
-              onTap: _assigning ? null : () => debugPrint('wardrobe: upload'),
+              onTap: _assigning
+                  ? null
+                  : () =>
+                      context.pushNamed('onboarding_wardrobe_batch_upload'),
             ),
             const SizedBox(height: 12),
             _ActionCard(
               icon: Icons.qr_code_scanner_outlined,
               title: 'Scan New Item',
               body: "Point at any garment for instant auto-tagging",
-              onTap: _assigning ? null : () => debugPrint('wardrobe: scan'),
+              onTap: _assigning
+                  ? null
+                  : () => context.pushNamed('onboarding_wardrobe_scan'),
             ),
             const SizedBox(height: 24),
             Center(
               child: TextButton(
-                onPressed:
-                    _assigning ? null : () => debugPrint('wardrobe: manual'),
+                onPressed: _assigning
+                    ? null
+                    : () =>
+                        context.pushNamed('onboarding_wardrobe_manual_entry'),
                 child: Text(
                   'Add manually instead',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -149,6 +170,30 @@ class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
                 ),
               ),
             ),
+            if (addedCount >= 1) ...[
+              const SizedBox(height: 16),
+              Center(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.espresso,
+                    foregroundColor: AppColors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 28, vertical: 14),
+                  ),
+                  onPressed: _assigning
+                      ? null
+                      : () => context.goNamed(AvatarRevealScreen.name),
+                  child: Text(
+                    'CONTINUE WITH MY ITEMS',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: AppColors.white,
+                          letterSpacing: 1.4,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Center(
               child: TextButton(

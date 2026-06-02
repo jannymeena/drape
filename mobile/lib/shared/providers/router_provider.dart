@@ -225,6 +225,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: WardrobeSetupScreen.path,
         name: WardrobeSetupScreen.name,
         builder: (_, _) => const WardrobeSetupScreen(),
+        routes: [
+          // Reuse the wardrobe-module screens during onboarding. Distinct names
+          // so they stay outside the main shell and pop back to wardrobe setup.
+          GoRoute(
+            path: 'scan',
+            name: 'onboarding_wardrobe_scan',
+            builder: (_, _) => const ScannerScreen(),
+          ),
+          GoRoute(
+            path: 'batch-upload',
+            name: 'onboarding_wardrobe_batch_upload',
+            builder: (_, _) => const BatchUploadScreen(),
+          ),
+          GoRoute(
+            path: 'manual-entry',
+            name: 'onboarding_wardrobe_manual_entry',
+            builder: (_, state) => wardrobe_manual.ManualEntryScreen(
+              itemId: state.uri.queryParameters['id'],
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: AvatarRevealScreen.path,

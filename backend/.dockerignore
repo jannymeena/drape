@@ -1,0 +1,15 @@
+# Never bake secrets or local cruft into the image.
+.env
+.env.*
+!.env.example
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+uploads/
+tests/
+*.md

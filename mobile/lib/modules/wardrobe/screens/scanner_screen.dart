@@ -126,7 +126,16 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     );
   }
 
-  void _manualEntry() => context.goNamed(wardrobe_manual.ManualEntryScreen.name);
+  void _manualEntry() {
+    // Stay in whichever route tree spawned us — the onboarding-scoped scanner
+    // must hand off to the onboarding manual-entry, not the main shell's.
+    final inOnboarding = GoRouterState.of(context)
+        .matchedLocation
+        .startsWith('/onboarding/');
+    context.goNamed(inOnboarding
+        ? 'onboarding_wardrobe_manual_entry'
+        : wardrobe_manual.ManualEntryScreen.name);
+  }
 
   @override
   Widget build(BuildContext context) {
