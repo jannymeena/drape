@@ -7,6 +7,7 @@ import '../auth/auth_controller.dart';
 import '../auth/auth_service.dart';
 import '../auth/models/current_user.dart';
 import '../today/today_service.dart';
+import '../wardrobe/image_pick.dart';
 
 /// Talks to the backend `/users` endpoints that back the Profile tab. The
 /// signed-in identity is read via `GET /users/me` (already hydrated at launch
@@ -36,6 +37,7 @@ class ProfileService {
     String? location,
     String? gender,
     String? phone,
+    bool? communityShareAvatar,
   }) async {
     try {
       final body = <String, dynamic>{};
@@ -45,9 +47,33 @@ class ProfileService {
       if (location != null) body['location'] = location;
       if (gender != null) body['gender'] = gender;
       if (phone != null) body['phone'] = phone;
+      if (communityShareAvatar != null) {
+        body['community_share_avatar'] = communityShareAvatar;
+      }
       final response = await _dio.patch<Map<String, dynamic>>(
         '/users/$userId',
         data: body,
+      );
+      return CurrentUser.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// `POST /profile/avatar/upload` — multipart upload of the user's chosen photo.
+  /// Returns the refreshed [CurrentUser] (now carrying `avatarUrl`).
+  Future<CurrentUser> uploadAvatar(PickedImage image) async {
+    try {
+      final form = FormData.fromMap({
+        'file': MultipartFile.fromBytes(
+          image.bytes,
+          filename: image.filename,
+          contentType: DioMediaType.parse(image.mimeType),
+        ),
+      });
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/profile/avatar/upload',
+        data: form,
       );
       return CurrentUser.fromJson(response.data!);
     } on DioException catch (e) {

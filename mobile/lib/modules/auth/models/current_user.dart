@@ -1,6 +1,10 @@
 /// Mirrors the backend `UserResponse` (see `app/schemas/user.py`) returned by
 /// `GET /users/me`. This is the hydrated identity, distinct from [AuthResponse]
 /// (which carries tokens + onboarding routing from login/signup).
+library;
+
+import '../../../shared/config/api_config.dart';
+
 class CurrentUser {
   const CurrentUser({
     required this.id,
@@ -15,6 +19,8 @@ class CurrentUser {
     this.phone,
     this.shoppingStyle,
     this.styleGoals,
+    this.avatarUrl,
+    this.communityShareAvatar = false,
   });
 
   final String id;
@@ -34,6 +40,8 @@ class CurrentUser {
   final String? phone;
   final String? shoppingStyle;
   final List<String>? styleGoals;
+  final String? avatarUrl;
+  final bool communityShareAvatar;
 
   factory CurrentUser.fromJson(Map<String, dynamic> json) {
     return CurrentUser(
@@ -49,6 +57,8 @@ class CurrentUser {
       phone: json['phone'] as String?,
       shoppingStyle: json['shopping_style'] as String?,
       styleGoals: (json['style_goals'] as List<dynamic>?)?.cast<String>(),
+      avatarUrl: ApiConfig.resolveImageUrl(json['avatar_url'] as String?),
+      communityShareAvatar: json['community_share_avatar'] as bool? ?? false,
     );
   }
 }

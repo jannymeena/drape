@@ -6,12 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import (
+    account,
     analytics,
     auth,
     health,
     outfits,
     profile,
+    settings as settings_routes,
     starter_wardrobe,
+    support,
     today,
     usage,
     users,
@@ -54,6 +57,9 @@ app.include_router(today.router, prefix=settings.api_v1_prefix)
 app.include_router(outfits.router, prefix=settings.api_v1_prefix)
 app.include_router(usage.router, prefix=settings.api_v1_prefix)
 app.include_router(analytics.router, prefix=settings.api_v1_prefix)
+app.include_router(settings_routes.router, prefix=settings.api_v1_prefix)
+app.include_router(support.router, prefix=settings.api_v1_prefix)
+app.include_router(account.router, prefix=settings.api_v1_prefix)
 
 # Dev only: serve the LocalFsStorage upload root so URLs returned by the image
 # provider are fetchable. Tbd/prd serves images directly via S3/CloudFront.

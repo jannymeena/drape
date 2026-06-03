@@ -1,23 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../auth/auth_controller.dart';
+import '../settings_service.dart';
 
 /// "Type DELETE" safety pattern (case-sensitive).
 /// The destructive button is disabled until the user types exactly `DELETE`.
-class DeleteAccountScreen extends StatefulWidget {
+class DeleteAccountScreen extends ConsumerStatefulWidget {
   static const path = 'delete-account';
   static const name = 'profile_delete_account';
 
   const DeleteAccountScreen({super.key});
 
   @override
-  State<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
+  ConsumerState<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
 }
 
-class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
+class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
   final _controller = TextEditingController();
   bool _enabled = false;
+  bool _deleting = false;
+
+  /// Permanently delete on the server, then clear the local session — the
+  /// router's auth gate then bounces to Welcome.
+  Future<void> _delete() async {
+    setState(() => _deleting = true);
+    try {
+      await ref.read(settingsServiceProvider).deleteAccount();
+      await ref.read(authControllerProvider.notifier).logout();
+      // No navigation needed: clearing the session redirects to Welcome.
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _deleting = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
 
   static const _confirmString = 'DELETE';
 
@@ -176,19 +197,16 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                         : AppColors.error.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(8),
                     child: InkWell(
-                      onTap: _enabled
-                          ? () {
-                              debugPrint('account: deleted');
-                              context.pop();
-                            }
-                          : null,
+                      onTap: (_enabled && !_deleting) ? _delete : null,
                       borderRadius: BorderRadius.circular(8),
                       child: SizedBox(
                         width: double.infinity,
                         height: 52,
                         child: Center(
                           child: Text(
-                            'I Understand, Delete My Account',
+                            _deleting
+                                ? 'Deleting…'
+                                : 'I Understand, Delete My Account',
                             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                   color: AppColors.white,
                                   fontWeight: FontWeight.w700,

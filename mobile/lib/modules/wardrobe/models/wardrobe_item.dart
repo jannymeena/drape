@@ -3,6 +3,8 @@
 /// as plain strings; nullable everywhere the schema is.
 library;
 
+import '../../../shared/config/api_config.dart';
+
 class WardrobeItem {
   const WardrobeItem({
     required this.id,
@@ -151,8 +153,10 @@ class WardrobeItem {
       name: json['name'] as String,
       category: json['category'] as String,
       subcategory: json['subcategory'] as String?,
-      images: (json['images'] as List<dynamic>?)?.map((e) => e as String).toList(),
-      primaryImageUrl: json['primary_image_url'] as String?,
+      images: (json['images'] as List<dynamic>?)
+          ?.map((e) => ApiConfig.resolveImageUrl(e as String)!)
+          .toList(),
+      primaryImageUrl: ApiConfig.resolveImageUrl(json['primary_image_url'] as String?),
       colorHex: json['color_hex'] as String?,
       colorName: json['color_name'] as String?,
       pattern: json['pattern'] as String?,

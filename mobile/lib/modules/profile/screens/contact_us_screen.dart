@@ -1,19 +1,63 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../settings_service.dart';
 import '../widgets/settings_row.dart';
 import '../widgets/settings_section.dart';
 import 'feature_request_screen.dart';
 import 'help_center_hub_screen.dart';
 import 'report_bug_screen.dart';
 
-class ContactUsScreen extends StatelessWidget {
+class ContactUsScreen extends ConsumerStatefulWidget {
   static const path = 'contact';
   static const name = 'profile_contact';
 
   const ContactUsScreen({super.key});
+
+  @override
+  ConsumerState<ContactUsScreen> createState() => _ContactUsScreenState();
+}
+
+class _ContactUsScreenState extends ConsumerState<ContactUsScreen> {
+  final _message = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _message.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final message = _message.text.trim();
+    if (message.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a message.')),
+      );
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      await ref
+          .read(settingsServiceProvider)
+          .submitSupport(kind: 'contact', message: message);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Message sent — we\'ll be in touch.')),
+      );
+      context.pop();
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +101,11 @@ class ContactUsScreen extends StatelessWidget {
                               )),
                     ],
                   ),
-                  _Field(hint: 'How can our stylists assist you today?', lines: 4),
+                  _Field(
+                    hint: 'How can our stylists assist you today?',
+                    lines: 4,
+                    controller: _message,
+                  ),
                   const SizedBox(height: 12),
                   Center(
                     child: TextButton.icon(
@@ -73,8 +121,8 @@ class ContactUsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   DrapeButton(
-                    label: 'SEND MESSAGE',
-                    onPressed: () => debugPrint('contact: send'),
+                    label: _submitting ? 'Sending…' : 'SEND MESSAGE',
+                    onPressed: _submitting ? null : _submit,
                   ),
                   const SizedBox(height: 24),
                   Text('Other ways to reach us',
@@ -351,11 +399,13 @@ class _FieldLabel extends StatelessWidget {
 class _Field extends StatelessWidget {
   final String hint;
   final int lines;
-  const _Field({required this.hint, this.lines = 1});
+  final TextEditingController? controller;
+  const _Field({required this.hint, this.lines = 1, this.controller});
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
       maxLines: lines,
       style: Theme.of(context).textTheme.bodyLarge,
       decoration: InputDecoration(

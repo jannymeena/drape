@@ -19,8 +19,19 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == email))
 
 
+class EmailTakenError(Exception):
+    """An update would collide with another user's email. Routes map to 409."""
+
+
 def update_user(db: Session, user: User, payload: UserUpdate) -> User:
     data = payload.model_dump(exclude_unset=True)
+    new_email = data.get("email")
+    if new_email is not None and new_email != user.email:
+        # Pre-check so a duplicate address returns a clean 409 instead of the
+        # DB unique-constraint surfacing as a 500.
+        existing = get_user_by_email(db, new_email)
+        if existing is not None and existing.id != user.id:
+            raise EmailTakenError(new_email)
     for key, value in data.items():
         setattr(user, key, value)
     db.commit()

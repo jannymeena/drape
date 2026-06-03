@@ -24,4 +24,24 @@ class ApiConfig {
     }
     return 'http://localhost:8000/api/v1';
   }
+
+  /// Dev hosts the backend may bake into image URLs that aren't reachable as-is
+  /// from every device (e.g. `localhost` from the Android emulator).
+  static const _devBackendHosts = {'localhost', '127.0.0.1', '10.0.2.2'};
+
+  /// Rewrites a backend-served image URL so its host matches the host the app
+  /// uses for the API. In dev the backend hardcodes `localhost:8000` into image
+  /// URLs, which a device/emulator can't reach — but the API host *is* reachable
+  /// (that's how the JSON arrived), so we swap it in. External URLs (e.g. a CDN)
+  /// are left untouched.
+  static String? resolveImageUrl(String? url) {
+    if (url == null || url.isEmpty) return url;
+    final parsed = Uri.tryParse(url);
+    if (parsed == null || !parsed.hasScheme) return url;
+    if (!_devBackendHosts.contains(parsed.host)) return url;
+    final api = Uri.parse(baseUrl);
+    return parsed
+        .replace(scheme: api.scheme, host: api.host, port: api.port)
+        .toString();
+  }
 }

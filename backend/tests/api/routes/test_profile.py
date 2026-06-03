@@ -135,3 +135,35 @@ def test_save_progress_persists_last_step(authed_client):
         json={"last_completed_step": "measurements_step_4"},
     )
     assert r.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Avatar upload
+# ---------------------------------------------------------------------------
+
+_TINY_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xfc\xcf"
+    b"\xc0\x00\x00\x00\x05\x00\x01\xa5\x86\x82\x16\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def test_avatar_upload_sets_url_and_surfaces_on_me(authed_client):
+    r = authed_client.post(
+        "/api/v1/profile/avatar/upload",
+        files={"file": ("me.png", _TINY_PNG, "image/png")},
+    )
+    assert r.status_code == 200, r.text
+    url = r.json()["avatar_url"]
+    assert url and url.endswith(".png")
+    # Round-trips on /users/me (proves it persisted to the profile row).
+    me = authed_client.get("/api/v1/users/me")
+    assert me.json()["avatar_url"] == url
+
+
+def test_avatar_upload_rejects_unsupported_type(authed_client):
+    r = authed_client.post(
+        "/api/v1/profile/avatar/upload",
+        files={"file": ("me.gif", b"GIF89a", "image/gif")},
+    )
+    assert r.status_code == 415

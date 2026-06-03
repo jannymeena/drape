@@ -54,7 +54,14 @@ def update_user(
     if current_user.role != Role.admin and current_user.id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     user = _get_or_404(db, user_id)
-    return UserResponse.model_validate(user_service.update_user(db, user, payload))
+    try:
+        updated = user_service.update_user(db, user, payload)
+    except user_service.EmailTakenError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "email_taken", "message": "That email is already in use."},
+        )
+    return UserResponse.model_validate(updated)
 
 
 @router.delete(

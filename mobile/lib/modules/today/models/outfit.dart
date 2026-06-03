@@ -3,6 +3,8 @@
 /// composes the visual from the items' `primary_image_url` (2×2 grid).
 library;
 
+import '../../../shared/config/api_config.dart';
+
 class OutfitItem {
   const OutfitItem({
     required this.itemId,
@@ -29,7 +31,7 @@ class OutfitItem {
       itemId: json['item_id'] as String,
       name: json['name'] as String,
       category: json['category'] as String,
-      primaryImageUrl: json['primary_image_url'] as String?,
+      primaryImageUrl: ApiConfig.resolveImageUrl(json['primary_image_url'] as String?),
       colorName: json['color_name'] as String?,
       formality: json['formality'] as String?,
       whyItWorks: json['why_it_works'] as String?,
@@ -133,7 +135,7 @@ class Outfit {
       usingStarterWardrobe: json['using_starter_wardrobe'] as bool? ?? false,
       isLogged: json['is_logged'] as bool? ?? false,
       wornCount: json['worn_count'] as int? ?? 0,
-      imageUrl: json['image_url'] as String?,
+      imageUrl: ApiConfig.resolveImageUrl(json['image_url'] as String?),
       aiReasoningShort: json['ai_reasoning_short'] as String?,
       aiReasoningFull: json['ai_reasoning_full'] as String?,
       compatibilityScore: json['compatibility_score'] as int?,

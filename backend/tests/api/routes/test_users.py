@@ -55,6 +55,31 @@ def test_patch_self_updates_display_name(client, make_user, auth_headers):
     assert r.json()["display_name"] == "New Name"
 
 
+def test_patch_email_to_existing_returns_409(client, make_user, auth_headers):
+    make_user(email="taken@example.com")
+    user = make_user(email="mine@example.com")
+    r = client.patch(
+        f"/api/v1/users/{user.id}",
+        headers=auth_headers(user),
+        json={"email": "taken@example.com"},
+    )
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["code"] == "email_taken"
+
+
+def test_patch_profile_fields_persist(client, make_user, auth_headers):
+    user = make_user(email="prof@example.com")
+    r = client.patch(
+        f"/api/v1/users/{user.id}",
+        headers=auth_headers(user),
+        json={"gender": "Female", "phone": "+1 555", "community_share_avatar": True},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["gender"] == "Female"
+    assert body["community_share_avatar"] is True
+
+
 def test_patch_other_user_as_customer_returns_403(client, make_user, auth_headers):
     alice = make_user(email="alice@example.com")
     bob = make_user(email="bob@example.com")

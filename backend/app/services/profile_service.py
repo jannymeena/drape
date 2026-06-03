@@ -12,7 +12,8 @@ from __future__ import annotations
 import structlog
 from sqlalchemy.orm import Session
 
-from app.db.models import User
+from app.db.models import Profile, User
+from app.services.providers.image.base import ImageStorageProvider
 from app.schemas.profile import (
     OnboardingStatusResponse,
     OnboardingStep,
@@ -128,6 +129,33 @@ def save_progress(
         last_step=payload.last_completed_step,
     )
     return next_step(user)
+
+
+def set_avatar(
+    db: Session,
+    *,
+    user: User,
+    storage: ImageStorageProvider,
+    content: bytes,
+    content_type: str,
+) -> str:
+    """Store an uploaded avatar image and point the user's profile at it.
+
+    The avatar lives on the 1:1 `profiles` row (get-or-created here), so a user
+    who never had a profile row still gets one. Returns the fetchable URL."""
+    url = storage.upload(
+        content=content,
+        content_type=content_type,
+        key_hint=f"avatars/{user.id}",
+    )
+    profile = user.profile
+    if profile is None:
+        profile = Profile(user_id=user.id)
+        db.add(profile)
+    profile.avatar_url = url
+    db.commit()
+    _log.info("profile.avatar.set", user_id=str(user.id))
+    return url
 
 
 def get_status(user: User) -> OnboardingStatusResponse:

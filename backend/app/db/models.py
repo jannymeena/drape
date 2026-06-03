@@ -77,6 +77,10 @@ class User(Base, TimestampMixin):
     # Profile screen does). Free-text, validated by Pydantic on the way in.
     gender: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    # Opt-in to sharing the avatar in the (future) DRAPE Community feed.
+    community_share_avatar: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     subscription_tier: Mapped[str] = mapped_column(
         String(20), nullable=False, default="free", server_default="free"
     )
@@ -84,6 +88,15 @@ class User(Base, TimestampMixin):
     profile: Mapped[Optional["Profile"]] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
+    settings: Mapped[Optional["UserSettings"]] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+
+    @property
+    def avatar_url(self) -> Optional[str]:
+        """The user's avatar lives on the 1:1 profile row; surface it here so
+        `UserResponse` can expose it without the client knowing about profiles."""
+        return self.profile.avatar_url if self.profile else None
 
 
 class Profile(Base, TimestampMixin):
@@ -102,6 +115,64 @@ class Profile(Base, TimestampMixin):
     bio: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="profile")
+
+
+class UserSettings(Base, TimestampMixin):
+    """1:1 user preferences for the Settings tab (notifications, appearance,
+    units) plus a flexible JSONB blob for style preferences. Get-or-created on
+    first read so every user has sensible defaults without a signup-time write."""
+
+    __tablename__ = "user_settings"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+
+    # Notifications
+    push_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    daily_outfit_suggestions: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    outfit_reminders: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    shopping_suggestions: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    wardrobe_insights: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    quiet_hours_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    email_weekly_summary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    email_product_deals: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    email_pro_offers: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+
+    # Appearance + units
+    theme: Mapped[str] = mapped_column(String(10), nullable=False, default="light", server_default="light")
+    unit_system: Mapped[str] = mapped_column(String(10), nullable=False, default="metric", server_default="metric")
+
+    # Flexible style-preferences blob (archetypes, boldness, etc.).
+    style_preferences: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="settings")
+
+
+class SupportTicket(Base, TimestampMixin):
+    """A contact / feature-request / bug-report submission. We persist rather
+    than email so there's an auditable record; an email/queue side-effect can be
+    added later behind the same service call."""
+
+    __tablename__ = "support_tickets"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # contact|feature_request|bug_report
+    subject: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    message: Mapped[str] = mapped_column(String(5000), nullable=False)
+    extra: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open", server_default="open")
 
 
 class RefreshToken(Base):

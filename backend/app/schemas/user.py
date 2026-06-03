@@ -28,6 +28,7 @@ class UserUpdate(BaseModel):
     location: str | None = None
     gender: str | None = None
     phone: str | None = None
+    community_share_avatar: bool | None = None
 
 
 class UserResponse(UserBase):
@@ -45,3 +46,5 @@ class UserResponse(UserBase):
     phone: str | None = None
     shopping_style: str | None = None
     style_goals: list[str] | None = None
+    avatar_url: str | None = None
+    community_share_avatar: bool = False

@@ -1,24 +1,66 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../settings_service.dart';
 import 'bug_report_success_screen.dart';
 
-class ReportBugScreen extends StatefulWidget {
+class ReportBugScreen extends ConsumerStatefulWidget {
   static const path = 'report-bug';
   static const name = 'profile_report_bug';
 
   const ReportBugScreen({super.key});
 
   @override
-  State<ReportBugScreen> createState() => _ReportBugScreenState();
+  ConsumerState<ReportBugScreen> createState() => _ReportBugScreenState();
 }
 
-class _ReportBugScreenState extends State<ReportBugScreen> {
+class _ReportBugScreenState extends ConsumerState<ReportBugScreen> {
   String _category = 'Select category...';
   int _frequency = 0;
+  bool _submitting = false;
+  final _describe = TextEditingController();
+  final _steps = TextEditingController();
   static const _freqOptions = ['Every time', 'Sometimes', 'Only once', 'Not sure'];
+
+  @override
+  void dispose() {
+    _describe.dispose();
+    _steps.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final desc = _describe.text.trim();
+    if (desc.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please describe the bug.')),
+      );
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      await ref.read(settingsServiceProvider).submitSupport(
+            kind: 'bug-report',
+            subject: _category == 'Select category...' ? null : _category,
+            message: desc,
+            extra: {
+              'frequency': _freqOptions[_frequency],
+              if (_steps.text.trim().isNotEmpty) 'steps': _steps.text.trim(),
+            },
+          );
+      if (mounted) context.goNamed(BugReportSuccessScreen.name);
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +114,7 @@ class _ReportBugScreenState extends State<ReportBugScreen> {
                   ),
                   const SizedBox(height: 16),
                   _Label('DESCRIBE THE BUG'),
-                  _BoxField(hint: 'What happened?', lines: 4),
+                  _BoxField(hint: 'What happened?', lines: 4, controller: _describe),
                   const SizedBox(height: 6),
                   Text(
                     'Tip: Be as specific as possible about what you were doing when the issue occurred.',
@@ -82,7 +124,7 @@ class _ReportBugScreenState extends State<ReportBugScreen> {
                   ),
                   const SizedBox(height: 16),
                   _Label('STEPS TO REPRODUCE (OPTIONAL)'),
-                  _BoxField(hint: '1. Open wardrobe\n2. Click edit...', lines: 3),
+                  _BoxField(hint: '1. Open wardrobe\n2. Click edit...', lines: 3, controller: _steps),
                   const SizedBox(height: 16),
                   _Label('HOW OFTEN DOES THIS HAPPEN?'),
                   GridView.count(
@@ -119,9 +161,8 @@ class _ReportBugScreenState extends State<ReportBugScreen> {
                       style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 20),
                   DrapeButton(
-                    label: 'Submit Bug Report',
-                    onPressed: () =>
-                        context.goNamed(BugReportSuccessScreen.name),
+                    label: _submitting ? 'Submitting…' : 'Submit Bug Report',
+                    onPressed: _submitting ? null : _submit,
                     leading: const Icon(Icons.send, color: AppColors.white, size: 16),
                   ),
                 ],
@@ -186,11 +227,13 @@ class _Label extends StatelessWidget {
 class _BoxField extends StatelessWidget {
   final String hint;
   final int lines;
-  const _BoxField({required this.hint, this.lines = 1});
+  final TextEditingController? controller;
+  const _BoxField({required this.hint, this.lines = 1, this.controller});
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
       maxLines: lines,
       style: Theme.of(context).textTheme.bodyLarge,
       decoration: InputDecoration(

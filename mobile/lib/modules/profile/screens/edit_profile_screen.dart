@@ -8,6 +8,7 @@ import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
 import '../../auth/auth_controller.dart';
 import '../../auth/models/current_user.dart';
+import '../../wardrobe/image_pick.dart';
 import '../profile_service.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
@@ -22,7 +23,8 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   // Name, email, phone, gender, age range and location all persist via
-  // `UserUpdate`. Only the photo + styling chips remain UI-only.
+  // `UserUpdate`; the photo via `POST /profile/avatar/upload`. Only the styling
+  // chips remain UI-only.
   static const _genderOptions = [
     'Male',
     'Female',
@@ -40,6 +42,25 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   bool _prefilled = false;
   bool _saving = false;
+  bool _uploadingPhoto = false;
+
+  /// Pick + upload a new avatar photo, then push the refreshed identity so the
+  /// header re-renders. Shares the `/profile/avatar/upload` path with onboarding.
+  Future<void> _pickAvatar(CurrentUser? user) async {
+    if (user == null) return;
+    final picked = await pickWardrobeImage(context);
+    if (picked == null || !mounted) return;
+    setState(() => _uploadingPhoto = true);
+    try {
+      final updated =
+          await ref.read(profileServiceProvider).uploadAvatar(picked);
+      ref.read(authControllerProvider.notifier).applyCurrentUser(updated);
+    } on ApiException catch (e) {
+      if (mounted) _toast(e.message);
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -152,29 +173,48 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
                   Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 96,
-                          height: 96,
-                          decoration: BoxDecoration(
-                            color: AppColors.tanFixed,
-                            shape: BoxShape.circle,
+                    child: GestureDetector(
+                      onTap: _uploadingPhoto ? null : () => _pickAvatar(user),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 96,
+                            height: 96,
+                            clipBehavior: Clip.antiAlias,
+                            decoration: const BoxDecoration(
+                              color: AppColors.tanFixed,
+                              shape: BoxShape.circle,
+                            ),
+                            alignment: Alignment.center,
+                            child: _uploadingPhoto
+                                ? const CircularProgressIndicator(
+                                    color: AppColors.espresso)
+                                : (user?.avatarUrl != null
+                                    ? Image.network(
+                                        user!.avatarUrl!,
+                                        width: 96,
+                                        height: 96,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) => const Icon(
+                                            Icons.checkroom,
+                                            color: AppColors.espresso,
+                                            size: 48),
+                                      )
+                                    : const Icon(Icons.checkroom,
+                                        color: AppColors.espresso, size: 48)),
                           ),
-                          alignment: Alignment.center,
-                          child: const Icon(Icons.checkroom,
-                              color: AppColors.espresso, size: 48),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Change Photo',
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                color: AppColors.espresso,
-                                fontWeight: FontWeight.w700,
-                                decoration: TextDecoration.underline,
-                              ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          Text(
+                            'Change Photo',
+                            style:
+                                Theme.of(context).textTheme.labelLarge?.copyWith(
+                                      color: AppColors.espresso,
+                                      fontWeight: FontWeight.w700,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),

@@ -1,23 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../settings_service.dart';
 import 'feature_request_success_screen.dart';
 
-class FeatureRequestScreen extends StatefulWidget {
+class FeatureRequestScreen extends ConsumerStatefulWidget {
   static const path = 'feature-request';
   static const name = 'profile_feature_request';
 
   const FeatureRequestScreen({super.key});
 
   @override
-  State<FeatureRequestScreen> createState() => _FeatureRequestScreenState();
+  ConsumerState<FeatureRequestScreen> createState() =>
+      _FeatureRequestScreenState();
 }
 
-class _FeatureRequestScreenState extends State<FeatureRequestScreen> {
+class _FeatureRequestScreenState extends ConsumerState<FeatureRequestScreen> {
   int _priority = 0;
+  bool _submitting = false;
+  final _name = TextEditingController();
+  final _desc = TextEditingController();
+  final _useCase = TextEditingController();
   static const _priorities = ['Nice to have', 'Important', 'Critical'];
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _desc.dispose();
+    _useCase.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final desc = _desc.text.trim();
+    if (desc.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please describe the feature.')),
+      );
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      await ref.read(settingsServiceProvider).submitSupport(
+            kind: 'feature-request',
+            subject: _name.text.trim().isEmpty ? null : _name.text.trim(),
+            message: desc,
+            extra: {
+              'priority': _priorities[_priority],
+              if (_useCase.text.trim().isNotEmpty) 'use_case': _useCase.text.trim(),
+            },
+          );
+      if (mounted) context.goNamed(FeatureRequestSuccessScreen.name);
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
 
   static const _topFeatures = <_Feature>[
     _Feature(
@@ -113,7 +158,7 @@ class _FeatureRequestScreenState extends State<FeatureRequestScreen> {
                   _Dropdown(),
                   const SizedBox(height: 14),
                   _Label('FEATURE NAME'),
-                  _BoxField(hint: 'e.g. Virtual Shoe Closet'),
+                  _BoxField(hint: 'e.g. Virtual Shoe Closet', controller: _name),
                   const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -125,10 +170,10 @@ class _FeatureRequestScreenState extends State<FeatureRequestScreen> {
                               )),
                     ],
                   ),
-                  _BoxField(hint: 'How should this work?', lines: 4),
+                  _BoxField(hint: 'How should this work?', lines: 4, controller: _desc),
                   const SizedBox(height: 14),
                   _Label('USE CASE (OPTIONAL)'),
-                  _BoxField(hint: 'When would you use this?', lines: 2),
+                  _BoxField(hint: 'When would you use this?', lines: 2, controller: _useCase),
                   const SizedBox(height: 14),
                   _Label('PRIORITY LEVEL'),
                   Row(
@@ -147,9 +192,8 @@ class _FeatureRequestScreenState extends State<FeatureRequestScreen> {
                   _UploadConcept(),
                   const SizedBox(height: 20),
                   DrapeButton(
-                    label: 'Submit Feature Request',
-                    onPressed: () =>
-                        context.goNamed(FeatureRequestSuccessScreen.name),
+                    label: _submitting ? 'Submitting…' : 'Submit Feature Request',
+                    onPressed: _submitting ? null : _submit,
                     leading: const Icon(Icons.send, color: AppColors.white, size: 16),
                   ),
                 ],
@@ -321,11 +365,13 @@ class _Label extends StatelessWidget {
 class _BoxField extends StatelessWidget {
   final String hint;
   final int lines;
-  const _BoxField({required this.hint, this.lines = 1});
+  final TextEditingController? controller;
+  const _BoxField({required this.hint, this.lines = 1, this.controller});
 
   @override
   Widget build(BuildContext context) {
     return TextField(
+      controller: controller,
       maxLines: lines,
       style: Theme.of(context).textTheme.bodyLarge,
       decoration: InputDecoration(
