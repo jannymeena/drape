@@ -21,6 +21,7 @@ from app.schemas.outfit import (
     LogOutfitResponse,
     MixAndMatchRequest,
     MixAndMatchResponse,
+    OutfitFavoriteResponse,
     OutfitHistoryResponse,
     OutfitReasoningResponse,
     OutfitResponse,
@@ -126,6 +127,23 @@ def mix_and_match(
         items=payload_to_outfit_items(outfit.items),
         compatibility_score=score,
         image_url=outfit.image_url,
+    )
+
+
+@router.post("/{outfit_id}/toggle-favorite", response_model=OutfitFavoriteResponse)
+def toggle_favorite(
+    outfit_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> OutfitFavoriteResponse:
+    try:
+        outfit = outfit_service.toggle_favorite(db, user=user, outfit_id=outfit_id)
+    except OutfitError as e:
+        raise _translate(e)
+    return OutfitFavoriteResponse(
+        outfit_id=outfit.id,
+        is_favorite=outfit.is_favorite,
+        favorited_at=outfit.favorited_at,
     )
 
 

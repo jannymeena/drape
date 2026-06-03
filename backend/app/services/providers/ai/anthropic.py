@@ -6,6 +6,7 @@ import time
 import anthropic
 import structlog
 
+from app.services import ai_usage_log
 from app.services.providers.ai.base import AIProvider, AIProviderError
 
 _log = structlog.get_logger("provider.ai.anthropic")
@@ -48,6 +49,14 @@ class AnthropicProvider(AIProvider):
             input_tokens=resp.usage.input_tokens,
             output_tokens=resp.usage.output_tokens,
             latency_ms=latency_ms,
+        )
+        ai_usage_log.record(
+            model=model_id,
+            call_type="chat",
+            input_tokens=resp.usage.input_tokens,
+            output_tokens=resp.usage.output_tokens,
+            latency_ms=latency_ms,
+            output=text,
         )
         return text
 
@@ -93,5 +102,15 @@ class AnthropicProvider(AIProvider):
             output_tokens=resp.usage.output_tokens,
             latency_ms=latency_ms,
             image_bytes=len(image_bytes),
+        )
+        ai_usage_log.record(
+            model=model_id,
+            call_type="analyze_image",
+            input_tokens=resp.usage.input_tokens,
+            output_tokens=resp.usage.output_tokens,
+            latency_ms=latency_ms,
+            output=text,
+            image_bytes=image_bytes,
+            media_type=media_type,
         )
         return text

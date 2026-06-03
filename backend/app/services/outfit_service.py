@@ -668,6 +668,23 @@ def _get_outfit_owned(db: Session, *, user: User, outfit_id: UUID) -> Outfit:
     return outfit
 
 
+def toggle_favorite(db: Session, *, user: User, outfit_id: UUID) -> Outfit:
+    """Flip the outfit's favorite flag (mirrors wardrobe item favoriting).
+    Raises `OutfitError("not_found")` if the outfit isn't the caller's."""
+    outfit = _get_outfit_owned(db, user=user, outfit_id=outfit_id)
+    outfit.is_favorite = not outfit.is_favorite
+    outfit.favorited_at = _now() if outfit.is_favorite else None
+    db.commit()
+    db.refresh(outfit)
+    _log.info(
+        "outfit.favorited",
+        user_id=str(user.id),
+        outfit_id=str(outfit.id),
+        is_favorite=outfit.is_favorite,
+    )
+    return outfit
+
+
 def mix_and_match(
     db: Session,
     *,

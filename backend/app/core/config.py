@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     # (e.g. a cheaper model in dev). None falls back to AnthropicProvider.DEFAULT_MODEL.
     anthropic_model: str | None = None
 
+    # Dev AI usage/cost log (§5.3) — one JSONL line per AI call (model, tokens,
+    # cost, latency, image meta, actual output). A dev exploration tool; turn off
+    # in prd (prod analytics get a DB table later).
+    ai_usage_log_enabled: bool = True
+    ai_usage_log_path: str = "logs/ai_usage.jsonl"
+
     measurement_dek_dev: str | None = None
     kms_key_id: str | None = None
     aws_region: str = "ca-central-1"

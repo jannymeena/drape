@@ -61,8 +61,15 @@ class OutfitResponse(BaseModel):
     is_logged: bool
     logged_at: datetime | None
     worn_count: int
+    is_favorite: bool = False
     created_at: datetime
     updated_at: datetime
+
+
+class OutfitFavoriteResponse(BaseModel):
+    outfit_id: UUID
+    is_favorite: bool
+    favorited_at: datetime | None
 
 
 class GenerateOutfitsRequest(BaseModel):

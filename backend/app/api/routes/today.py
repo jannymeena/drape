@@ -91,6 +91,7 @@ def _to_outfit_response(outfit) -> OutfitResponse:
         is_logged=outfit.is_logged,
         logged_at=outfit.logged_at,
         worn_count=outfit.worn_count,
+        is_favorite=outfit.is_favorite,
         created_at=outfit.created_at,
         updated_at=outfit.updated_at,
     )

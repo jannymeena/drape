@@ -96,6 +96,8 @@ def upgrade() -> None:
     sa.Column('is_logged', sa.Boolean(), server_default='false', nullable=False),
     sa.Column('logged_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('worn_count', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('is_favorite', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('favorited_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),

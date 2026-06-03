@@ -41,6 +41,24 @@ def test_force_generate_with_empty_wardrobe_returns_400(authed_client):
     assert "wardrobe" in r.text.lower() or "item" in r.text.lower()
 
 
+def test_toggle_favorite_flips_and_surfaces_on_dashboard(authed_client, db):
+    outfit = make_outfit(db, authed_client.test_user, occasion="work")
+    r = authed_client.post(f"/api/v1/outfits/{outfit.id}/toggle-favorite")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["is_favorite"] is True and body["favorited_at"] is not None
+    # Flips back off.
+    r2 = authed_client.post(f"/api/v1/outfits/{outfit.id}/toggle-favorite")
+    assert r2.json()["is_favorite"] is False and r2.json()["favorited_at"] is None
+
+
+def test_toggle_favorite_unknown_outfit_returns_404(authed_client):
+    import uuid
+
+    r = authed_client.post(f"/api/v1/outfits/{uuid.uuid4()}/toggle-favorite")
+    assert r.status_code == 404
+
+
 def test_dashboard_with_single_item_wardrobe_does_not_500(authed_client, db):
     # Regression: a 1-item wardrobe can't satisfy the proposal's >=2 min_length.
     # Previously the heuristic fallback built an invalid proposal and 500'd.

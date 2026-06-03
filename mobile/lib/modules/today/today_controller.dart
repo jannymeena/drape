@@ -124,6 +124,24 @@ class TodayController extends StateNotifier<TodayState> {
     }
   }
 
+  /// Toggles the outfit's favorite flag. Optimistic — flips the heart
+  /// immediately and reverts if the request fails.
+  Future<void> toggleFavorite(String outfitId) async {
+    final current = state.dashboard?.outfits
+        .where((o) => o.id == outfitId)
+        .firstOrNull
+        ?.isFavorite;
+    if (current == null) return;
+    _patchOutfit(outfitId, (o) => o.copyWith(isFavorite: !current));
+    try {
+      final server = await _service.toggleFavorite(outfitId);
+      _patchOutfit(outfitId, (o) => o.copyWith(isFavorite: server));
+    } on ApiException {
+      _patchOutfit(outfitId, (o) => o.copyWith(isFavorite: current)); // revert
+      rethrow;
+    }
+  }
+
   /// Applies wardrobe item swaps to an outfit and folds the new lineup +
   /// recomputed score back into the card. Throws [ApiException] (429
   /// `limit_reached` / 400 `invalid_swap`) for the caller to surface.

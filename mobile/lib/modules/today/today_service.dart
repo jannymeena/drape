@@ -75,6 +75,19 @@ class TodayService {
     }
   }
 
+  /// `POST /outfits/{id}/toggle-favorite` — flips the outfit's favorite flag.
+  /// Returns the new state. Not usage-limited.
+  Future<bool> toggleFavorite(String outfitId) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/outfits/$outfitId/toggle-favorite',
+      );
+      return response.data!['is_favorite'] as bool;
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   /// `POST /outfits/{id}/mix-and-match` — applies `{old→new}` item swaps and
   /// returns the new lineup + recomputed compatibility (deterministic, no AI
   /// call). Counts against the weekly `mix_and_match` limit (429

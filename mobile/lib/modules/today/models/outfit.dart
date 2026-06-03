@@ -74,6 +74,7 @@ class Outfit {
     required this.usingStarterWardrobe,
     required this.isLogged,
     required this.wornCount,
+    this.isFavorite = false,
     this.imageUrl,
     this.aiReasoningShort,
     this.aiReasoningFull,
@@ -88,6 +89,7 @@ class Outfit {
   final bool usingStarterWardrobe;
   final bool isLogged;
   final int wornCount;
+  final bool isFavorite;
   final String? imageUrl;
   final String? aiReasoningShort;
   final String? aiReasoningFull;
@@ -107,6 +109,7 @@ class Outfit {
     int? wornCount,
     List<OutfitItem>? items,
     int? compatibilityScore,
+    bool? isFavorite,
   }) {
     return Outfit(
       id: id,
@@ -115,6 +118,7 @@ class Outfit {
       usingStarterWardrobe: usingStarterWardrobe,
       isLogged: isLogged ?? this.isLogged,
       wornCount: wornCount ?? this.wornCount,
+      isFavorite: isFavorite ?? this.isFavorite,
       imageUrl: imageUrl,
       aiReasoningShort: aiReasoningShort,
       aiReasoningFull: aiReasoningFull,
@@ -141,6 +145,7 @@ class Outfit {
       usingStarterWardrobe: json['using_starter_wardrobe'] as bool? ?? false,
       isLogged: json['is_logged'] as bool? ?? false,
       wornCount: json['worn_count'] as int? ?? 0,
+      isFavorite: json['is_favorite'] as bool? ?? false,
       imageUrl: ApiConfig.resolveImageUrl(json['image_url'] as String?),
       aiReasoningShort: json['ai_reasoning_short'] as String?,
       aiReasoningFull: json['ai_reasoning_full'] as String?,

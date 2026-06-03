@@ -62,6 +62,15 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     }
   }
 
+  /// Optimistic favorite toggle; the controller reverts the heart on failure.
+  Future<void> _onFavorite(String outfitId) async {
+    try {
+      await ref.read(todayControllerProvider.notifier).toggleFavorite(outfitId);
+    } on ApiException catch (e) {
+      if (mounted) _showError(e.message);
+    }
+  }
+
   /// Server-authored toast (message + colour + duration) from `POST .../log`.
   void _showToast(LogOutfitToast toast) {
     final bg = _hexColor(toast.background) ?? AppColors.espresso;
@@ -247,14 +256,14 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
                         itemImageUrls: outfit.gridImageUrls,
                         reasoning: outfit.aiReasoningShort ?? '',
                         logged: outfit.isLogged,
+                        favorited: outfit.isFavorite,
                       ),
                       regenerating: state.regeneratingIds.contains(outfit.id),
                       logging: state.loggingIds.contains(outfit.id),
                       onRegenerate: () => _onRegenerate(outfit.id),
                       onLogWorn: () => _onLogWorn(outfit.id),
-                      // Favorite has no backend yet — stays a stub until it lands.
                       onMix: () => MixMatchSheet.show(context, outfit),
-                      onFavorite: () => debugPrint('favorite ${outfit.id}'),
+                      onFavorite: () => _onFavorite(outfit.id),
                       onLearnMore: () => context.goNamed(
                         AiReasoningDetailScreen.name,
                         pathParameters: {'id': outfit.id},
