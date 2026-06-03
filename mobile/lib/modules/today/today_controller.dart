@@ -124,6 +124,22 @@ class TodayController extends StateNotifier<TodayState> {
     }
   }
 
+  /// Applies wardrobe item swaps to an outfit and folds the new lineup +
+  /// recomputed score back into the card. Throws [ApiException] (429
+  /// `limit_reached` / 400 `invalid_swap`) for the caller to surface.
+  Future<void> mixAndMatch(
+    String outfitId,
+    List<({String oldItemId, String newItemId})> swaps,
+  ) async {
+    final result = await _service.mixAndMatch(outfitId, swaps);
+    _patchOutfit(
+      outfitId,
+      (o) => o.copyWith(items: result.items, compatibilityScore: result.score),
+    );
+    // A mix consumes a `mix_and_match` credit — refresh the banner counters.
+    unawaited(_refreshUsage());
+  }
+
   // --- internals -----------------------------------------------------------
 
   void _markBusy({String? regenerating, String? logging, required bool busy}) {

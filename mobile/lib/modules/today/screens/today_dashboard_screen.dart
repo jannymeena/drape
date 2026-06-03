@@ -192,7 +192,18 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
                       child: _QuickActionButton(
                         icon: Icons.auto_awesome_motion_outlined,
                         label: 'Mix & Match',
-                        onTap: () => MixMatchSheet.show(context),
+                        onTap: () {
+                          if (dashboard.outfits.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    'Generate an outfit first to mix & match.'),
+                              ),
+                            );
+                            return;
+                          }
+                          MixMatchSheet.show(context, dashboard.outfits.first);
+                        },
                       ),
                     ),
                   ],
@@ -241,9 +252,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
                       logging: state.loggingIds.contains(outfit.id),
                       onRegenerate: () => _onRegenerate(outfit.id),
                       onLogWorn: () => _onLogWorn(outfit.id),
-                      // Mix needs the (unbuilt) Wardrobe item picker; favorite
-                      // has no backend yet — both stay stubs until those land.
-                      onMix: () => MixMatchSheet.show(context),
+                      // Favorite has no backend yet — stays a stub until it lands.
+                      onMix: () => MixMatchSheet.show(context, outfit),
                       onFavorite: () => debugPrint('favorite ${outfit.id}'),
                       onLearnMore: () => context.goNamed(
                         AiReasoningDetailScreen.name,

@@ -101,18 +101,24 @@ class Outfit {
   /// Used to fold the `POST /outfits/{id}/log` result back into the dashboard
   /// without a full refetch (the log endpoint returns streak data, not the
   /// whole outfit, so we patch the flags locally).
-  Outfit copyWith({bool? isLogged, DateTime? loggedAt, int? wornCount}) {
+  Outfit copyWith({
+    bool? isLogged,
+    DateTime? loggedAt,
+    int? wornCount,
+    List<OutfitItem>? items,
+    int? compatibilityScore,
+  }) {
     return Outfit(
       id: id,
       occasion: occasion,
-      items: items,
+      items: items ?? this.items,
       usingStarterWardrobe: usingStarterWardrobe,
       isLogged: isLogged ?? this.isLogged,
       wornCount: wornCount ?? this.wornCount,
       imageUrl: imageUrl,
       aiReasoningShort: aiReasoningShort,
       aiReasoningFull: aiReasoningFull,
-      compatibilityScore: compatibilityScore,
+      compatibilityScore: compatibilityScore ?? this.compatibilityScore,
       weatherContext: weatherContext,
       loggedAt: loggedAt ?? this.loggedAt,
     );

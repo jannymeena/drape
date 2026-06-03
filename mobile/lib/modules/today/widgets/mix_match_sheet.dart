@@ -1,50 +1,76 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../wardrobe/models/wardrobe_item.dart';
+import '../../wardrobe/wardrobe_service.dart';
+import '../models/outfit.dart';
+import '../today_controller.dart';
 
-class MixMatchSheet extends StatefulWidget {
-  const MixMatchSheet({super.key});
+/// All wardrobe items, for picking a swap-in piece. AutoDispose so it refetches
+/// each time the sheet opens (the wardrobe may have changed).
+final _wardrobeItemsProvider = FutureProvider.autoDispose<List<WardrobeItem>>(
+  (ref) async => (await ref.read(wardrobeServiceProvider).getItems(limit: 200)).items,
+);
 
-  static Future<void> show(BuildContext context) {
+/// Mix & Match: pick one piece in the outfit to swap out, then a replacement of
+/// the same category from the wardrobe → `POST /outfits/{id}/mix-and-match`.
+class MixMatchSheet extends ConsumerStatefulWidget {
+  final Outfit outfit;
+  const MixMatchSheet({super.key, required this.outfit});
+
+  static Future<void> show(BuildContext context, Outfit outfit) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: AppColors.espressoDeep.withValues(alpha: 0.4),
-      builder: (_) => const MixMatchSheet(),
+      builder: (_) => MixMatchSheet(outfit: outfit),
     );
   }
 
   @override
-  State<MixMatchSheet> createState() => _MixMatchSheetState();
+  ConsumerState<MixMatchSheet> createState() => _MixMatchSheetState();
 }
 
-class _MixMatchSheetState extends State<MixMatchSheet> {
-  static const _occasions = ['Casual', 'Work', 'Date', 'Office Party', 'Christmas', 'Beach'];
-  static const _categories = ['All', 'Tops', 'Bottoms', 'Shoes', 'Accessories'];
-  static const _tops = <_MixItem>[
-    _MixItem(name: 'Basic Tee', selected: true),
-    _MixItem(name: 'Linen Shirt'),
-    _MixItem(name: 'Knit Polo'),
-    _MixItem(name: 'Denim'),
-  ];
-  static const _bottoms = <_MixItem>[
-    _MixItem(name: 'Straight Jean'),
-    _MixItem(name: 'Wide Pant', selected: true),
-    _MixItem(name: 'Tailored Short'),
-  ];
-  static const _shoes = <_MixItem>[
-    _MixItem(name: 'White Sneaker'),
-    _MixItem(name: 'Loafers', selected: true),
-  ];
+class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
+  String? _oldItemId;
+  String? _newItemId;
+  bool _applying = false;
 
-  int _occasionIndex = 0;
-  int _categoryIndex = 0;
+  OutfitItem? get _oldItem =>
+      widget.outfit.items.where((i) => i.itemId == _oldItemId).firstOrNull;
+
+  Future<void> _apply() async {
+    if (_oldItemId == null || _newItemId == null) return;
+    setState(() => _applying = true);
+    try {
+      await ref.read(todayControllerProvider.notifier).mixAndMatch(
+        widget.outfit.id,
+        [(oldItemId: _oldItemId!, newItemId: _newItemId!)],
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Swapped — match score updated.')),
+      );
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _applying = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final outfitItemIds = widget.outfit.items.map((i) => i.itemId).toSet();
+    final wardrobeAsync = ref.watch(_wardrobeItemsProvider);
+
     return DraggableScrollableSheet(
-      initialChildSize: 0.88,
+      initialChildSize: 0.82,
       minChildSize: 0.5,
       maxChildSize: 0.92,
       expand: false,
@@ -54,127 +80,145 @@ class _MixMatchSheetState extends State<MixMatchSheet> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.sand,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.sand,
+                borderRadius: BorderRadius.circular(2),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Mix & Match',
-                        style: Theme.of(context).textTheme.titleLarge,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text('Mix & Match',
+                        style: Theme.of(context).textTheme.titleLarge),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.taglineGrey),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                children: [
+                  _SectionLabel(
+                      _oldItemId == null ? 'Tap a piece to swap out' : 'Swapping out'),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 104,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: widget.outfit.items.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 12),
+                      itemBuilder: (_, i) {
+                        final it = widget.outfit.items[i];
+                        return _Tile(
+                          imageUrl: it.primaryImageUrl,
+                          label: it.name,
+                          selected: it.itemId == _oldItemId,
+                          onTap: () => setState(() {
+                            _oldItemId = it.itemId == _oldItemId ? null : it.itemId;
+                            _newItemId = null; // category changed → reset pick
+                          }),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (_oldItem != null) ...[
+                    _SectionLabel('Swap in a ${_oldItem!.category}'),
+                    const SizedBox(height: 10),
+                    wardrobeAsync.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: CircularProgressIndicator()),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: AppColors.taglineGrey),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: EdgeInsets.zero,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                      child: Text(
-                        'Dressing for:',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.taglineGrey,
+                      error: (_, _) => const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text("Couldn't load your wardrobe."),
+                      ),
+                      data: (items) {
+                        final candidates = items
+                            .where((w) =>
+                                w.category == _oldItem!.category &&
+                                !outfitItemIds.contains(w.id))
+                            .toList();
+                        if (candidates.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Text(
+                              'No other ${_oldItem!.category} in your wardrobe yet — add one to swap.',
+                              style: Theme.of(context).textTheme.bodyMedium,
                             ),
-                      ),
-                    ),
-                    SizedBox(
-                      height: 32,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _occasions.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (_, i) => _OccasionPill(
-                          label: _occasions[i],
-                          selected: i == _occasionIndex,
-                          onTap: () => setState(() => _occasionIndex = i),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.sageDim.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.auto_awesome,
-                                  size: 14, color: AppColors.sage),
-                              const SizedBox(width: 6),
-                              Text(
-                                'AI is styling your ${_occasions[_occasionIndex].toLowerCase()} vibe',
-                                style: Theme.of(context).textTheme.labelMedium
-                                    ?.copyWith(color: AppColors.sage),
+                          );
+                        }
+                        return Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            for (final w in candidates)
+                              _Tile(
+                                imageUrl: w.displayImageUrl,
+                                label: w.name,
+                                selected: w.id == _newItemId,
+                                onTap: () =>
+                                    setState(() => _newItemId = w.id),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
+                          ],
+                        );
+                      },
                     ),
-                    const SizedBox(height: 18),
-                    const _PreviewRow(),
-                    const SizedBox(height: 18),
-                    _CategoryTabs(
-                      categories: _categories,
-                      selected: _categoryIndex,
-                      onSelected: (i) => setState(() => _categoryIndex = i),
-                    ),
-                    const SizedBox(height: 20),
-                    _ItemRow(items: _tops),
-                    const SizedBox(height: 16),
-                    _ItemRow(items: _bottoms),
-                    const SizedBox(height: 16),
-                    _ItemRow(items: _shoes),
-                    const SizedBox(height: 24),
                   ],
-                ),
+                ],
               ),
-              _ActionBar(
-                onDiscard: () => Navigator.of(context).pop(),
-                onWear: () {
-                  debugPrint('mix: wear this');
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
+            ),
+            _ActionBar(
+              applying: _applying,
+              canApply: _oldItemId != null && _newItemId != null && !_applying,
+              onDiscard: () => Navigator.of(context).pop(),
+              onApply: _apply,
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 }
 
-class _OccasionPill extends StatelessWidget {
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text.toUpperCase(),
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppColors.taupe,
+            letterSpacing: 1.2,
+            fontWeight: FontWeight.w700,
+          ),
+    );
+  }
+}
+
+class _Tile extends StatelessWidget {
+  final String? imageUrl;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  const _OccasionPill({
+  const _Tile({
+    required this.imageUrl,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -182,261 +226,66 @@ class _OccasionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.espresso : AppColors.tanFixed,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-          child: Center(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: selected ? AppColors.white : AppColors.inkSoft,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PreviewRow extends StatelessWidget {
-  const _PreviewRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: AspectRatio(
-              aspectRatio: 4 / 3,
-              child: ClipRRect(
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 80,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: AppColors.ivoryDim,
                 borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  color: AppColors.ivoryDim,
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.checkroom_outlined,
-                    color: AppColors.taupeSoft,
-                    size: 60,
-                  ),
+                border: Border.all(
+                  color: selected ? AppColors.espresso : AppColors.taupeSoft,
+                  width: selected ? 2 : 1,
                 ),
               ),
+              child: (imageUrl != null && imageUrl!.isNotEmpty)
+                  ? Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Icon(
+                          Icons.checkroom_outlined,
+                          color: AppColors.taupeSoft,
+                          size: 30),
+                    )
+                  : const Icon(Icons.checkroom_outlined,
+                      color: AppColors.taupeSoft, size: 30),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'MATCH SCORE',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.taupe,
-                          letterSpacing: 1.2,
-                          fontWeight: FontWeight.w700,
-                        ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: selected ? AppColors.espresso : AppColors.ink,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        '87',
-                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                              color: AppColors.sage,
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                      Text(
-                        '/100',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: AppColors.sage.withValues(alpha: 0.6),
-                            ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    'Perfect Harmony',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.sage,
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
-              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryTabs extends StatelessWidget {
-  final List<String> categories;
-  final int selected;
-  final ValueChanged<int> onSelected;
-
-  const _CategoryTabs({
-    required this.categories,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: AppColors.taupeSoft),
+          ],
         ),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: List.generate(categories.length, (i) {
-            final isSel = i == selected;
-            return Padding(
-              padding: const EdgeInsets.only(right: 22),
-              child: GestureDetector(
-                onTap: () => onSelected(i),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(
-                        color: isSel ? AppColors.espresso : Colors.transparent,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    categories[i],
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: isSel ? AppColors.espresso : AppColors.taupe,
-                          fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                        ),
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-}
-
-class _MixItem {
-  final String name;
-  final bool selected;
-  const _MixItem({required this.name, this.selected = false});
-}
-
-class _ItemRow extends StatelessWidget {
-  final List<_MixItem> items;
-  const _ItemRow({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 100,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (_, i) => _MixItemTile(item: items[i]),
-      ),
-    );
-  }
-}
-
-class _MixItemTile extends StatelessWidget {
-  final _MixItem item;
-  const _MixItemTile({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 76,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: item.selected ? AppColors.espresso : AppColors.taupeSoft,
-                width: item.selected ? 2 : 1,
-              ),
-            ),
-            padding: const EdgeInsets.all(6),
-            child: Column(
-              children: [
-                Expanded(
-                  child: Container(
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.checkroom_outlined,
-                      color: AppColors.taupeSoft,
-                      size: 30,
-                    ),
-                  ),
-                ),
-                Text(
-                  item.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.ink,
-                        letterSpacing: 0.2,
-                        fontWeight: FontWeight.w500,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          if (item.selected)
-            Positioned(
-              top: -6,
-              right: -6,
-              child: Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: AppColors.espresso,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.white, width: 2),
-                ),
-                child: const Icon(Icons.check, color: AppColors.white, size: 12),
-              ),
-            ),
-        ],
       ),
     );
   }
 }
 
 class _ActionBar extends StatelessWidget {
+  final bool applying;
+  final bool canApply;
   final VoidCallback onDiscard;
-  final VoidCallback onWear;
-  const _ActionBar({required this.onDiscard, required this.onWear});
+  final VoidCallback onApply;
+  const _ActionBar({
+    required this.applying,
+    required this.canApply,
+    required this.onDiscard,
+    required this.onApply,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -450,9 +299,14 @@ class _ActionBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Row(
           children: [
-            Expanded(child: _SheetButton.outlined('Discard', onDiscard)),
+            Expanded(child: _SheetButton.outlined('Discard', applying ? null : onDiscard)),
             const SizedBox(width: 12),
-            Expanded(child: _SheetButton.filled('Wear This', onWear)),
+            Expanded(
+              child: _SheetButton.filled(
+                applying ? 'Swapping…' : 'Apply Swap',
+                canApply ? onApply : null,
+              ),
+            ),
           ],
         ),
       ),
@@ -462,15 +316,18 @@ class _ActionBar extends StatelessWidget {
 
 class _SheetButton extends StatelessWidget {
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool filled;
   const _SheetButton.outlined(this.label, this.onPressed) : filled = false;
   const _SheetButton.filled(this.label, this.onPressed) : filled = true;
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onPressed != null;
     return Material(
-      color: filled ? AppColors.espresso : AppColors.white,
+      color: filled
+          ? (enabled ? AppColors.espresso : AppColors.taupe)
+          : AppColors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: filled

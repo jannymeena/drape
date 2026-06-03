@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,9 +6,15 @@ import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../../auth/auth_controller.dart';
+import '../../profile/profile_service.dart';
+import '../../wardrobe/image_pick.dart';
 import '../onboarding_controller.dart';
 import 'profile_complete_screen.dart';
 
+/// Avatar step. The avatar is the user's own photo (uploaded via
+/// `POST /profile/avatar/upload`) — DRAPE renders outfit suggestions against it.
+/// Tap to add a photo now, or skip and add it later from the profile.
 class AvatarRevealScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/avatar-reveal';
   static const name = 'avatar_reveal';
@@ -22,27 +26,28 @@ class AvatarRevealScreen extends ConsumerStatefulWidget {
 }
 
 class _AvatarRevealScreenState extends ConsumerState<AvatarRevealScreen> {
-  bool _generated = false;
-  Timer? _timer;
+  bool _uploading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _generated = true);
-    });
+  Future<void> _pickAvatar() async {
+    final picked = await pickWardrobeImage(context);
+    if (picked == null || !mounted) return;
+    setState(() => _uploading = true);
+    try {
+      final updated =
+          await ref.read(profileServiceProvider).uploadAvatar(picked);
+      ref.read(authControllerProvider.notifier).applyCurrentUser(updated);
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  /// Records the avatar step before moving on so that, on a later relaunch,
-  /// `onboarding-status` reports `next_step: today_dashboard` and the splash
-  /// resumes the user to Today rather than back here. (There's no avatar
-  /// backend yet — this stands in until `/avatar/generate` lands.)
+  /// Records the avatar step before moving on so a later relaunch resumes to
+  /// Today rather than back here.
   Future<void> _onContinue() async {
     try {
       await ref
@@ -56,6 +61,9 @@ class _AvatarRevealScreenState extends ConsumerState<AvatarRevealScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final avatarUrl = ref.watch(currentUserProvider).valueOrNull?.avatarUrl;
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
     return Scaffold(
       appBar: const DrapeAppBar(title: 'Your Avatar'),
       body: SafeArea(
@@ -65,30 +73,63 @@ class _AvatarRevealScreenState extends ConsumerState<AvatarRevealScreen> {
             children: [
               const SizedBox(height: 16),
               Text(
-                _generated ? 'Meet your avatar' : 'Building your avatar…',
+                hasAvatar ? 'Looking good' : 'Create your style avatar',
                 style: Theme.of(context).textTheme.headlineLarge,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                _generated
-                    ? 'Calibrated to your exact measurements. Every outfit DRAPE suggests is rendered on this avatar.'
-                    : 'Combining your measurements with style preferences to produce a fit-aware avatar.',
+                hasAvatar
+                    ? 'DRAPE renders every outfit suggestion against your photo. Tap to change it.'
+                    : 'Add a photo so DRAPE can show outfits on you. You can change or add this anytime.',
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
               Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 400),
-                  child: _generated ? const _AvatarPreview() : const _AvatarSkeleton(),
+                child: GestureDetector(
+                  onTap: _uploading ? null : _pickAvatar,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (hasAvatar)
+                          Image.network(
+                            avatarUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const _AvatarEmpty(),
+                          )
+                        else
+                          const _AvatarEmpty(),
+                        if (_uploading)
+                          Container(
+                            color: AppColors.black.withValues(alpha: 0.4),
+                            alignment: Alignment.center,
+                            child: const CircularProgressIndicator(
+                                color: AppColors.gold),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
               DrapeButton(
-                label: _generated ? 'See My Profile' : 'Building…',
-                onPressed: _generated ? _onContinue : null,
-                loading: !_generated,
+                label: hasAvatar ? 'See My Profile' : 'Add a Photo',
+                onPressed: _uploading
+                    ? null
+                    : (hasAvatar ? _onContinue : _pickAvatar),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: _uploading ? null : _onContinue,
+                child: Text(
+                  hasAvatar ? 'Continue' : 'Skip for now',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppColors.taupe,
+                      ),
+                ),
               ),
             ],
           ),
@@ -98,50 +139,24 @@ class _AvatarRevealScreenState extends ConsumerState<AvatarRevealScreen> {
   }
 }
 
-class _AvatarSkeleton extends StatelessWidget {
-  const _AvatarSkeleton();
+class _AvatarEmpty extends StatelessWidget {
+  const _AvatarEmpty();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.ivoryWarm,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      alignment: Alignment.center,
-      child: const Icon(Icons.accessibility_new,
-          color: AppColors.taupe, size: 100),
-    );
-  }
-}
-
-class _AvatarPreview extends StatelessWidget {
-  const _AvatarPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppColors.espressoDeep, AppColors.espressoDark],
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
+      color: AppColors.ivoryWarm,
       alignment: Alignment.center,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.accessibility_new,
-              color: AppColors.tan, size: 140),
-          const SizedBox(height: 16),
+          const Icon(Icons.add_a_photo_outlined,
+              color: AppColors.taupe, size: 72),
+          const SizedBox(height: 12),
           Text(
-            'AVATAR READY',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.gold,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w700,
+            'Tap to add your photo',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.taupe,
                 ),
           ),
         ],

@@ -16,8 +16,7 @@ import 'models/usage.dart';
 ///
 /// Sub-phase 1 covers the read path (dashboard + weekly usage). Sub-phase 2
 /// adds the outfit actions (regenerate / log-as-worn). Sub-phase 3 adds the
-/// read-only history + reasoning detail. Mix-and-match still needs the
-/// (unbuilt) Wardrobe item picker.
+/// read-only history + reasoning detail + mix-and-match swaps.
 class TodayService {
   TodayService(this._dio);
 
@@ -71,6 +70,35 @@ class TodayService {
         '/outfits/$outfitId/log',
       );
       return LogOutfitResult.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// `POST /outfits/{id}/mix-and-match` — applies `{old→new}` item swaps and
+  /// returns the new lineup + recomputed compatibility (deterministic, no AI
+  /// call). Counts against the weekly `mix_and_match` limit (429
+  /// `limit_reached`); a swap referencing an item not owned / not in the outfit
+  /// 400s (`invalid_swap`).
+  Future<({List<OutfitItem> items, int score})> mixAndMatch(
+    String outfitId,
+    List<({String oldItemId, String newItemId})> swaps,
+  ) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/outfits/$outfitId/mix-and-match',
+        data: {
+          'swapped_items': [
+            for (final s in swaps)
+              {'old_item_id': s.oldItemId, 'new_item_id': s.newItemId},
+          ],
+        },
+      );
+      final data = response.data!;
+      final items = (data['items'] as List<dynamic>)
+          .map((e) => OutfitItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+      return (items: items, score: data['compatibility_score'] as int);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
