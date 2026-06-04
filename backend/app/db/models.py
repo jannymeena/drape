@@ -115,6 +115,10 @@ class Profile(Base, TimestampMixin):
     )
     avatar_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     bio: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
+    # Body/skin analysis derived once from the avatar photo (§5.5): a small
+    # {body_type, skin_tone, styling_notes} blob fed into outfit generation so
+    # suggestions account for the wearer. Null until an avatar is analyzed.
+    body_analysis: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="profile")
 

@@ -176,6 +176,25 @@ _SYSTEM_PROMPT = (
 )
 
 
+def _build_wearer_block(body_analysis: Optional[dict]) -> str:
+    """A short '§5.5 Wearer:' line from the avatar-derived body/skin blob, so
+    suggestions account for the person's body type and colouring. Empty when no
+    analysis exists (avatar not uploaded / analysis failed)."""
+    if not body_analysis:
+        return ""
+    bits = []
+    if body_analysis.get("body_type"):
+        bits.append(f"body type {body_analysis['body_type']}")
+    if body_analysis.get("skin_tone"):
+        bits.append(f"skin tone {body_analysis['skin_tone']}")
+    notes = body_analysis.get("styling_notes")
+    if not bits and not notes:
+        return ""
+    head = f"Wearer: {', '.join(bits)}." if bits else "Wearer notes:"
+    tail = f" {notes}" if notes else ""
+    return f"{head}{tail} Favor fits and colours that flatter this.\n"
+
+
 def _build_user_prompt(
     *,
     occasion: Occasion,
@@ -183,6 +202,7 @@ def _build_user_prompt(
     weather: Optional[WeatherSnapshot],
     style_goals: Optional[list[str]],
     using_starter_wardrobe: bool,
+    body_analysis: Optional[dict] = None,
 ) -> str:
     item_lines = []
     for it in items:
@@ -214,9 +234,11 @@ def _build_user_prompt(
             "Encourage them in your reasoning to add their own items. "
         )
 
+    wearer_block = _build_wearer_block(body_analysis)
+
     return (
         f"Build ONE outfit for the occasion: {occasion}.\n\n"
-        f"{weather_block}\n{goals_block}\n{starter_note}\n"
+        f"{weather_block}\n{goals_block}\n{starter_note}\n{wearer_block}\n"
         f"Available items ({len(items)}):\n" + "\n".join(item_lines) + "\n\n"
         "Respond with ONLY a JSON object — no prose, no markdown, no code "
         "fences. Schema:\n"
@@ -357,6 +379,7 @@ async def _ask_ai_for_outfit(
     weather: Optional[WeatherSnapshot],
     style_goals: Optional[list[str]],
     using_starter_wardrobe: bool,
+    body_analysis: Optional[dict] = None,
 ) -> StructuredOutfitProposal:
     prompt = _build_user_prompt(
         occasion=occasion,
@@ -364,6 +387,7 @@ async def _ask_ai_for_outfit(
         weather=weather,
         style_goals=style_goals,
         using_starter_wardrobe=using_starter_wardrobe,
+        body_analysis=body_analysis,
     )
     try:
         text = await ai.chat(
@@ -500,6 +524,7 @@ async def generate_one(
             weather=snap,
             style_goals=user.style_goals,
             using_starter_wardrobe=using_starter,
+            body_analysis=user.profile.body_analysis if user.profile else None,
         )
         chosen = _materialize_items(proposal, user_items_by_id=items_by_id)
     except OutfitError as exc:

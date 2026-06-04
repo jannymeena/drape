@@ -21,7 +21,8 @@ class _FakeTodayService extends TodayService {
   int usageCalls = 0;
 
   @override
-  Future<TodayDashboard> getDashboard() async => dashboard;
+  Future<TodayDashboard> getDashboard({double? lat, double? lon}) async =>
+      dashboard;
 
   @override
   Future<CurrentWeekUsage> getCurrentWeekUsage() async {

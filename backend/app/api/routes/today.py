@@ -105,14 +105,19 @@ def _next_midnight_utc() -> datetime:
 
 @router.get("/dashboard", response_model=TodayDashboardResponse)
 async def dashboard(
+    lat: float | None = None,
+    lon: float | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     ai: AIProvider = Depends(get_ai_provider),
     weather: WeatherProvider = Depends(get_weather_provider),
 ) -> TodayDashboardResponse:
+    # Real device coords from the client personalize the weather; absent (e.g.
+    # location permission denied) the service falls back to its Toronto default.
+    request = GenerateOutfitsRequest(lat=lat, lon=lon)
     try:
         outfits, _ = await outfit_service.load_dashboard_outfits(
-            db=db, user=user, ai=ai, weather=weather
+            db=db, user=user, ai=ai, weather=weather, request=request
         )
     except OutfitError as e:
         raise _translate(e)
@@ -124,7 +129,10 @@ async def dashboard(
         # No outfits (e.g. empty wardrobe path returns 400 above), but try a
         # direct weather lookup so the dashboard can still show conditions.
         try:
-            snap = await weather.current(43.65, -79.38)
+            snap = await weather.current(
+                lat if lat is not None else 43.65,
+                lon if lon is not None else -79.38,
+            )
             weather_ctx = WeatherContext(
                 temp_c=snap.temp_c,
                 feels_like_c=snap.feels_like_c,

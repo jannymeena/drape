@@ -26,9 +26,15 @@ class TodayService {
   /// generates the day's outfits via the AI provider if none exist yet, so this
   /// call can take a few seconds on first load. May 400 (`no_wardrobe`) for a
   /// user with no items.
-  Future<TodayDashboard> getDashboard() async {
+  Future<TodayDashboard> getDashboard({double? lat, double? lon}) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>('/today/dashboard');
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/today/dashboard',
+        queryParameters: {
+          'lat': ?lat,
+          'lon': ?lon,
+        },
+      );
       return TodayDashboard.fromJson(response.data!);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);

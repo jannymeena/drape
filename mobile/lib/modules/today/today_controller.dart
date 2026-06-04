@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
+import '../../shared/services/location_service.dart';
 import 'models/log_outfit_result.dart';
 import 'models/outfit.dart';
 import 'models/today_dashboard.dart';
@@ -69,9 +70,14 @@ class TodayController extends StateNotifier<TodayState> {
       usage: state.usage,
     );
 
+    // Best-effort device location for personalized weather; null falls back to
+    // the backend default. Done before the dashboard call so coords ride along.
+    final coords = await currentDeviceCoords();
+
     // Start both concurrently; usage carries its own catch so a failure there
     // never surfaces as an unhandled error if the dashboard throws first.
-    final dashboardFuture = _service.getDashboard();
+    final dashboardFuture =
+        _service.getDashboard(lat: coords?.lat, lon: coords?.lon);
     final Future<CurrentWeekUsage?> usageFuture = _service
         .getCurrentWeekUsage()
         .then<CurrentWeekUsage?>((u) => u)

@@ -158,6 +158,18 @@ def set_avatar(
     return url
 
 
+def set_body_analysis(db: Session, *, user: User, analysis: dict) -> None:
+    """Persist the §5.5 body/skin analysis derived from the avatar photo onto
+    the user's 1:1 profile row (get-or-created, mirroring `set_avatar`)."""
+    profile = user.profile
+    if profile is None:
+        profile = Profile(user_id=user.id)
+        db.add(profile)
+    profile.body_analysis = analysis
+    db.commit()
+    _log.info("profile.body_analysis.set", user_id=str(user.id))
+
+
 def get_status(user: User) -> OnboardingStatusResponse:
     return OnboardingStatusResponse(
         onboarding_completed=user.onboarding_completed,
