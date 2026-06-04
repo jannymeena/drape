@@ -6,6 +6,7 @@ import '../../shared/providers/network_provider.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_service.dart';
 import '../auth/models/current_user.dart';
+import '../onboarding/models/measurements_draft.dart';
 import '../today/today_service.dart';
 import '../wardrobe/image_pick.dart';
 
@@ -80,10 +81,42 @@ class ProfileService {
       throw ApiException.fromDio(e);
     }
   }
+
+  /// `GET /profile/measurements` — the user's decrypted measurements, or `null`
+  /// when none have been submitted yet (backend returns 404).
+  Future<MeasurementsDraft?> getMeasurements() async {
+    try {
+      final r = await _dio.get<Map<String, dynamic>>('/profile/measurements');
+      return MeasurementsDraft.fromJson(r.data!);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// `POST /profile/measurements` — bulk upsert (same endpoint onboarding uses).
+  /// The backend re-encrypts and persists; `next_step` in the response is
+  /// irrelevant once onboarding is complete, so we ignore it.
+  Future<void> updateMeasurements(MeasurementsDraft draft) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/profile/measurements',
+        data: draft.toJson(),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
 }
 
 final profileServiceProvider = Provider<ProfileService>((ref) {
   return ProfileService(ref.read(dioProvider));
+});
+
+/// Loads the user's current measurements for the edit screen. `autoDispose` so
+/// it refetches fresh each time the screen opens. `null` => none submitted yet.
+final measurementsProvider = FutureProvider.autoDispose<MeasurementsDraft?>((ref) {
+  return ref.read(profileServiceProvider).getMeasurements();
 });
 
 /// The signed-in user's identity for Profile-tab screens. Returns the identity

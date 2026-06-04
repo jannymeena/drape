@@ -5,9 +5,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/services/share_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/wardrobe_analytics.dart';
 import '../wardrobe_service.dart';
+
+/// Shares the headline (free) utilization stat. Falls back to a generic line
+/// when the score isn't loaded yet.
+void _shareIntelligence(UtilizationScore? u) {
+  if (u == null) {
+    shareText('My wardrobe intelligence report from DRAPE 📊',
+        subject: 'My DRAPE report');
+    return;
+  }
+  shareText(
+    'My DRAPE wardrobe utilization score: ${u.score}/100 (${u.label}).\n'
+    '${u.itemsWornRecently} of ${u.itemsTotal} items worn in the last ${u.daysWindow} days.',
+    subject: 'My DRAPE report',
+  );
+}
 
 /// Wardrobe analytics hub. Composes three reports: utilization-score and
 /// cost-per-wear are free (always shown); the intelligence-report is Pro — for
@@ -30,7 +46,10 @@ class IntelligenceReportScreen extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            _Header(
+              onBack: () => context.pop(),
+              onShare: () => _shareIntelligence(utilization.valueOrNull),
+            ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -74,7 +93,10 @@ class IntelligenceReportScreen extends ConsumerWidget {
                     data: (r) => _ProBlock(report: r),
                   ),
                   const SizedBox(height: 24),
-                  _ShareButton(onPressed: () => debugPrint('intel: share')),
+                  _ShareButton(
+                    onPressed: () =>
+                        _shareIntelligence(utilization.valueOrNull),
+                  ),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -367,7 +389,8 @@ class _ProLockCard extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
-  const _Header({required this.onBack});
+  final VoidCallback onShare;
+  const _Header({required this.onBack, required this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -392,7 +415,7 @@ class _Header extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.share, color: AppColors.gold),
-            onPressed: () => debugPrint('intel: share'),
+            onPressed: onShare,
           ),
         ],
       ),

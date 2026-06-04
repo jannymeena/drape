@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/services/session_store.dart';
+import '../../../shared/services/share_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
 import '../../auth/auth_controller.dart';
@@ -162,7 +163,10 @@ class _ProfileCompleteScreenState extends ConsumerState<ProfileCompleteScreen> {
             _OutlinedAction(
               icon: Icons.camera_alt_outlined,
               label: 'Share to Instagram Story',
-              onPressed: () => debugPrint('share: instagram'),
+              onPressed: () => shareText(
+                'Just built my AI-styled wardrobe with DRAPE 👗✨',
+                subject: 'My DRAPE wardrobe',
+              ),
             ),
             const SizedBox(height: 12),
             Container(

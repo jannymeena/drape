@@ -31,6 +31,32 @@ class MeasurementsDraft {
     this.unitSystem = 'metric',
   });
 
+  /// Builds a draft from the `GET /profile/measurements` response (metric
+  /// values + the stored `unit_system` display hint). Omitted/null fields are
+  /// simply absent from [values].
+  factory MeasurementsDraft.fromJson(Map<String, dynamic> json) {
+    double? parse(String k) => (json[k] as num?)?.toDouble();
+    const wire = {
+      MeasurementField.height: 'height_cm',
+      MeasurementField.weight: 'weight_kg',
+      MeasurementField.shoulders: 'shoulders_cm',
+      MeasurementField.chest: 'chest_cm',
+      MeasurementField.waist: 'waist_cm',
+      MeasurementField.inseam: 'inseam_cm',
+      MeasurementField.thigh: 'thigh_cm',
+      MeasurementField.hips: 'hips_cm',
+    };
+    final values = <MeasurementField, double>{};
+    wire.forEach((field, key) {
+      final v = parse(key);
+      if (v != null) values[field] = v;
+    });
+    return MeasurementsDraft(
+      values: values,
+      unitSystem: json['unit_system'] as String? ?? 'metric',
+    );
+  }
+
   /// Only entered fields are present; all values are metric (cm / kg).
   final Map<MeasurementField, double> values;
 

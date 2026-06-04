@@ -3,11 +3,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/services/share_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/outfit_history.dart';
 import '../today_service.dart';
 import '../widgets/streak_pill.dart';
 import 'ai_reasoning_detail_screen.dart';
+
+/// Shares a summary of the user's logged-outfit history.
+void _shareHistory(OutfitHistory? h) {
+  if (h == null) {
+    shareText('Tracking my outfits with DRAPE 👗', subject: 'My DRAPE history');
+    return;
+  }
+  final parts = <String>[
+    'My DRAPE outfit history:',
+    if (h.currentStreak.days > 0) '• ${h.currentStreak.days}-day logging streak 🔥',
+    '• ${h.totalCount} outfits logged',
+  ];
+  shareText(parts.join('\n'), subject: 'My DRAPE history');
+}
+
+void _shareStreak(int days) {
+  shareText("🔥 I'm on a $days-day outfit-logging streak with DRAPE!",
+      subject: 'My DRAPE streak');
+}
 
 /// Logged-outfit history (`GET /outfits/history`). Only worn outfits land here,
 /// grouped by month, with the live streak summary up top. The filter chips map
@@ -40,7 +60,7 @@ class _OutfitHistoryScreenState extends ConsumerState<OutfitHistoryScreen> {
           children: [
             _Header(
               onBack: () => context.pop(),
-              onShare: () => debugPrint('history: share'),
+              onShare: () => _shareHistory(history.valueOrNull),
             ),
             _FilterChips(
               filters: HistoryFilter.values,
@@ -87,7 +107,7 @@ class _HistoryList extends StatelessWidget {
         if (streakDays > 0) ...[
           StreakPill(
             days: streakDays,
-            onShare: () => debugPrint('history: streak share'),
+            onShare: () => _shareStreak(streakDays),
           ),
           const SizedBox(height: 24),
         ],

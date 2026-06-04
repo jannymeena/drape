@@ -1,50 +1,81 @@
-import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../settings_service.dart';
 
 /// Export status — combines the "request form" and "history added" mockup
 /// variants into a single screen with state.
 enum _ExportStatus { idle, preparing, ready }
 
-class ExportMyDataScreen extends StatefulWidget {
+class ExportMyDataScreen extends ConsumerStatefulWidget {
   static const path = 'export';
   static const name = 'profile_export';
 
   const ExportMyDataScreen({super.key});
 
   @override
-  State<ExportMyDataScreen> createState() => _ExportMyDataScreenState();
+  ConsumerState<ExportMyDataScreen> createState() =>
+      _ExportMyDataScreenState();
 }
 
-class _ExportMyDataScreenState extends State<ExportMyDataScreen> {
+class _ExportMyDataScreenState extends ConsumerState<ExportMyDataScreen> {
   _ExportStatus _status = _ExportStatus.idle;
-  double _progress = 0;
-  Timer? _ticker;
+  Map<String, dynamic>? _data;
 
-  @override
-  void dispose() {
-    _ticker?.cancel();
-    super.dispose();
+  /// Fetch the portable JSON snapshot from `GET /account/export`.
+  Future<void> _onRequest() async {
+    setState(() => _status = _ExportStatus.preparing);
+    try {
+      final data = await ref.read(settingsServiceProvider).exportData();
+      if (!mounted) return;
+      setState(() {
+        _data = data;
+        _status = _ExportStatus.ready;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _status = _ExportStatus.idle);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e is ApiException
+              ? e.message
+              : "Couldn't prepare your export. Try again."),
+        ),
+      );
+    }
   }
 
-  void _onRequest() {
-    setState(() {
-      _status = _ExportStatus.preparing;
-      _progress = 0;
-    });
-    _ticker = Timer.periodic(const Duration(milliseconds: 400), (t) {
-      setState(() {
-        _progress += 0.15;
-        if (_progress >= 1) {
-          _progress = 1;
-          _status = _ExportStatus.ready;
-          t.cancel();
-        }
-      });
-    });
+  /// Write the snapshot to a temp .json file and hand it to the OS share sheet
+  /// (covers email, Drive, Files, etc.).
+  Future<void> _shareExport() async {
+    final data = _data;
+    if (data == null) return;
+    try {
+      final dir = await getTemporaryDirectory();
+      final stamp =
+          DateTime.now().toIso8601String().split('.').first.replaceAll(':', '-');
+      final file = File('${dir.path}/drape_export_$stamp.json');
+      await file.writeAsString(const JsonEncoder.withIndent('  ').convert(data));
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/json')],
+          subject: 'My DRAPE data export',
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't share the export.")),
+      );
+    }
   }
 
   @override
@@ -66,10 +97,10 @@ class _ExportMyDataScreenState extends State<ExportMyDataScreen> {
                   ),
                   const SizedBox(height: 16),
                   if (_status == _ExportStatus.preparing) ...[
-                    _PreparingCard(progress: _progress),
+                    const _PreparingCard(),
                     const SizedBox(height: 16),
                   ] else if (_status == _ExportStatus.ready) ...[
-                    _ReadyCard(onDownload: () => debugPrint('export: download')),
+                    _ReadyCard(onDownload: _shareExport),
                     const SizedBox(height: 24),
                     Text(
                       'DELIVERY METHODS',
@@ -83,13 +114,13 @@ class _ExportMyDataScreenState extends State<ExportMyDataScreen> {
                     _DeliveryTile(
                       icon: Icons.mail_outline,
                       label: 'Email download link to me',
-                      onTap: () => debugPrint('export: email'),
+                      onTap: _shareExport,
                     ),
                     const SizedBox(height: 10),
                     _DeliveryTile(
                       icon: Icons.cloud_outlined,
                       label: 'Save to my Google Drive',
-                      onTap: () => debugPrint('export: drive'),
+                      onTap: _shareExport,
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -270,8 +301,7 @@ class _RequestCard extends StatelessWidget {
 }
 
 class _PreparingCard extends StatelessWidget {
-  final double progress;
-  const _PreparingCard({required this.progress});
+  const _PreparingCard();
 
   @override
   Widget build(BuildContext context) {
@@ -283,14 +313,13 @@ class _PreparingCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(
+          const SizedBox(
             width: 28,
             height: 28,
             child: CircularProgressIndicator(
-              value: progress,
               strokeWidth: 3,
               backgroundColor: AppColors.white,
-              valueColor: const AlwaysStoppedAnimation(AppColors.sage),
+              valueColor: AlwaysStoppedAnimation(AppColors.sage),
             ),
           ),
           const SizedBox(width: 12),
@@ -299,14 +328,14 @@ class _PreparingCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Preparing... ${(progress * 100).round()}%',
+                  'Preparing your export…',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: AppColors.sage,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
                 Text(
-                  'Usually takes 2–5 minutes',
+                  'Gathering your wardrobe, logs, and profile',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.sageContent,
                       ),

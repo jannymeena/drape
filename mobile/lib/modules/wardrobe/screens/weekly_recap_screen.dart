@@ -3,10 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/services/share_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/wardrobe_analytics.dart';
 import '../wardrobe_service.dart';
 import 'intelligence_report_screen.dart';
+
+/// Builds and shares a short text summary of the week. Falls back to a generic
+/// line if the report isn't loaded yet.
+void _shareRecap(WeeklyReport? r) {
+  if (r == null) {
+    shareText('My week in style with DRAPE 👗', subject: 'My DRAPE recap');
+    return;
+  }
+  final parts = <String>[
+    'My DRAPE week in style:',
+    '• ${r.outfitsLogged} outfits logged',
+    if (r.streakDays > 0) '• ${r.streakDays}-day streak 🔥',
+    if (r.itemsWornDistinct > 0) '• ${r.itemsWornDistinct} different items worn',
+  ];
+  shareText(parts.join('\n'), subject: 'My DRAPE recap');
+}
 
 /// Free weekly recap (`GET /wardrobe/analytics/weekly-report`): activity, the
 /// week's most-worn items, the streak, and a Pro teaser that links to the
@@ -28,7 +45,10 @@ class WeeklyRecapScreen extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            _Header(
+              onBack: () => context.pop(),
+              onShare: () => _shareRecap(report.valueOrNull),
+            ),
             Expanded(
               child: report.when(
                 loading: () => const Center(
@@ -115,7 +135,7 @@ class _Body extends StatelessWidget {
           onTap: () => context.goNamed(IntelligenceReportScreen.name),
         ),
         const SizedBox(height: 20),
-        _ShareButton(onTap: () => debugPrint('recap: share')),
+        _ShareButton(onTap: () => _shareRecap(report)),
       ],
     );
   }
@@ -123,7 +143,8 @@ class _Body extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
-  const _Header({required this.onBack});
+  final VoidCallback onShare;
+  const _Header({required this.onBack, required this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +167,7 @@ class _Header extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.share, color: AppColors.gold),
-            onPressed: () => debugPrint('recap: share'),
+            onPressed: onShare,
           ),
         ],
       ),

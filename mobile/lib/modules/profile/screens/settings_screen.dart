@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../auth/auth_controller.dart';
 import '../../auth/screens/welcome_screen.dart';
+import '../settings_service.dart';
 import '../widgets/settings_row.dart';
 import '../widgets/settings_section.dart';
 import 'account_settings_screen.dart';
 import 'appearance_settings_screen.dart';
 import 'billing_history_screen.dart';
 import 'compare_plans_screen.dart';
+import 'edit_measurements_screen.dart';
 import 'edit_profile_screen.dart';
 import 'email_password_settings_screen.dart';
 import 'contact_us_screen.dart';
@@ -53,6 +56,12 @@ class SettingsScreen extends ConsumerWidget {
                         icon: Icons.person_outline,
                         label: 'Edit Profile',
                         onTap: () => context.goNamed(EditProfileScreen.name),
+                      ),
+                      SettingsRow(
+                        icon: Icons.straighten,
+                        label: 'Body Measurements',
+                        onTap: () =>
+                            context.goNamed(EditMeasurementsScreen.name),
                       ),
                       SettingsRow(
                         icon: Icons.lock_outline,
@@ -124,7 +133,7 @@ class SettingsScreen extends ConsumerWidget {
                       SettingsRow(
                         icon: Icons.straighten,
                         label: 'Units',
-                        onTap: () => debugPrint('settings: units'),
+                        onTap: () => _showUnitsSheet(context, ref),
                       ),
                       SettingsRow(
                         icon: Icons.tune,
@@ -231,6 +240,147 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet to pick the measurement unit system. Persists `unit_system`
+/// via PATCH /settings. (Persist-only for now — display conversion cm↔in is a
+/// later, app-wide change.)
+Future<void> _showUnitsSheet(BuildContext context, WidgetRef ref) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.ivory,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => const _UnitsSheet(),
+  );
+}
+
+class _UnitsSheet extends ConsumerStatefulWidget {
+  const _UnitsSheet();
+
+  @override
+  ConsumerState<_UnitsSheet> createState() => _UnitsSheetState();
+}
+
+class _UnitsSheetState extends ConsumerState<_UnitsSheet> {
+  static const _options = [
+    ('metric', 'Metric', 'Centimetres · kilograms'),
+    ('imperial', 'Imperial', 'Inches · pounds'),
+  ];
+
+  bool _saving = false;
+
+  Future<void> _select(String unit) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(settingsServiceProvider)
+          .updateSettings({'unit_system': unit});
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e is ApiException
+              ? e.message
+              : "Couldn't save — check your connection."),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final current = ref.watch(settingsProvider).valueOrNull?.unitSystem;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Units', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Used across measurements and sizing.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            for (final o in _options) ...[
+              _UnitOption(
+                label: o.$2,
+                description: o.$3,
+                selected: current == o.$1,
+                onTap: _saving ? null : () => _select(o.$1),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UnitOption extends StatelessWidget {
+  final String label;
+  final String description;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  const _UnitOption({
+    required this.label,
+    required this.description,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: selected ? AppColors.espresso : AppColors.taupeSoft,
+              width: selected ? 1.5 : 1,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 2),
+                    Text(description,
+                        style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              Icon(
+                selected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_unchecked,
+                color: selected ? AppColors.espresso : AppColors.taupeSoft,
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
     );

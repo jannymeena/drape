@@ -1,25 +1,83 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/outline_chip.dart';
+import '../models/app_settings.dart';
+import '../settings_service.dart';
 
-class StylePreferencesScreen extends StatefulWidget {
+class StylePreferencesScreen extends ConsumerStatefulWidget {
   static const path = 'style-preferences';
   static const name = 'profile_style_preferences';
 
   const StylePreferencesScreen({super.key});
 
   @override
-  State<StylePreferencesScreen> createState() => _StylePreferencesScreenState();
+  ConsumerState<StylePreferencesScreen> createState() =>
+      _StylePreferencesScreenState();
 }
 
-class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
-  final _archetypes = <int>{0, 3};
-  final _palettes = <int>{0, 1};
-  final _occasions = <String>{'Work', 'Evenings out', 'Weekend'};
-  double _intensity = 0.65;
-  double _formality = 0.4;
+class _StylePreferencesScreenState
+    extends ConsumerState<StylePreferencesScreen> {
+  final _archetypes = <int>{};
+  final _palettes = <int>{};
+  final _occasions = <String>{};
+  double _intensity = 0.5;
+  double _formality = 0.5;
+
+  bool _seeded = false;
+  bool _saving = false;
+
+  /// Seed selections from the `style_preferences` JSONB blob. We store labels
+  /// (not indices) so reordering the option lists never corrupts saved prefs.
+  void _seedOnce(AppSettings s) {
+    if (_seeded) return;
+    _seeded = true;
+    final p = s.stylePreferences;
+    if (p == null) return;
+
+    final arch = (p['archetypes'] as List?)?.cast<String>() ?? const [];
+    for (var i = 0; i < _archetypeLabels.length; i++) {
+      if (arch.contains(_archetypeLabels[i].$1)) _archetypes.add(i);
+    }
+    final pal = (p['palettes'] as List?)?.cast<String>() ?? const [];
+    for (var i = 0; i < _paletteLabels.length; i++) {
+      if (pal.contains(_paletteLabels[i].$1)) _palettes.add(i);
+    }
+    _occasions.addAll((p['occasions'] as List?)?.cast<String>() ?? const []);
+    _intensity = (p['intensity'] as num?)?.toDouble() ?? _intensity;
+    _formality = (p['formality'] as num?)?.toDouble() ?? _formality;
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    final blob = <String, dynamic>{
+      'archetypes': _archetypes.map((i) => _archetypeLabels[i].$1).toList(),
+      'palettes': _palettes.map((i) => _paletteLabels[i].$1).toList(),
+      'occasions': _occasions.toList(),
+      'intensity': _intensity,
+      'formality': _formality,
+    };
+    try {
+      await ref
+          .read(settingsServiceProvider)
+          .updateSettings({'style_preferences': blob});
+      if (mounted) context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e is ApiException
+              ? e.message
+              : "Couldn't save — check your connection."),
+        ),
+      );
+    }
+  }
 
   static const _archetypeLabels = [
     ('Minimal', Icons.landscape_outlined),
@@ -72,6 +130,7 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final async = ref.watch(settingsProvider);
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -80,15 +139,24 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
           children: [
             _Header(
               onBack: () => context.pop(),
-              onSave: () {
-                debugPrint('style prefs: save');
-                context.pop();
-              },
+              onSave: _saving ? null : _save,
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                children: [
+              child: async.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.espresso),
+                ),
+                error: (e, _) => _ErrorState(
+                  message: e is ApiException
+                      ? e.message
+                      : "We couldn't load your style preferences.",
+                  onRetry: () => ref.invalidate(settingsProvider),
+                ),
+                data: (s) {
+                  _seedOnce(s);
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                    children: [
                   _SectionLabel('STYLE ARCHETYPE'),
                   const SizedBox(height: 10),
                   GridView.count(
@@ -196,7 +264,9 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
                           ),
                     ),
                   ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -206,9 +276,36 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
   }
 }
 
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            TextButton(onPressed: onRetry, child: const Text('Try again')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
-  final VoidCallback onSave;
+  final VoidCallback? onSave;
   const _Header({required this.onBack, required this.onSave});
 
   @override

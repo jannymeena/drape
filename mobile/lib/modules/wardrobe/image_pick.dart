@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../shared/theme/app_colors.dart';
+import 'image_compress.dart';
 
-/// An image chosen by the user, ready to upload. [mimeType] is constrained to
-/// the backend's allowed set (jpeg/png/webp) so multipart uploads don't 415.
+/// An image chosen by the user, ready to upload. Always JPEG after [_toPicked]'s
+/// compression pass, so [mimeType] is `image/jpeg` (within the backend's allowed
+/// jpeg/png/webp set, so multipart uploads don't 415).
 class PickedImage {
   const PickedImage({
     required this.bytes,
@@ -19,23 +21,25 @@ class PickedImage {
   final String mimeType;
 }
 
-const _allowedMime = {'image/jpeg', 'image/png', 'image/webp'};
-
-String _mimeFromName(String name) {
-  final n = name.toLowerCase();
-  if (n.endsWith('.png')) return 'image/png';
-  if (n.endsWith('.webp')) return 'image/webp';
-  return 'image/jpeg';
+/// Strips any extension and gives `.jpg`, since [_toPicked] always re-encodes
+/// to JPEG.
+String _jpegName(String original) {
+  final dot = original.lastIndexOf('.');
+  final stem = dot > 0 ? original.substring(0, dot) : original;
+  return '$stem.jpg';
 }
 
 Future<PickedImage?> _toPicked(XFile? file) async {
   if (file == null) return null;
-  final bytes = await file.readAsBytes();
-  var mime = file.mimeType;
-  if (mime == null || !_allowedMime.contains(mime)) {
-    mime = _mimeFromName(file.name);
-  }
-  return PickedImage(bytes: bytes, filename: file.name, mimeType: mime);
+  final raw = await file.readAsBytes();
+  // Downscale to ≤1024px and re-encode JPEG q85 before upload — caps payload
+  // size and AI vision cost, deterministically across formats/platforms.
+  final bytes = await compressUpload(raw);
+  return PickedImage(
+    bytes: bytes,
+    filename: _jpegName(file.name),
+    mimeType: 'image/jpeg',
+  );
 }
 
 /// Presents a camera/gallery chooser, then returns the picked image (null if

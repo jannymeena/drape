@@ -81,8 +81,9 @@ final settingsServiceProvider = Provider<SettingsService>((ref) {
   return SettingsService(ref.read(dioProvider));
 });
 
-/// Loads the user's settings once; screens watch this and PATCH through
-/// [SettingsService], then invalidate to refresh.
-final settingsProvider = FutureProvider<AppSettings>((ref) {
+/// Loads the user's settings. `autoDispose` so each settings screen refetches
+/// fresh on open — screens hold their own local edit state and PATCH through
+/// [SettingsService], so there's no shared cache to keep in sync.
+final settingsProvider = FutureProvider.autoDispose<AppSettings>((ref) {
   return ref.read(settingsServiceProvider).getSettings();
 });

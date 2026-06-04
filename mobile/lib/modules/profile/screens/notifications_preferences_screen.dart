@@ -1,36 +1,79 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../models/app_settings.dart';
+import '../settings_service.dart';
 
 enum _Freq { daily, weekly, never }
 
-class NotificationsPreferencesScreen extends StatefulWidget {
+class NotificationsPreferencesScreen extends ConsumerStatefulWidget {
   static const path = 'notifications';
   static const name = 'profile_notifications';
 
   const NotificationsPreferencesScreen({super.key});
 
   @override
-  State<NotificationsPreferencesScreen> createState() =>
+  ConsumerState<NotificationsPreferencesScreen> createState() =>
       _NotificationsPreferencesScreenState();
 }
 
 class _NotificationsPreferencesScreenState
-    extends State<NotificationsPreferencesScreen> {
+    extends ConsumerState<NotificationsPreferencesScreen> {
   bool _pushEnabled = true;
   bool _dailyOutfit = true;
   bool _outfitReminders = true;
   bool _shopping = true;
   bool _insights = true;
-  bool _quietHours = true;
+  bool _quietHours = false;
   bool _weeklySummary = true;
   bool _productDeals = false;
   bool _proOffers = false;
+  // No backend field — local/cosmetic until push scheduling (11d) lands.
   _Freq _dailyFreq = _Freq.daily;
+
+  bool _seeded = false;
+
+  void _seedOnce(AppSettings s) {
+    if (_seeded) return;
+    _seeded = true;
+    _pushEnabled = s.pushEnabled;
+    _dailyOutfit = s.dailyOutfitSuggestions;
+    _outfitReminders = s.outfitReminders;
+    _shopping = s.shoppingSuggestions;
+    _insights = s.wardrobeInsights;
+    _quietHours = s.quietHoursEnabled;
+    _weeklySummary = s.emailWeeklySummary;
+    _productDeals = s.emailProductDeals;
+    _proOffers = s.emailProOffers;
+  }
+
+  /// Optimistically flips [apply] to [value], persists the single key, and
+  /// reverts (with a snackbar) if the PATCH fails.
+  void _toggle(String key, bool value, void Function(bool) apply) {
+    setState(() => apply(value));
+    () async {
+      try {
+        await ref.read(settingsServiceProvider).updateSettings({key: value});
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => apply(!value));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e is ApiException
+                ? e.message
+                : "Couldn't save — check your connection."),
+          ),
+        );
+      }
+    }();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final async = ref.watch(settingsProvider);
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -39,9 +82,21 @@ class _NotificationsPreferencesScreenState
           children: [
             _Header(onBack: () => context.pop()),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                children: [
+              child: async.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.espresso),
+                ),
+                error: (e, _) => _ErrorState(
+                  message: e is ApiException
+                      ? e.message
+                      : "We couldn't load your preferences.",
+                  onRetry: () => ref.invalidate(settingsProvider),
+                ),
+                data: (s) {
+                  _seedOnce(s);
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    children: [
                   Text(
                     'Control when and how DRAPE reaches you',
                     style: Theme.of(context).textTheme.bodyMedium,
@@ -51,7 +106,8 @@ class _NotificationsPreferencesScreenState
                     icon: Icons.notifications_outlined,
                     label: 'Enable Push Notifications',
                     value: _pushEnabled,
-                    onChanged: (v) => setState(() => _pushEnabled = v),
+                    onChanged: (v) =>
+                        _toggle('push_enabled', v, (x) => _pushEnabled = x),
                   ),
                   const SizedBox(height: 24),
                   _SectionLabel('DAILY REMINDERS'),
@@ -61,7 +117,8 @@ class _NotificationsPreferencesScreenState
                     label: 'Daily Outfit Suggestions',
                     subtitle: '7:00 AM in your timezone (Toronto, EDT)',
                     value: _dailyOutfit,
-                    onChanged: (v) => setState(() => _dailyOutfit = v),
+                    onChanged: (v) => _toggle(
+                        'daily_outfit_suggestions', v, (x) => _dailyOutfit = x),
                     extra: Padding(
                       padding: const EdgeInsets.only(top: 10),
                       child: Row(
@@ -102,7 +159,8 @@ class _NotificationsPreferencesScreenState
                     label: 'Outfit Reminders',
                     subtitle: 'Remind me to log what I wore (8:00 PM daily)',
                     value: _outfitReminders,
-                    onChanged: (v) => setState(() => _outfitReminders = v),
+                    onChanged: (v) => _toggle(
+                        'outfit_reminders', v, (x) => _outfitReminders = x),
                   ),
                   const SizedBox(height: 24),
                   _SectionLabel('SHOPPING'),
@@ -112,7 +170,8 @@ class _NotificationsPreferencesScreenState
                     label: 'Shopping Suggestions',
                     subtitle: 'When DRAPE spots a wardrobe gap',
                     value: _shopping,
-                    onChanged: (v) => setState(() => _shopping = v),
+                    onChanged: (v) => _toggle(
+                        'shopping_suggestions', v, (x) => _shopping = x),
                   ),
                   const SizedBox(height: 24),
                   _SectionLabel('INSIGHTS'),
@@ -122,7 +181,8 @@ class _NotificationsPreferencesScreenState
                     label: 'Wardrobe Insights',
                     subtitle: 'Weekly summary of closet stats',
                     value: _insights,
-                    onChanged: (v) => setState(() => _insights = v),
+                    onChanged: (v) =>
+                        _toggle('wardrobe_insights', v, (x) => _insights = x),
                   ),
                   const SizedBox(height: 24),
                   _SectionLabel('QUIET HOURS'),
@@ -131,7 +191,8 @@ class _NotificationsPreferencesScreenState
                     icon: Icons.nightlight_outlined,
                     label: 'Enable Quiet Hours',
                     value: _quietHours,
-                    onChanged: (v) => setState(() => _quietHours = v),
+                    onChanged: (v) => _toggle(
+                        'quiet_hours_enabled', v, (x) => _quietHours = x),
                     extra: Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: Row(
@@ -175,21 +236,24 @@ class _NotificationsPreferencesScreenState
                     icon: Icons.article_outlined,
                     label: 'Weekly Summary',
                     value: _weeklySummary,
-                    onChanged: (v) => setState(() => _weeklySummary = v),
+                    onChanged: (v) => _toggle(
+                        'email_weekly_summary', v, (x) => _weeklySummary = x),
                   ),
                   const SizedBox(height: 10),
                   _ToggleCard(
                     icon: Icons.local_offer_outlined,
                     label: 'Product Deals',
                     value: _productDeals,
-                    onChanged: (v) => setState(() => _productDeals = v),
+                    onChanged: (v) => _toggle(
+                        'email_product_deals', v, (x) => _productDeals = x),
                   ),
                   const SizedBox(height: 10),
                   _ToggleCard(
                     icon: Icons.star_outline,
                     label: 'Pro Offers',
                     value: _proOffers,
-                    onChanged: (v) => setState(() => _proOffers = v),
+                    onChanged: (v) =>
+                        _toggle('email_pro_offers', v, (x) => _proOffers = x),
                   ),
                   const SizedBox(height: 24),
                   OutlinedButton(
@@ -209,9 +273,38 @@ class _NotificationsPreferencesScreenState
                           ),
                     ),
                   ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            TextButton(onPressed: onRetry, child: const Text('Try again')),
           ],
         ),
       ),

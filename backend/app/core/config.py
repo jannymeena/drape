@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     ai_usage_log_enabled: bool = True
     ai_usage_log_path: str = "logs/ai_usage.jsonl"
 
+    # AI response cache (§5.1) — content-addressed memoization of analyze_image
+    # in Postgres (ai_response_cache). Identical garment photos always yield the
+    # same detection, so a cache hit serves the stored result for free. Durable
+    # (not volatile): an eviction means re-paying Claude. Only analyze_image is
+    # cached; chat/outfit-gen passes through. Safe to leave on in every env.
+    ai_cache_enabled: bool = True
+
     measurement_dek_dev: str | None = None
     kms_key_id: str | None = None
     aws_region: str = "ca-central-1"

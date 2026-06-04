@@ -14,7 +14,9 @@ from sqlalchemy import (
     LargeBinary,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -610,4 +612,30 @@ class PasswordResetToken(Base):
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
+    )
+
+
+class AIResponseCache(Base):
+    """Content-addressed cache of `analyze_image` responses (§5.1).
+
+    Durable memoization, not a volatile cache: the same garment photo always
+    yields the same detection, so we key on a hash of the inputs and serve
+    repeats for free. An eviction would mean re-paying Claude, which is why this
+    lives in Postgres rather than Redis. Only `analyze_image` is cached.
+
+    `cache_key` = sha256(model + media_type + image_bytes + prompt). The token
+    columns are nullable — the provider interface returns only text today, so
+    they stay empty until/unless usage is surfaced (§5.4).
+    """
+
+    __tablename__ = "ai_response_cache"
+
+    cache_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    call_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    response_text: Mapped[str] = mapped_column(Text, nullable=False)
+    input_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )

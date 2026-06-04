@@ -3,6 +3,7 @@ import structlog
 from app.core.config import Settings, settings
 from app.services.providers.ai.anthropic import AnthropicProvider
 from app.services.providers.ai.base import AIProvider
+from app.services.providers.ai.caching import CachingAIProvider
 from app.services.providers.ai.mock import MockAIProvider
 from app.services.providers.crypto.base import Encryptor
 from app.services.providers.crypto.kms_envelope import KmsEnvelopeEncryptor
@@ -88,7 +89,11 @@ class Providers:
     def _build_ai(s: Settings) -> AIProvider:
         if s.anthropic_api_key:
             model = s.anthropic_model or AnthropicProvider.DEFAULT_MODEL
-            return AnthropicProvider(s.anthropic_api_key, default_model=model)
+            base: AIProvider = AnthropicProvider(s.anthropic_api_key, default_model=model)
+            # Wrap real Anthropic calls in the analyze_image cache (§5.1).
+            if s.ai_cache_enabled:
+                return CachingAIProvider(base, default_model=model)
+            return base
         if s.environment == "dev":
             return MockAIProvider()
         # Unreachable: config validator requires ANTHROPIC_API_KEY in tbd/prd.

@@ -33,6 +33,7 @@ import '../../modules/profile/screens/bug_report_success_screen.dart';
 import '../../modules/profile/screens/compare_plans_screen.dart';
 import '../../modules/profile/screens/contact_us_screen.dart';
 import '../../modules/profile/screens/delete_account_screen.dart';
+import '../../modules/profile/screens/edit_measurements_screen.dart';
 import '../../modules/profile/screens/edit_profile_screen.dart';
 import '../../modules/profile/screens/email_password_settings_screen.dart';
 import '../../modules/profile/screens/export_my_data_screen.dart';
@@ -462,6 +463,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: EditProfileScreen.path,
                     name: EditProfileScreen.name,
                     builder: (_, _) => const EditProfileScreen(),
+                  ),
+                  GoRoute(
+                    path: EditMeasurementsScreen.path,
+                    name: EditMeasurementsScreen.name,
+                    builder: (_, _) => const EditMeasurementsScreen(),
                   ),
                   GoRoute(
                     path: EmailPasswordSettingsScreen.path,

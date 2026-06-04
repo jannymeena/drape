@@ -1,26 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../models/app_settings.dart';
+import '../settings_service.dart';
 
+// Names match the backend `theme` literals (`light` | `dark` | `auto`).
 enum _Theme { light, dark, auto }
 
-class AppearanceSettingsScreen extends StatefulWidget {
+class AppearanceSettingsScreen extends ConsumerStatefulWidget {
   static const path = 'appearance';
   static const name = 'profile_appearance';
 
   const AppearanceSettingsScreen({super.key});
 
   @override
-  State<AppearanceSettingsScreen> createState() =>
+  ConsumerState<AppearanceSettingsScreen> createState() =>
       _AppearanceSettingsScreenState();
 }
 
-class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
+class _AppearanceSettingsScreenState
+    extends ConsumerState<AppearanceSettingsScreen> {
   _Theme _theme = _Theme.light;
+  // No backend field yet — local/cosmetic (persist-only round wires theme only).
   double _textSize = 0.5;
   int _accentIndex = 0;
   int _iconIndex = 0;
+
+  bool _seeded = false;
+
+  void _seedOnce(AppSettings s) {
+    if (_seeded) return;
+    _seeded = true;
+    _theme = _Theme.values.firstWhere(
+      (t) => t.name == s.theme,
+      orElse: () => _Theme.light,
+    );
+  }
+
+  /// Optimistically selects [theme] and persists it; reverts on failure.
+  void _selectTheme(_Theme theme) {
+    if (theme == _theme) return;
+    final prev = _theme;
+    setState(() => _theme = theme);
+    () async {
+      try {
+        await ref
+            .read(settingsServiceProvider)
+            .updateSettings({'theme': theme.name});
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _theme = prev);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e is ApiException
+                ? e.message
+                : "Couldn't save — check your connection."),
+          ),
+        );
+      }
+    }();
+  }
 
   static const _themes = [
     (
@@ -52,6 +94,7 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final async = ref.watch(settingsProvider);
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -60,9 +103,21 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
           children: [
             _Header(onBack: () => context.pop()),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                children: [
+              child: async.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.espresso),
+                ),
+                error: (e, _) => _ErrorState(
+                  message: e is ApiException
+                      ? e.message
+                      : "We couldn't load your appearance settings.",
+                  onRetry: () => ref.invalidate(settingsProvider),
+                ),
+                data: (s) {
+                  _seedOnce(s);
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                    children: [
                   _SectionLabel('COLOR THEME'),
                   const SizedBox(height: 10),
                   for (final t in _themes) ...[
@@ -72,7 +127,7 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
                       description: t.$3,
                       thumbnailColor: t.$4,
                       selected: _theme == t.$1,
-                      onTap: () => setState(() => _theme = t.$1),
+                      onTap: () => _selectTheme(t.$1),
                     ),
                     const SizedBox(height: 10),
                   ],
@@ -179,9 +234,38 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
                       ),
                     ],
                   ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            TextButton(onPressed: onRetry, child: const Text('Try again')),
           ],
         ),
       ),
