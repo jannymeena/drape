@@ -5,11 +5,12 @@ import 'outfit_item_grid.dart';
 import 'why_this_works_block.dart';
 
 /// View model for [OutfitCard]. Built from the `Outfit` DTO on the dashboard;
-/// `itemImageUrls` allows nulls so empty grid cells render placeholders.
+/// `items` carry the photo plus category/colour so photoless items (e.g.
+/// starter wardrobe) render a coloured silhouette instead of a blank cell.
 class OutfitCardData {
   final String id;
   final String occasion;
-  final List<String?> itemImageUrls;
+  final List<GarmentCell> items;
   final String reasoning;
   final bool favorited;
   final bool logged;
@@ -17,7 +18,7 @@ class OutfitCardData {
   const OutfitCardData({
     required this.id,
     required this.occasion,
-    required this.itemImageUrls,
+    required this.items,
     required this.reasoning,
     this.favorited = false,
     this.logged = false,
@@ -72,7 +73,7 @@ class OutfitCard extends StatelessWidget {
         children: [
           Stack(
             children: [
-              OutfitItemGrid(imageUrls: outfit.itemImageUrls),
+              OutfitItemGrid(cells: outfit.items),
               if (regenerating)
                 Positioned.fill(
                   child: ClipRRect(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/garment_placeholder.dart';
 import '../../wardrobe/models/wardrobe_item.dart';
 import '../../wardrobe/wardrobe_service.dart';
 import '../models/outfit.dart';
@@ -124,6 +125,8 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
                         return _Tile(
                           imageUrl: it.primaryImageUrl,
                           label: it.name,
+                          category: it.category,
+                          color: garmentColorFromName(it.colorName),
                           selected: it.itemId == _oldItemId,
                           onTap: () => setState(() {
                             _oldItemId = it.itemId == _oldItemId ? null : it.itemId;
@@ -169,6 +172,8 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
                               _Tile(
                                 imageUrl: w.displayImageUrl,
                                 label: w.name,
+                                category: w.category,
+                                color: garmentColorFromHex(w.colorHex),
                                 selected: w.id == _newItemId,
                                 onTap: () =>
                                     setState(() => _newItemId = w.id),
@@ -214,12 +219,16 @@ class _SectionLabel extends StatelessWidget {
 class _Tile extends StatelessWidget {
   final String? imageUrl;
   final String label;
+  final String category;
+  final Color? color;
   final bool selected;
   final VoidCallback onTap;
 
   const _Tile({
     required this.imageUrl,
     required this.label,
+    required this.category,
+    required this.color,
     required this.selected,
     required this.onTap,
   });
@@ -249,13 +258,10 @@ class _Tile extends StatelessWidget {
                   ? Image.network(
                       imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(
-                          Icons.checkroom_outlined,
-                          color: AppColors.taupeSoft,
-                          size: 30),
+                      errorBuilder: (_, _, _) =>
+                          GarmentPlaceholder(category: category, color: color),
                     )
-                  : const Icon(Icons.checkroom_outlined,
-                      color: AppColors.taupeSoft, size: 30),
+                  : GarmentPlaceholder(category: category, color: color),
             ),
             const SizedBox(height: 4),
             Text(

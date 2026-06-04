@@ -9,7 +9,9 @@ import '../models/today_dashboard.dart';
 import '../models/usage.dart';
 import '../today_controller.dart';
 import '../widgets/mix_match_sheet.dart';
+import '../../../shared/widgets/garment_placeholder.dart';
 import '../widgets/outfit_card.dart';
+import '../widgets/outfit_item_grid.dart';
 import '../widgets/usage_warning_banner.dart';
 import '../widgets/weather_chip.dart';
 import 'ai_reasoning_detail_screen.dart';
@@ -253,7 +255,14 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
                       outfit: OutfitCardData(
                         id: outfit.id,
                         occasion: outfit.occasionLabel,
-                        itemImageUrls: outfit.gridImageUrls,
+                        items: [
+                          for (final i in outfit.items)
+                            GarmentCell(
+                              imageUrl: i.primaryImageUrl,
+                              category: i.category,
+                              color: garmentColorFromName(i.colorName),
+                            ),
+                        ],
                         reasoning: outfit.aiReasoningShort ?? '',
                         logged: outfit.isLogged,
                         favorited: outfit.isFavorite,

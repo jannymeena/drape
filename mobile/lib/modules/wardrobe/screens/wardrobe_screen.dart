@@ -219,8 +219,9 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
   WardrobeItemData _toCardData(WardrobeItem item) => WardrobeItemData(
         id: item.id,
         name: item.name,
-        category: item.categoryLabel,
+        category: item.category,
         imageUrl: item.displayImageUrl,
+        colorHex: item.colorHex,
         favorited: item.isFavorite,
         starter: item.isStarterWardrobe,
       );

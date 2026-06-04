@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/garment_placeholder.dart';
 
 class WardrobeItemData {
   final String id;
   final String name;
   final String category;
   final String? imageUrl;
+  final String? colorHex;
   final bool favorited;
   final bool starter;
 
@@ -15,6 +17,7 @@ class WardrobeItemData {
     required this.name,
     required this.category,
     this.imageUrl,
+    this.colorHex,
     this.favorited = false,
     this.starter = false,
   });
@@ -32,6 +35,11 @@ class ItemCard extends StatelessWidget {
     this.onFavorite,
   });
 
+  Widget _placeholder() => GarmentPlaceholder(
+        category: item.category,
+        color: garmentColorFromHex(item.colorHex),
+      );
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -48,27 +56,13 @@ class ItemCard extends StatelessWidget {
                   Positioned.fill(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        color: AppColors.ivoryWarm,
-                        child: item.imageUrl == null
-                            ? const Center(
-                                child: Icon(
-                                  Icons.checkroom_outlined,
-                                  color: AppColors.taupeSoft,
-                                  size: 44,
-                                ),
-                              )
-                            : Image.network(
-                                item.imageUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const Center(
-                                  child: Icon(
-                                    Icons.checkroom_outlined,
-                                    color: AppColors.taupeSoft,
-                                  ),
-                                ),
-                              ),
-                      ),
+                      child: item.imageUrl == null
+                          ? _placeholder()
+                          : Image.network(
+                              item.imageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => _placeholder(),
+                            ),
                     ),
                   ),
                   if (item.starter)

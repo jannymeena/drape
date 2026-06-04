@@ -1,29 +1,37 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/garment_placeholder.dart';
+
+/// One garment in the grid: its photo (if any) plus the category + colour used
+/// to draw a [GarmentPlaceholder] when there's no photo (e.g. starter items).
+class GarmentCell {
+  final String? imageUrl;
+  final String category;
+  final Color? color;
+  const GarmentCell({this.imageUrl, required this.category, this.color});
+}
 
 /// Client-side 2×2 composite of outfit item images.
 ///
 /// Backend decision #2: `outfits.image_url` is null by design; the mobile
-/// client composes the visual from up to 4 `primary_image_url` values.
-///
-/// Cells with no image render a soft icon placeholder so the grid never
-/// looks broken when an outfit has < 4 items.
+/// client composes the visual from up to 4 items. Items without a photo render
+/// a coloured category silhouette; unused slots render a blank tile.
 class OutfitItemGrid extends StatelessWidget {
-  final List<String?> imageUrls;
+  final List<GarmentCell> cells;
   final double aspectRatio;
 
   const OutfitItemGrid({
     super.key,
-    required this.imageUrls,
+    required this.cells,
     this.aspectRatio = 4 / 5,
   });
 
   @override
   Widget build(BuildContext context) {
-    final cells = List<String?>.generate(
+    final padded = List<GarmentCell?>.generate(
       4,
-      (i) => i < imageUrls.length ? imageUrls[i] : null,
+      (i) => i < cells.length ? cells[i] : null,
     );
 
     return AspectRatio(
@@ -38,7 +46,7 @@ class OutfitItemGrid extends StatelessWidget {
             crossAxisSpacing: 6,
             mainAxisSpacing: 6,
             physics: const NeverScrollableScrollPhysics(),
-            children: cells.map(_OutfitGridCell.new).toList(),
+            children: padded.map((c) => _OutfitGridCell(c)).toList(),
           ),
         ),
       ),
@@ -47,34 +55,27 @@ class OutfitItemGrid extends StatelessWidget {
 }
 
 class _OutfitGridCell extends StatelessWidget {
-  final String? imageUrl;
-  const _OutfitGridCell(this.imageUrl);
+  final GarmentCell? cell;
+  const _OutfitGridCell(this.cell);
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        color: AppColors.white,
-        alignment: Alignment.center,
-        child: imageUrl == null
-            ? const Icon(
-                Icons.checkroom_outlined,
-                size: 36,
-                color: AppColors.taupeSoft,
-              )
-            : Image.network(
-                imageUrl!,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-                errorBuilder: (_, _, _) => const Icon(
-                  Icons.checkroom_outlined,
-                  size: 36,
-                  color: AppColors.taupeSoft,
-                ),
-              ),
-      ),
-    );
+    final cell = this.cell;
+    final Widget child;
+    if (cell == null) {
+      child = const ColoredBox(color: AppColors.white); // empty slot
+    } else if (cell.imageUrl == null) {
+      child = GarmentPlaceholder(category: cell.category, color: cell.color);
+    } else {
+      child = Image.network(
+        cell.imageUrl!,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, _, _) =>
+            GarmentPlaceholder(category: cell.category, color: cell.color),
+      );
+    }
+    return ClipRRect(borderRadius: BorderRadius.circular(8), child: child);
   }
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/garment_placeholder.dart';
 import '../image_pick.dart';
 import '../models/wardrobe_item.dart';
 import '../wardrobe_controller.dart';
@@ -268,6 +269,10 @@ class _HeroImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = item.displayImageUrl;
+    final placeholder = GarmentPlaceholder(
+      category: item.category,
+      color: garmentColorFromHex(item.colorHex),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: ClipRRect(
@@ -278,21 +283,11 @@ class _HeroImage extends StatelessWidget {
             children: [
               Positioned.fill(
                 child: imageUrl == null
-                    ? Container(
-                        color: AppColors.tanFixed,
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.checkroom_outlined,
-                            color: AppColors.espresso, size: 96),
-                      )
+                    ? placeholder
                     : Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          color: AppColors.tanFixed,
-                          alignment: Alignment.center,
-                          child: const Icon(Icons.checkroom_outlined,
-                              color: AppColors.espresso, size: 96),
-                        ),
+                        errorBuilder: (_, _, _) => placeholder,
                       ),
               ),
               Positioned(
