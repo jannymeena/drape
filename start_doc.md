@@ -18,7 +18,10 @@ Quick reference for starting, stopping, and resetting the dev backend. For phase
 ## Start the server
 
 ```bash
-cd <project_dir>/drape && source .venv/bin/activate && cd backend && uvicorn app.main:app --reload
+cd <project_dir>/drape && 
+source .venv/bin/activate && 
+cd backend && 
+uvicorn app.main:app --reload
 ```
 
 **What each part does:**
@@ -40,7 +43,10 @@ cd <project_dir>/drape && source .venv/bin/activate && cd backend && uvicorn app
 ## Get a bearer token for Swagger
 
 ```bash
-cd <project_dir>/drape && source .venv/bin/activate && cd backend && python scripts/seed_dev_user.py
+cd <project_dir>/drape && 
+source .venv/bin/activate && 
+cd backend && 
+python scripts/seed_dev_user.py
 ```
 
 Idempotently creates `dev@example.com / password1` and prints a 24h access token. Click "Authorize" in Swagger and paste the token; all "Try it out" calls send it automatically.
@@ -52,7 +58,10 @@ Idempotently creates `dev@example.com / password1` and prints a 24h access token
 When the dev data gets clumsy and you want a fresh slate without re-running migrations:
 
 ```bash
-cd <project_dir>/drape && source .venv/bin/activate && cd backend && python scripts/reset_dev_db.py
+cd <project_dir>/drape && 
+source .venv/bin/activate && 
+cd backend && 
+python scripts/reset_dev_db.py
 ```
 
 **What it does:**
