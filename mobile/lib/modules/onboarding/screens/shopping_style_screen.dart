@@ -28,6 +28,15 @@ class _ShoppingStyleScreenState extends ConsumerState<ShoppingStyleScreen> {
   // Parallel to [_options]: the backend `ShoppingStyle` literal for each card.
   static const _values = ['womens', 'mens', 'both', 'prefer_not_to_say'];
 
+  @override
+  void initState() {
+    super.initState();
+    // Prefill from the saved profile when resuming onboarding.
+    final saved = ref.read(onboardingControllerProvider).shoppingStyle;
+    final i = saved == null ? -1 : _values.indexOf(saved);
+    if (i != -1) _selected = i;
+  }
+
   static const _options = [
     ('Women’s Fashion', Icons.dry_cleaning_outlined),
     ('Men’s Fashion', Icons.checkroom),

@@ -43,6 +43,16 @@ class _StyleGoalsScreenState extends ConsumerState<StyleGoalsScreen> {
     ('Reduce closet clutter and decision fatigue', Icons.cleaning_services_outlined),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    // Prefill from the saved profile when resuming onboarding.
+    for (final goal in ref.read(onboardingControllerProvider).styleGoals) {
+      final i = _values.indexOf(goal);
+      if (i != -1) _selected.add(i);
+    }
+  }
+
   Future<void> _onContinue() async {
     if (_submitting || _selected.isEmpty) return;
     final goals = [

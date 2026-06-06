@@ -47,8 +47,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     // A status fetch that fails shouldn't strand the user — they have a valid
     // session, so default to Today.
     try {
-      final status =
-          await ref.read(onboardingControllerProvider.notifier).loadStatus();
+      final status = await ref
+          .read(onboardingControllerProvider.notifier)
+          .loadAndHydrate();
       if (!mounted) return;
       if (status.onboardingCompleted || isOnboardingDone(status.nextStep)) {
         context.goNamed(TodayDashboardScreen.name);

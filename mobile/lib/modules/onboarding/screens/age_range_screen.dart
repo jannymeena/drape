@@ -28,6 +28,15 @@ class _AgeRangeScreenState extends ConsumerState<AgeRangeScreen> {
   // Parallel to [_options]: the backend `AgeRange` literal for each card.
   static const _values = ['18-24', '25-34', '35-44', '45-54', '55+', 'prefer_not_to_say'];
 
+  @override
+  void initState() {
+    super.initState();
+    // Prefill from the saved profile when resuming onboarding.
+    final saved = ref.read(onboardingControllerProvider).ageRange;
+    final i = saved == null ? -1 : _values.indexOf(saved);
+    if (i != -1) _selected = i;
+  }
+
   static const _options = [
     '18–24',
     '25–34',

@@ -64,6 +64,22 @@ class OnboardingService {
     }
   }
 
+  /// `GET /profile/measurements` — the user's saved measurements, or null when
+  /// they haven't submitted any yet (the backend returns 404). Used to prefill
+  /// the measurement screens when onboarding is resumed.
+  Future<MeasurementsDraft?> getMeasurements() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/profile/measurements',
+      );
+      return MeasurementsDraft.fromJson(response.data!);
+    } on DioException catch (e) {
+      final err = ApiException.fromDio(e);
+      if (err.statusCode == 404) return null;
+      throw err;
+    }
+  }
+
   /// `GET /starter-wardrobe/templates` — the browsable starter-kit catalogue.
   Future<List<StarterTemplate>> getStarterTemplates() async {
     try {

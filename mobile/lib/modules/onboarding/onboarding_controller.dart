@@ -137,8 +137,30 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     return _service.assignStarterWardrobe(templateId: templateId);
   }
 
-  /// Fetches the resume target on launch. Throws [ApiException] (e.g. 401).
-  Future<OnboardingStatus> loadStatus() => _service.getOnboardingStatus();
+  /// Fetches the resume target on launch *and* seeds the draft from the backend
+  /// so resumed onboarding screens are prefilled with what the user already
+  /// saved (shopping style, age range, style goals, and measurements) instead of
+  /// starting blank. The measurements fetch is best-effort — a 404 (none yet) or
+  /// transient failure leaves them empty rather than blocking the resume.
+  /// Returns the status so the caller can route. Throws [ApiException] only if
+  /// the status fetch itself fails.
+  Future<OnboardingStatus> loadAndHydrate() async {
+    final status = await _service.getOnboardingStatus();
+    MeasurementsDraft? measurements;
+    try {
+      measurements = await _service.getMeasurements();
+    } on ApiException {
+      measurements = null;
+    }
+    state = state.copyWith(
+      shoppingStyle: status.shoppingStyle,
+      ageRange: status.ageRange,
+      styleGoals: status.styleGoals ?? const <String>[],
+      measurements: measurements ?? const MeasurementsDraft(),
+      nextStep: status.nextStep,
+    );
+    return status;
+  }
 }
 
 final onboardingControllerProvider =

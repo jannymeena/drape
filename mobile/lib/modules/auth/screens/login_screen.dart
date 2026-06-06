@@ -7,7 +7,8 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
-import '../../onboarding/screens/shopping_style_screen.dart';
+import '../../onboarding/onboarding_controller.dart';
+import '../../onboarding/resume_route_map.dart';
 import '../../today/screens/today_dashboard_screen.dart';
 import '../auth_controller.dart';
 import '../widgets/oauth_buttons.dart';
@@ -54,16 +55,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      final result = await ref
+      await ref
           .read(authControllerProvider.notifier)
           .loginWithEmail(email: email, password: password);
       if (!mounted) return;
-      // Completed users land on Today; everyone else resumes onboarding.
-      context.goNamed(
-        result.onboardingCompleted
-            ? TodayDashboardScreen.name
-            : ShoppingStyleScreen.name,
-      );
+      // Resolve where to land from the backend status (same as the splash boot),
+      // which also seeds the onboarding draft so a resumed flow is prefilled with
+      // what the user already saved. Completed users land on Today; everyone else
+      // resumes at the step they left off — not back at step 1. A status fetch
+      // failure shouldn't trap a just-authenticated user, so default to Today.
+      try {
+        final status = await ref
+            .read(onboardingControllerProvider.notifier)
+            .loadAndHydrate();
+        if (!mounted) return;
+        context.goNamed(
+          status.onboardingCompleted || isOnboardingDone(status.nextStep)
+              ? TodayDashboardScreen.name
+              : routeForNextStep(status.nextStep),
+        );
+      } on ApiException {
+        if (mounted) context.goNamed(TodayDashboardScreen.name);
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _errorText = e.message);
