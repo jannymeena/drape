@@ -31,24 +31,22 @@ class OutfitCardSkeleton extends StatelessWidget {
         children: [
           Stack(
             children: [
-              AspectRatio(
-                aspectRatio: 4 / 5,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    color: AppColors.ivoryWarm,
-                    padding: const EdgeInsets.all(6),
-                    child: GridView.count(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 6,
-                      mainAxisSpacing: 6,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: List.generate(
-                        4,
-                        (_) => const ShimmerSkeleton(
-                          borderRadius:
-                              BorderRadius.all(Radius.circular(8)),
-                        ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  color: AppColors.ivoryWarm,
+                  padding: const EdgeInsets.all(6),
+                  child: GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 6,
+                    mainAxisSpacing: 6,
+                    childAspectRatio: 1,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: List.generate(
+                      4,
+                      (_) => const ShimmerSkeleton(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
                       ),
                     ),
                   ),

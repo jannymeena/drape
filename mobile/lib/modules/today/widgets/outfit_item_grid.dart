@@ -12,42 +12,34 @@ class GarmentCell {
   const GarmentCell({this.imageUrl, required this.category, this.color});
 }
 
-/// Client-side 2×2 composite of outfit item images.
+/// Client-side composite of an outfit's item images (2 columns, square tiles).
 ///
 /// Backend decision #2: `outfits.image_url` is null by design; the mobile
-/// client composes the visual from up to 4 items. Items without a photo render
-/// a coloured category silhouette; unused slots render a blank tile.
+/// client composes the visual from up to 4 items. The grid **shrink-wraps** to
+/// the number of items, so the card height follows the content: a 2-item outfit
+/// is one short row, a 3–4 item outfit is two rows. No blank padding tiles.
+/// Items without a photo render a coloured category silhouette.
 class OutfitItemGrid extends StatelessWidget {
   final List<GarmentCell> cells;
-  final double aspectRatio;
 
-  const OutfitItemGrid({
-    super.key,
-    required this.cells,
-    this.aspectRatio = 4 / 5,
-  });
+  const OutfitItemGrid({super.key, required this.cells});
 
   @override
   Widget build(BuildContext context) {
-    final padded = List<GarmentCell?>.generate(
-      4,
-      (i) => i < cells.length ? cells[i] : null,
-    );
-
-    return AspectRatio(
-      aspectRatio: aspectRatio,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          color: AppColors.ivoryWarm,
-          padding: const EdgeInsets.all(6),
-          child: GridView.count(
-            crossAxisCount: 2,
-            crossAxisSpacing: 6,
-            mainAxisSpacing: 6,
-            physics: const NeverScrollableScrollPhysics(),
-            children: padded.map((c) => _OutfitGridCell(c)).toList(),
-          ),
+    final items = cells.take(4).toList();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        color: AppColors.ivoryWarm,
+        padding: const EdgeInsets.all(6),
+        child: GridView.count(
+          crossAxisCount: 2,
+          crossAxisSpacing: 6,
+          mainAxisSpacing: 6,
+          childAspectRatio: 1, // square tiles; height grows by the row
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [for (final c in items) _OutfitGridCell(c)],
         ),
       ),
     );
@@ -55,16 +47,13 @@ class OutfitItemGrid extends StatelessWidget {
 }
 
 class _OutfitGridCell extends StatelessWidget {
-  final GarmentCell? cell;
+  final GarmentCell cell;
   const _OutfitGridCell(this.cell);
 
   @override
   Widget build(BuildContext context) {
-    final cell = this.cell;
     final Widget child;
-    if (cell == null) {
-      child = const ColoredBox(color: AppColors.white); // empty slot
-    } else if (cell.imageUrl == null) {
+    if (cell.imageUrl == null) {
       child = GarmentPlaceholder(category: cell.category, color: cell.color);
     } else {
       child = Image.network(
