@@ -6,6 +6,8 @@
 /// `factors` is the list of headline reasons the look holds together.
 library;
 
+import '../../../shared/config/api_config.dart';
+
 class ReasoningItem {
   const ReasoningItem({
     required this.itemId,
@@ -24,7 +26,7 @@ class ReasoningItem {
       itemId: json['item_id'] as String,
       name: json['name'] as String,
       whyItWorks: json['why_it_works'] as String?,
-      imageUrl: json['image_url'] as String?,
+      imageUrl: ApiConfig.resolveImageUrl(json['image_url'] as String?),
     );
   }
 }

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/services/share_service.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/garment_placeholder.dart';
+import '../models/outfit.dart';
 import '../models/outfit_history.dart';
 import '../today_service.dart';
 import '../widgets/streak_pill.dart';
@@ -270,26 +272,10 @@ class _HistoryEntryCard extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Container(
+                child: SizedBox(
                   width: 80,
                   height: 106,
-                  color: AppColors.ivoryWarm,
-                  child: entry.imageUrl == null
-                      ? const Center(
-                          child: Icon(
-                            Icons.checkroom_outlined,
-                            color: AppColors.taupeSoft,
-                            size: 28,
-                          ),
-                        )
-                      : Image.network(
-                          entry.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Icon(
-                            Icons.checkroom_outlined,
-                            color: AppColors.taupeSoft,
-                          ),
-                        ),
+                  child: _HistoryThumbnail(items: entry.items),
                 ),
               ),
               const SizedBox(width: 14),
@@ -354,6 +340,53 @@ class _HistoryEntryCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Thumbnail for a logged outfit. The backend leaves `HistoryEntry.image_url`
+/// null by design (there's no composed outfit image) — the visual is built from
+/// the outfit's own items, mirroring the Today tab's 2×2 grid. We surface the
+/// first item that has a photo; failing that, a coloured category silhouette of
+/// the first item (the app's house placeholder), and only an empty-state hanger
+/// when the outfit carries no items at all.
+class _HistoryThumbnail extends StatelessWidget {
+  final List<OutfitItem> items;
+
+  const _HistoryThumbnail({required this.items});
+
+  Widget _placeholderFor(OutfitItem item) => GarmentPlaceholder(
+        category: item.category,
+        color: garmentColorFromName(item.colorName),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const ColoredBox(
+        color: AppColors.ivoryWarm,
+        child: Center(
+          child: Icon(
+            Icons.checkroom_outlined,
+            color: AppColors.taupeSoft,
+            size: 28,
+          ),
+        ),
+      );
+    }
+
+    final photoItem = items.firstWhere(
+      (i) => i.primaryImageUrl != null && i.primaryImageUrl!.isNotEmpty,
+      orElse: () => items.first,
+    );
+    final url = photoItem.primaryImageUrl;
+    if (url == null || url.isEmpty) {
+      return _placeholderFor(photoItem);
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => _placeholderFor(photoItem),
     );
   }
 }
