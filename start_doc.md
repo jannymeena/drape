@@ -6,10 +6,10 @@ Quick reference for starting, stopping, and resetting the dev backend. For phase
 
 ## Prerequisites
 
-- **Python venv** at `/Users/saai/vazmat/drape/.venv` with deps from `backend/requirements.txt` installed.
+- **Python venv** at `<project_dir>/drape/.venv` with deps from `backend/requirements.txt` installed.
 - **Postgres on port 5433** (the docker-compose container). If you get connection errors, start it:
   ```bash
-  cd /Users/saai/vazmat/drape && docker compose up -d
+  cd <project_dir>/drape && docker compose up -d
   ```
 - **`.env`** in `backend/` with at minimum `MEASUREMENT_DEK_DEV` set. (Generate with `python -c 'import os, base64; print(base64.b64encode(os.urandom(32)).decode())'`.)
 
@@ -18,11 +18,11 @@ Quick reference for starting, stopping, and resetting the dev backend. For phase
 ## Start the server
 
 ```bash
-cd /Users/saai/vazmat/drape && source .venv/bin/activate && cd backend && uvicorn app.main:app --reload
+cd <project_dir>/drape && source .venv/bin/activate && cd backend && uvicorn app.main:app --reload
 ```
 
 **What each part does:**
-- `cd /Users/saai/vazmat/drape` — repo root
+- `cd <project_dir>/drape` — repo root
 - `source .venv/bin/activate` — activate the Python venv (FastAPI, SQLAlchemy, etc.)
 - `cd backend` — uvicorn needs to run from here so `app.main` resolves and `.env` loads
 - `uvicorn app.main:app --reload` — ASGI server on port 8000 with auto-reload on file changes
@@ -40,7 +40,7 @@ cd /Users/saai/vazmat/drape && source .venv/bin/activate && cd backend && uvicor
 ## Get a bearer token for Swagger
 
 ```bash
-cd /Users/saai/vazmat/drape && source .venv/bin/activate && cd backend && python scripts/seed_dev_user.py
+cd <project_dir>/drape && source .venv/bin/activate && cd backend && python scripts/seed_dev_user.py
 ```
 
 Idempotently creates `dev@example.com / password1` and prints a 24h access token. Click "Authorize" in Swagger and paste the token; all "Try it out" calls send it automatically.
@@ -52,7 +52,7 @@ Idempotently creates `dev@example.com / password1` and prints a 24h access token
 When the dev data gets clumsy and you want a fresh slate without re-running migrations:
 
 ```bash
-cd /Users/saai/vazmat/drape && source .venv/bin/activate && cd backend && python scripts/reset_dev_db.py
+cd <project_dir>/drape && source .venv/bin/activate && cd backend && python scripts/reset_dev_db.py
 ```
 
 **What it does:**
@@ -78,7 +78,7 @@ Nukes the Postgres docker volume entirely.
 # Stop the server first (Ctrl+C)
 
 # Wipe the volume + restart Postgres
-cd /Users/saai/vazmat/drape && docker compose down -v && docker compose up -d
+cd <project_dir>/drape && docker compose down -v && docker compose up -d
 
 # Wait ~3s, then re-apply migrations + seed
 source .venv/bin/activate && cd backend && alembic upgrade head && python scripts/seed_dev_user.py
@@ -98,7 +98,7 @@ The fastest way to check that every endpoint is wired and serving correctly. Dou
 **Full smoke run from a clean DB:**
 
 ```bash
-cd /Users/saai/vazmat/drape && source .venv/bin/activate && cd backend && bash api_tests/run_all.sh
+cd <project_dir>/drape && source .venv/bin/activate && cd backend && bash api_tests/run_all.sh
 ```
 
 This resets the DB, then runs scripts 01–08 in order. Each prints `[PASS]` / `[FAIL]` lines; the run exits non-zero on the first failure.
@@ -139,7 +139,7 @@ Structured regression tests with real assertions. Complementary to the bash smok
 Creates `drape_test` Postgres DB + installs pytest stack. Run once per fresh checkout:
 
 ```bash
-cd /Users/saai/vazmat/drape && source .venv/bin/activate && cd backend
+cd <project_dir>/drape && source .venv/bin/activate && cd backend
 pip install -r requirements-dev.txt
 bash tests/init_test_db.sh
 ```
@@ -227,7 +227,7 @@ Coming next: `test_usage.py` (limit + Pro bypass + week-window math), `test_anal
 Each phase ships a verify script that exercises its routes end-to-end against a `_CannedAIProvider` (offline, deterministic):
 
 ```bash
-cd /Users/saai/vazmat/drape && source .venv/bin/activate && cd backend
+cd <project_dir>/drape && source .venv/bin/activate && cd backend
 python scripts/verify_phase_6a.py    # AI + weather providers
 python scripts/verify_phase_6b.py    # wardrobe scanner + batch upload
 python scripts/verify_phase_6c.py    # outfit generation + today + history + mix-and-match
