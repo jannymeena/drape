@@ -26,7 +26,11 @@ class TodayService {
   /// generates the day's outfits via the AI provider if none exist yet, so this
   /// call can take a few seconds on first load. May 400 (`no_wardrobe`) for a
   /// user with no items.
-  Future<TodayDashboard> getDashboard({double? lat, double? lon}) async {
+  /// `GET /today/dashboard` — read-only frame: the shell + any outfits already
+  /// generated today + the occasions still pending (`pending_occasions`). No AI
+  /// runs here, so it returns fast; outfit cards are filled in afterwards via
+  /// [generateOccasion].
+  Future<TodayDashboard> getFrame({double? lat, double? lon}) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/today/dashboard',
@@ -38,6 +42,46 @@ class TodayService {
       return TodayDashboard.fromJson(response.data!);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
+    } catch (_) {
+      // A non-Dio failure (e.g. a `fromJson` type error on an unexpected
+      // payload) must not escape untyped — that would leave the dashboard's
+      // loading state stuck forever. Surface it as a typed, retryable error.
+      throw const ApiException(
+        code: 'parse_error',
+        message: 'Could not read your dashboard. Please try again.',
+      );
+    }
+  }
+
+  /// Deprecated alias for [getFrame], kept briefly so existing callers/tests
+  /// keep compiling. Prefer [getFrame].
+  Future<TodayDashboard> getDashboard({double? lat, double? lon}) =>
+      getFrame(lat: lat, lon: lon);
+
+  /// `POST /today/outfits` — generate (or return the existing) outfit for ONE
+  /// occasion. The dashboard fires one per pending occasion so each card
+  /// resolves independently. Free daily-fill (not weekly-usage-limited) and
+  /// idempotent server-side for an occasion already generated today. Can 502
+  /// (`ai_call_failed`) if the AI provider hard-fails.
+  Future<Outfit> generateOccasion(String occasion,
+      {double? lat, double? lon}) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/today/outfits',
+        data: {
+          'occasion': occasion,
+          'lat': ?lat,
+          'lon': ?lon,
+        },
+      );
+      return Outfit.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    } catch (_) {
+      throw const ApiException(
+        code: 'parse_error',
+        message: 'Could not read the generated outfit. Please try again.',
+      );
     }
   }
 

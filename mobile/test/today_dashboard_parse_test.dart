@@ -92,4 +92,36 @@ void main() {
     expect(u.outfits.percentage, closeTo(76.2, 1e-9));
     expect(u.isPro, isFalse);
   });
+
+  test('TodayDashboard parses wardrobe_ready and pending_occasions', () {
+    final json = Map<String, dynamic>.from(dashboardJson)
+      ..['wardrobe_ready'] = true
+      ..['pending_occasions'] = ['work', 'casual'];
+    final d = TodayDashboard.fromJson(json);
+    expect(d.wardrobeReady, isTrue);
+    expect(d.pendingOccasions, ['work', 'casual']);
+  });
+
+  test('wardrobe_ready and pending_occasions default when absent', () {
+    final d = TodayDashboard.fromJson(dashboardJson); // omits both
+    expect(d.wardrobeReady, isFalse);
+    expect(d.pendingOccasions, isEmpty);
+  });
+
+  test('toJson round-trips through fromJson (cache fidelity)', () {
+    final json = Map<String, dynamic>.from(dashboardJson)
+      ..['wardrobe_ready'] = true
+      ..['pending_occasions'] = ['date_night'];
+    final roundTripped =
+        TodayDashboard.fromJson(TodayDashboard.fromJson(json).toJson());
+    expect(roundTripped.user.name, 'Alex');
+    expect(roundTripped.outfits, hasLength(1));
+    expect(roundTripped.outfits.first.occasion, 'date_night');
+    expect(roundTripped.outfits.first.compatibilityScore, 92);
+    expect(roundTripped.outfits.first.items, hasLength(2));
+    expect(roundTripped.weather!.tempC, 14.0);
+    expect(roundTripped.usage.outfitsGeneratedToday, 3);
+    expect(roundTripped.wardrobeReady, isTrue);
+    expect(roundTripped.pendingOccasions, ['date_night']);
+  });
 }

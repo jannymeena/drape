@@ -87,6 +87,19 @@ class GenerateOutfitsResponse(BaseModel):
     using_starter_wardrobe: bool
 
 
+class GenerateOccasionRequest(BaseModel):
+    """Single-occasion generation for the Today dashboard's incremental fill.
+
+    The client fires one of these per pending occasion (in parallel) so each
+    outfit card resolves independently instead of waiting on a 3-call batch.
+    Unlike `/today/generate-outfits`, this is part of the free daily fill and
+    does not consume a weekly outfit credit."""
+
+    occasion: Occasion
+    lat: float | None = None
+    lon: float | None = None
+
+
 class TodayUser(BaseModel):
     name: str
     location: str | None
@@ -114,6 +127,13 @@ class TodayDashboardResponse(BaseModel):
     outfits: list[OutfitResponse]
     usage: TodayUsage
     banners: TodayBanners
+    # The dashboard is now read-only: it no longer generates outfits inline.
+    # `wardrobe_ready` tells the client whether outfit generation is possible at
+    # all (>= 2 items); `pending_occasions` is the set of occasions that still
+    # need a today-outfit. The client renders a skeleton per pending occasion and
+    # fills each via POST /today/outfits. Defaults keep older clients compatible.
+    wardrobe_ready: bool = False
+    pending_occasions: list[Occasion] = Field(default_factory=list)
 
 
 class ReasoningItem(BaseModel):

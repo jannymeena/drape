@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
 import '../../shared/providers/network_provider.dart';
+import '../../shared/services/dashboard_cache.dart';
 import '../../shared/services/session_store.dart';
 import '../../shared/services/storage_service.dart';
 import 'auth_service.dart';
@@ -138,6 +139,9 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> _clearSession() async {
     await _storage.clearAll();
     await SessionStore.clear();
+    // Drop the cached dashboard so a different account on this device never
+    // sees the previous user's outfits before the fresh frame loads.
+    await DashboardCache().clear();
     state = const AuthState();
   }
 

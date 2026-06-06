@@ -639,6 +639,56 @@ def _today_outfits(db: Session, *, user_id: UUID) -> list[Outfit]:
     )
 
 
+def wardrobe_ready(db: Session, *, user_id: UUID) -> bool:
+    """True when the user has enough items to form an outfit (>= the proposal
+    minimum). The dashboard uses this to choose between the 'add items' empty
+    state and the generating/skeleton state."""
+    return len(_user_wardrobe(db, user_id=user_id)) >= _MIN_ITEMS_PER_OUTFIT
+
+
+def pending_occasions(db: Session, *, user_id: UUID) -> list[Occasion]:
+    """Default occasions that still lack a today-outfit, in canonical order.
+
+    Drives the dashboard's per-occasion skeletons. Empty when the wardrobe isn't
+    ready (nothing can be generated) or every default occasion already has one."""
+    if not wardrobe_ready(db, user_id=user_id):
+        return []
+    have = {o.occasion for o in _today_outfits(db, user_id=user_id)}
+    return [occ for occ in DEFAULT_OCCASIONS if occ not in have]
+
+
+async def ensure_one(
+    *,
+    db: Session,
+    user: User,
+    ai: AIProvider,
+    weather: WeatherProvider,
+    occasion: Occasion,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+) -> Outfit:
+    """Idempotent single-occasion generation for the dashboard's incremental fill.
+
+    Returns the existing today-outfit for `occasion` if one is already present
+    (no AI call, so a double-fire from the client is cheap), otherwise generates
+    and persists a fresh one via `generate_one`. This is the *free* daily-fill
+    path — callers must NOT charge weekly usage for it, matching the prior
+    inline-dashboard-generation behaviour.
+    """
+    for existing in _today_outfits(db, user_id=user.id):
+        if existing.occasion == occasion:
+            return existing
+    return await generate_one(
+        db=db,
+        user=user,
+        ai=ai,
+        weather=weather,
+        occasion=occasion,
+        lat=lat,
+        lon=lon,
+    )
+
+
 async def load_dashboard_outfits(
     *,
     db: Session,

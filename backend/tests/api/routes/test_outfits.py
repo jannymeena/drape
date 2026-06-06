@@ -17,7 +17,7 @@ from datetime import date, timedelta
 import pytest
 from sqlalchemy import select
 
-from app.db.models import Outfit, StreakTracking
+from app.db.models import Outfit, StreakTracking, WardrobeItem
 from tests.factories import make_outfit, make_starter_wardrobe
 
 
@@ -27,12 +27,15 @@ from tests.factories import make_outfit, make_starter_wardrobe
 
 
 def test_dashboard_with_empty_wardrobe_returns_empty_state(authed_client):
-    # Too few items to compose an outfit: the dashboard degrades to a 200 with
-    # no outfits (the client renders its "add a few items" empty state) rather
-    # than erroring. Explicit force-generate still returns a clean 400 below.
+    # Too few items to compose an outfit: the dashboard is a 200 with no outfits
+    # and nothing pending (the client renders its "add a few items" empty state).
+    # Explicit force-generate still returns a clean 400 below.
     r = authed_client.get("/api/v1/today/dashboard")
     assert r.status_code == 200, r.text
-    assert r.json()["outfits"] == []
+    body = r.json()
+    assert body["outfits"] == []
+    assert body["wardrobe_ready"] is False
+    assert body["pending_occasions"] == []
 
 
 def test_force_generate_with_empty_wardrobe_returns_400(authed_client):
@@ -65,44 +68,53 @@ def test_dashboard_with_single_item_wardrobe_does_not_500(authed_client, db):
     make_starter_wardrobe(db, authed_client.test_user, count=1)
     r = authed_client.get("/api/v1/today/dashboard")
     assert r.status_code == 200, r.text
-    assert r.json()["outfits"] == []
+    body = r.json()
+    assert body["outfits"] == []
+    assert body["wardrobe_ready"] is False
+    assert body["pending_occasions"] == []
 
 
-def test_dashboard_with_starter_wardrobe_returns_3_outfits(authed_client, db):
+def test_dashboard_read_only_returns_pending_not_generated(authed_client, db):
+    # The dashboard is read-only now: a ready wardrobe with no outfits yet
+    # returns an empty `outfits` list plus the three default occasions as
+    # `pending_occasions`. The client generates them via POST /today/outfits.
     make_starter_wardrobe(db, authed_client.test_user, count=9)
     r = authed_client.get("/api/v1/today/dashboard")
     assert r.status_code == 200, r.text
     body = r.json()
-    assert len(body["outfits"]) == 3
-    assert body["banners"]["starter_wardrobe"] is True
-    # Every item id in every outfit must come from this user's wardrobe.
-    user_item_ids = {
-        str(i.id)
-        for i in db.query(__import__("app.db.models", fromlist=["WardrobeItem"]).WardrobeItem)
-        .filter_by(user_id=authed_client.test_user.id)
-        .all()
-    }
-    for outfit in body["outfits"]:
-        for it in outfit["items"]:
-            assert it["item_id"] in user_item_ids
+    assert body["outfits"] == []
+    assert body["wardrobe_ready"] is True
+    assert body["pending_occasions"] == ["work", "casual", "date_night"]
+    assert body["banners"]["starter_wardrobe"] is False  # no starter outfits yet
+    # No AI ran: the read path must not have created any outfit rows.
+    assert (
+        db.query(Outfit).filter_by(user_id=authed_client.test_user.id).count() == 0
+    )
 
 
-def test_dashboard_caches_today_outfits_across_reads(authed_client, db):
-    """Second call returns the same SET of outfits as the first — the route
-    short-circuits when ≥3 outfits exist for today. We don't assert order
-    because the service doesn't promise it (created_at can collide at the
-    microsecond and `ORDER BY created_at DESC` has no tie-breaker)."""
-    make_starter_wardrobe(db, authed_client.test_user, count=9)
+def test_dashboard_returns_existing_today_outfits_and_remaining_pending(
+    authed_client, db
+):
+    """The read-only dashboard surfaces outfits already generated today and only
+    lists the occasions that still need one. Stable across reads (we don't
+    assert order — created_at can collide at the microsecond)."""
+    items = make_starter_wardrobe(db, authed_client.test_user, count=9)
+    make_outfit(db, authed_client.test_user, occasion="work", items=items[:4])
+    make_outfit(db, authed_client.test_user, occasion="casual", items=items[:4])
     first = authed_client.get("/api/v1/today/dashboard").json()
     second = authed_client.get("/api/v1/today/dashboard").json()
     assert {o["id"] for o in first["outfits"]} == {o["id"] for o in second["outfits"]}
+    assert len(first["outfits"]) == 2
+    # work + casual already exist → only date_night remains pending.
+    assert first["pending_occasions"] == ["date_night"]
 
 
-def test_dashboard_outfit_image_url_is_null(authed_client, db):
+def test_generated_outfit_image_url_is_null(authed_client, db):
     """Decision #2: server doesn't render flat-lay composites."""
     make_starter_wardrobe(db, authed_client.test_user, count=9)
-    body = authed_client.get("/api/v1/today/dashboard").json()
-    assert all(o["image_url"] is None for o in body["outfits"])
+    r = authed_client.post("/api/v1/today/outfits", json={"occasion": "work"})
+    assert r.status_code == 200, r.text
+    assert r.json()["image_url"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +134,61 @@ def test_generate_force_creates_outfits_with_requested_occasion(authed_client, d
 def test_generate_with_no_wardrobe_returns_400(authed_client):
     r = authed_client.post("/api/v1/today/generate-outfits", json={"occasions": ["work"]})
     assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# /today/outfits  (per-occasion dashboard fill — free + idempotent)
+# ---------------------------------------------------------------------------
+
+
+def test_generate_occasion_creates_one_outfit(authed_client, db):
+    make_starter_wardrobe(db, authed_client.test_user, count=9)
+    r = authed_client.post("/api/v1/today/outfits", json={"occasion": "work"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["occasion"] == "work"
+    assert 2 <= len(body["items"]) <= 6
+    user_item_ids = {
+        str(i.id)
+        for i in db.query(WardrobeItem)
+        .filter_by(user_id=authed_client.test_user.id)
+        .all()
+    }
+    for it in body["items"]:
+        assert it["item_id"] in user_item_ids
+
+
+def test_generate_occasion_does_not_consume_usage(authed_client, db):
+    # The daily fill is free — it must NOT count against the weekly outfit limit
+    # (mirrors the old inline dashboard generation). Only manual regenerate does.
+    make_starter_wardrobe(db, authed_client.test_user, count=9)
+    before = authed_client.get("/api/v1/usage/current-week").json()["outfits"]["used"]
+    authed_client.post("/api/v1/today/outfits", json={"occasion": "work"})
+    authed_client.post("/api/v1/today/outfits", json={"occasion": "casual"})
+    after = authed_client.get("/api/v1/usage/current-week").json()["outfits"]["used"]
+    assert before == 0
+    assert after == 0
+
+
+def test_generate_occasion_is_idempotent(authed_client, db):
+    # A double-fire for the same occasion returns the same outfit and creates
+    # only one row (guards a rapid client refresh).
+    make_starter_wardrobe(db, authed_client.test_user, count=9)
+    first = authed_client.post("/api/v1/today/outfits", json={"occasion": "work"})
+    second = authed_client.post("/api/v1/today/outfits", json={"occasion": "work"})
+    assert first.status_code == 200 and second.status_code == 200
+    assert first.json()["id"] == second.json()["id"]
+    rows = (
+        db.query(Outfit)
+        .filter_by(user_id=authed_client.test_user.id, occasion="work")
+        .count()
+    )
+    assert rows == 1
+
+
+def test_generate_occasion_with_no_wardrobe_returns_400(authed_client):
+    r = authed_client.post("/api/v1/today/outfits", json={"occasion": "work"})
+    assert r.status_code == 400, r.text
 
 
 # ---------------------------------------------------------------------------

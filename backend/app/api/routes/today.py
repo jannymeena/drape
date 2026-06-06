@@ -19,6 +19,7 @@ from app.api.dependencies.providers import get_ai_provider, get_weather_provider
 from app.db.models import User
 from app.db.session import get_db
 from app.schemas.outfit import (
+    GenerateOccasionRequest,
     GenerateOutfitsRequest,
     GenerateOutfitsResponse,
     OutfitResponse,
@@ -109,25 +110,23 @@ async def dashboard(
     lon: float | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    ai: AIProvider = Depends(get_ai_provider),
     weather: WeatherProvider = Depends(get_weather_provider),
 ) -> TodayDashboardResponse:
-    # Real device coords from the client personalize the weather; absent (e.g.
-    # location permission denied) the service falls back to its Toronto default.
-    request = GenerateOutfitsRequest(lat=lat, lon=lon)
-    try:
-        outfits, _ = await outfit_service.load_dashboard_outfits(
-            db=db, user=user, ai=ai, weather=weather, request=request
-        )
-    except OutfitError as e:
-        raise _translate(e)
+    # Read-only frame: the shell + any outfits already generated today + the
+    # occasions still pending. Generation happens out-of-band via
+    # POST /today/outfits, so the client paints the shell instantly and fills
+    # each card as its AI call returns. No AI provider needed here.
+    outfits = outfit_service._today_outfits(db, user_id=user.id)[:DAILY_OUTFIT_TARGET]
+    ready = outfit_service.wardrobe_ready(db, user_id=user.id)
+    pending = outfit_service.pending_occasions(db, user_id=user.id) if ready else []
 
     weather_ctx = None
     if outfits and outfits[0].weather_context:
         weather_ctx = WeatherContext.model_validate(outfits[0].weather_context)
     else:
-        # No outfits (e.g. empty wardrobe path returns 400 above), but try a
-        # direct weather lookup so the dashboard can still show conditions.
+        # No outfit to borrow weather from yet — do a direct lookup so the chip
+        # still shows conditions while the outfit cards generate. Real device
+        # coords personalize it; absent, the service falls back to Toronto.
         try:
             snap = await weather.current(
                 lat if lat is not None else 43.65,
@@ -160,7 +159,37 @@ async def dashboard(
             starter_wardrobe=_is_starter_wardrobe_active(outfits),
             incomplete_profile=_profile_incomplete(user),
         ),
+        wardrobe_ready=ready,
+        pending_occasions=pending,
     )
+
+
+@router.post("/outfits", response_model=OutfitResponse)
+async def generate_occasion(
+    payload: GenerateOccasionRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    ai: AIProvider = Depends(get_ai_provider),
+    weather: WeatherProvider = Depends(get_weather_provider),
+) -> OutfitResponse:
+    """Generate (or return the existing) outfit for ONE occasion — the Today
+    dashboard's per-occasion fill. Idempotent for an occasion already generated
+    today. Part of the free daily set: it does NOT consume a weekly outfit
+    credit (mirrors the old inline dashboard generation). Manual regeneration
+    via POST /outfits/{id}/regenerate is what counts against the limit."""
+    try:
+        outfit = await outfit_service.ensure_one(
+            db=db,
+            user=user,
+            ai=ai,
+            weather=weather,
+            occasion=payload.occasion,
+            lat=payload.lat,
+            lon=payload.lon,
+        )
+    except OutfitError as e:
+        raise _translate(e)
+    return _to_outfit_response(outfit)
 
 
 @router.post("/generate-outfits", response_model=GenerateOutfitsResponse)

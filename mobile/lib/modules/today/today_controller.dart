@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
+import '../../shared/providers/network_provider.dart';
+import '../../shared/services/dashboard_cache.dart';
 import '../../shared/services/location_service.dart';
 import 'models/log_outfit_result.dart';
 import 'models/outfit.dart';
@@ -10,45 +12,62 @@ import 'models/today_dashboard.dart';
 import 'models/usage.dart';
 import 'today_service.dart';
 
-/// State for the Today dashboard. [dashboard] is the source of truth for the
-/// home tab; [usage] backs the weekly-limit banner and is best-effort (a usage
-/// fetch failure must not blank the dashboard). [error] is set only when the
-/// dashboard itself fails to load.
+/// State for the Today dashboard.
 ///
-/// [regeneratingIds] / [loggingIds] track per-card actions in flight so each
-/// outfit can show its own spinner without blocking the rest of the list.
+/// The dashboard now loads in two stages so the shell paints instantly:
+///   1. [dashboard] is the read-only *frame* (greeting, weather, banners, plus
+///      any outfits already generated today). [frameLoading]/[frameError] track
+///      that fetch.
+///   2. Outfit cards are filled in per-occasion. [pendingOccasions] are the
+///      occasions still generating (each shows a skeleton + is in flight, so it
+///      doubles as the double-fire guard); [failedOccasions] map an occasion to
+///      the error that stopped it (each shows a retry chip). A filled occasion
+///      lands in [dashboard].outfits.
+///
+/// [usage] backs the weekly-limit banner and is best-effort. [regeneratingIds]/
+/// [loggingIds] track per-card actions in flight (regenerate / log).
 class TodayState {
   const TodayState({
-    this.loading = false,
+    this.frameLoading = false,
     this.dashboard,
     this.usage,
-    this.error,
+    this.frameError,
+    this.pendingOccasions = const {},
+    this.failedOccasions = const {},
     this.regeneratingIds = const {},
     this.loggingIds = const {},
   });
 
-  final bool loading;
+  final bool frameLoading;
   final TodayDashboard? dashboard;
   final CurrentWeekUsage? usage;
-  final ApiException? error;
+  final ApiException? frameError;
+  final Set<String> pendingOccasions;
+  final Map<String, ApiException> failedOccasions;
   final Set<String> regeneratingIds;
   final Set<String> loggingIds;
 
   bool get hasData => dashboard != null;
 
+  /// Whether any occasion is still being styled (drives the progress copy).
+  bool get isGenerating => pendingOccasions.isNotEmpty;
+
   TodayState copyWith({
-    bool? loading,
+    bool? frameLoading,
     TodayDashboard? dashboard,
     CurrentWeekUsage? usage,
-    ApiException? error,
+    Set<String>? pendingOccasions,
+    Map<String, ApiException>? failedOccasions,
     Set<String>? regeneratingIds,
     Set<String>? loggingIds,
   }) {
     return TodayState(
-      loading: loading ?? this.loading,
+      frameLoading: frameLoading ?? this.frameLoading,
       dashboard: dashboard ?? this.dashboard,
       usage: usage ?? this.usage,
-      error: error ?? this.error,
+      frameError: frameError,
+      pendingOccasions: pendingOccasions ?? this.pendingOccasions,
+      failedOccasions: failedOccasions ?? this.failedOccasions,
       regeneratingIds: regeneratingIds ?? this.regeneratingIds,
       loggingIds: loggingIds ?? this.loggingIds,
     );
@@ -56,40 +75,165 @@ class TodayState {
 }
 
 class TodayController extends StateNotifier<TodayState> {
-  TodayController(this._service) : super(const TodayState());
+  TodayController(this._service, this._cache) : super(const TodayState());
 
   final TodayService _service;
+  final DashboardCache _cache;
 
-  /// Loads the dashboard (required) and weekly usage (best-effort) in parallel.
-  /// Keeps any previously loaded data visible while refreshing; resets the
-  /// transient per-card busy sets (a full reload supersedes them).
-  Future<void> load() async {
+  /// Device coords from the most recent [loadFrame], reused so each per-occasion
+  /// fill personalizes weather the same way the frame did.
+  DeviceCoords? _coords;
+
+  /// Loads the read-only frame (fast) and weekly usage (best-effort), then fans
+  /// out per-occasion generation in PARALLEL. Keeps any previously loaded
+  /// dashboard visible while refreshing (stale-while-revalidate), and never
+  /// leaves [frameLoading] stuck — every exit clears it.
+  Future<void> loadFrame() async {
+    // Stale-while-revalidate: paint last-known outfits instantly on cold start.
+    // Display-only — we never fan out from the cached pending set; the fresh
+    // frame below is authoritative for what still needs generating.
+    if (state.dashboard == null) {
+      final cached = await _cache.load();
+      if (cached != null && state.dashboard == null) {
+        state = state.copyWith(dashboard: cached);
+      }
+    }
+
     state = TodayState(
-      loading: true,
+      frameLoading: true,
       dashboard: state.dashboard,
       usage: state.usage,
+      pendingOccasions: state.pendingOccasions,
+      failedOccasions: state.failedOccasions,
+      regeneratingIds: state.regeneratingIds,
+      loggingIds: state.loggingIds,
     );
 
-    // Best-effort device location for personalized weather; null falls back to
-    // the backend default. Done before the dashboard call so coords ride along.
+    // Best-effort device location; null falls back to the backend default.
     final coords = await currentDeviceCoords();
+    _coords = coords;
 
-    // Start both concurrently; usage carries its own catch so a failure there
-    // never surfaces as an unhandled error if the dashboard throws first.
-    final dashboardFuture =
-        _service.getDashboard(lat: coords?.lat, lon: coords?.lon);
     final Future<CurrentWeekUsage?> usageFuture = _service
         .getCurrentWeekUsage()
         .then<CurrentWeekUsage?>((u) => u)
         .catchError((_) => null);
 
+    final TodayDashboard frame;
     try {
-      final dashboard = await dashboardFuture;
-      final usage = await usageFuture;
-      state = TodayState(dashboard: dashboard, usage: usage);
+      frame = await _service.getFrame(lat: coords?.lat, lon: coords?.lon);
     } on ApiException catch (e) {
-      state = TodayState(error: e, dashboard: state.dashboard, usage: state.usage);
+      _setFrameError(e, await usageFuture);
+      return;
+    } catch (_) {
+      _setFrameError(
+        const ApiException(
+          code: 'error',
+          message:
+              'Something went wrong loading your dashboard. Please try again.',
+        ),
+        await usageFuture,
+      );
+      return;
     }
+
+    final usage = await usageFuture;
+    final framePending = frame.pendingOccasions.toSet();
+    // Fire only occasions not already in flight (guards rapid pull-to-refresh).
+    final toFire = framePending.difference(state.pendingOccasions);
+    // Drop stale failures the frame no longer reports as pending (e.g. filled
+    // on another device); keep failures still pending so their retry chip stays.
+    final failed = {
+      for (final entry in state.failedOccasions.entries)
+        if (framePending.contains(entry.key) && !toFire.contains(entry.key))
+          entry.key: entry.value,
+    };
+
+    state = TodayState(
+      dashboard: frame,
+      usage: usage,
+      pendingOccasions: framePending.difference(failed.keys.toSet()),
+      failedOccasions: failed,
+      regeneratingIds: state.regeneratingIds,
+      loggingIds: state.loggingIds,
+    );
+    _persist();
+
+    for (final occasion in toFire) {
+      unawaited(_fill(occasion));
+    }
+  }
+
+  /// Persists the current dashboard (frame + filled outfits) for the next cold
+  /// start. Best-effort — failures are swallowed by [DashboardCache].
+  void _persist() {
+    final dashboard = state.dashboard;
+    if (dashboard != null) unawaited(_cache.save(dashboard));
+  }
+
+  void _setFrameError(ApiException error, CurrentWeekUsage? usage) {
+    state = TodayState(
+      frameError: error,
+      dashboard: state.dashboard,
+      usage: usage ?? state.usage,
+      pendingOccasions: state.pendingOccasions,
+      failedOccasions: state.failedOccasions,
+      regeneratingIds: state.regeneratingIds,
+      loggingIds: state.loggingIds,
+    );
+  }
+
+  /// Generates one occasion's outfit and folds it into the dashboard. A failure
+  /// is isolated to that occasion (its card flips to a retry chip); the rest of
+  /// the dashboard is untouched.
+  Future<void> _fill(String occasion) async {
+    try {
+      final outfit = await _service.generateOccasion(
+        occasion,
+        lat: _coords?.lat,
+        lon: _coords?.lon,
+      );
+      final dashboard = state.dashboard;
+      if (dashboard == null) return;
+      // Replace any existing outfit for this occasion, else append.
+      final outfits = [
+        for (final o in dashboard.outfits)
+          if (o.occasion != occasion) o,
+        outfit,
+      ];
+      state = state.copyWith(
+        dashboard: dashboard.copyWith(outfits: outfits),
+        pendingOccasions: {...state.pendingOccasions}..remove(occasion),
+        failedOccasions: {...state.failedOccasions}..remove(occasion),
+      );
+      _persist();
+    } on ApiException catch (e) {
+      _markOccasionFailed(occasion, e);
+    } catch (_) {
+      _markOccasionFailed(
+        occasion,
+        const ApiException(
+          code: 'error',
+          message: 'Could not style this look. Tap to try again.',
+        ),
+      );
+    }
+  }
+
+  void _markOccasionFailed(String occasion, ApiException error) {
+    state = state.copyWith(
+      pendingOccasions: {...state.pendingOccasions}..remove(occasion),
+      failedOccasions: {...state.failedOccasions, occasion: error},
+    );
+  }
+
+  /// Retries a previously failed occasion. No-op if it's already generating.
+  Future<void> retryOccasion(String occasion) async {
+    if (state.pendingOccasions.contains(occasion)) return;
+    state = state.copyWith(
+      pendingOccasions: {...state.pendingOccasions, occasion},
+      failedOccasions: {...state.failedOccasions}..remove(occasion),
+    );
+    await _fill(occasion);
   }
 
   /// Regenerates one outfit in place. The backend returns a *new* outfit row
@@ -207,5 +351,8 @@ class TodayController extends StateNotifier<TodayState> {
 
 final todayControllerProvider =
     StateNotifierProvider<TodayController, TodayState>((ref) {
-  return TodayController(ref.read(todayServiceProvider));
+  return TodayController(
+    ref.read(todayServiceProvider),
+    ref.read(dashboardCacheProvider),
+  );
 });

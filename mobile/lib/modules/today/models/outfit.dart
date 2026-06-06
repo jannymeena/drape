@@ -38,6 +38,17 @@ class OutfitItem {
       isStarterWardrobe: json['is_starter_wardrobe'] as bool? ?? false,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'item_id': itemId,
+        'name': name,
+        'category': category,
+        'primary_image_url': primaryImageUrl,
+        'color_name': colorName,
+        'formality': formality,
+        'why_it_works': whyItWorks,
+        'is_starter_wardrobe': isStarterWardrobe,
+      };
 }
 
 class WeatherContext {
@@ -64,6 +75,14 @@ class WeatherContext {
       windKph: (json['wind_kph'] as num?)?.toDouble(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'temp_c': tempC,
+        'feels_like_c': feelsLikeC,
+        'condition': condition,
+        'humidity_pct': humidityPct,
+        'wind_kph': windKph,
+      };
 }
 
 class Outfit {
@@ -156,4 +175,20 @@ class Outfit {
           : DateTime.parse(json['logged_at'] as String),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'occasion': occasion,
+        'items': items.map((i) => i.toJson()).toList(),
+        'using_starter_wardrobe': usingStarterWardrobe,
+        'is_logged': isLogged,
+        'worn_count': wornCount,
+        'is_favorite': isFavorite,
+        'image_url': imageUrl,
+        'ai_reasoning_short': aiReasoningShort,
+        'ai_reasoning_full': aiReasoningFull,
+        'compatibility_score': compatibilityScore,
+        'weather_context': weatherContext?.toJson(),
+        'logged_at': loggedAt?.toIso8601String(),
+      };
 }

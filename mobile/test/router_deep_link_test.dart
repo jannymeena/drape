@@ -11,15 +11,16 @@ import 'package:mobile/modules/wardrobe/models/wardrobe_item.dart';
 import 'package:mobile/modules/wardrobe/screens/item_detail_screen.dart';
 import 'package:mobile/modules/wardrobe/wardrobe_service.dart';
 import 'package:mobile/shared/providers/router_provider.dart';
+import 'package:mobile/shared/services/dashboard_cache.dart';
 import 'package:mobile/shared/services/session_store.dart';
 
 /// A Today controller that never touches the network, so building the Today
 /// branch (which the reasoning deep link sits under) doesn't fire a real
 /// dashboard fetch during these routing-only tests.
 class _StubTodayController extends TodayController {
-  _StubTodayController() : super(TodayService(Dio()));
+  _StubTodayController() : super(TodayService(Dio()), DashboardCache());
   @override
-  Future<void> load() async {}
+  Future<void> loadFrame() async {}
 }
 
 /// A wardrobe service that returns canned data instantly, so the wardrobe

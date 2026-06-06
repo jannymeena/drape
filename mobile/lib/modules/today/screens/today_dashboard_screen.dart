@@ -5,12 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/log_outfit_result.dart';
+import '../models/outfit.dart';
 import '../models/today_dashboard.dart';
 import '../models/usage.dart';
 import '../today_controller.dart';
 import '../widgets/mix_match_sheet.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
+import '../../../shared/widgets/shimmer_skeleton.dart';
 import '../widgets/outfit_card.dart';
+import '../widgets/outfit_card_skeleton.dart';
 import '../widgets/outfit_item_grid.dart';
 import '../widgets/usage_warning_banner.dart';
 import '../widgets/weather_chip.dart';
@@ -36,7 +39,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
   void initState() {
     super.initState();
     // Defer past the first frame so we don't mutate the provider during build.
-    Future.microtask(() => ref.read(todayControllerProvider.notifier).load());
+    Future.microtask(
+        () => ref.read(todayControllerProvider.notifier).loadFrame());
   }
 
   Future<void> _onRegenerate(String outfitId) async {
@@ -148,19 +152,21 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
 
   Widget _body(TodayState state) {
     if (!state.hasData) {
-      if (state.loading) return const _DashboardLoading();
-      if (state.error != null) {
+      if (state.frameLoading) return const _FrameLoading();
+      if (state.frameError != null) {
         return _DashboardError(
-          message: state.error!.message,
-          onRetry: () => ref.read(todayControllerProvider.notifier).load(),
+          message: state.frameError!.message,
+          onRetry: () =>
+              ref.read(todayControllerProvider.notifier).loadFrame(),
         );
       }
       return const SizedBox.shrink();
     }
 
     final dashboard = state.dashboard!;
+    final pickWidgets = _pickWidgets(state, dashboard);
     return RefreshIndicator(
-      onRefresh: () => ref.read(todayControllerProvider.notifier).load(),
+      onRefresh: () => ref.read(todayControllerProvider.notifier).loadFrame(),
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _TopBar()),
@@ -230,7 +236,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
                       ),
                     ),
                     Text(
-                      '${dashboard.outfits.length} RECOMMENDED',
+                      _picksStatusLabel(state, dashboard),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                             color: AppColors.taupe,
                             letterSpacing: 1.4,
@@ -239,7 +245,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                if (dashboard.outfits.isEmpty) const _NoOutfits(),
+                if (!dashboard.wardrobeReady) const _AddItemsEmptyState(),
               ]),
             ),
           ),
@@ -247,44 +253,96 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
-                (_, i) {
-                  final outfit = dashboard.outfits[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: OutfitCard(
-                      outfit: OutfitCardData(
-                        id: outfit.id,
-                        occasion: outfit.occasionLabel,
-                        items: [
-                          for (final i in outfit.items)
-                            GarmentCell(
-                              imageUrl: i.primaryImageUrl,
-                              category: i.category,
-                              color: garmentColorFromName(i.colorName),
-                            ),
-                        ],
-                        reasoning: outfit.aiReasoningShort ?? '',
-                        logged: outfit.isLogged,
-                        favorited: outfit.isFavorite,
-                      ),
-                      regenerating: state.regeneratingIds.contains(outfit.id),
-                      logging: state.loggingIds.contains(outfit.id),
-                      onRegenerate: () => _onRegenerate(outfit.id),
-                      onLogWorn: () => _onLogWorn(outfit.id),
-                      onMix: () => MixMatchSheet.show(context, outfit),
-                      onFavorite: () => _onFavorite(outfit.id),
-                      onLearnMore: () => context.goNamed(
-                        AiReasoningDetailScreen.name,
-                        pathParameters: {'id': outfit.id},
-                      ),
-                    ),
-                  );
-                },
-                childCount: dashboard.outfits.length,
+                (_, i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: pickWidgets[i],
+                ),
+                childCount: pickWidgets.length,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  static const _occasionOrder = ['work', 'casual', 'date_night', 'gym', 'other'];
+
+  int _occasionRank(String occasion) {
+    final i = _occasionOrder.indexOf(occasion);
+    return i == -1 ? _occasionOrder.length : i;
+  }
+
+  String _occasionLabel(String occasion) => occasion
+      .split('_')
+      .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+      .join(' ');
+
+  /// The "Today's Picks" status line — generation progress while filling,
+  /// otherwise the recommended count.
+  String _picksStatusLabel(TodayState state, TodayDashboard dashboard) {
+    if (!dashboard.wardrobeReady) return '';
+    final done = dashboard.outfits.length;
+    if (state.pendingOccasions.isNotEmpty) {
+      final total =
+          done + state.pendingOccasions.length + state.failedOccasions.length;
+      return 'STYLING $done OF $total…';
+    }
+    return '$done RECOMMENDED';
+  }
+
+  /// Builds the picks list: real outfit cards, then a skeleton per occasion
+  /// still generating, then a retry card per occasion that failed.
+  List<Widget> _pickWidgets(TodayState state, TodayDashboard dashboard) {
+    final widgets = <Widget>[
+      for (final outfit in dashboard.outfits) _outfitCard(state, outfit),
+    ];
+
+    final pending = state.pendingOccasions.toList()
+      ..sort((a, b) => _occasionRank(a).compareTo(_occasionRank(b)));
+    for (final occasion in pending) {
+      widgets.add(OutfitCardSkeleton(occasionLabel: _occasionLabel(occasion)));
+    }
+
+    final failed = state.failedOccasions.keys.toList()
+      ..sort((a, b) => _occasionRank(a).compareTo(_occasionRank(b)));
+    for (final occasion in failed) {
+      widgets.add(OutfitOccasionRetryCard(
+        occasionLabel: _occasionLabel(occasion),
+        message: state.failedOccasions[occasion]!.message,
+        onRetry: () =>
+            ref.read(todayControllerProvider.notifier).retryOccasion(occasion),
+      ));
+    }
+    return widgets;
+  }
+
+  Widget _outfitCard(TodayState state, Outfit outfit) {
+    return OutfitCard(
+      outfit: OutfitCardData(
+        id: outfit.id,
+        occasion: outfit.occasionLabel,
+        items: [
+          for (final i in outfit.items)
+            GarmentCell(
+              imageUrl: i.primaryImageUrl,
+              category: i.category,
+              color: garmentColorFromName(i.colorName),
+            ),
+        ],
+        reasoning: outfit.aiReasoningShort ?? '',
+        logged: outfit.isLogged,
+        favorited: outfit.isFavorite,
+      ),
+      regenerating: state.regeneratingIds.contains(outfit.id),
+      logging: state.loggingIds.contains(outfit.id),
+      onRegenerate: () => _onRegenerate(outfit.id),
+      onLogWorn: () => _onLogWorn(outfit.id),
+      onMix: () => MixMatchSheet.show(context, outfit),
+      onFavorite: () => _onFavorite(outfit.id),
+      onLearnMore: () => context.goNamed(
+        AiReasoningDetailScreen.name,
+        pathParameters: {'id': outfit.id},
       ),
     );
   }
@@ -336,23 +394,35 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
   }
 }
 
-class _DashboardLoading extends StatelessWidget {
-  const _DashboardLoading();
+/// First-paint skeleton shown only briefly while the (fast) read-only frame
+/// loads and no cached dashboard is available — never a full-screen spinner.
+class _FrameLoading extends StatelessWidget {
+  const _FrameLoading();
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(color: AppColors.espresso),
-          const SizedBox(height: 16),
-          Text(
-            'Curating your outfits…',
-            style: Theme.of(context).textTheme.bodyMedium,
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _TopBar()),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate.fixed(const [
+              SizedBox(height: 8),
+              ShimmerSkeleton(
+                  width: 220,
+                  height: 28,
+                  borderRadius: BorderRadius.all(Radius.circular(8))),
+              SizedBox(height: 12),
+              ShimmerSkeleton(width: 160, height: 14),
+              SizedBox(height: 24),
+              OutfitCardSkeleton(),
+              SizedBox(height: 24),
+              OutfitCardSkeleton(),
+            ]),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -387,19 +457,34 @@ class _DashboardError extends StatelessWidget {
   }
 }
 
-class _NoOutfits extends StatelessWidget {
-  const _NoOutfits();
+/// Shown when the wardrobe is too small to generate outfits — distinct from the
+/// generating (skeleton) and error states.
+class _AddItemsEmptyState extends StatelessWidget {
+  const _AddItemsEmptyState();
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
-      child: Center(
-        child: Text(
-          'No outfits yet — add a few wardrobe items to get started.',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
+      child: Column(
+        children: [
+          const Icon(Icons.checkroom_outlined, color: AppColors.taupe, size: 44),
+          const SizedBox(height: 12),
+          Text(
+            'Add a few wardrobe items to start getting daily outfits.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Head to the Wardrobe tab to add or scan your clothes.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: AppColors.taupe),
+          ),
+        ],
       ),
     );
   }
