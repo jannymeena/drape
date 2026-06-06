@@ -12,17 +12,24 @@ class AddToWardrobeChooser extends StatelessWidget {
   final ValueChanged<AddToWardrobeChoice> onChoice;
   final VoidCallback? onUpgrade;
 
+  /// Scroll controller supplied by the host (e.g. a `DraggableScrollableSheet`)
+  /// so dragging the sheet scrolls this list. The chooser is already a
+  /// scrollable [ListView], so it must NOT be wrapped in another scroll view.
+  final ScrollController? controller;
+
   const AddToWardrobeChooser({
     super.key,
     this.used,
     this.remaining,
     required this.onChoice,
     this.onUpgrade,
+    this.controller,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListView(
+      controller: controller,
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
       children: [
         Text(

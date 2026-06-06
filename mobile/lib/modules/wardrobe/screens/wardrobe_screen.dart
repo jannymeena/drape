@@ -252,9 +252,11 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                 ),
               ),
               Expanded(
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  child: AddToWardrobeChooser(
+                // The chooser is itself a ListView — drive it with the sheet's
+                // controller directly. Wrapping it in another scroll view gives
+                // the inner list unbounded height and throws on open.
+                child: AddToWardrobeChooser(
+                    controller: scrollController,
                     // Capacity (used/remaining) deferred to SP2.
                     onUpgrade: () => debugPrint('add: upgrade'),
                     onChoice: (choice) {
@@ -270,7 +272,6 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                           );
                       }
                     },
-                  ),
                 ),
               ),
             ],
