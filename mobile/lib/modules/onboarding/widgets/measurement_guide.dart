@@ -12,6 +12,9 @@ class MeasurementGuide extends StatelessWidget {
   const MeasurementGuide({super.key, required this.bodyPart});
 
   static const _tips = <String, String>{
+    'height': 'Stand tall against a wall and measure from the floor to the top of your head.',
+    'weight': 'Step on a scale on a hard, flat surface — optional, it sharpens fit accuracy.',
+    'shoulders': 'Measure across your back from the edge of one shoulder to the other.',
     'chest': 'Measure around the fullest part of your chest, keeping the tape level.',
     'waist': 'Measure around your natural waistline, just above the belly button.',
     'hips': 'Measure around the fullest part of your hips and seat.',
@@ -151,6 +154,30 @@ class _BodyMeasurePainter extends CustomPainter {
       ..color = AppColors.gold;
 
     double lerp(double a, double b, double t) => a + (b - a) * t;
+
+    if (bodyPart == 'weight') {
+      // Not a tape measurement — no single region to highlight; the plain
+      // figure plus the how-to card carry it.
+      return;
+    }
+
+    if (bodyPart == 'height') {
+      // Full-height line down the right side, with end ticks (floor → head top).
+      final x = cx + halfShoulder + w * 0.10;
+      final topY = headC.dy - headR;
+      canvas.drawLine(Offset(x, topY), Offset(x, footY), highlight);
+      canvas.drawLine(Offset(x - w * 0.04, topY), Offset(x + w * 0.04, topY), highlight);
+      canvas.drawLine(Offset(x - w * 0.04, footY), Offset(x + w * 0.04, footY), highlight);
+      return;
+    }
+
+    if (bodyPart == 'shoulders') {
+      // Band straight across the shoulder line.
+      final halfBand = halfShoulder + w * 0.03;
+      canvas.drawLine(Offset(cx - halfBand, shoulderY),
+          Offset(cx + halfBand, shoulderY), highlight);
+      return;
+    }
 
     if (bodyPart == 'inseam') {
       // Vertical line down the inner leg.
