@@ -56,9 +56,19 @@ class _NullCache extends DashboardCache {
   Future<void> clear() async {}
 }
 
-TodayDashboard _frame(List<String> pending) => TodayDashboard.fromJson({
+TodayDashboard _frame(List<String> pending,
+        {List<String> outfitOccasions = const []}) =>
+    TodayDashboard.fromJson({
       'user': {'name': 'Alex'},
-      'outfits': <dynamic>[],
+      'outfits': [
+        for (final (i, occasion) in outfitOccasions.indexed)
+          {
+            'id': 'outfit-$i',
+            'occasion': occasion,
+            'items': <dynamic>[],
+            'ai_reasoning_short': 'Works well.',
+          },
+      ],
       'usage': {'outfits_generated_today': 0},
       'banners': <String, dynamic>{},
       'wardrobe_ready': true,
@@ -122,6 +132,62 @@ void main() {
     expect(find.text("Today's Picks"), findsOneWidget);
     // Scoped skeletons (one per pending occasion) are shown.
     expect(find.byType(OutfitCardSkeleton), findsWidgets);
+  });
+
+  testWidgets('occasion chips filter the outfit cards', (tester) async {
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    await tester.pumpWidget(_host(
+      _StubService(_frame([], outfitOccasions: ['work', 'casual'])),
+    ));
+    await _settle(tester);
+
+    // "All" (default) shows both cards — badges render uppercase.
+    expect(find.text('WORK'), findsOneWidget);
+    expect(find.text('CASUAL'), findsOneWidget);
+
+    await tester.tap(find.text('Work')); // chip, title-case
+    await _settle(tester);
+
+    expect(find.text('WORK'), findsOneWidget);
+    expect(find.text('CASUAL'), findsNothing);
+  });
+
+  testWidgets('filtering to an occasion with no pick shows the empty message',
+      (tester) async {
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    await tester.pumpWidget(_host(
+      _StubService(_frame([], outfitOccasions: ['work'])),
+    ));
+    await _settle(tester);
+
+    await tester.tap(find.text('Gym'));
+    await _settle(tester);
+
+    expect(find.text("No Gym pick in today's outfits."), findsOneWidget);
+    expect(find.text('WORK'), findsNothing);
+
+    await tester.tap(find.text('All'));
+    await _settle(tester);
+    expect(find.text('WORK'), findsOneWidget);
+  });
+
+  testWidgets('occasion filter also scopes the pending skeletons',
+      (tester) async {
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    await tester.pumpWidget(
+      _host(_StubService(_frame(['work', 'casual']))),
+    );
+    await _settle(tester);
+
+    expect(find.byType(OutfitCardSkeleton), findsNWidgets(2));
+
+    await tester.tap(find.text('Casual'));
+    await _settle(tester);
+
+    expect(find.byType(OutfitCardSkeleton), findsOneWidget);
   });
 
   testWidgets('shows the resume banner with 0/8 when nothing is saved',

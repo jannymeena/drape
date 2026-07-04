@@ -36,8 +36,16 @@ class TodayDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
-  static const _occasions = ['Casual', 'Work', 'Gym', 'Date Night', 'Lounge'];
+  /// Chip row: "All" plus the occasions the backend actually generates
+  /// (CTO doc 2, Screen 1). Labels map to the backend literal via
+  /// [_selectedOccasion] (lowercased, spaces → underscores).
+  static const _occasions = ['All', 'Work', 'Casual', 'Gym', 'Date Night'];
   int _occasionIndex = 0;
+
+  /// Backend occasion literal for the active chip; null when "All".
+  String? get _selectedOccasion => _occasionIndex == 0
+      ? null
+      : _occasions[_occasionIndex].toLowerCase().replaceAll(' ', '_');
 
   @override
   void initState() {
@@ -300,19 +308,25 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
   }
 
   /// Builds the picks list: real outfit cards, then a skeleton per occasion
-  /// still generating, then a retry card per occasion that failed.
+  /// still generating, then a retry card per occasion that failed. An active
+  /// occasion chip filters all three by the backend literal; per-occasion
+  /// *generation* is a follow-up (MOBILE_CHANGES P3).
   List<Widget> _pickWidgets(TodayState state, TodayDashboard dashboard) {
+    final filter = _selectedOccasion;
+    bool matches(String occasion) => filter == null || occasion == filter;
+
     final widgets = <Widget>[
-      for (final outfit in dashboard.outfits) _outfitCard(state, outfit),
+      for (final outfit in dashboard.outfits)
+        if (matches(outfit.occasion)) _outfitCard(state, outfit),
     ];
 
-    final pending = state.pendingOccasions.toList()
+    final pending = state.pendingOccasions.where(matches).toList()
       ..sort((a, b) => _occasionRank(a).compareTo(_occasionRank(b)));
     for (final occasion in pending) {
       widgets.add(OutfitCardSkeleton(occasionLabel: _occasionLabel(occasion)));
     }
 
-    final failed = state.failedOccasions.keys.toList()
+    final failed = state.failedOccasions.keys.where(matches).toList()
       ..sort((a, b) => _occasionRank(a).compareTo(_occasionRank(b)));
     for (final occasion in failed) {
       widgets.add(OutfitOccasionRetryCard(
@@ -321,6 +335,11 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
         onRetry: () =>
             ref.read(todayControllerProvider.notifier).retryOccasion(occasion),
       ));
+    }
+
+    // The filter matched nothing today (e.g. no Gym pick was generated).
+    if (widgets.isEmpty && filter != null && dashboard.wardrobeReady) {
+      widgets.add(_FilteredEmptyMessage(label: _occasionLabel(filter)));
     }
     return widgets;
   }
@@ -506,6 +525,39 @@ class _AddItemsEmptyState extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             'Head to the Wardrobe tab to add or scan your clothes.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: AppColors.taupe),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilteredEmptyMessage extends StatelessWidget {
+  final String label;
+  const _FilteredEmptyMessage({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Column(
+        children: [
+          const Icon(Icons.filter_alt_outlined,
+              color: AppColors.taupe, size: 36),
+          const SizedBox(height: 10),
+          Text(
+            "No $label pick in today's outfits.",
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Switch to All to see everything we styled today.',
             textAlign: TextAlign.center,
             style: Theme.of(context)
                 .textTheme
