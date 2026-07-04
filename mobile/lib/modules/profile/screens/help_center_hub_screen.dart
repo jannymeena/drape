@@ -18,12 +18,6 @@ class HelpCenterHubScreen extends StatelessWidget {
     ('Billing', Icons.credit_card_outlined),
   ];
 
-  static const _guides = [
-    'Mastering the AI Scanner',
-    'Understanding Your Style Score',
-    'Sustainable Wardrobe Rotation',
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,18 +66,6 @@ class HelpCenterHubScreen extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Text('Popular Guides',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontStyle: FontStyle.italic,
-                          )),
-                  const SizedBox(height: 8),
-                  for (int i = 0; i < _guides.length; i++)
-                    _GuideRow(
-                      index: i + 1,
-                      label: _guides[i],
-                      onTap: () => debugPrint('guide: ${_guides[i]}'),
-                    ),
                   const SizedBox(height: 24),
                   Text(
                     'TROUBLESHOOTING',
@@ -222,43 +204,6 @@ class _CategoryCard extends StatelessWidget {
               Text(label, style: Theme.of(context).textTheme.titleSmall),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _GuideRow extends StatelessWidget {
-  final int index;
-  final String label;
-  final VoidCallback onTap;
-  const _GuideRow({
-    required this.index,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          children: [
-            Text(
-              index.toString().padLeft(2, '0'),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.taupe,
-                    fontStyle: FontStyle.italic,
-                  ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(label, style: Theme.of(context).textTheme.bodyLarge),
-            ),
-            const Icon(Icons.chevron_right, color: AppColors.taupe),
-          ],
         ),
       ),
     );

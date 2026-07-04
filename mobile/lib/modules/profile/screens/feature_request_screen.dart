@@ -188,8 +188,6 @@ class _FeatureRequestScreenState extends ConsumerState<FeatureRequestScreen> {
                       );
                     }),
                   ),
-                  const SizedBox(height: 16),
-                  _UploadConcept(),
                   const SizedBox(height: 20),
                   DrapeButton(
                     label: _submitting ? 'Submitting…' : 'Submit Feature Request',
@@ -461,29 +459,3 @@ class _PriorityPill extends StatelessWidget {
   }
 }
 
-class _UploadConcept extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => debugPrint('feature: upload concept'),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 22),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.taupeSoft),
-        ),
-        child: Column(
-          children: [
-            const Icon(Icons.image_outlined, color: AppColors.espresso, size: 24),
-            const SizedBox(height: 6),
-            Text('Upload Concept Image',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.inkSoft,
-                    )),
-          ],
-        ),
-      ),
-    );
-  }
-}

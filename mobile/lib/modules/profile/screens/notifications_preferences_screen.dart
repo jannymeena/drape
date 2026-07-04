@@ -255,24 +255,6 @@ class _NotificationsPreferencesScreenState
                     onChanged: (v) =>
                         _toggle('email_pro_offers', v, (x) => _proOffers = x),
                   ),
-                  const SizedBox(height: 24),
-                  OutlinedButton(
-                    onPressed: () => debugPrint('notifications: test'),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.espresso, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: Text(
-                      'SEND TEST NOTIFICATION',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: AppColors.espresso,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.4,
-                          ),
-                    ),
-                  ),
                     ],
                   );
                 },
