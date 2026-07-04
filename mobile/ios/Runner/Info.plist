@@ -74,5 +74,22 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<!-- Custom-scheme deep link for the password-reset email:
+		     drape://drape.app/auth/reset-password?token=…
+		     Universal Links (https) need a hosted apple-app-site-association
+		     and stay a prod follow-up. -->
+		<key>FlutterDeepLinkingEnabled</key>
+		<true/>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>app.drape.auth</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>drape</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>
