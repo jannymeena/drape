@@ -15,6 +15,7 @@ class _FakeWardrobeService extends WardrobeService {
   _FakeWardrobeService() : super(Dio());
 
   String? lastCategory;
+  bool? lastIsFavorite;
   int lastOffset = -1;
   int totalToReport = 0;
   List<WardrobeItem> Function(int offset)? pageBuilder;
@@ -39,6 +40,7 @@ class _FakeWardrobeService extends WardrobeService {
     int offset = 0,
   }) async {
     lastCategory = category;
+    lastIsFavorite = isFavorite;
     lastOffset = offset;
     final items = pageBuilder?.call(offset) ?? const <WardrobeItem>[];
     return WardrobeListResult(
@@ -83,13 +85,18 @@ class _FakeWardrobeService extends WardrobeService {
   }
 }
 
-WardrobeItem _item(String id, {String name = 'Item', String category = 'tops'}) =>
+WardrobeItem _item(
+  String id, {
+  String name = 'Item',
+  String category = 'tops',
+  bool isFavorite = false,
+}) =>
     WardrobeItem(
       id: id,
       name: name,
       category: category,
       wornCount: 0,
-      isFavorite: false,
+      isFavorite: isFavorite,
       isStarterWardrobe: false,
       addedVia: 'manual',
       createdAt: DateTime(2026, 1, 1),
@@ -200,6 +207,55 @@ void main() {
     );
     // Optimistic flip was rolled back.
     expect(controller.state.items.single.isFavorite, isFalse);
+  });
+
+  test('selectFavorites queries is_favorite and resets the category', () async {
+    service
+      ..totalToReport = 1
+      ..pageBuilder = (_) => [_item('a', isFavorite: true)];
+    await controller.selectCategory(WardrobeCategoryFilter.shoes);
+
+    await controller.selectFavorites();
+
+    expect(service.lastIsFavorite, isTrue);
+    expect(service.lastCategory, isNull); // category reset to "all"
+    expect(controller.state.favoritesOnly, isTrue);
+    expect(controller.state.category, WardrobeCategoryFilter.all);
+  });
+
+  test('selectCategory leaves the favorites view, even onto the same category',
+      () async {
+    service
+      ..totalToReport = 1
+      ..pageBuilder = (_) => [_item('a', isFavorite: true)];
+    await controller.selectFavorites();
+
+    // Favorites resets the category to "all", so re-selecting "all" must not
+    // be treated as a no-op.
+    await controller.selectCategory(WardrobeCategoryFilter.all);
+
+    expect(controller.state.favoritesOnly, isFalse);
+    expect(service.lastIsFavorite, isNull);
+  });
+
+  test('toggleFavorite in the favorites view drops the unfavorited item',
+      () async {
+    service
+      ..totalToReport = 2
+      ..pageBuilder = (_) => [
+            _item('a', isFavorite: true),
+            _item('b', isFavorite: true),
+          ];
+    await controller.selectFavorites();
+    service.favoriteResult = const ToggleFavoriteResult(
+      itemId: 'a',
+      isFavorite: false,
+    );
+
+    await controller.toggleFavorite('a');
+
+    expect(controller.state.items.map((i) => i.id), ['b']);
+    expect(controller.state.total, 1);
   });
 
   test('logWorn patches the worn counters in the grid', () async {

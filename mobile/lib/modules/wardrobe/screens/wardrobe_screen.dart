@@ -11,6 +11,7 @@ import '../widgets/add_to_wardrobe_chooser.dart';
 import '../widgets/capacity_warning_banner.dart';
 import '../widgets/category_filter_chips.dart';
 import '../widgets/item_card.dart';
+import '../widgets/wardrobe_empty_state.dart';
 import 'batch_upload_screen.dart';
 import 'item_detail_screen.dart';
 import 'manual_entry_screen.dart' as wardrobe_manual;
@@ -70,12 +71,19 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                     ),
                     const SizedBox(height: 16),
                     ..._buildCapacityBanner(),
+                    // Chip 0 is the Favorites view; category chips follow,
+                    // shifted by one. Single-select across both.
                     CategoryFilterChips(
-                      categories:
-                          WardrobeCategoryFilter.values.map((f) => f.label).toList(),
-                      selectedIndex: state.category.index,
-                      onSelected: (i) => controller
-                          .selectCategory(WardrobeCategoryFilter.values[i]),
+                      categories: [
+                        'Favorites',
+                        ...WardrobeCategoryFilter.values.map((f) => f.label),
+                      ],
+                      selectedIndex:
+                          state.favoritesOnly ? 0 : state.category.index + 1,
+                      onSelected: (i) => i == 0
+                          ? controller.selectFavorites()
+                          : controller.selectCategory(
+                              WardrobeCategoryFilter.values[i - 1]),
                     ),
                     const SizedBox(height: 16),
                     ..._buildBody(context, state, controller),
@@ -119,19 +127,22 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
     final items = state.visibleItems;
     if (items.isEmpty) {
       final searching = state.search.trim().isNotEmpty;
-      return [
+      if (searching) {
+        return [
+          _MessageBlock(message: 'No pieces match "${state.search.trim()}".'),
+        ];
+      }
+      if (state.favoritesOnly) {
+        return const [FavoritesEmptyState()];
+      }
+      if (state.category == WardrobeCategoryFilter.all) {
+        // Truly empty wardrobe — the full designed empty state.
+        return [WardrobeEmptyState(onAdd: _openAddSheet)];
+      }
+      return const [
         _MessageBlock(
-          message: searching
-              ? 'No pieces match "${state.search.trim()}".'
-              : 'No pieces here yet. Add your first item to get started.',
+          message: 'No pieces here yet. Add your first item to get started.',
         ),
-        if (!searching) ...[
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _GrowYourWardrobeCard(onAdd: _openAddSheet),
-          ),
-        ],
       ];
     }
 

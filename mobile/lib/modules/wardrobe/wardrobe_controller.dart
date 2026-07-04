@@ -7,9 +7,12 @@ import 'models/wardrobe_mutations.dart';
 import 'wardrobe_service.dart';
 
 /// State for the wardrobe grid. [items] is the loaded page(s) for the current
-/// [category]; [total] is the server's count for that filter, so [hasMore] can
-/// drive a "load more". [search] is a client-side name filter (the backend list
-/// endpoint has no text search) applied on top via [visibleItems].
+/// filter — either [category] or, when [favoritesOnly] is set, the favorites
+/// view (the chip row is single-select, so the two are mutually exclusive and
+/// [category] is reset to `all` while favorites is active); [total] is the
+/// server's count for that filter, so [hasMore] can drive a "load more".
+/// [search] is a client-side name filter (the backend list endpoint has no
+/// text search) applied on top via [visibleItems].
 ///
 /// Free-tier capacity lives in its own [wardrobeCapacityProvider] (it composes
 /// the item count with the subscription tier), keeping this controller focused
@@ -22,6 +25,7 @@ class WardrobeState {
     this.total = 0,
     this.error,
     this.category = WardrobeCategoryFilter.all,
+    this.favoritesOnly = false,
     this.search = '',
   });
 
@@ -31,6 +35,7 @@ class WardrobeState {
   final int total;
   final ApiException? error;
   final WardrobeCategoryFilter category;
+  final bool favoritesOnly;
   final String search;
 
   bool get hasData => items.isNotEmpty;
@@ -50,6 +55,7 @@ class WardrobeState {
     int? total,
     ApiException? error,
     WardrobeCategoryFilter? category,
+    bool? favoritesOnly,
     String? search,
   }) {
     return WardrobeState(
@@ -59,6 +65,7 @@ class WardrobeState {
       total: total ?? this.total,
       error: error,
       category: category ?? this.category,
+      favoritesOnly: favoritesOnly ?? this.favoritesOnly,
       search: search ?? this.search,
     );
   }
@@ -71,13 +78,14 @@ class WardrobeController extends StateNotifier<WardrobeState> {
 
   static const _pageSize = 50;
 
-  /// Loads the first page for the current category. Keeps the existing items
+  /// Loads the first page for the current filter. Keeps the existing items
   /// visible while refreshing so the grid doesn't flash empty.
   Future<void> load() async {
     state = state.copyWith(loading: true, error: null);
     try {
       final result = await _service.getItems(
         category: state.category.query,
+        isFavorite: state.favoritesOnly ? true : null,
         limit: _pageSize,
         offset: 0,
       );
@@ -92,10 +100,29 @@ class WardrobeController extends StateNotifier<WardrobeState> {
   }
 
   /// Switches the active category chip and reloads from the server (category is
-  /// a server-side filter). No-op if already selected.
+  /// a server-side filter). Leaving the Favorites view always reloads, even
+  /// back onto the same category. No-op if already selected.
   Future<void> selectCategory(WardrobeCategoryFilter category) async {
-    if (category == state.category) return;
-    state = state.copyWith(category: category, items: const [], total: 0);
+    if (category == state.category && !state.favoritesOnly) return;
+    state = state.copyWith(
+      category: category,
+      favoritesOnly: false,
+      items: const [],
+      total: 0,
+    );
+    await load();
+  }
+
+  /// Switches to the Favorites view (server-side `is_favorite` filter) and
+  /// reloads. Resets the category to All — the chip row is single-select.
+  Future<void> selectFavorites() async {
+    if (state.favoritesOnly) return;
+    state = state.copyWith(
+      category: WardrobeCategoryFilter.all,
+      favoritesOnly: true,
+      items: const [],
+      total: 0,
+    );
     await load();
   }
 
@@ -112,6 +139,7 @@ class WardrobeController extends StateNotifier<WardrobeState> {
     try {
       final result = await _service.getItems(
         category: state.category.query,
+        isFavorite: state.favoritesOnly ? true : null,
         limit: _pageSize,
         offset: state.items.length,
       );
@@ -145,13 +173,23 @@ class WardrobeController extends StateNotifier<WardrobeState> {
     try {
       final result = await _service.toggleFavorite(itemId);
       if (original != null) {
-        _replaceItem(
-          itemId,
-          original.copyWith(
-            isFavorite: result.isFavorite,
-            favoritedAt: result.favoritedAt,
-          ),
-        );
+        // In the Favorites view an unfavorited item no longer matches the
+        // filter — drop it once the server confirms (not optimistically, so a
+        // failure just reverts the star).
+        if (state.favoritesOnly && !result.isFavorite) {
+          state = state.copyWith(
+            items: state.items.where((i) => i.id != itemId).toList(),
+            total: (state.total - 1).clamp(0, 1 << 30),
+          );
+        } else {
+          _replaceItem(
+            itemId,
+            original.copyWith(
+              isFavorite: result.isFavorite,
+              favoritedAt: result.favoritedAt,
+            ),
+          );
+        }
       }
     } on ApiException {
       if (original != null) _replaceItem(itemId, original); // revert
