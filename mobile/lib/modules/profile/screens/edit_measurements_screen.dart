@@ -117,6 +117,8 @@ class _EditMeasurementsScreenState
     setState(() => _saving = true);
     try {
       await ref.read(profileServiceProvider).updateMeasurements(draft);
+      // Refresh any live watcher (e.g. the Today resume banner) right away.
+      ref.invalidate(measurementsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Measurements saved.')),

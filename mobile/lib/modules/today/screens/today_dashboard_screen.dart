@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../onboarding/models/measurements_draft.dart';
+import '../../profile/profile_service.dart';
+import '../../profile/screens/edit_measurements_screen.dart';
 import '../models/log_outfit_result.dart';
 import '../models/outfit.dart';
 import '../models/today_dashboard.dart';
@@ -15,6 +18,7 @@ import '../../../shared/widgets/shimmer_skeleton.dart';
 import '../widgets/outfit_card.dart';
 import '../widgets/outfit_card_skeleton.dart';
 import '../widgets/outfit_item_grid.dart';
+import '../widgets/resume_banner.dart';
 import '../widgets/usage_warning_banner.dart';
 import '../widgets/weather_chip.dart';
 import 'ai_reasoning_detail_screen.dart';
@@ -166,7 +170,10 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     final dashboard = state.dashboard!;
     final pickWidgets = _pickWidgets(state, dashboard);
     return RefreshIndicator(
-      onRefresh: () => ref.read(todayControllerProvider.notifier).loadFrame(),
+      onRefresh: () {
+        ref.invalidate(measurementsProvider);
+        return ref.read(todayControllerProvider.notifier).loadFrame();
+      },
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _TopBar()),
@@ -194,6 +201,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
                     ),
                   ),
                 ),
+                ..._resumeBanner(),
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -356,6 +364,26 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
       location: dashboard.user.location,
       icon: _weatherIcon(w.condition),
     );
+  }
+
+  /// "Complete your DRAPE profile" nudge — shown while measurements are
+  /// incomplete (CTO doc 2, Screen 5). Progress is computed client-side from
+  /// `GET /profile/measurements` because the frame's `incomplete_profile` flag
+  /// tracks onboarding, not measurements (see BE P5). Weight is optional, so
+  /// all-7-required counts as complete and stops the nudge. Hidden while the
+  /// fetch is loading or failed (best-effort, like the capacity banner).
+  List<Widget> _resumeBanner() {
+    final async = ref.watch(measurementsProvider);
+    if (async is! AsyncData<MeasurementsDraft?>) return const [];
+    final draft = async.value;
+    if (draft != null && draft.hasAllRequired) return const [];
+    return [
+      const SizedBox(height: 20),
+      ResumeBanner(
+        stepsDone: draft?.values.length ?? 0,
+        onTap: () => context.goNamed(EditMeasurementsScreen.name),
+      ),
+    ];
   }
 
   /// Weekly usage banner — only shown at 75%+ and only for free users.
