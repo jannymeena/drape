@@ -45,6 +45,18 @@ class UtilizationScore(BaseModel):
     label: str  # "Low" / "Moderate" / "High"
 
 
+class ProfileIntelligence(BaseModel):
+    """Profile-tab stat grid (item 8a). Free-tier visible — the Pro upsell is
+    the deeper wardrobe intelligence report, not these headline numbers."""
+
+    utilization_score: int  # % of items worn in the last 30 days
+    utilization_label: str  # "Low" / "Moderate" / "High"
+    average_cost_per_wear: float | None  # None until priced items get wears
+    items_unworn_60d: int
+    wardrobe_value: float  # sum of known purchase prices
+    items_total: int
+
+
 class WeeklyReportTopItem(BaseModel):
     item_id: UUID
     name: str

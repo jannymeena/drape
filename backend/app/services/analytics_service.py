@@ -29,6 +29,7 @@ from app.schemas.analytics import (
     IntelligenceColorBucket,
     IntelligenceReport,
     IntelligenceUnderutilized,
+    ProfileIntelligence,
     UtilizationScore,
     WeeklyReport,
     WeeklyReportTopItem,
@@ -149,6 +150,58 @@ def utilization_score(db: Session, *, user: User) -> UtilizationScore:
         items_total=total,
         days_window=UTILIZATION_WINDOW_DAYS,
         label=_label_for_score(score),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Profile intelligence (profile-tab stat grid, item 8a)
+# ---------------------------------------------------------------------------
+
+UNWORN_WINDOW_DAYS = 60
+
+
+def profile_intelligence(db: Session, *, user: User) -> ProfileIntelligence:
+    """Headline stats for the Profile tab. Re-aggregates the same rows the
+    wardrobe analytics use; live rollup, no cache (same trade-off as above)."""
+    items = _items_for(db, user=user)
+    total = len(items)
+
+    util = utilization_score(db, user=user)
+
+    total_price = sum(
+        float(i.purchase_price) for i in items if i.purchase_price is not None
+    )
+    priced_wears = sum(
+        i.worn_count for i in items if i.purchase_price is not None
+    )
+    avg_cpw = (
+        round(total_price / priced_wears, 2)
+        if priced_wears > 0 and total_price > 0
+        else None
+    )
+
+    unworn_60d = 0
+    if total:
+        cutoff = _today() - timedelta(days=UNWORN_WINDOW_DAYS)
+        recent_ids = set(
+            db.scalars(
+                select(WardrobeWearLog.item_id)
+                .where(
+                    WardrobeWearLog.user_id == user.id,
+                    WardrobeWearLog.worn_date >= cutoff,
+                )
+                .distinct()
+            ).all()
+        )
+        unworn_60d = sum(1 for i in items if i.id not in recent_ids)
+
+    return ProfileIntelligence(
+        utilization_score=util.score,
+        utilization_label=util.label,
+        average_cost_per_wear=avg_cpw,
+        items_unworn_60d=unworn_60d,
+        wardrobe_value=round(total_price, 2),
+        items_total=total,
     )
 
 

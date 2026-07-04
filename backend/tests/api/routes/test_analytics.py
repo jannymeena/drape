@@ -167,3 +167,50 @@ def test_intelligence_report_admin_user_does_not_bypass_pro_gate(
         headers=auth_headers(admin),
     )
     assert r.status_code == 402
+
+
+# ---------------------------------------------------------------------------
+# Profile intelligence (8a)
+# ---------------------------------------------------------------------------
+
+
+def test_profile_intelligence_empty_wardrobe(authed_client):
+    r = authed_client.get("/api/v1/profile/intelligence")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["utilization_score"] == 0
+    assert body["average_cost_per_wear"] is None
+    assert body["items_unworn_60d"] == 0
+    assert body["wardrobe_value"] == 0.0
+    assert body["items_total"] == 0
+
+
+def test_profile_intelligence_aggregates(authed_client, db):
+    """Two items: one priced+worn recently, one unpriced never worn.
+    value=$120; avg cpw = 120/3=$40; 1 unworn 60d+; utilization 50%."""
+    user = authed_client.test_user
+    worn = make_wardrobe_item(
+        db, user, name="Trousers", category="bottoms", purchase_price=120.0
+    )
+    make_wardrobe_item(db, user, name="Scarf", category="accessories")
+    today = date.today()
+    for offset in range(3):
+        db.add(
+            WardrobeWearLog(
+                user_id=user.id,
+                item_id=worn.id,
+                worn_date=today - timedelta(days=offset),
+                logged_at=__import__("datetime").datetime.now(),
+            )
+        )
+    worn.worn_count = 3
+    db.commit()
+
+    r = authed_client.get("/api/v1/profile/intelligence")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["items_total"] == 2
+    assert body["wardrobe_value"] == 120.0
+    assert body["average_cost_per_wear"] == 40.0
+    assert body["items_unworn_60d"] == 1
+    assert body["utilization_score"] == 50
