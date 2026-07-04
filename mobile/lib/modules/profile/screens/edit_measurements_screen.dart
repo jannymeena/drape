@@ -6,7 +6,9 @@ import '../../../shared/models/api_error.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../onboarding/models/measurements_draft.dart';
+import '../../../shared/units.dart';
 import '../profile_service.dart';
+import '../settings_service.dart';
 
 /// Edit the user's body measurements from the Profile tab. Loads the current
 /// values via `GET /profile/measurements` (decrypted server-side) and saves the
@@ -41,8 +43,6 @@ class _EditMeasurementsScreenState
     (MeasurementField.hips, 'Hips', false),
   ];
 
-  static const _lengthFactor = 2.54; // in → cm
-  static const _weightFactor = 0.45359237; // lbs → kg
 
   final _controllers = {
     for (final f in _fields) f.$1: TextEditingController(),
@@ -60,17 +60,19 @@ class _EditMeasurementsScreenState
     super.dispose();
   }
 
-  double _factor(bool isWeight) => isWeight ? _weightFactor : _lengthFactor;
+  double _factor(bool isWeight) => isWeight ? kgPerLb : cmPerInch;
 
   String _unitSuffix(bool isWeight) => isWeight
       ? (_imperial ? 'lbs' : 'kg')
       : (_imperial ? 'in' : 'cm');
 
-  void _seedOnce(MeasurementsDraft? draft) {
+  void _seedOnce(MeasurementsDraft? draft, String? settingsUnit) {
     if (_seeded) return;
     _seeded = true;
+    // The app-wide Units setting (Settings -> Units) drives the default
+    // display; the draft's stored hint is the fallback for older data.
+    _imperial = (settingsUnit ?? draft?.unitSystem ?? 'metric') == 'imperial';
     if (draft == null) return;
-    _imperial = draft.unitSystem == 'imperial';
     for (final (field, _, isWeight) in _fields) {
       final metric = draft.get(field);
       if (metric == null) continue;
@@ -139,6 +141,9 @@ class _EditMeasurementsScreenState
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(measurementsProvider);
+    // Seeding needs the Units preference too — resolve both before the form
+    // renders (settings errors just fall back to the draft's stored hint).
+    final settingsAsync = ref.watch(settingsProvider);
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -158,7 +163,13 @@ class _EditMeasurementsScreenState
                   onRetry: () => ref.invalidate(measurementsProvider),
                 ),
                 data: (draft) {
-                  _seedOnce(draft);
+                  if (settingsAsync.isLoading) {
+                    return const Center(
+                      child:
+                          CircularProgressIndicator(color: AppColors.espresso),
+                    );
+                  }
+                  _seedOnce(draft, settingsAsync.valueOrNull?.unitSystem);
                   return ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                     children: [

@@ -10,7 +10,6 @@ import '../settings_service.dart';
 import '../widgets/settings_row.dart';
 import '../widgets/settings_section.dart';
 import 'account_settings_screen.dart';
-import 'appearance_settings_screen.dart';
 import 'billing_history_screen.dart';
 import 'compare_plans_screen.dart';
 import 'edit_measurements_screen.dart';
@@ -123,12 +122,6 @@ class SettingsScreen extends ConsumerWidget {
                         label: 'Notifications',
                         onTap: () => context
                             .goNamed(NotificationsPreferencesScreen.name),
-                      ),
-                      SettingsRow(
-                        icon: Icons.brightness_6_outlined,
-                        label: 'Appearance',
-                        onTap: () =>
-                            context.goNamed(AppearanceSettingsScreen.name),
                       ),
                       SettingsRow(
                         icon: Icons.straighten,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/units.dart';
+
 import '../../../shared/theme/app_colors.dart';
 
 enum MeasurementUnit { metric, imperial }
@@ -30,7 +32,7 @@ class MeasurementInput extends StatefulWidget {
     this.hint,
     this.onChanged,
     this.initialUnit = MeasurementUnit.metric,
-    this.imperialFactor = 2.54,
+    this.imperialFactor = cmPerInch,
     this.onReading,
     this.initialValue,
   });

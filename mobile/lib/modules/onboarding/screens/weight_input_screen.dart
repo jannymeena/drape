@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../shared/units.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -52,7 +54,7 @@ class _WeightInputScreenState extends ConsumerState<WeightInputScreen> {
       input: MeasurementInput(
         metricLabel: 'kg',
         imperialLabel: 'lbs',
-        imperialFactor: 0.45359237,
+        imperialFactor: kgPerLb,
         initialValue: _kg != null ? formatMeasurement(_kg!) : null,
         onReading: (metric, unit) => setState(() {
           _kg = metric;
