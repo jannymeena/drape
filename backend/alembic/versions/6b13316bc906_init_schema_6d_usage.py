@@ -329,6 +329,20 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('feature_request_votes',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('ticket_id', sa.UUID(), nullable=False),
+    sa.Column('vote', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['ticket_id'], ['support_tickets.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'ticket_id')
+    )
+    op.create_index(op.f('ix_feature_request_votes_ticket_id'), 'feature_request_votes', ['ticket_id'], unique=False)
+    op.create_index(op.f('ix_feature_request_votes_user_id'), 'feature_request_votes', ['user_id'], unique=False)
     op.create_index(op.f('ix_support_tickets_kind'), 'support_tickets', ['kind'], unique=False)
     op.create_index(op.f('ix_support_tickets_user_id'), 'support_tickets', ['user_id'], unique=False)
     # ### end Alembic commands ###
@@ -370,6 +384,9 @@ def _seed_starter_wardrobe_templates() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index(op.f('ix_feature_request_votes_user_id'), table_name='feature_request_votes')
+    op.drop_index(op.f('ix_feature_request_votes_ticket_id'), table_name='feature_request_votes')
+    op.drop_table('feature_request_votes')
     op.drop_index(op.f('ix_banner_dismissals_user_id'), table_name='banner_dismissals')
     op.drop_table('banner_dismissals')
     op.drop_table('ai_response_cache')

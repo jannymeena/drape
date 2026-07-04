@@ -96,3 +96,74 @@ def test_account_delete_removes_user(client, db, make_user, auth_headers):
     r = client.delete("/api/v1/account", headers=auth_headers(user))
     assert r.status_code == 204, r.text
     assert db.get(User, uid) is None
+
+
+# ---------------------------------------------------------------------------
+# Feature-request votes (2.1)
+# ---------------------------------------------------------------------------
+
+
+def _make_feature(client, message="Dark mode please"):
+    r = client.post("/api/v1/support/feature-request", json={"message": message})
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
+
+
+def test_feature_request_vote_and_list(authed_client):
+    tid = _make_feature(authed_client)
+
+    r = authed_client.post(
+        f"/api/v1/support/feature-requests/{tid}/vote", json={"vote": 1}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json() == {"ticket_id": tid, "score": 1, "my_vote": 1}
+
+    r = authed_client.get("/api/v1/support/feature-requests")
+    assert r.status_code == 200
+    items = r.json()["items"]
+    mine = next(i for i in items if i["id"] == tid)
+    assert mine["score"] == 1
+    assert mine["my_vote"] == 1
+
+
+def test_feature_request_revote_and_clear(authed_client):
+    tid = _make_feature(authed_client)
+    vote = lambda v: authed_client.post(  # noqa: E731
+        f"/api/v1/support/feature-requests/{tid}/vote", json={"vote": v}
+    ).json()
+
+    assert vote(1)["score"] == 1
+    # Flipping the vote replaces it (not additive).
+    assert vote(-1)["score"] == -1
+    # 0 clears.
+    cleared = vote(0)
+    assert cleared["score"] == 0
+    assert cleared["my_vote"] == 0
+
+
+def test_feature_request_vote_404_for_non_feature_ticket(authed_client):
+    r = authed_client.post("/api/v1/support/bug-report", json={"message": "boom"})
+    bug_id = r.json()["id"]
+    r = authed_client.post(
+        f"/api/v1/support/feature-requests/{bug_id}/vote", json={"vote": 1}
+    )
+    assert r.status_code == 404
+
+
+def test_feature_request_list_is_public_across_users(
+    client, authed_client, make_user, auth_headers
+):
+    """The board shows other users' requests; my_vote is per-caller."""
+    tid = _make_feature(authed_client)
+    authed_client.post(
+        f"/api/v1/support/feature-requests/{tid}/vote", json={"vote": 1}
+    )
+
+    other = make_user(email="voter@example.com")
+    r = client.get(
+        "/api/v1/support/feature-requests", headers=auth_headers(other)
+    )
+    items = r.json()["items"]
+    row = next(i for i in items if i["id"] == tid)
+    assert row["score"] == 1  # sees the community score
+    assert row["my_vote"] == 0  # but hasn't voted themselves

@@ -181,6 +181,31 @@ class SupportTicket(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open", server_default="open")
 
 
+class FeatureRequestVote(Base, TimestampMixin):
+    """Public up/down vote on a feature-request ticket. One row per
+    (user, ticket); vote is +1 or -1, and clearing a vote deletes the row."""
+
+    __tablename__ = "feature_request_votes"
+    __table_args__ = (UniqueConstraint("user_id", "ticket_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    ticket_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("support_tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    vote: Mapped[int] = mapped_column(Integer, nullable=False)  # +1 | -1
+
+
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
