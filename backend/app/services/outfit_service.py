@@ -39,7 +39,14 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Outfit, OutfitHistory, StreakTracking, User, WardrobeItem
+from app.db.models import (
+    Outfit,
+    OutfitHistory,
+    StreakTracking,
+    User,
+    UserMeasurements,
+    WardrobeItem,
+)
 from app.schemas.outfit import (
     GenerateOutfitsRequest,
     GenerationMethod,
@@ -1105,10 +1112,16 @@ def get_history(
 # ---------------------------------------------------------------------------
 
 
-def _profile_incomplete(user: User) -> bool:
-    """Heuristic mirroring CTO doc 2 — show resume banner when measurements
-    aren't done yet. We treat onboarding_completed as the truthful signal."""
-    return not user.onboarding_completed
+def _profile_incomplete(db: Session, *, user_id: UUID) -> bool:
+    """CTO doc 2 Screen 5 — show the resume banner while measurements aren't
+    complete. `is_complete` is a plain column, so no decryption is needed.
+    (Previously keyed off onboarding_completed, which missed the banner's whole
+    audience: users who finished onboarding but skipped measurements.)"""
+    return not db.scalar(
+        select(UserMeasurements.is_complete).where(
+            UserMeasurements.user_id == user_id
+        )
+    )
 
 
 def _is_starter_wardrobe_active(outfits: Sequence[Outfit]) -> bool:

@@ -43,6 +43,35 @@ def test_onboarding_status_returns_next_step(client, make_user, auth_headers):
     body = r.json()
     assert body["onboarding_completed"] is False
     assert body["next_step"] == "shopping_style_selection"
+    # No measurements yet — resume-banner progress starts at zero.
+    assert body["measurement_steps_completed"] == 0
+    assert body["next_incomplete_step"] == "measurements_step_1"
+
+
+def test_onboarding_status_reports_measurement_progress(authed_client):
+    """After submit, the status carries the resume-banner progress fields:
+    all 8 fields saved -> 8 done, nothing left."""
+    r = authed_client.post("/api/v1/profile/measurements", json=_MEAS)
+    assert r.status_code == 200, r.text
+
+    r = authed_client.get("/api/v1/profile/onboarding-status")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["measurement_steps_completed"] == 8
+    assert body["next_incomplete_step"] is None
+
+
+def test_onboarding_status_weight_optional_counts_seven(authed_client):
+    """Weight is optional: 7 required fields -> 7 done but still complete
+    (next_incomplete_step is None, never routes to the weight step)."""
+    payload = {k: v for k, v in _MEAS.items() if k != "weight_kg"}
+    r = authed_client.post("/api/v1/profile/measurements", json=payload)
+    assert r.status_code == 200, r.text
+
+    r = authed_client.get("/api/v1/profile/onboarding-status")
+    body = r.json()
+    assert body["measurement_steps_completed"] == 7
+    assert body["next_incomplete_step"] is None
 
 
 def test_shopping_style_advances_next_step(authed_client):

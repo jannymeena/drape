@@ -157,7 +157,7 @@ async def dashboard(
         ),
         banners=TodayBanners(
             starter_wardrobe=_is_starter_wardrobe_active(outfits),
-            incomplete_profile=_profile_incomplete(user),
+            incomplete_profile=_profile_incomplete(db, user_id=user.id),
         ),
         wardrobe_ready=ready,
         pending_occasions=pending,

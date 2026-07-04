@@ -86,6 +86,8 @@ def test_dashboard_read_only_returns_pending_not_generated(authed_client, db):
     assert body["wardrobe_ready"] is True
     assert body["pending_occasions"] == ["work", "casual", "date_night"]
     assert body["banners"]["starter_wardrobe"] is False  # no starter outfits yet
+    # No measurements submitted -> the resume banner flag is on.
+    assert body["banners"]["incomplete_profile"] is True
     # No AI ran: the read path must not have created any outfit rows.
     assert (
         db.query(Outfit).filter_by(user_id=authed_client.test_user.id).count() == 0
@@ -485,3 +487,32 @@ def test_history_this_week_filter(authed_client, db):
 def test_history_bad_filter_returns_422(authed_client):
     r = authed_client.get("/api/v1/outfits/history?filter=last_year")
     assert r.status_code == 422
+
+
+def test_dashboard_incomplete_profile_clears_after_measurements(authed_client, db):
+    """The banner flag keys off measurement completeness (is_complete), not
+    onboarding_completed: a user who finished onboarding but skipped
+    measurements must still get the flag; submitting clears it."""
+    make_starter_wardrobe(db, authed_client.test_user, count=9)
+    authed_client.test_user.onboarding_completed = True
+    db.commit()
+
+    r = authed_client.get("/api/v1/today/dashboard")
+    assert r.json()["banners"]["incomplete_profile"] is True
+
+    meas = {
+        "height_cm": 175.0,
+        "weight_kg": 70.0,
+        "shoulders_cm": 42.0,
+        "chest_cm": 96.0,
+        "waist_cm": 78.0,
+        "inseam_cm": 80.0,
+        "thigh_cm": 56.0,
+        "hips_cm": 98.0,
+        "unit_system": "metric",
+    }
+    r = authed_client.post("/api/v1/profile/measurements", json=meas)
+    assert r.status_code == 200, r.text
+
+    r = authed_client.get("/api/v1/today/dashboard")
+    assert r.json()["banners"]["incomplete_profile"] is False

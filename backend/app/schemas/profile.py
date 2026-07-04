@@ -68,6 +68,11 @@ class OnboardingStatusResponse(BaseModel):
     shopping_style: ShoppingStyle | None = None
     age_range: AgeRange | None = None
     style_goals: list[StyleGoal] | None = None
+    # Measurement progress for the Today resume banner (CTO doc 2 Screen 5).
+    # 0-8 fields saved; next id is None once the 7 required are in (weight is
+    # optional and never blocks completion).
+    measurement_steps_completed: int = 0
+    next_incomplete_step: str | None = None
 
 
 class ProfileStepResponse(BaseModel):

@@ -10,7 +10,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
-from app.api.dependencies.providers import get_ai_provider, get_image_storage
+from app.api.dependencies.providers import (
+    get_ai_provider,
+    get_encryptor,
+    get_image_storage,
+)
 from app.db.models import User
 from app.db.session import get_db
 from app.schemas.profile import (
@@ -24,6 +28,7 @@ from app.schemas.profile import (
 from app.schemas.user import UserResponse
 from app.services import avatar_analysis, profile_service
 from app.services.providers.ai.base import AIProvider
+from app.services.providers.crypto.base import Encryptor
 from app.services.providers.image.base import ImageStorageProvider
 
 router = APIRouter()
@@ -76,9 +81,11 @@ def save_progress(
 
 @router.get("/onboarding-status", response_model=OnboardingStatusResponse)
 def get_onboarding_status(
+    db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    encryptor: Encryptor = Depends(get_encryptor),
 ) -> OnboardingStatusResponse:
-    return profile_service.get_status(user)
+    return profile_service.get_status(db, encryptor=encryptor, user=user)
 
 
 @router.post("/avatar/upload", response_model=UserResponse)

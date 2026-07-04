@@ -13,6 +13,8 @@ import structlog
 from sqlalchemy.orm import Session
 
 from app.db.models import Profile, User
+from app.services import measurements_service
+from app.services.providers.crypto.base import Encryptor
 from app.services.providers.image.base import ImageStorageProvider
 from app.schemas.profile import (
     OnboardingStatusResponse,
@@ -170,7 +172,12 @@ def set_body_analysis(db: Session, *, user: User, analysis: dict) -> None:
     _log.info("profile.body_analysis.set", user_id=str(user.id))
 
 
-def get_status(user: User) -> OnboardingStatusResponse:
+def get_status(
+    db: Session, *, encryptor: Encryptor, user: User
+) -> OnboardingStatusResponse:
+    steps_done, next_incomplete = measurements_service.step_progress(
+        db, encryptor=encryptor, user=user
+    )
     return OnboardingStatusResponse(
         onboarding_completed=user.onboarding_completed,
         onboarding_last_step=user.onboarding_last_step,
@@ -178,4 +185,6 @@ def get_status(user: User) -> OnboardingStatusResponse:
         shopping_style=user.shopping_style,
         age_range=user.age_range,
         style_goals=user.style_goals,
+        measurement_steps_completed=steps_done,
+        next_incomplete_step=next_incomplete,
     )
