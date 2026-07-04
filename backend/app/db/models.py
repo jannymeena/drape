@@ -181,6 +181,26 @@ class SupportTicket(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open", server_default="open")
 
 
+class Device(Base, TimestampMixin):
+    """A push-notification target. One row per device token; re-registering
+    the same token moves it to the current user (people share devices and
+    re-login), and refreshes updated_at as a liveness signal."""
+
+    __tablename__ = "devices"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    platform: Mapped[str] = mapped_column(String(10), nullable=False)  # ios|android
+    token: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+
+
 class Subscription(Base, TimestampMixin):
     """One row per user. `users.subscription_tier` stays the fast entitlement
     switch every gate reads; this row is the billing record behind it.

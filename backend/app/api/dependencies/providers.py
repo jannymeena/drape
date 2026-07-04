@@ -6,6 +6,7 @@ from app.services.providers.hash.base import PasswordHasher
 from app.services.providers.image.base import ImageStorageProvider
 from app.services.providers.oauth.base import OAuthVerifier
 from app.services.providers.payment.base import PaymentProvider
+from app.services.providers.push.base import PushProvider
 from app.services.providers.weather.base import WeatherProvider
 
 
@@ -39,3 +40,7 @@ def get_weather_provider() -> WeatherProvider:
 
 def get_payment_provider() -> PaymentProvider:
     return providers.payment
+
+
+def get_push_provider() -> PushProvider:
+    return providers.push

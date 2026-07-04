@@ -395,6 +395,18 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_payment_methods_user_id'), 'payment_methods', ['user_id'], unique=False)
+    op.create_table('devices',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('platform', sa.String(length=10), nullable=False),
+    sa.Column('token', sa.String(length=255), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('token')
+    )
+    op.create_index(op.f('ix_devices_user_id'), 'devices', ['user_id'], unique=False)
     op.create_index(op.f('ix_support_tickets_kind'), 'support_tickets', ['kind'], unique=False)
     op.create_index(op.f('ix_support_tickets_user_id'), 'support_tickets', ['user_id'], unique=False)
     # ### end Alembic commands ###
@@ -436,6 +448,8 @@ def _seed_starter_wardrobe_templates() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index(op.f('ix_devices_user_id'), table_name='devices')
+    op.drop_table('devices')
     op.drop_index(op.f('ix_payment_methods_user_id'), table_name='payment_methods')
     op.drop_table('payment_methods')
     op.drop_index(op.f('ix_billing_history_user_id'), table_name='billing_history')

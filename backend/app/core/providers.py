@@ -19,6 +19,9 @@ from app.services.providers.image.s3 import S3ImageStorage
 from app.services.providers.payment.base import PaymentProvider
 from app.services.providers.payment.mock import MockPaymentProvider
 from app.services.providers.payment.stripe import StripeProvider
+from app.services.providers.push.apns_fcm import ApnsFcmProvider
+from app.services.providers.push.base import PushProvider
+from app.services.providers.push.log import LogPushProvider
 from app.services.providers.oauth.base import OAuthVerifier
 from app.services.providers.oauth.real import RealOAuthVerifier
 from app.services.providers.weather.base import WeatherProvider
@@ -37,6 +40,7 @@ class Providers:
         self.ai: AIProvider = self._build_ai(s)
         self.weather: WeatherProvider = self._build_weather(s)
         self.payment: PaymentProvider = self._build_payment(s)
+        self.push: PushProvider = self._build_push(s)
         _log.info(
             "providers.built",
             environment=s.environment,
@@ -48,6 +52,7 @@ class Providers:
             ai=type(self.ai).__name__,
             weather=type(self.weather).__name__,
             payment=type(self.payment).__name__,
+            push=type(self.push).__name__,
         )
 
     @staticmethod
@@ -56,6 +61,13 @@ class Providers:
             return LogEmailProvider()
         assert s.ses_region and s.ses_from_address
         return SesEmailProvider(region=s.ses_region, from_address=s.ses_from_address)
+
+    @staticmethod
+    def _build_push(s: Settings) -> PushProvider:
+        if s.environment == "dev":
+            return LogPushProvider()
+        assert s.fcm_credentials_json, "fcm_credentials_json required outside dev"
+        return ApnsFcmProvider(fcm_credentials_json=s.fcm_credentials_json)
 
     @staticmethod
     def _build_payment(s: Settings) -> PaymentProvider:

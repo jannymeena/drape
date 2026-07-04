@@ -20,6 +20,7 @@ from app.api.routes import (
     users,
     wardrobe,
     billing,
+    devices,
 )
 from app.core.config import settings
 from app.core.logging import RequestIdMiddleware, bridge_uvicorn_logging, configure_logging
@@ -59,6 +60,7 @@ app.include_router(outfits.router, prefix=settings.api_v1_prefix)
 app.include_router(usage.router, prefix=settings.api_v1_prefix)
 app.include_router(analytics.router, prefix=settings.api_v1_prefix)
 app.include_router(billing.router, prefix=settings.api_v1_prefix)
+app.include_router(devices.router, prefix=settings.api_v1_prefix)
 app.include_router(settings_routes.router, prefix=settings.api_v1_prefix)
 app.include_router(support.router, prefix=settings.api_v1_prefix)
 app.include_router(account.router, prefix=settings.api_v1_prefix)

@@ -27,7 +27,8 @@ from app.schemas.outfit import (
     OutfitResponse,
     payload_to_outfit_items,
 )
-from app.services import outfit_service, usage_service
+from app.core.providers import providers
+from app.services import outfit_service, push_service, usage_service
 from app.services.outfit_service import OutfitError
 from app.services.providers.ai.base import AIProvider
 from app.services.providers.weather.base import WeatherProvider
@@ -48,7 +49,20 @@ def _translate(err: OutfitError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
 
 
-def _translate_usage(err: UsageError) -> HTTPException:
+def _translate_usage(
+    err: UsageError, *, db: Session | None = None, user: User | None = None
+) -> HTTPException:
+    # Transactional push (2.3): fire-and-forget nudge when the weekly cap
+    # hits — dev provider just logs; real delivery lands in Tier 3.3.
+    if db is not None and user is not None and err.code == "limit_reached":
+        push_service.notify_user(
+            db,
+            push=providers.push,
+            user_id=user.id,
+            title="You've hit this week's free limit",
+            body=str(err),
+            data={"route": "paywall"},
+        )
     return HTTPException(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         detail={
@@ -101,7 +115,7 @@ async def regenerate(
             db=db, user=user, ai=ai, weather=weather, outfit_id=outfit_id
         )
     except UsageError as e:
-        raise _translate_usage(e)
+        raise _translate_usage(e, db=db, user=user)
     except OutfitError as e:
         raise _translate(e)
     return _to_outfit_response(fresh)
@@ -122,7 +136,7 @@ def mix_and_match(
             db, user=user, outfit_id=outfit_id, swaps=payload.swapped_items
         )
     except UsageError as e:
-        raise _translate_usage(e)
+        raise _translate_usage(e, db=db, user=user)
     except OutfitError as e:
         raise _translate(e)
     return MixAndMatchResponse(

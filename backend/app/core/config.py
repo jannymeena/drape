@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     ses_from_address: str | None = None
     password_reset_url_template: str = "https://drape.local/reset?token={token}"
     stripe_api_key: str | None = None  # required outside dev (11c)
+    fcm_credentials_json: str | None = None  # required outside dev (11d)
 
     anthropic_api_key: str | None = None
     # Claude model id for the AI provider. Override per env with ANTHROPIC_MODEL
