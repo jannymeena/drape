@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-UsageResource = Literal["outfits", "mix_and_match"]
+UsageResource = Literal["outfits", "mix_and_match", "buy_dont_buy", "advisor"]
 SubscriptionTier = Literal["free", "pro"]
 
 
@@ -28,6 +28,8 @@ class CurrentWeekUsage(BaseModel):
     week_start_date: date
     outfits: UsageCounters
     mix_and_match: UsageCounters
+    buy_dont_buy: UsageCounters
+    advisor: UsageCounters
     last_reset: datetime | None
     next_reset: datetime
     subscription_tier: SubscriptionTier

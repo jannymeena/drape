@@ -171,6 +171,10 @@ def upgrade() -> None:
     sa.Column('mix_and_match_sessions', sa.Integer(), server_default='0', nullable=False),
     sa.Column('outfit_limit', sa.Integer(), server_default='21', nullable=False),
     sa.Column('mix_limit', sa.Integer(), server_default='3', nullable=False),
+    sa.Column('buy_dont_buy_checks', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('buy_dont_buy_limit', sa.Integer(), server_default='5', nullable=False),
+    sa.Column('advisor_questions', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('advisor_limit', sa.Integer(), server_default='10', nullable=False),
     sa.Column('last_reset', sa.DateTime(timezone=True), nullable=True),
     sa.Column('next_reset', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
@@ -407,6 +411,61 @@ def upgrade() -> None:
     sa.UniqueConstraint('token')
     )
     op.create_index(op.f('ix_devices_user_id'), 'devices', ['user_id'], unique=False)
+    op.create_table('products',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('external_id', sa.String(length=100), nullable=False),
+    sa.Column('name', sa.String(length=200), nullable=False),
+    sa.Column('brand', sa.String(length=100), nullable=False),
+    sa.Column('category', sa.String(length=30), nullable=False),
+    sa.Column('price_cents', sa.Integer(), nullable=False),
+    sa.Column('currency', sa.String(length=3), server_default='CAD', nullable=False),
+    sa.Column('image_url', sa.String(length=500), nullable=False),
+    sa.Column('product_url', sa.String(length=500), nullable=False),
+    sa.Column('retailer', sa.String(length=100), nullable=False),
+    sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('external_id')
+    )
+    op.create_index(op.f('ix_products_category'), 'products', ['category'], unique=False)
+    op.create_table('wishlists',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('product_id', sa.UUID(), nullable=False),
+    sa.Column('added_price_cents', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['product_id'], ['products.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'product_id')
+    )
+    op.create_index(op.f('ix_wishlists_user_id'), 'wishlists', ['user_id'], unique=False)
+    op.create_table('ai_style_advisor_conversations',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('title', sa.String(length=200), nullable=False),
+    sa.Column('messages', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_ai_style_advisor_conversations_user_id'), 'ai_style_advisor_conversations', ['user_id'], unique=False)
+    op.create_table('buy_dont_buy_results',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('product_name', sa.String(length=200), nullable=True),
+    sa.Column('verdict', sa.String(length=10), nullable=False),
+    sa.Column('score', sa.Integer(), nullable=False),
+    sa.Column('reasons', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_buy_dont_buy_results_user_id'), 'buy_dont_buy_results', ['user_id'], unique=False)
     op.create_index(op.f('ix_support_tickets_kind'), 'support_tickets', ['kind'], unique=False)
     op.create_index(op.f('ix_support_tickets_user_id'), 'support_tickets', ['user_id'], unique=False)
     # ### end Alembic commands ###
@@ -448,6 +507,14 @@ def _seed_starter_wardrobe_templates() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index(op.f('ix_buy_dont_buy_results_user_id'), table_name='buy_dont_buy_results')
+    op.drop_table('buy_dont_buy_results')
+    op.drop_index(op.f('ix_ai_style_advisor_conversations_user_id'), table_name='ai_style_advisor_conversations')
+    op.drop_table('ai_style_advisor_conversations')
+    op.drop_index(op.f('ix_wishlists_user_id'), table_name='wishlists')
+    op.drop_table('wishlists')
+    op.drop_index(op.f('ix_products_category'), table_name='products')
+    op.drop_table('products')
     op.drop_index(op.f('ix_devices_user_id'), table_name='devices')
     op.drop_table('devices')
     op.drop_index(op.f('ix_payment_methods_user_id'), table_name='payment_methods')

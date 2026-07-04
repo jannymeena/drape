@@ -181,6 +181,95 @@ class SupportTicket(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open", server_default="open")
 
 
+class Product(Base, TimestampMixin):
+    """Affiliate product synced from the AffiliateProvider catalog (7a).
+    `external_id` is the provider's stable key; re-syncs upsert on it."""
+
+    __tablename__ = "products"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    external_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    brand: Mapped[str] = mapped_column(String(100), nullable=False)
+    category: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, default="CAD", server_default="CAD"
+    )
+    image_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    product_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    retailer: Mapped[str] = mapped_column(String(100), nullable=False)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+
+
+class WishlistItem(Base, TimestampMixin):
+    """Saved product (7e). `added_price_cents` freezes the price at save time
+    so a later provider price below it reads as a drop."""
+
+    __tablename__ = "wishlists"
+    __table_args__ = (UniqueConstraint("user_id", "product_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("products.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    added_price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class AdvisorConversation(Base, TimestampMixin):
+    """AI Style Advisor thread (7b). `messages` is an append-only JSONB list of
+    {role, content, suggestions?} dicts — one row per conversation."""
+
+    __tablename__ = "ai_style_advisor_conversations"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    messages: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+
+
+class BuyDontBuyResult(Base, TimestampMixin):
+    """One Buy/Don't-Buy verdict (7c) — persisted for the "recent checks" UI
+    and so re-checks don't re-bill AI (the image goes through the AI cache)."""
+
+    __tablename__ = "buy_dont_buy_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    product_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    verdict: Mapped[str] = mapped_column(String(10), nullable=False)  # buy|dont_buy
+    score: Mapped[int] = mapped_column(Integer, nullable=False)  # 0-100
+    reasons: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+
 class Device(Base, TimestampMixin):
     """A push-notification target. One row per device token; re-registering
     the same token moves it to the current user (people share devices and
@@ -734,6 +823,18 @@ class UsageTracking(Base):
     )
     mix_limit: Mapped[int] = mapped_column(
         Integer, nullable=False, default=3, server_default="3"
+    )
+    buy_dont_buy_checks: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    buy_dont_buy_limit: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=5, server_default="5"
+    )
+    advisor_questions: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    advisor_limit: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=10, server_default="10"
     )
     last_reset: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True

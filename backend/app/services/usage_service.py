@@ -43,6 +43,9 @@ _log = structlog.get_logger("usage")
 # CTO doc 2 §"Free tier limits".
 DEFAULT_OUTFIT_LIMIT = 21
 DEFAULT_MIX_LIMIT = 3
+# CTO doc 4 §Shop free limits.
+DEFAULT_BDB_LIMIT = 5
+DEFAULT_ADVISOR_LIMIT = 10
 
 # Reset clock: Monday 05:00 in the user's timezone.
 _RESET_HOUR_LOCAL = 5
@@ -149,6 +152,10 @@ def get_or_create_current_week(db: Session, *, user: User) -> UsageTracking:
         mix_and_match_sessions=0,
         outfit_limit=DEFAULT_OUTFIT_LIMIT,
         mix_limit=DEFAULT_MIX_LIMIT,
+        buy_dont_buy_checks=0,
+        buy_dont_buy_limit=DEFAULT_BDB_LIMIT,
+        advisor_questions=0,
+        advisor_limit=DEFAULT_ADVISOR_LIMIT,
         last_reset=last_reset,
         next_reset=next_reset,
     )
@@ -173,14 +180,22 @@ def get_or_create_current_week(db: Session, *, user: User) -> UsageTracking:
 def _resource_used_limit(row: UsageTracking, resource: UsageResource) -> tuple[int, int]:
     if resource == "outfits":
         return row.outfits_generated, row.outfit_limit
-    return row.mix_and_match_sessions, row.mix_limit
+    if resource == "mix_and_match":
+        return row.mix_and_match_sessions, row.mix_limit
+    if resource == "buy_dont_buy":
+        return row.buy_dont_buy_checks, row.buy_dont_buy_limit
+    return row.advisor_questions, row.advisor_limit
 
 
 def _bump(row: UsageTracking, resource: UsageResource, count: int) -> None:
     if resource == "outfits":
         row.outfits_generated += count
-    else:
+    elif resource == "mix_and_match":
         row.mix_and_match_sessions += count
+    elif resource == "buy_dont_buy":
+        row.buy_dont_buy_checks += count
+    else:
+        row.advisor_questions += count
 
 
 def check_and_increment(
@@ -205,6 +220,10 @@ def check_and_increment(
             mix_and_match_sessions=0,
             outfit_limit=10**9,
             mix_limit=10**9,
+            buy_dont_buy_checks=0,
+            buy_dont_buy_limit=10**9,
+            advisor_questions=0,
+            advisor_limit=10**9,
             last_reset=None,
             next_reset=next_reset,
         )
@@ -262,6 +281,8 @@ def get_summary(db: Session, *, user: User) -> CurrentWeekUsage:
         week_start_date=row.week_start_date,  # type: ignore[arg-type]
         outfits=counters(row.outfits_generated, row.outfit_limit),
         mix_and_match=counters(row.mix_and_match_sessions, row.mix_limit),
+        buy_dont_buy=counters(row.buy_dont_buy_checks, row.buy_dont_buy_limit),
+        advisor=counters(row.advisor_questions, row.advisor_limit),
         last_reset=row.last_reset,
         next_reset=row.next_reset,  # type: ignore[arg-type]
         subscription_tier=_tier(user),
