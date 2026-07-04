@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
@@ -136,7 +137,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           );
       ref.read(authControllerProvider.notifier).applyCurrentUser(updated);
       if (!mounted) return;
-      _toast('Profile updated.');
+      showDrapeToast(context, 'Profile updated.');
       context.pop();
     } on ApiException catch (e) {
       if (!mounted) return;

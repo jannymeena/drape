@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../image_pick.dart';
 import '../models/wardrobe_item.dart';
@@ -103,8 +104,7 @@ class ItemDetailScreen extends ConsumerWidget {
           .addImages(itemId, [picked]);
       ref.invalidate(wardrobeItemProvider(itemId));
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Photo added')));
+      showDrapeToast(context, 'Photo added');
     } on ApiException catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)
@@ -129,13 +129,12 @@ class ItemDetailScreen extends ConsumerWidget {
           await ref.read(wardrobeControllerProvider.notifier).logWorn(itemId);
       ref.invalidate(wardrobeItemProvider(itemId));
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.alreadyLoggedToday
-              ? 'Already logged today'
-              : 'Logged as worn today'),
-        ),
-      );
+      if (result.alreadyLoggedToday) {
+        showDrapeToast(context, 'Already logged today',
+            icon: Icons.info_outline);
+      } else {
+        showDrapeToast(context, 'Logged as worn today');
+      }
     } on ApiException catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context)
@@ -151,8 +150,8 @@ class ItemDetailScreen extends ConsumerWidget {
       await ref.read(wardrobeControllerProvider.notifier).deleteItem(itemId);
       ref.invalidate(wardrobeCapacityProvider);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Removed from wardrobe')));
+      showDrapeToast(context, 'Removed from wardrobe',
+          icon: Icons.remove_circle_outline);
       context.pop();
     } on ApiException catch (e) {
       if (!context.mounted) return;

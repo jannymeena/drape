@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../../../shared/widgets/drape_toast.dart';
 import '../settings_service.dart';
 import '../widgets/settings_row.dart';
 import '../widgets/settings_section.dart';
@@ -46,9 +47,7 @@ class _ContactUsScreenState extends ConsumerState<ContactUsScreen> {
           .read(settingsServiceProvider)
           .submitSupport(kind: 'contact', message: message);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message sent — we\'ll be in touch.')),
-      );
+      showDrapeToast(context, "Message sent — we'll be in touch.");
       context.pop();
     } on ApiException catch (e) {
       if (mounted) {

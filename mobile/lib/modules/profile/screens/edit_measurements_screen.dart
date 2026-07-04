@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../onboarding/models/measurements_draft.dart';
 import '../profile_service.dart';
@@ -120,9 +121,7 @@ class _EditMeasurementsScreenState
       // Refresh any live watcher (e.g. the Today resume banner) right away.
       ref.invalidate(measurementsProvider);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Measurements saved.')),
-      );
+      showDrapeToast(context, 'Measurements saved.');
       context.pop();
     } catch (e) {
       if (!mounted) return;

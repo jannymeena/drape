@@ -6,6 +6,7 @@ import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
+import '../../../shared/widgets/drape_toast.dart';
 import '../image_pick.dart';
 import '../models/wardrobe_item.dart';
 import '../models/wardrobe_mutations.dart';
@@ -270,8 +271,7 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
           .addImages(widget.itemId!, [picked]);
       ref.invalidate(wardrobeItemProvider(widget.itemId!));
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Photo added')));
+      showDrapeToast(context, 'Photo added');
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -295,8 +295,9 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
         ref.invalidate(wardrobeCapacityProvider);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isEditing ? 'Changes saved' : 'Added to wardrobe')),
+      showDrapeToast(
+        context,
+        _isEditing ? 'Changes saved' : 'Item added to wardrobe!',
       );
       context.pop();
     } on ApiException catch (e) {

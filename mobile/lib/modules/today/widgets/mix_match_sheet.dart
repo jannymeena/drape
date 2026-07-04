@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../../wardrobe/models/wardrobe_item.dart';
 import '../../wardrobe/wardrobe_service.dart';
@@ -53,9 +54,7 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
       );
       if (!mounted) return;
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Swapped — match score updated.')),
-      );
+      showDrapeToast(context, 'Swapped — match score updated.');
     } on ApiException catch (e) {
       if (mounted) {
         setState(() => _applying = false);

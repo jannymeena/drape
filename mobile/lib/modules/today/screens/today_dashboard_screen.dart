@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../onboarding/models/measurements_draft.dart';
 import '../../profile/profile_service.dart';
@@ -89,19 +90,15 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     }
   }
 
-  /// Server-authored toast (message + colour + duration) from `POST .../log`.
+  /// Server-authored toast (message + colour + duration) from `POST .../log`,
+  /// rendered in the shared styled-toast shape.
   void _showToast(LogOutfitToast toast) {
-    final bg = _hexColor(toast.background) ?? AppColors.espresso;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(toast.message),
-          backgroundColor: bg,
-          duration: Duration(milliseconds: toast.durationMs),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    showDrapeToast(
+      context,
+      toast.message,
+      background: _hexColor(toast.background) ?? AppColors.espresso,
+      duration: Duration(milliseconds: toast.durationMs),
+    );
   }
 
   void _showError(String message) {
