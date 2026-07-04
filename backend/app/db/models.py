@@ -181,6 +181,111 @@ class SupportTicket(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open", server_default="open")
 
 
+class Subscription(Base, TimestampMixin):
+    """One row per user. `users.subscription_tier` stays the fast entitlement
+    switch every gate reads; this row is the billing record behind it.
+    Cancellation is soft: cancel_at_period_end keeps Pro until the paid period
+    lapses (lazy expiry on read — no scheduler needed pre-launch)."""
+
+    __tablename__ = "subscriptions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    plan: Mapped[str] = mapped_column(String(20), nullable=False)  # pro_monthly|pro_yearly
+    status: Mapped[str] = mapped_column(  # active|canceled
+        String(20), nullable=False, default="active", server_default="active"
+    )
+    price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, default="CAD", server_default="CAD"
+    )
+    current_period_start: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    current_period_end: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    cancel_at_period_end: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    canceled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    cancellation_reason: Mapped[Optional[str]] = mapped_column(
+        String(200), nullable=True
+    )
+    # none | offered | accepted — the 3-step cancellation retention state.
+    retention_offer: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="none", server_default="none"
+    )
+    provider: Mapped[str] = mapped_column(String(20), nullable=False)  # mock|stripe
+    provider_subscription_id: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )
+
+
+class BillingRecord(Base, TimestampMixin):
+    """Append-only charge/credit history shown on the Billing History screen."""
+
+    __tablename__ = "billing_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    description: Mapped[str] = mapped_column(String(200), nullable=False)
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, default="CAD", server_default="CAD"
+    )
+    status: Mapped[str] = mapped_column(  # paid|refunded|failed
+        String(20), nullable=False, default="paid", server_default="paid"
+    )
+    invoice_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+
+class PaymentMethod(Base, TimestampMixin):
+    """Stored payment instrument (tokenized upstream; we keep display fields)."""
+
+    __tablename__ = "payment_methods"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)  # card|apple_pay
+    brand: Mapped[str] = mapped_column(String(20), nullable=False)
+    last4: Mapped[str] = mapped_column(String(4), nullable=False)
+    exp_month: Mapped[int] = mapped_column(Integer, nullable=False)
+    exp_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_default: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    provider_payment_method_id: Mapped[str] = mapped_column(
+        String(255), nullable=False
+    )
+
+
 class FeatureRequestVote(Base, TimestampMixin):
     """Public up/down vote on a feature-request ticket. One row per
     (user, ticket); vote is +1 or -1, and clearing a vote deletes the row."""

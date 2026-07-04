@@ -16,6 +16,9 @@ from app.services.providers.hash.bcrypt import BcryptPasswordHasher
 from app.services.providers.image.base import ImageStorageProvider
 from app.services.providers.image.local_fs import LocalFsStorage
 from app.services.providers.image.s3 import S3ImageStorage
+from app.services.providers.payment.base import PaymentProvider
+from app.services.providers.payment.mock import MockPaymentProvider
+from app.services.providers.payment.stripe import StripeProvider
 from app.services.providers.oauth.base import OAuthVerifier
 from app.services.providers.oauth.real import RealOAuthVerifier
 from app.services.providers.weather.base import WeatherProvider
@@ -33,6 +36,7 @@ class Providers:
         self.image_storage: ImageStorageProvider = self._build_image_storage(s)
         self.ai: AIProvider = self._build_ai(s)
         self.weather: WeatherProvider = self._build_weather(s)
+        self.payment: PaymentProvider = self._build_payment(s)
         _log.info(
             "providers.built",
             environment=s.environment,
@@ -43,6 +47,7 @@ class Providers:
             image_storage=type(self.image_storage).__name__,
             ai=type(self.ai).__name__,
             weather=type(self.weather).__name__,
+            payment=type(self.payment).__name__,
         )
 
     @staticmethod
@@ -51,6 +56,13 @@ class Providers:
             return LogEmailProvider()
         assert s.ses_region and s.ses_from_address
         return SesEmailProvider(region=s.ses_region, from_address=s.ses_from_address)
+
+    @staticmethod
+    def _build_payment(s: Settings) -> PaymentProvider:
+        if s.environment == "dev":
+            return MockPaymentProvider()
+        assert s.stripe_api_key, "stripe_api_key required outside dev"
+        return StripeProvider(api_key=s.stripe_api_key)
 
     @staticmethod
     def _build_oauth(s: Settings) -> OAuthVerifier | None:

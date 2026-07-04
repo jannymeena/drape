@@ -31,6 +31,7 @@ from app.services import outfit_service, usage_service
 from app.services.outfit_service import OutfitError
 from app.services.providers.ai.base import AIProvider
 from app.services.providers.weather.base import WeatherProvider
+from app.services.billing_service import PLAN_SUMMARY
 from app.services.usage_service import UsageError
 
 router = APIRouter(prefix="/outfits", tags=["outfits"])
@@ -57,6 +58,8 @@ def _translate_usage(err: UsageError) -> HTTPException:
             "limit": err.limit,
             "resets_at": err.resets_at.isoformat() if err.resets_at else None,
             "message": str(err),
+            # Paywall payload — plans the client can render immediately.
+            "plans": PLAN_SUMMARY,
         },
     )
 

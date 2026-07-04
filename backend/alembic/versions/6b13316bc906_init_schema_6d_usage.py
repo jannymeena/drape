@@ -343,6 +343,58 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_feature_request_votes_ticket_id'), 'feature_request_votes', ['ticket_id'], unique=False)
     op.create_index(op.f('ix_feature_request_votes_user_id'), 'feature_request_votes', ['user_id'], unique=False)
+    op.create_table('subscriptions',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('plan', sa.String(length=20), nullable=False),
+    sa.Column('status', sa.String(length=20), server_default='active', nullable=False),
+    sa.Column('price_cents', sa.Integer(), nullable=False),
+    sa.Column('currency', sa.String(length=3), server_default='CAD', nullable=False),
+    sa.Column('current_period_start', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('current_period_end', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('cancel_at_period_end', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('canceled_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('cancellation_reason', sa.String(length=200), nullable=True),
+    sa.Column('retention_offer', sa.String(length=20), server_default='none', nullable=False),
+    sa.Column('provider', sa.String(length=20), nullable=False),
+    sa.Column('provider_subscription_id', sa.String(length=255), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id')
+    )
+    op.create_table('billing_history',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('description', sa.String(length=200), nullable=False),
+    sa.Column('amount_cents', sa.Integer(), nullable=False),
+    sa.Column('currency', sa.String(length=3), server_default='CAD', nullable=False),
+    sa.Column('status', sa.String(length=20), server_default='paid', nullable=False),
+    sa.Column('invoice_number', sa.String(length=50), nullable=True),
+    sa.Column('occurred_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_billing_history_user_id'), 'billing_history', ['user_id'], unique=False)
+    op.create_table('payment_methods',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('kind', sa.String(length=20), nullable=False),
+    sa.Column('brand', sa.String(length=20), nullable=False),
+    sa.Column('last4', sa.String(length=4), nullable=False),
+    sa.Column('exp_month', sa.Integer(), nullable=False),
+    sa.Column('exp_year', sa.Integer(), nullable=False),
+    sa.Column('is_default', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('provider_payment_method_id', sa.String(length=255), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_payment_methods_user_id'), 'payment_methods', ['user_id'], unique=False)
     op.create_index(op.f('ix_support_tickets_kind'), 'support_tickets', ['kind'], unique=False)
     op.create_index(op.f('ix_support_tickets_user_id'), 'support_tickets', ['user_id'], unique=False)
     # ### end Alembic commands ###
@@ -384,6 +436,11 @@ def _seed_starter_wardrobe_templates() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index(op.f('ix_payment_methods_user_id'), table_name='payment_methods')
+    op.drop_table('payment_methods')
+    op.drop_index(op.f('ix_billing_history_user_id'), table_name='billing_history')
+    op.drop_table('billing_history')
+    op.drop_table('subscriptions')
     op.drop_index(op.f('ix_feature_request_votes_user_id'), table_name='feature_request_votes')
     op.drop_index(op.f('ix_feature_request_votes_ticket_id'), table_name='feature_request_votes')
     op.drop_table('feature_request_votes')
