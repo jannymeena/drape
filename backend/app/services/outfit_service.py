@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import random
 import re
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
@@ -484,6 +485,25 @@ def _heuristic_pick(items: Sequence[WardrobeItem]) -> list[WardrobeItem]:
     return pick
 
 
+def _blend_pool(pool: list[WardrobeItem]) -> list[WardrobeItem]:
+    """CTO doc 2 transition thresholds — bias candidates as real items grow:
+    0 real -> starter only; 1-4 -> all real + up to 10 starter; 5-9 -> all
+    real + up to 4 starter; 10+ -> real only. No starter items = no-op."""
+    starter = [i for i in pool if i.is_starter_wardrobe]
+    if not starter:
+        return pool
+    real = [i for i in pool if not i.is_starter_wardrobe]
+    n = len(real)
+    if n == 0:
+        return starter
+    if n >= 10:
+        return real
+    cap = 10 if n <= 4 else 4
+    if len(starter) > cap:
+        starter = random.sample(starter, cap)
+    return real + starter
+
+
 async def generate_one(
     *,
     db: Session,
@@ -517,7 +537,7 @@ async def generate_one(
         # the full wardrobe so we still produce something.
         pool = all_items
 
-    candidates = _filter_for_occasion(pool, occasion)
+    candidates = _filter_for_occasion(_blend_pool(pool), occasion)
     using_starter = any(i.is_starter_wardrobe for i in candidates)
 
     snap = await _maybe_weather(weather, lat=lat, lon=lon)
@@ -1124,5 +1144,16 @@ def _profile_incomplete(db: Session, *, user_id: UUID) -> bool:
     )
 
 
-def _is_starter_wardrobe_active(outfits: Sequence[Outfit]) -> bool:
-    return any(o.using_starter_wardrobe for o in outfits)
+def _starter_wardrobe_banner(db: Session, *, user_id: UUID) -> bool:
+    """CTO doc 2 §Starter Wardrobe banner rules: active starter assignment,
+    fewer than 5 real items, and not dismissed within the last 7 days."""
+    from app.services import banner_service, starter_wardrobe_service
+
+    assignment = starter_wardrobe_service.get_assignment(db, user_id=user_id)
+    if assignment is None or not assignment.is_active:
+        return False
+    if starter_wardrobe_service.real_item_count(db, user_id=user_id) >= 5:
+        return False
+    return not banner_service.is_dismissed(
+        db, user_id=user_id, banner="starter_wardrobe"
+    )

@@ -26,7 +26,7 @@ import pytest
 from sqlalchemy import select
 
 from app.db.models import Outfit, StreakTracking, WardrobeItem
-from tests.factories import make_outfit, make_starter_wardrobe
+from tests.factories import make_outfit, make_starter_wardrobe, make_wardrobe_item
 
 
 # ---------------------------------------------------------------------------
@@ -524,3 +524,51 @@ def test_dashboard_incomplete_profile_clears_after_measurements(authed_client, d
 
     r = authed_client.get("/api/v1/today/dashboard")
     assert r.json()["banners"]["incomplete_profile"] is False
+
+
+# ---------------------------------------------------------------------------
+# Starter-wardrobe banner + dismissal (1.4)
+# ---------------------------------------------------------------------------
+
+
+def _assign_starter(client):
+    r = client.post("/api/v1/starter-wardrobe/assign", json={})
+    assert r.status_code == 200, r.text
+
+
+def _starter_banner(client) -> bool:
+    r = client.get("/api/v1/today/dashboard")
+    assert r.status_code == 200, r.text
+    return r.json()["banners"]["starter_wardrobe"]
+
+
+def test_starter_banner_shows_for_active_assignment(authed_client):
+    _assign_starter(authed_client)
+    assert _starter_banner(authed_client) is True
+
+
+def test_starter_banner_hides_after_dismiss(authed_client):
+    _assign_starter(authed_client)
+    r = authed_client.post("/api/v1/today/banners/starter_wardrobe/dismiss")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["banner"] == "starter_wardrobe"
+    assert body["hidden_for_days"] == 7
+    assert _starter_banner(authed_client) is False
+
+
+def test_starter_banner_hides_with_five_real_items(authed_client, db):
+    _assign_starter(authed_client)
+    for i in range(5):
+        make_wardrobe_item(db, authed_client.test_user, name=f"Real {i}")
+    assert _starter_banner(authed_client) is False
+
+
+def test_starter_banner_false_without_assignment(authed_client, db):
+    make_starter_wardrobe(db, authed_client.test_user, count=4)  # items, no row
+    assert _starter_banner(authed_client) is False
+
+
+def test_dismiss_unknown_banner_422(authed_client):
+    r = authed_client.post("/api/v1/today/banners/nonsense/dismiss")
+    assert r.status_code == 422

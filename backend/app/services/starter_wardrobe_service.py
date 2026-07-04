@@ -100,7 +100,7 @@ def _get_template(
     return template
 
 
-def _real_item_count(db: Session, *, user_id: UUID) -> int:
+def real_item_count(db: Session, *, user_id: UUID) -> int:
     return int(
         db.scalar(
             select(func.count(WardrobeItem.id)).where(
@@ -208,7 +208,7 @@ def recompute_transition(
     auto-deactivates the active starter wardrobe once real items >= 15.
     """
     row = get_or_create_transition_row(db, user_id=user.id)
-    real = _real_item_count(db, user_id=user.id)
+    real = real_item_count(db, user_id=user.id)
     starter = _starter_item_count(db, user_id=user.id)
     total = real + starter
     pct_real = (real / total * 100.0) if total > 0 else 0.0
@@ -260,7 +260,7 @@ def assign(
     template = _get_template(db, template_id=chosen_template_id)
 
     existing = get_assignment(db, user_id=user.id)
-    real = _real_item_count(db, user_id=user.id)
+    real = real_item_count(db, user_id=user.id)
 
     if existing is not None and real >= 1:
         # User has already added real items; preserve their state.

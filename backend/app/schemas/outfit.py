@@ -106,6 +106,12 @@ class TodayUser(BaseModel):
     timezone: str | None
 
 
+class BannerDismissResponse(BaseModel):
+    banner: str
+    dismissed_at: datetime
+    hidden_for_days: int
+
+
 class TodayBanners(BaseModel):
     starter_wardrobe: bool = False
     incomplete_profile: bool = False

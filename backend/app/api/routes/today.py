@@ -19,6 +19,7 @@ from app.api.dependencies.providers import get_ai_provider, get_weather_provider
 from app.db.models import User
 from app.db.session import get_db
 from app.schemas.outfit import (
+    BannerDismissResponse,
     GenerateOccasionRequest,
     GenerateOutfitsRequest,
     GenerateOutfitsResponse,
@@ -30,11 +31,11 @@ from app.schemas.outfit import (
     WeatherContext,
     payload_to_outfit_items,
 )
-from app.services import outfit_service, usage_service
+from app.services import banner_service, outfit_service, usage_service
 from app.services.outfit_service import (
     DAILY_OUTFIT_TARGET,
     OutfitError,
-    _is_starter_wardrobe_active,  # type: ignore[attr-defined]
+    _starter_wardrobe_banner,  # type: ignore[attr-defined]
     _outfits_generated_today,  # type: ignore[attr-defined]
     _profile_incomplete,  # type: ignore[attr-defined]
 )
@@ -156,7 +157,7 @@ async def dashboard(
             resets_at=_next_midnight_utc(),
         ),
         banners=TodayBanners(
-            starter_wardrobe=_is_starter_wardrobe_active(outfits),
+            starter_wardrobe=_starter_wardrobe_banner(db, user_id=user.id),
             incomplete_profile=_profile_incomplete(db, user_id=user.id),
         ),
         wardrobe_ready=ready,
@@ -225,4 +226,25 @@ async def generate_outfits(
     return GenerateOutfitsResponse(
         outfits=[_to_outfit_response(o) for o in outfits],
         using_starter_wardrobe=using_starter,
+    )
+
+
+@router.post("/banners/{banner}/dismiss", response_model=BannerDismissResponse)
+def dismiss_banner(
+    banner: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> BannerDismissResponse:
+    """Hide a dashboard banner for 7 days (CTO doc 2 banner rules)."""
+    if banner not in banner_service.KNOWN_BANNERS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unknown banner {banner!r}; expected one of "
+            f"{sorted(banner_service.KNOWN_BANNERS)}",
+        )
+    row = banner_service.dismiss(db, user_id=user.id, banner=banner)
+    return BannerDismissResponse(
+        banner=row.banner,
+        dismissed_at=row.dismissed_at,
+        hidden_for_days=banner_service.DISMISS_WINDOW_DAYS,
     )

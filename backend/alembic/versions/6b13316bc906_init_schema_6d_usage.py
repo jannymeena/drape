@@ -256,6 +256,16 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id')
     )
+    op.create_table('banner_dismissals',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('banner', sa.String(length=50), nullable=False),
+    sa.Column('dismissed_at', sa.DateTime(timezone=True), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'banner')
+    )
+    op.create_index(op.f('ix_banner_dismissals_user_id'), 'banner_dismissals', ['user_id'], unique=False)
     op.create_table('outfit_history',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -360,6 +370,8 @@ def _seed_starter_wardrobe_templates() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index(op.f('ix_banner_dismissals_user_id'), table_name='banner_dismissals')
+    op.drop_table('banner_dismissals')
     op.drop_table('ai_response_cache')
     op.drop_table('support_tickets')
     op.drop_table('user_settings')

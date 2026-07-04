@@ -410,6 +410,29 @@ class UserStarterWardrobe(Base):
     deactivation_reason: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
 
+class BannerDismissal(Base):
+    """Per-user, per-banner "not now" timestamp (CTO doc 2 banner rules:
+    dismissed banners stay hidden for 7 days). One row per (user, banner);
+    re-dismissing refreshes dismissed_at."""
+
+    __tablename__ = "banner_dismissals"
+    __table_args__ = (UniqueConstraint("user_id", "banner"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    banner: Mapped[str] = mapped_column(String(50), nullable=False)
+    dismissed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+
 class WardrobeTransitionTracking(Base):
     """One row per user. Updated whenever a wardrobe item is added or removed,
     plus when a starter wardrobe is assigned. Drives the "X% built from your
