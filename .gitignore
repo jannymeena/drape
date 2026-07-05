@@ -33,6 +33,7 @@ env/
 .env
 .env.*
 !.env.example
+.envrc
 
 # --- FastAPI / Database ---
 # Local SQLite databases used for dev
@@ -62,7 +63,12 @@ coverage.xml
 # --- Logs ---
 *.log
 pip-log.txt
+# §5.3 dev AI usage/cost log
+backend/logs/
+*.jsonl
 
 
-docs/
-screens/
+# Anchored to repo root so these only ignore the top-level design/docs assets —
+# not the Flutter source dirs named the same (e.g. mobile/lib/modules/*/screens/).
+/docs/
+/handoff/
