@@ -75,8 +75,10 @@ class AiAdvisorInitialScreen extends StatelessWidget {
                       for (final h in _historyChips)
                         _HistoryChip(
                           label: h,
-                          onTap: () =>
-                              context.goNamed(AiAdvisorConversationScreen.name),
+                          onTap: () => context.goNamed(
+                            AiAdvisorConversationScreen.name,
+                            queryParameters: {'q': h},
+                          ),
                         ),
                     ],
                   ),
@@ -92,8 +94,10 @@ class AiAdvisorInitialScreen extends StatelessWidget {
                       for (final p in _prompts)
                         _PromptCard(
                           label: p,
-                          onTap: () => context
-                              .goNamed(AiAdvisorConversationScreen.name),
+                          onTap: () => context.goNamed(
+                            AiAdvisorConversationScreen.name,
+                            queryParameters: {'q': p},
+                          ),
                         ),
                     ],
                   ),
@@ -101,7 +105,10 @@ class AiAdvisorInitialScreen extends StatelessWidget {
               ),
             ),
             _InputBar(
-              onSend: () => context.goNamed(AiAdvisorConversationScreen.name),
+              onSend: (question) => context.goNamed(
+                AiAdvisorConversationScreen.name,
+                queryParameters: {'q': question},
+              ),
             ),
           ],
         ),
@@ -231,9 +238,29 @@ class _PromptCard extends StatelessWidget {
   }
 }
 
-class _InputBar extends StatelessWidget {
-  final VoidCallback onSend;
+class _InputBar extends StatefulWidget {
+  final ValueChanged<String> onSend;
   const _InputBar({required this.onSend});
+
+  @override
+  State<_InputBar> createState() => _InputBarState();
+}
+
+class _InputBarState extends State<_InputBar> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    _controller.clear();
+    widget.onSend(text);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -254,10 +281,13 @@ class _InputBar extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: TextField(
+                  controller: _controller,
+                  onSubmitted: (_) => _submit(),
+                  textInputAction: TextInputAction.send,
                   decoration: InputDecoration(
                     isCollapsed: true,
                     border: InputBorder.none,
-                    hintText: 'Ask a follow-up question...',
+                    hintText: 'What do you need to dress for?',
                     hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.taupe,
                         ),
@@ -267,7 +297,7 @@ class _InputBar extends StatelessWidget {
               const Icon(Icons.mic_none, color: AppColors.taupe, size: 20),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: onSend,
+                onTap: _submit,
                 child: Container(
                   width: 40,
                   height: 40,

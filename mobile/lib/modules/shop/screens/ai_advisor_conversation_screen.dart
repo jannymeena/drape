@@ -1,28 +1,144 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../profile/screens/compare_plans_screen.dart';
+import '../models/shop.dart';
+import '../shop_service.dart';
 
-/// AI Style Advisor conversation (merges the 3 Tamil-wedding mockup scroll
-/// variants + the consultation view). Shows a user question, the stylist's
-/// intro, expandable "look" cards, recent questions, and a follow-up input.
-class AiAdvisorConversationScreen extends StatelessWidget {
+/// AI Style Advisor chat (`POST /shop/advisor/ask`). Opens with either an
+/// initial [question] (fired immediately, one call per turn) or an existing
+/// [conversationId] from history. 429s surface the paywall.
+class AiAdvisorConversationScreen extends ConsumerStatefulWidget {
   static const path = 'advisor/conversation';
   static const name = 'shop_advisor_conversation';
 
-  const AiAdvisorConversationScreen({super.key});
+  final String? question;
+  final String? conversationId;
 
-  static const _items = [
-    ('Mulberry Silk Kurta', 'Fabindia Collective', r'$120'),
-    ('Tapered Cream Chinos', 'Modern Fit', r'$45'),
-    ('Leather Mojari Loafers', 'Handcrafted Tan', r'$20'),
-  ];
+  const AiAdvisorConversationScreen({
+    super.key,
+    this.question,
+    this.conversationId,
+  });
 
-  static const _suggestions = [
-    'Tamil wedding outfit for a guest',
-    'Beach holiday outfit for warm weather',
-    'Professional office look for meetings',
-  ];
+  @override
+  ConsumerState<AiAdvisorConversationScreen> createState() =>
+      _AiAdvisorConversationScreenState();
+}
+
+class _AiAdvisorConversationScreenState
+    extends ConsumerState<AiAdvisorConversationScreen> {
+  final _input = TextEditingController();
+  final _scroll = ScrollController();
+
+  List<AdvisorMessage> _messages = const [];
+  String? _conversationId;
+  String? _pendingQuestion; // rendered as a user bubble while waiting
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _conversationId = widget.conversationId;
+    if (widget.conversationId != null) {
+      Future.microtask(_loadExisting);
+    } else if (widget.question != null && widget.question!.trim().isNotEmpty) {
+      Future.microtask(() => _ask(widget.question!.trim()));
+    }
+  }
+
+  @override
+  void dispose() {
+    _input.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadExisting() async {
+    try {
+      final history = await ref.read(shopServiceProvider).advisorHistory();
+      final convo =
+          history.where((c) => c.id == widget.conversationId).firstOrNull;
+      if (convo != null && mounted) {
+        setState(() => _messages = convo.messages);
+      }
+    } on ApiException catch (e) {
+      if (mounted) _showError(e.message);
+    }
+  }
+
+  Future<void> _ask(String question) async {
+    if (_sending) return;
+    setState(() {
+      _sending = true;
+      _pendingQuestion = question;
+    });
+    try {
+      final convo = await ref.read(shopServiceProvider).advisorAsk(
+            question,
+            conversationId: _conversationId,
+          );
+      ref.invalidate(advisorHistoryProvider);
+      if (!mounted) return;
+      setState(() {
+        _conversationId = convo.id;
+        _messages = convo.messages;
+        _pendingQuestion = null;
+        _sending = false;
+      });
+      _scrollToEnd();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _pendingQuestion = null;
+        _sending = false;
+      });
+      if (e.statusCode == 429) {
+        _showLimit(e.message);
+      } else {
+        _showError(e.message);
+      }
+    }
+  }
+
+  void _send() {
+    final text = _input.text.trim();
+    if (text.isEmpty) return;
+    _input.clear();
+    _ask(text);
+  }
+
+  void _scrollToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showLimit(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: SnackBarAction(
+          label: 'Upgrade',
+          onPressed: () => context.goNamed(ComparePlansScreen.name),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,60 +151,48 @@ class AiAdvisorConversationScreen extends StatelessWidget {
             _Header(onBack: () => context.pop()),
             Expanded(
               child: ListView(
+                controller: _scroll,
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 children: [
-                  _UserBubble(
-                    text:
-                        'I need the best outfit for an Indian Tamil traditional wedding as a male guest. I have a navy blazer already.',
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: const BoxDecoration(
-                          color: AppColors.espresso,
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.auto_awesome,
-                            color: AppColors.gold, size: 14),
+                  for (final m in _messages)
+                    m.role == 'user'
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _UserBubble(text: m.content),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.only(bottom: 20),
+                            child: _StylistReply(message: m),
+                          ),
+                  if (_pendingQuestion != null) ...[
+                    _UserBubble(text: _pendingQuestion!),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_sending)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                            color: AppColors.espresso),
                       ),
-                      const SizedBox(width: 8),
-                      Text('DRAPE STYLIST',
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: AppColors.espresso,
-                                letterSpacing: 1.2,
-                                fontWeight: FontWeight.w700,
-                              )),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _LookCard(items: _items),
-                  const SizedBox(height: 12),
-                  _CollapsedLook(title: 'Royal Silk Fusion', price: r'~$240'),
-                  const SizedBox(height: 8),
-                  _CollapsedLook(title: 'Modern Minimalia', price: r'~$155'),
-                  const SizedBox(height: 24),
-                  Text('RECENT QUESTIONS',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.taupe,
-                            letterSpacing: 1.4,
-                            fontWeight: FontWeight.w700,
-                          )),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final s in _suggestions) _SuggestionChip(label: s),
-                    ],
-                  ),
+                    ),
+                  if (_messages.isEmpty && !_sending)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      child: Text(
+                        'Ask anything — occasions, pairings, gaps to fill.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
                 ],
               ),
             ),
-            _InputBar(),
+            _InputBar(
+              controller: _input,
+              enabled: !_sending,
+              onSend: _send,
+            ),
           ],
         ),
       ),
@@ -116,8 +220,6 @@ class _Header extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     )),
           ),
-          const Icon(Icons.settings_outlined, color: AppColors.espresso),
-          const SizedBox(width: 8),
         ],
       ),
     );
@@ -133,11 +235,11 @@ class _UserBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 280),
+        constraints: const BoxConstraints(maxWidth: 300),
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.tanFixed.withValues(alpha: 0.6),
-          borderRadius: const BorderRadius.only(
+        decoration: const BoxDecoration(
+          color: AppColors.tanFixed,
+          borderRadius: BorderRadius.only(
             topLeft: Radius.circular(14),
             topRight: Radius.circular(14),
             bottomLeft: Radius.circular(14),
@@ -149,170 +251,74 @@ class _UserBubble extends StatelessWidget {
   }
 }
 
-class _LookCard extends StatelessWidget {
-  final List<(String, String, String)> items;
-  const _LookCard({required this.items});
+class _StylistReply extends ConsumerWidget {
+  final AdvisorMessage message;
+  const _StylistReply({required this.message});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.espressoDeep,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              '"For a Tamil traditional wedding as a guest, you want rich jewel tones (deep burgundy, forest green, royal blue, or gold). Formal silhouette… Here are 3 curated looks."',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.brandText,
-                    fontStyle: FontStyle.italic,
-                  ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: const BoxDecoration(
+                color: AppColors.espresso,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.auto_awesome,
+                  color: AppColors.gold, size: 14),
             ),
+            const SizedBox(width: 8),
+            Text('DRAPE STYLIST',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.espresso,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w700,
+                    )),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.espressoDeep,
+            borderRadius: BorderRadius.circular(14),
           ),
-          Container(
-            decoration: const BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(14)),
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('LOOK 1 OF 3',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.taupe,
-                          letterSpacing: 1.4,
-                          fontWeight: FontWeight.w700,
-                        )),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text('Classic Guest',
-                        style: Theme.of(context).textTheme.titleLarge),
-                    const Spacer(),
-                    Text(r'~$185',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: AppColors.espresso,
-                              fontWeight: FontWeight.w700,
-                            )),
-                  ],
+          child: Text(
+            message.content,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.brandText,
                 ),
-                const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    height: 160,
-                    width: double.infinity,
-                    color: AppColors.ivoryWarm,
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.person,
-                        color: AppColors.taupeSoft, size: 64),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                for (final item in items) ...[
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppColors.ivoryWarm,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.checkroom_outlined,
-                            color: AppColors.taupeSoft, size: 18),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(item.$1,
-                                style: Theme.of(context).textTheme.titleSmall),
-                            Text(item.$2,
-                                style: Theme.of(context).textTheme.bodySmall),
-                          ],
-                        ),
-                      ),
-                      Text(item.$3,
-                          style: Theme.of(context).textTheme.titleSmall),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.tanFixed.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.lightbulb_outline,
-                          color: AppColors.espresso, size: 14),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'The burgundy pairs well with your navy blazer already in your wardrobe.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: Material(
-                    color: AppColors.espresso,
-                    borderRadius: BorderRadius.circular(8),
-                    child: InkWell(
-                      onTap: () => debugPrint('advisor: view all 3 items'),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('VIEW ALL 3 ITEMS',
-                                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                        color: AppColors.white,
-                                        letterSpacing: 1.2,
-                                        fontWeight: FontWeight.w700,
-                                      )),
-                              const SizedBox(width: 6),
-                              const Icon(Icons.arrow_forward,
-                                  color: AppColors.white, size: 14),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
+        ),
+        for (final suggestion in message.suggestions) ...[
+          const SizedBox(height: 8),
+          _SuggestionCard(suggestion: suggestion),
         ],
-      ),
+      ],
     );
   }
 }
 
-class _CollapsedLook extends StatelessWidget {
-  final String title;
-  final String price;
-  const _CollapsedLook({required this.title, required this.price});
+class _SuggestionCard extends ConsumerWidget {
+  final AdvisorSuggestion suggestion;
+  const _SuggestionCard({required this.suggestion});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Resolve the matched catalog product (if any) from the loaded feed.
+    final product = ref
+        .watch(shopFeedProvider)
+        .valueOrNull
+        ?.products
+        .where((p) => p.id == suggestion.productId)
+        .firstOrNull;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -322,40 +328,44 @@ class _CollapsedLook extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.expand_more, color: AppColors.taupe),
+          const Icon(Icons.checkroom_outlined,
+              color: AppColors.espresso, size: 22),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(suggestion.name,
+                    style: Theme.of(context).textTheme.titleSmall),
+                Text(suggestion.reason,
+                    style: Theme.of(context).textTheme.bodySmall),
+                if (product != null)
+                  Text(
+                    '${product.brand} · ${product.priceLabel}',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: AppColors.espresso,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+              ],
+            ),
           ),
-          Text(price,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: AppColors.espresso,
-                    fontWeight: FontWeight.w700,
-                  )),
         ],
       ),
     );
   }
 }
 
-class _SuggestionChip extends StatelessWidget {
-  final String label;
-  const _SuggestionChip({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.tanFixed.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
-    );
-  }
-}
-
 class _InputBar extends StatelessWidget {
+  final TextEditingController controller;
+  final bool enabled;
+  final VoidCallback onSend;
+  const _InputBar({
+    required this.controller,
+    required this.enabled,
+    required this.onSend,
+  });
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -367,12 +377,17 @@ class _InputBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.5)),
+            border:
+                Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.5)),
           ),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
+                  controller: controller,
+                  enabled: enabled,
+                  onSubmitted: (_) => onSend(),
+                  textInputAction: TextInputAction.send,
                   decoration: InputDecoration(
                     isCollapsed: true,
                     border: InputBorder.none,
@@ -383,14 +398,18 @@ class _InputBar extends StatelessWidget {
                   ),
                 ),
               ),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: AppColors.espresso,
-                  shape: BoxShape.circle,
+              GestureDetector(
+                onTap: enabled ? onSend : null,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: AppColors.espresso,
+                    shape: BoxShape.circle,
+                  ),
+                  child:
+                      const Icon(Icons.send, color: AppColors.white, size: 16),
                 ),
-                child: const Icon(Icons.send, color: AppColors.white, size: 16),
               ),
             ],
           ),

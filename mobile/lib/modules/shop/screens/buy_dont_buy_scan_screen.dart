@@ -1,49 +1,79 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/models/api_error.dart';
+import '../../wardrobe/image_pick.dart';
+import '../models/shop.dart';
+import '../shop_service.dart';
 import '../widgets/buy_dont_buy_usage_banner.dart';
 import '../widgets/measurement_required_modal.dart';
-import 'buy_dont_buy_confirm_product_screen.dart';
 import 'buy_dont_buy_limit_reached_screen.dart';
-import 'buy_dont_buy_scanning_screen.dart';
 import 'buy_dont_buy_verdict_buy_screen.dart';
 import 'buy_dont_buy_verdict_dont_buy_screen.dart';
 
-class BuyDontBuyScanScreen extends StatefulWidget {
+class BuyDontBuyScanScreen extends ConsumerStatefulWidget {
   static const path = 'buy-dont-buy';
   static const name = 'shop_buy_dont_buy';
 
   const BuyDontBuyScanScreen({super.key});
 
   @override
-  State<BuyDontBuyScanScreen> createState() => _BuyDontBuyScanScreenState();
+  ConsumerState<BuyDontBuyScanScreen> createState() =>
+      _BuyDontBuyScanScreenState();
 }
 
-class _BuyDontBuyScanScreenState extends State<BuyDontBuyScanScreen> {
+class _BuyDontBuyScanScreenState extends ConsumerState<BuyDontBuyScanScreen> {
   int _tab = 0; // 0 upload, 1 scan, 2 barcode
-  int _checksLeft = 1; // near the weekly limit → warning banner shows
+  bool _checking = false;
 
-  static const _recent = [
-    ('Theory', 'Oakland Wool Overcoat', 'Unlocks 6 outfits', true),
-    ('Levi\'s Made & Crafted', 'Raw Indigo Straight Leg', 'Unlocks 4 outfits', true),
-    ('Zara', 'Abstract Print Satin Shirt', 'Only 1 match', false),
-  ];
+  static const _weeklyLimit = 5; // mirrors the backend free-tier cap
 
-  void _startCheck() {
-    if (_checksLeft <= 0) {
-      context.goNamed(BuyDontBuyLimitReachedScreen.name);
-      return;
+  int get _checksLeft {
+    final history = ref.watch(buyCheckHistoryProvider).valueOrNull;
+    if (history == null) return _weeklyLimit;
+    final weekAgo = DateTime.now().subtract(const Duration(days: 7));
+    final used = history.where((c) => c.createdAt.isAfter(weekAgo)).length;
+    return (_weeklyLimit - used).clamp(0, _weeklyLimit);
+  }
+
+  /// Pick a photo -> `POST /shop/buy-check` -> verdict screen. One call per
+  /// check; the 429 cap routes to the limit screen.
+  Future<void> _startCheck() async {
+    if (_checking) return;
+    final image = await pickWardrobeImage(context);
+    if (image == null || !mounted) return;
+    setState(() => _checking = true);
+    try {
+      final verdict = await ref.read(shopServiceProvider).buyCheck(image);
+      ref.invalidate(buyCheckHistoryProvider);
+      if (!mounted) return;
+      setState(() => _checking = false);
+      context.goNamed(
+        verdict.isBuy
+            ? BuyDontBuyVerdictBuyScreen.name
+            : BuyDontBuyVerdictDontBuyScreen.name,
+        extra: verdict,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _checking = false);
+      if (e.statusCode == 429) {
+        context.goNamed(BuyDontBuyLimitReachedScreen.name);
+      } else {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
     }
-    setState(() => _checksLeft--);
-    context.goNamed(ConfirmProductScreen.name);
   }
 
   Future<void> _onTab(int i) async {
     setState(() => _tab = i);
     if (i == 1) {
-      context.goNamed(BuyDontBuyScanningScreen.name);
+      // Live camera scan reuses the same photo path for now.
+      await _startCheck();
     } else if (i == 2) {
       await showMeasurementRequiredModal(context);
     }
@@ -80,7 +110,15 @@ class _BuyDontBuyScanScreenState extends State<BuyDontBuyScanScreen> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  _UploadCard(onPaste: _startCheck),
+                  _checking
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                                color: AppColors.espresso),
+                          ),
+                        )
+                      : _UploadCard(onPaste: _startCheck),
                   const SizedBox(height: 24),
                   Row(
                     children: [
@@ -97,20 +135,29 @@ class _BuyDontBuyScanScreenState extends State<BuyDontBuyScanScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  for (final r in _recent) ...[
+                  for (final check in ref
+                          .watch(buyCheckHistoryProvider)
+                          .valueOrNull ??
+                      const <BuyDontBuyVerdict>[]) ...[
                     _RecentRow(
-                      brand: r.$1,
-                      name: r.$2,
-                      note: r.$3,
-                      buy: r.$4,
+                      brand: check.isBuy ? 'BUY' : "DON'T BUY",
+                      name: check.productName ?? 'Checked item',
+                      note: 'Score ${check.score}/100',
+                      buy: check.isBuy,
                       onTap: () => context.goNamed(
-                        r.$4
+                        check.isBuy
                             ? BuyDontBuyVerdictBuyScreen.name
                             : BuyDontBuyVerdictDontBuyScreen.name,
+                        extra: check,
                       ),
                     ),
                     const SizedBox(height: 10),
                   ],
+                  if ((ref.watch(buyCheckHistoryProvider).valueOrNull ??
+                          const <BuyDontBuyVerdict>[])
+                      .isEmpty)
+                    Text('No checks yet — try your first one above.',
+                        style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 12),
                   _ProUpsell(),
                 ],

@@ -1,35 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../models/shop.dart';
+import '../shop_service.dart';
+import '../widgets/wishlist_toast.dart';
 import 'in_app_browser_screen.dart';
 
-class WishlistScreen extends StatefulWidget {
+class WishlistScreen extends ConsumerWidget {
   static const path = 'wishlist';
   static const name = 'shop_wishlist';
 
   const WishlistScreen({super.key});
 
-  @override
-  State<WishlistScreen> createState() => _WishlistScreenState();
-}
-
-class _WishlistScreenState extends State<WishlistScreen> {
-  final _items = <_WishItem>[
-    const _WishItem(
-        name: 'Cashmere Overcoat',
-        brand: "Studio L'Artisan",
-        price: r'$450',
-        unlocks: 12),
-    const _WishItem(
-        name: 'Silk Pussy-Bow Blouse',
-        brand: 'Maison Draper',
-        price: r'$185',
-        unlocks: 8),
-  ];
+  Future<void> _remove(
+      BuildContext context, WidgetRef ref, WishlistEntry entry) async {
+    try {
+      await ref
+          .read(shopServiceProvider)
+          .removeFromWishlist(entry.product.id);
+      ref.invalidate(wishlistProvider);
+      if (context.mounted) showWishlistToast(context, added: false);
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final items =
+        ref.watch(wishlistProvider).valueOrNull ?? const <WishlistEntry>[];
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -53,15 +57,15 @@ class _WishlistScreenState extends State<WishlistScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 20),
-                  if (_items.isEmpty)
+                  if (items.isEmpty)
                     _EmptyState()
                   else
-                    for (int i = 0; i < _items.length; i++) ...[
+                    for (final entry in items) ...[
                       _WishCard(
-                        item: _items[i],
+                        entry: entry,
                         onOpen: () =>
                             context.goNamed(InAppBrowserScreen.name),
-                        onRemove: () => setState(() => _items.removeAt(i)),
+                        onRemove: () => _remove(context, ref, entry),
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -97,19 +101,6 @@ class _WishlistScreenState extends State<WishlistScreen> {
   }
 }
 
-class _WishItem {
-  final String name;
-  final String brand;
-  final String price;
-  final int unlocks;
-  const _WishItem({
-    required this.name,
-    required this.brand,
-    required this.price,
-    required this.unlocks,
-  });
-}
-
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
   const _Header({required this.onBack});
@@ -140,14 +131,16 @@ class _Header extends StatelessWidget {
 }
 
 class _WishCard extends StatelessWidget {
-  final _WishItem item;
+  final WishlistEntry entry;
   final VoidCallback onOpen;
   final VoidCallback onRemove;
   const _WishCard({
-    required this.item,
+    required this.entry,
     required this.onOpen,
     required this.onRemove,
   });
+
+  String _money(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
 
   @override
   Widget build(BuildContext context) {
@@ -178,36 +171,40 @@ class _WishCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.name,
+                    Text(entry.product.name,
                         style: Theme.of(context).textTheme.titleMedium),
-                    Text(item.brand,
+                    Text(entry.product.brand,
                         style: Theme.of(context).textTheme.bodySmall),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        Text(item.price,
+                        Text(
+                            _money(entry.currentPriceCents ??
+                                entry.addedPriceCents),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
                                 ?.copyWith(fontWeight: FontWeight.w700)),
                         const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.sageDim.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(4),
+                        if (entry.hasDrop)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.sageDim.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                                'PRICE DROP ${_money(entry.priceDropCents)}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: AppColors.sageContent,
+                                      letterSpacing: 0.8,
+                                      fontWeight: FontWeight.w700,
+                                    )),
                           ),
-                          child: Text('UNLOCKS ${item.unlocks} OUTFITS',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(
-                                    color: AppColors.sageContent,
-                                    letterSpacing: 0.8,
-                                    fontWeight: FontWeight.w700,
-                                  )),
-                        ),
                       ],
                     ),
                   ],

@@ -189,7 +189,7 @@ class _InAppBrowserScreenState extends State<InAppBrowserScreen> {
                             color: AppColors.espresso,
                             borderRadius: BorderRadius.circular(12),
                             child: InkWell(
-                              onTap: () => debugPrint('browser: add to cart'),
+                              onTap: null, // retailer cart integration is post-v1
                               borderRadius: BorderRadius.circular(12),
                               child: const SizedBox(
                                 height: 52,
@@ -278,10 +278,6 @@ class _BrowserChrome extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.brandText, size: 18),
-            onPressed: () => debugPrint('browser: reload'),
           ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../models/shop.dart';
 import '../../../shared/widgets/drape_button.dart';
 import 'in_app_browser_screen.dart';
 
@@ -9,7 +10,11 @@ class BuyDontBuyVerdictBuyScreen extends StatelessWidget {
   static const path = 'buy-dont-buy/verdict-buy';
   static const name = 'shop_buy_dont_buy_verdict_buy';
 
-  const BuyDontBuyVerdictBuyScreen({super.key});
+  /// Real verdict from `POST /shop/buy-check` (router `extra`); null keeps
+  /// the illustrative mockup copy (e.g. deep links without state).
+  final BuyDontBuyVerdict? verdict;
+
+  const BuyDontBuyVerdictBuyScreen({super.key, this.verdict});
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +48,10 @@ class BuyDontBuyVerdictBuyScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.headlineMedium),
                   ),
                   Center(
-                    child: Text(r'Navy Blazer — $89.99',
+                    child: Text(
+                        verdict == null
+                            ? r'Navy Blazer — $89.99'
+                            : '${verdict!.productName ?? 'Your item'} — score ${verdict!.score}/100',
                         style: Theme.of(context).textTheme.bodyMedium),
                   ),
                   const SizedBox(height: 20),
@@ -93,7 +101,10 @@ class BuyDontBuyVerdictBuyScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Based on your measurements (chest 40", waist 32")',
+                        Text(
+                            verdict?.fitReason.isNotEmpty == true
+                                ? verdict!.fitReason
+                                : 'Based on your measurements (chest 40", waist 32")',
                             style: Theme.of(context).textTheme.bodySmall),
                         const SizedBox(height: 4),
                         Text('Size M recommended',
@@ -108,7 +119,10 @@ class BuyDontBuyVerdictBuyScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(r'Average cost per wear: $7.50 / worn ~12x yr',
+                        Text(
+                            verdict?.valueReason.isNotEmpty == true
+                                ? verdict!.valueReason
+                                : r'Average cost per wear: $7.50 / worn ~12x yr',
                             style: Theme.of(context).textTheme.bodySmall),
                         const SizedBox(height: 8),
                         ClipRRect(
@@ -142,7 +156,10 @@ class BuyDontBuyVerdictBuyScreen extends StatelessWidget {
                             color: AppColors.ivoryWarm,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text("You don't have a navy blazer yet",
+                          child: Text(
+                              verdict?.gapReason.isNotEmpty == true
+                                  ? verdict!.gapReason
+                                  : "You don't have a navy blazer yet",
                               style: Theme.of(context).textTheme.bodyMedium),
                         ),
                         const SizedBox(height: 10),

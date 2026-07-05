@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../profile/screens/edit_measurements_screen.dart';
+import '../models/shop.dart';
+import '../shop_service.dart';
+import '../widgets/measurement_incomplete_banner.dart';
 import '../widgets/product_card.dart';
 import '../widgets/product_options_sheet.dart';
 import '../widgets/wishlist_toast.dart';
@@ -10,54 +16,58 @@ import 'buy_dont_buy_scan_screen.dart';
 import 'gap_analysis_screen.dart';
 import 'wishlist_screen.dart';
 
-class ShopFeedScreen extends StatefulWidget {
+class ShopFeedScreen extends ConsumerStatefulWidget {
   static const path = '/shop';
   static const name = 'shop_feed';
 
   const ShopFeedScreen({super.key});
 
   @override
-  State<ShopFeedScreen> createState() => _ShopFeedScreenState();
+  ConsumerState<ShopFeedScreen> createState() => _ShopFeedScreenState();
 }
 
-class _ShopFeedScreenState extends State<ShopFeedScreen> {
-  final _favorited = <String>{};
+class _ShopFeedScreenState extends ConsumerState<ShopFeedScreen> {
   int _category = 0;
   static const _categories = ['Tamil wedding outfit', 'Beach vacation', 'Office'];
 
-  final _products = const <ProductData>[
-    ProductData(
-      id: 'p1',
-      brand: 'Atelier Essentials',
-      name: 'Cashmere Pullover',
-      price: r'$280',
-      imageUrl: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400',
-    ),
-    ProductData(
-      id: 'p2',
-      brand: 'Modern Tailoring',
-      name: 'Linen Wide-Leg',
-      price: r'$145',
-      imageUrl: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=400',
-    ),
-    ProductData(
-      id: 'p3',
-      brand: 'Outerwear',
-      name: 'Classic Trench',
-      price: r'$420',
-      imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400',
-    ),
-    ProductData(
-      id: 'p4',
-      brand: 'Footwear',
-      name: 'Leather Loafers',
-      price: r'$210',
-      imageUrl: 'https://images.unsplash.com/photo-1614252369475-531eba835eb1?w=400',
-    ),
-  ];
+  Set<String> get _wishlisted => {
+        for (final e in ref.watch(wishlistProvider).valueOrNull ??
+            const <WishlistEntry>[])
+          e.product.id,
+      };
+
+  Future<void> _toggleWishlist(ShopProduct product) async {
+    final service = ref.read(shopServiceProvider);
+    final adding = !_wishlisted.contains(product.id);
+    try {
+      if (adding) {
+        await service.addToWishlist(product.id);
+      } else {
+        await service.removeFromWishlist(product.id);
+      }
+      ref.invalidate(wishlistProvider);
+      if (mounted) showWishlistToast(context, added: adding);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  static ProductData _toCard(ShopProduct p) => ProductData(
+        id: p.id,
+        brand: p.brand,
+        name: p.name,
+        price: p.priceLabel,
+        imageUrl: p.imageUrl.isEmpty ? null : p.imageUrl,
+      );
 
   @override
   Widget build(BuildContext context) {
+    final feed = ref.watch(shopFeedProvider);
+    final products = feed.valueOrNull?.products ?? const <ShopProduct>[];
+    final measurementsComplete =
+        feed.valueOrNull?.measurementsComplete ?? true;
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -85,6 +95,13 @@ class _ShopFeedScreenState extends State<ShopFeedScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (!measurementsComplete) ...[
+                    MeasurementIncompleteBanner(
+                      onTap: () =>
+                          context.goNamed(EditMeasurementsScreen.name),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   _GapFoundCard(
                     onView: () => context.goNamed(GapAnalysisScreen.name),
                   ),
@@ -95,6 +112,24 @@ class _ShopFeedScreenState extends State<ShopFeedScreen> {
                   Text("Curated Essentials",
                       style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 12),
+                  if (feed.isLoading && products.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                            color: AppColors.espresso),
+                      ),
+                    )
+                  else if (feed.hasError && products.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: TextButton(
+                          onPressed: () => ref.invalidate(shopFeedProvider),
+                          child: const Text("Couldn't load products — retry"),
+                        ),
+                      ),
+                    ),
                 ]),
               ),
             ),
@@ -109,16 +144,11 @@ class _ShopFeedScreenState extends State<ShopFeedScreen> {
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (_, i) {
-                    final p = _products[i];
+                    final p = products[i];
                     return ProductCard(
-                      product: p,
-                      favorited: _favorited.contains(p.id),
-                      onFavorite: () {
-                        setState(() {
-                          if (!_favorited.add(p.id)) _favorited.remove(p.id);
-                        });
-                        if (_favorited.contains(p.id)) showWishlistToast(context);
-                      },
+                      product: _toCard(p),
+                      favorited: _wishlisted.contains(p.id),
+                      onFavorite: () => _toggleWishlist(p),
                       onTap: () => showProductOptionsSheet(
                         context,
                         title: p.name,
@@ -126,7 +156,7 @@ class _ShopFeedScreenState extends State<ShopFeedScreen> {
                       ),
                     );
                   },
-                  childCount: _products.length,
+                  childCount: products.length,
                 ),
               ),
             ),

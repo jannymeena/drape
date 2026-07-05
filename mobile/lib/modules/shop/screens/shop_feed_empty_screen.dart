@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../profile/screens/edit_measurements_screen.dart';
 import '../../../shared/widgets/drape_button.dart';
 
 /// Empty state — no mockup; designed consistent with the module. Shown when the
@@ -53,7 +54,8 @@ class ShopFeedEmptyScreen extends StatelessWidget {
                     const SizedBox(height: 24),
                     DrapeButton(
                       label: 'Complete Style Profile',
-                      onPressed: () => debugPrint('shop: complete profile'),
+                      onPressed: () =>
+                          context.goNamed(EditMeasurementsScreen.name),
                     ),
                   ],
                 ),

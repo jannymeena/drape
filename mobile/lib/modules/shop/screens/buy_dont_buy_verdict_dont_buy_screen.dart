@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../models/shop.dart';
+import 'gap_analysis_screen.dart';
+import 'in_app_browser_screen.dart';
 import '../../../shared/widgets/drape_button.dart';
 
 class BuyDontBuyVerdictDontBuyScreen extends StatelessWidget {
   static const path = 'buy-dont-buy/verdict-dont-buy';
   static const name = 'shop_buy_dont_buy_verdict_dont_buy';
 
-  const BuyDontBuyVerdictDontBuyScreen({super.key});
+  /// Real verdict from `POST /shop/buy-check` (router `extra`); null keeps
+  /// the illustrative mockup copy.
+  final BuyDontBuyVerdict? verdict;
+
+  const BuyDontBuyVerdictDontBuyScreen({super.key, this.verdict});
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +61,10 @@ class BuyDontBuyVerdictDontBuyScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('You already have similar items:',
+                        Text(
+                            verdict?.gapReason.isNotEmpty == true
+                                ? verdict!.gapReason
+                                : 'You already have similar items:',
                             style: Theme.of(context).textTheme.bodySmall),
                         const SizedBox(height: 8),
                         Row(
@@ -85,7 +95,10 @@ class BuyDontBuyVerdictDontBuyScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('This item runs small - size L recommended instead',
+                        Text(
+                            verdict?.fitReason.isNotEmpty == true
+                                ? verdict!.fitReason
+                                : 'This item runs small - size L recommended instead',
                             style: Theme.of(context).textTheme.bodySmall),
                         const SizedBox(height: 6),
                         Text('Or try Alternative Product',
@@ -104,7 +117,10 @@ class BuyDontBuyVerdictDontBuyScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(r'Similar items available for $80-$100',
+                        Text(
+                            verdict?.valueReason.isNotEmpty == true
+                                ? verdict!.valueReason
+                                : r'Similar items available for $80-$100',
                             style: Theme.of(context).textTheme.bodySmall),
                         const SizedBox(height: 6),
                         Text('View Better Options',
@@ -143,7 +159,7 @@ class BuyDontBuyVerdictDontBuyScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                   DrapeButton(
                     label: 'View Alternatives',
-                    onPressed: () => debugPrint('verdict: alternatives'),
+                    onPressed: () => context.goNamed(GapAnalysisScreen.name),
                   ),
                   const SizedBox(height: 10),
                   Material(
@@ -153,7 +169,7 @@ class BuyDontBuyVerdictDontBuyScreen extends StatelessWidget {
                       side: const BorderSide(color: AppColors.error),
                     ),
                     child: InkWell(
-                      onTap: () => debugPrint('verdict: buy anyway'),
+                      onTap: () => context.goNamed(InAppBrowserScreen.name),
                       borderRadius: BorderRadius.circular(14),
                       child: SizedBox(
                         height: 52,

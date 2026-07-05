@@ -1,42 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../shop_service.dart';
 import 'ai_advisor_conversation_screen.dart';
 
 /// Past AI advisor conversations. No dedicated mockup — designed consistent
 /// with the module from the "HISTORY" affordances in the initial screen.
-class AiAdvisorHistoryScreen extends StatelessWidget {
+class AiAdvisorHistoryScreen extends ConsumerWidget {
   static const path = 'advisor/history';
   static const name = 'shop_advisor_history';
 
   const AiAdvisorHistoryScreen({super.key});
 
-  static const _history = <_Conversation>[
-    _Conversation(
-      title: 'Traditional Tamil wedding guest look',
-      snippet: '3 curated looks · navy blazer pairing',
-      when: '2h ago',
-    ),
-    _Conversation(
-      title: 'Wedding in Tuscany',
-      snippet: 'Linen suiting for a warm outdoor ceremony',
-      when: 'Yesterday',
-    ),
-    _Conversation(
-      title: 'Work conference outfits',
-      snippet: '5-day capsule, smart-casual',
-      when: '3 days ago',
-    ),
-    _Conversation(
-      title: 'Sophisticated date night ensemble',
-      snippet: 'Monochrome with a textured layer',
-      when: 'Last week',
-    ),
-  ];
+  static String _ago(DateTime when) {
+    final delta = DateTime.now().difference(when);
+    if (delta.inMinutes < 60) return '${delta.inMinutes.clamp(1, 59)}m ago';
+    if (delta.inHours < 24) return '${delta.inHours}h ago';
+    if (delta.inDays == 1) return 'Yesterday';
+    return '${delta.inDays} days ago';
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(advisorHistoryProvider);
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -45,15 +34,43 @@ class AiAdvisorHistoryScreen extends StatelessWidget {
           children: [
             _Header(onBack: () => context.pop()),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                itemCount: _history.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (_, i) => _ConversationRow(
-                  conversation: _history[i],
-                  onTap: () =>
-                      context.goNamed(AiAdvisorConversationScreen.name),
+              child: async.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.espresso),
                 ),
+                error: (e, _) => Center(
+                  child: Text(
+                    e is ApiException
+                        ? e.message
+                        : "We couldn't load your conversations.",
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                data: (conversations) => conversations.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No conversations yet — ask the advisor anything.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                        itemCount: conversations.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (_, i) => _ConversationRow(
+                          conversation: _Conversation(
+                            title: conversations[i].title,
+                            snippet: conversations[i].messages.isEmpty
+                                ? ''
+                                : conversations[i].messages.last.content,
+                            when: _ago(conversations[i].updatedAt),
+                          ),
+                          onTap: () => context.goNamed(
+                            AiAdvisorConversationScreen.name,
+                            queryParameters: {'id': conversations[i].id},
+                          ),
+                        ),
+                      ),
               ),
             ),
           ],

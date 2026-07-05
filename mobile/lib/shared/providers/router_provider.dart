@@ -52,6 +52,7 @@ import '../../modules/profile/screens/retention_offer_screen.dart';
 import '../../modules/profile/screens/settings_screen.dart';
 import '../../modules/profile/screens/style_preferences_screen.dart';
 import '../../modules/profile/screens/subscription_management_screen.dart';
+import '../../modules/shop/models/shop.dart';
 import '../../modules/shop/screens/ai_advisor_conversation_screen.dart';
 import '../../modules/shop/screens/ai_advisor_history_screen.dart';
 import '../../modules/shop/screens/ai_advisor_initial_screen.dart';
@@ -380,7 +381,10 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: AiAdvisorConversationScreen.path,
                     name: AiAdvisorConversationScreen.name,
-                    builder: (_, _) => const AiAdvisorConversationScreen(),
+                    builder: (_, state) => AiAdvisorConversationScreen(
+                      question: state.uri.queryParameters['q'],
+                      conversationId: state.uri.queryParameters['id'],
+                    ),
                   ),
                   GoRoute(
                     path: AiAdvisorHistoryScreen.path,
@@ -415,12 +419,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: BuyDontBuyVerdictBuyScreen.path,
                     name: BuyDontBuyVerdictBuyScreen.name,
-                    builder: (_, _) => const BuyDontBuyVerdictBuyScreen(),
+                    builder: (_, state) => BuyDontBuyVerdictBuyScreen(
+                      verdict: state.extra as BuyDontBuyVerdict?,
+                    ),
                   ),
                   GoRoute(
                     path: BuyDontBuyVerdictDontBuyScreen.path,
                     name: BuyDontBuyVerdictDontBuyScreen.name,
-                    builder: (_, _) => const BuyDontBuyVerdictDontBuyScreen(),
+                    builder: (_, state) => BuyDontBuyVerdictDontBuyScreen(
+                      verdict: state.extra as BuyDontBuyVerdict?,
+                    ),
                   ),
                   GoRoute(
                     path: BuyDontBuyLimitReachedScreen.path,

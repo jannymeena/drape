@@ -1,63 +1,65 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../profile/screens/compare_plans_screen.dart';
+import '../models/shop.dart';
+import '../shop_service.dart';
 import '../widgets/product_card.dart';
 import '../widgets/product_options_sheet.dart';
 import '../widgets/wishlist_toast.dart';
 
-class GapAnalysisScreen extends StatefulWidget {
+class GapAnalysisScreen extends ConsumerStatefulWidget {
   static const path = 'gap-analysis';
   static const name = 'shop_gap_analysis';
 
   const GapAnalysisScreen({super.key});
 
   @override
-  State<GapAnalysisScreen> createState() => _GapAnalysisScreenState();
+  ConsumerState<GapAnalysisScreen> createState() => _GapAnalysisScreenState();
 }
 
-class _GapAnalysisScreenState extends State<GapAnalysisScreen> {
-  final _favorited = <String>{};
+class _GapAnalysisScreenState extends ConsumerState<GapAnalysisScreen> {
   int _filter = 0;
   static const _filters = ['All Recommendations', 'Tailored Fit', 'Sustainable'];
 
-  final _products = const <ProductData>[
-    ProductData(
-      id: 'g1',
-      brand: 'Loro Piana',
-      name: 'Estate Cashmere Blazer',
-      price: r'$2,450',
-      unlockCount: 8,
-      imageUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400',
-    ),
-    ProductData(
-      id: 'g2',
-      brand: 'Theory',
-      name: 'Precision Ponte Blazer',
-      price: r'$495',
-      unlockCount: 8,
-      imageUrl: 'https://images.unsplash.com/photo-1594938298603-c8148c4dae35?w=400',
-    ),
-    ProductData(
-      id: 'g3',
-      brand: 'The Row',
-      name: 'Schoolboy Wool Blazer',
-      price: r'$1,890',
-      unlockCount: 8,
-      imageUrl: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400',
-    ),
-    ProductData(
-      id: 'g4',
-      brand: 'Brunello Cucinelli',
-      name: 'Deconstructed Navy Blazer',
-      price: r'$3,150',
-      unlockCount: 8,
-      imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400',
-    ),
-  ];
+  Set<String> get _wishlisted => {
+        for (final e in ref.watch(wishlistProvider).valueOrNull ??
+            const <WishlistEntry>[])
+          e.product.id,
+      };
+
+  Future<void> _toggleWishlist(ShopProduct product) async {
+    final service = ref.read(shopServiceProvider);
+    final adding = !_wishlisted.contains(product.id);
+    try {
+      if (adding) {
+        await service.addToWishlist(product.id);
+      } else {
+        await service.removeFromWishlist(product.id);
+      }
+      ref.invalidate(wishlistProvider);
+      if (mounted) showWishlistToast(context, added: adding);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final gaps = ref.watch(gapAnalysisProvider).valueOrNull;
+    final topGap = (gaps?.gaps.isNotEmpty ?? false) ? gaps!.gaps.first : null;
+    // Recommend real catalog products for the biggest gap's category.
+    final feedProducts =
+        ref.watch(shopFeedProvider).valueOrNull?.products ??
+            const <ShopProduct>[];
+    final products = topGap == null
+        ? feedProducts
+        : feedProducts.where((p) => p.category == topGap.category).toList();
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -75,7 +77,16 @@ class _GapAnalysisScreenState extends State<GapAnalysisScreen> {
                   Text('Elevate your personal atelier with intentional additions.',
                       style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 16),
-                  _GapSummary(),
+                  _GapSummary(gap: topGap),
+                  if (gaps?.isTeaser ?? false) ...[
+                    const SizedBox(height: 12),
+                    _ProTeaserCard(
+                      message: gaps!.proTeaser ??
+                          'Upgrade to Drape Pro for the full analysis.',
+                      onUpgrade: () =>
+                          context.goNamed(ComparePlansScreen.name),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 40,
@@ -105,25 +116,27 @@ class _GapAnalysisScreenState extends State<GapAnalysisScreen> {
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (_, i) {
-                    final p = _products[i];
+                    final p = products[i];
                     return ProductCard(
-                      product: p,
-                      favorited: _favorited.contains(p.id),
+                      product: ProductData(
+                        id: p.id,
+                        brand: p.brand,
+                        name: p.name,
+                        price: p.priceLabel,
+                        imageUrl: p.imageUrl.isEmpty ? null : p.imageUrl,
+                        unlockCount: topGap?.outfitsUnlocked,
+                      ),
+                      favorited: _wishlisted.contains(p.id),
                       showViewOptions: true,
-                      onFavorite: () {
-                        setState(() {
-                          if (!_favorited.add(p.id)) _favorited.remove(p.id);
-                        });
-                        if (_favorited.contains(p.id)) showWishlistToast(context);
-                      },
+                      onFavorite: () => _toggleWishlist(p),
                       onViewOptions: () => showProductOptionsSheet(
                         context,
-                        title: 'Navy Blazer',
-                        unlockCount: 8,
+                        title: p.name,
+                        unlockCount: topGap?.outfitsUnlocked ?? 0,
                       ),
                     );
                   },
-                  childCount: _products.length,
+                  childCount: products.length,
                 ),
               ),
             ),
@@ -167,8 +180,16 @@ class _Header extends StatelessWidget {
 }
 
 class _GapSummary extends StatelessWidget {
+  final GapItem? gap;
+  const _GapSummary({required this.gap});
+
   @override
   Widget build(BuildContext context) {
+    final headline = gap == null
+        ? 'Your wardrobe has no major gaps'
+        : 'Adding ${gap!.category} would unlock ${gap!.outfitsUnlocked} new outfits';
+    final body = gap?.reason ??
+        'Nice work — every core category is covered. Browse the feed for upgrades.';
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -188,12 +209,12 @@ class _GapSummary extends StatelessWidget {
             child: const Icon(Icons.adjust, color: AppColors.espresso, size: 22),
           ),
           const SizedBox(height: 12),
-          Text('A navy blazer would unlock 8 new outfits',
+          Text(headline,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 6),
           Text(
-            'Based on what you already own, adding a navy blazer creates 8 new outfit combinations.',
+            body,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
@@ -269,6 +290,39 @@ class _FilterPill extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProTeaserCard extends StatelessWidget {
+  final String message;
+  final VoidCallback onUpgrade;
+  const _ProTeaserCard({required this.message, required this.onUpgrade});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.gold.withValues(alpha: 0.25),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onUpgrade,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              const Icon(Icons.lock_outline,
+                  color: AppColors.goldDark, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(message,
+                    style: Theme.of(context).textTheme.bodyMedium),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.goldDark),
+            ],
           ),
         ),
       ),
