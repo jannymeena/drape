@@ -13,6 +13,7 @@ import '../widgets/capacity_warning_banner.dart';
 import '../widgets/category_filter_chips.dart';
 import '../widgets/item_card.dart';
 import '../widgets/wardrobe_empty_state.dart';
+import '../../today/widgets/starter_wardrobe_banner.dart';
 import 'batch_upload_screen.dart';
 import 'item_detail_screen.dart';
 import 'manual_entry_screen.dart' as wardrobe_manual;
@@ -72,6 +73,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                     ),
                     const SizedBox(height: 16),
                     ..._buildCapacityBanner(),
+                    ..._buildStarterBanner(state),
                     // Chip 0 is the Favorites view; category chips follow,
                     // shifted by one. Single-select across both.
                     CategoryFilterChips(
@@ -191,6 +193,26 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: _GrowYourWardrobeCard(onAdd: _openAddSheet),
       ),
+    ];
+  }
+
+  /// Starter-transition indicator (atelier_starter_wardrobe_indicator
+  /// mockup): shown while the grid still contains starter items and the user
+  /// hasn't hit real-wardrobe mode (10 real items — outfit generation drops
+  /// starter items entirely at that point).
+  List<Widget> _buildStarterBanner(WardrobeState state) {
+    final hasStarter = state.items.any((i) => i.isStarterWardrobe);
+    final real = ref.watch(wardrobeCapacityProvider).valueOrNull?.used;
+    if (!hasStarter || real == null || real >= 10) return const [];
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: StarterWardrobeBanner(
+          realItems: real,
+          onAdd: _openAddSheet,
+        ),
+      ),
+      const SizedBox(height: 16),
     ];
   }
 

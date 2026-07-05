@@ -86,6 +86,16 @@ class TodayService {
   }
 
   /// `GET /usage/current-week` — weekly free-tier counters for the usage banner.
+  /// `POST /today/banners/{banner}/dismiss` — hides a dashboard banner for
+  /// 7 days server-side (`starter_wardrobe` | `incomplete_profile`).
+  Future<void> dismissBanner(String banner) async {
+    try {
+      await _dio.post<Map<String, dynamic>>('/today/banners/$banner/dismiss');
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   Future<CurrentWeekUsage> getCurrentWeekUsage() async {
     try {
       final response =

@@ -9,11 +9,13 @@ import '../../../shared/theme/app_colors.dart';
 import '../../onboarding/models/measurements_draft.dart';
 import '../../profile/profile_service.dart';
 import '../../profile/screens/edit_measurements_screen.dart';
+import '../../wardrobe/screens/wardrobe_screen.dart';
 import '../models/log_outfit_result.dart';
 import '../models/outfit.dart';
 import '../models/today_dashboard.dart';
 import '../models/usage.dart';
 import '../today_controller.dart';
+import '../today_service.dart';
 import '../widgets/mix_match_sheet.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
@@ -21,6 +23,7 @@ import '../widgets/outfit_card.dart';
 import '../widgets/outfit_card_skeleton.dart';
 import '../widgets/outfit_item_grid.dart';
 import '../widgets/resume_banner.dart';
+import '../widgets/starter_wardrobe_banner.dart';
 import '../widgets/usage_warning_banner.dart';
 import '../widgets/weather_chip.dart';
 import 'ai_reasoning_detail_screen.dart';
@@ -43,6 +46,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
   /// [_selectedOccasion] (lowercased, spaces → underscores).
   static const _occasions = ['All', 'Work', 'Casual', 'Gym', 'Date Night'];
   int _occasionIndex = 0;
+  bool _starterBannerDismissed = false;
 
   /// Backend occasion literal for the active chip; null when "All".
   String? get _selectedOccasion => _occasionIndex == 0
@@ -208,6 +212,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
                   ),
                 ),
                 ..._resumeBanner(),
+                ..._starterBanner(dashboard),
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -399,6 +404,29 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
       ResumeBanner(
         stepsDone: draft?.values.length ?? 0,
         onTap: () => context.goNamed(EditMeasurementsScreen.name),
+      ),
+    ];
+  }
+
+  /// Starter-wardrobe nudge (CTO doc 2 §Starter Wardrobe). The backend sets
+  /// `banners.starter_wardrobe` (active assignment + <5 real items + not
+  /// dismissed in 7 days); dismissing persists server-side and hides locally.
+  List<Widget> _starterBanner(TodayDashboard dashboard) {
+    if (_starterBannerDismissed || !dashboard.banners.starterWardrobe) {
+      return const [];
+    }
+    return [
+      const SizedBox(height: 20),
+      StarterWardrobeBanner(
+        onAdd: () => context.goNamed(WardrobeScreen.name),
+        onDismiss: () {
+          setState(() => _starterBannerDismissed = true);
+          // Fire-and-forget; the flag also drops from the next frame load.
+          ref
+              .read(todayServiceProvider)
+              .dismissBanner('starter_wardrobe')
+              .catchError((_) {});
+        },
       ),
     ];
   }
