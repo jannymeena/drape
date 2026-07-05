@@ -48,7 +48,9 @@ class ProfileIntelligenceScreen extends ConsumerWidget {
                         ),
                   ),
                   const SizedBox(height: 10),
-                  const _StatGrid(),
+                  _StatGrid(
+                      stats:
+                          ref.watch(profileIntelligenceProvider).valueOrNull),
                   const SizedBox(height: 16),
                   const _AvatarCard(),
                   const SizedBox(height: 12),
@@ -206,10 +208,24 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 class _StatGrid extends StatelessWidget {
-  const _StatGrid();
+  /// Real stats from `GET /profile/intelligence`; placeholders while loading
+  /// or on error (best-effort, like the header).
+  final ProfileIntelligence? stats;
+  const _StatGrid({required this.stats});
+
+  static String _money(int cents) {
+    final dollars = cents ~/ 100;
+    final s = dollars.toString();
+    final grouped = s.replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (m) => ',',
+    );
+    return '\$$grouped';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final s = stats;
     return GridView.count(
       crossAxisCount: 2,
       crossAxisSpacing: 12,
@@ -217,25 +233,31 @@ class _StatGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       childAspectRatio: 1.5,
-      children: const [
+      children: [
         _StatCard(
-          value: '34%',
+          value: s == null ? '—' : '${s.utilizationScore}%',
           label: 'Utilization Score',
-          trend: _Trend.up,
+          trend: s != null && s.utilizationScore >= 40
+              ? _Trend.up
+              : _Trend.none,
         ),
         _StatCard(
-          value: r'$4.20',
+          value: s?.averageCostPerWear == null
+              ? '—'
+              : '\$${s!.averageCostPerWear!.toStringAsFixed(2)}',
           label: 'Avg Cost/Wear',
-          trend: _Trend.down,
+          trend: s?.averageCostPerWear == null ? _Trend.none : _Trend.down,
         ),
         _StatCard(
-          value: '23',
+          value: s == null ? '—' : '${s.itemsUnworn60d}',
           label: 'items unworn 60d+',
-          trend: _Trend.warning,
+          trend: s != null && s.itemsUnworn60d > 0
+              ? _Trend.warning
+              : _Trend.none,
           accent: AppColors.gold,
         ),
         _StatCard(
-          value: r'$4,200',
+          value: s == null ? '—' : _money(s.wardrobeValueCents),
           label: 'Wardrobe Value',
         ),
       ],

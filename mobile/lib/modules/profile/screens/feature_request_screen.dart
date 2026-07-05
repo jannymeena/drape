@@ -64,29 +64,19 @@ class _FeatureRequestScreenState extends ConsumerState<FeatureRequestScreen> {
     }
   }
 
-  static const _topFeatures = <_Feature>[
-    _Feature(
-      status: 'UNDER REVIEW',
-      statusColor: AppColors.gold,
-      name: 'Multi-user Wardrobe Sharing',
-      votes: 124,
-      quote: 'Ability to share specific wardrobe pieces with a partner or stylist for collaborative planning.',
-    ),
-    _Feature(
-      status: 'PLANNED',
-      statusColor: AppColors.sage,
-      name: 'Seasonal Planning Calendar',
-      votes: 98,
-      quote: 'A drag-and-drop calendar view to schedule outfits for upcoming trips and events.',
-    ),
-    _Feature(
-      status: 'NEW',
-      statusColor: AppColors.espresso,
-      name: 'AR Try-On Integration',
-      votes: 82,
-      quote: 'Visualizing existing wardrobe items on a live camera feed using augmented reality.',
-    ),
-  ];
+  /// Toggle the caller's upvote (+1 <-> cleared).
+  Future<void> _vote(FeatureRequestItem item) async {
+    try {
+      await ref
+          .read(settingsServiceProvider)
+          .voteFeature(item.id, item.myVote == 1 ? 0 : 1);
+      ref.invalidate(featureBoardProvider);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -143,8 +133,21 @@ class _FeatureRequestScreenState extends ConsumerState<FeatureRequestScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  for (final f in _topFeatures) ...[
-                    _FeatureCard(feature: f),
+                  for (final f in ref.watch(featureBoardProvider).valueOrNull ??
+                      const <FeatureRequestItem>[]) ...[
+                    _FeatureCard(
+                      feature: _Feature(
+                        status: f.status.toUpperCase(),
+                        statusColor: f.status == 'open'
+                            ? AppColors.espresso
+                            : AppColors.sage,
+                        name: f.title,
+                        votes: f.score,
+                        quote: f.message,
+                      ),
+                      voted: f.myVote == 1,
+                      onUpvote: () => _vote(f),
+                    ),
                     const SizedBox(height: 12),
                   ],
                   const SizedBox(height: 8),
@@ -258,7 +261,13 @@ class _Header extends StatelessWidget {
 
 class _FeatureCard extends StatelessWidget {
   final _Feature feature;
-  const _FeatureCard({required this.feature});
+  final bool voted;
+  final VoidCallback onUpvote;
+  const _FeatureCard({
+    required this.feature,
+    required this.voted,
+    required this.onUpvote,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -318,14 +327,14 @@ class _FeatureCard extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: GestureDetector(
-              onTap: () => debugPrint('upvote ${feature.name}'),
+              onTap: onUpvote,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.thumb_up_outlined,
+                  Icon(voted ? Icons.thumb_up : Icons.thumb_up_outlined,
                       color: AppColors.espresso, size: 14),
                   const SizedBox(width: 4),
-                  Text('Upvote',
+                  Text(voted ? 'Upvoted' : 'Upvote',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             color: AppColors.espresso,
                             fontWeight: FontWeight.w700,

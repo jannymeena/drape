@@ -141,3 +141,45 @@ final profileIsProProvider = FutureProvider<bool>((ref) async {
     return false;
   }
 });
+
+/// `GET /profile/intelligence` — headline stats for the Profile tab grid.
+class ProfileIntelligence {
+  const ProfileIntelligence({
+    required this.utilizationScore,
+    required this.utilizationLabel,
+    required this.itemsUnworn60d,
+    required this.wardrobeValueCents,
+    required this.itemsTotal,
+    this.averageCostPerWear,
+  });
+
+  final int utilizationScore;
+  final String utilizationLabel;
+  final int itemsUnworn60d;
+  final int wardrobeValueCents;
+  final int itemsTotal;
+  final double? averageCostPerWear;
+
+  factory ProfileIntelligence.fromJson(Map<String, dynamic> json) =>
+      ProfileIntelligence(
+        utilizationScore: json['utilization_score'] as int? ?? 0,
+        utilizationLabel: json['utilization_label'] as String? ?? 'Low',
+        itemsUnworn60d: json['items_unworn_60d'] as int? ?? 0,
+        wardrobeValueCents:
+            ((json['wardrobe_value'] as num? ?? 0) * 100).round(),
+        itemsTotal: json['items_total'] as int? ?? 0,
+        averageCostPerWear:
+            (json['average_cost_per_wear'] as num?)?.toDouble(),
+      );
+}
+
+final profileIntelligenceProvider =
+    FutureProvider.autoDispose<ProfileIntelligence>((ref) async {
+  final dio = ref.read(dioProvider);
+  try {
+    final r = await dio.get<Map<String, dynamic>>('/profile/intelligence');
+    return ProfileIntelligence.fromJson(r.data!);
+  } on DioException catch (e) {
+    throw ApiException.fromDio(e);
+  }
+});

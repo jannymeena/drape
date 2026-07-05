@@ -57,6 +57,31 @@ class SettingsService {
     }
   }
 
+  /// `GET /support/feature-requests` — public board (score + caller's vote).
+  Future<List<FeatureRequestItem>> getFeatureBoard() async {
+    try {
+      final r =
+          await _dio.get<Map<String, dynamic>>('/support/feature-requests');
+      return (r.data!['items'] as List<dynamic>)
+          .map((e) => FeatureRequestItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// `POST /support/feature-requests/{id}/vote` — +1/-1 upsert, 0 clears.
+  Future<void> voteFeature(String ticketId, int vote) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/support/feature-requests/$ticketId/vote',
+        data: {'vote': vote},
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   /// `GET /account/export` — the portable JSON snapshot of the user's data.
   Future<Map<String, dynamic>> exportData() async {
     try {
@@ -86,4 +111,42 @@ final settingsServiceProvider = Provider<SettingsService>((ref) {
 /// [SettingsService], so there's no shared cache to keep in sync.
 final settingsProvider = FutureProvider.autoDispose<AppSettings>((ref) {
   return ref.read(settingsServiceProvider).getSettings();
+});
+
+/// One row on the public feature-request board.
+class FeatureRequestItem {
+  const FeatureRequestItem({
+    required this.id,
+    required this.title,
+    required this.message,
+    required this.status,
+    required this.score,
+    required this.myVote,
+  });
+
+  final String id;
+  final String title;
+  final String message;
+  final String status;
+  final int score;
+  final int myVote; // -1 | 0 | 1
+
+  factory FeatureRequestItem.fromJson(Map<String, dynamic> json) {
+    final message = json['message'] as String? ?? '';
+    return FeatureRequestItem(
+      id: json['id'] as String,
+      title: (json['subject'] as String?)?.isNotEmpty == true
+          ? json['subject'] as String
+          : (message.length > 60 ? '${message.substring(0, 60)}…' : message),
+      message: message,
+      status: json['status'] as String? ?? 'open',
+      score: json['score'] as int? ?? 0,
+      myVote: json['my_vote'] as int? ?? 0,
+    );
+  }
+}
+
+final featureBoardProvider =
+    FutureProvider.autoDispose<List<FeatureRequestItem>>((ref) {
+  return ref.read(settingsServiceProvider).getFeatureBoard();
 });
