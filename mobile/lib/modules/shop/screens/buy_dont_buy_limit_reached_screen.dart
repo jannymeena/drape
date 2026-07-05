@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/theme/app_colors.dart';
 
 class BuyDontBuyLimitReachedScreen extends StatelessWidget {
@@ -100,7 +101,7 @@ class BuyDontBuyLimitReachedScreen extends StatelessWidget {
                     color: AppColors.gold,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
-                      onTap: () => debugPrint('limit: upgrade'),
+                      onTap: () => context.goNamed(ComparePlansScreen.name),
                       borderRadius: BorderRadius.circular(12),
                       child: SizedBox(
                         height: 56,

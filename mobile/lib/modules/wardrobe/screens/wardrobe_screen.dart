@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/wardrobe_item.dart';
@@ -209,7 +210,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
             'urgent' => CapacityLevel.urgent,
             _ => CapacityLevel.soft,
           },
-          onUpgrade: () => debugPrint('wardrobe: upgrade'),
+          onUpgrade: () => context.goNamed(ComparePlansScreen.name),
         ),
       ),
       const SizedBox(height: 16),
@@ -269,7 +270,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                 child: AddToWardrobeChooser(
                     controller: scrollController,
                     // Capacity (used/remaining) deferred to SP2.
-                    onUpgrade: () => debugPrint('add: upgrade'),
+                    onUpgrade: () => context.goNamed(ComparePlansScreen.name),
                     onChoice: (choice) {
                       Navigator.of(ctx).pop();
                       switch (choice) {

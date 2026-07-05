@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/theme/app_colors.dart';
@@ -130,7 +131,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
           FilledButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              debugPrint('today: upgrade tapped (limit dialog)');
+              context.goNamed(ComparePlansScreen.name);
             },
             child: const Text('Upgrade'),
           ),
@@ -415,7 +416,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
         used: c.used,
         total: c.limit,
         level: level,
-        onUpgrade: () => debugPrint('today: upgrade tapped'),
+        onUpgrade: () => context.goNamed(ComparePlansScreen.name),
       ),
       const SizedBox(height: 20),
     ];

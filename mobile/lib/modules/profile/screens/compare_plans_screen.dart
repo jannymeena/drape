@@ -1,22 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/drape_toast.dart';
+import '../billing_service.dart';
+import '../models/billing.dart';
+import 'contact_us_screen.dart';
 
 enum _Cadence { monthly, annual }
 
-class ComparePlansScreen extends StatefulWidget {
+class ComparePlansScreen extends ConsumerStatefulWidget {
   static const path = 'compare-plans';
   static const name = 'profile_compare_plans';
 
   const ComparePlansScreen({super.key});
 
   @override
-  State<ComparePlansScreen> createState() => _ComparePlansScreenState();
+  ConsumerState<ComparePlansScreen> createState() =>
+      _ComparePlansScreenState();
 }
 
-class _ComparePlansScreenState extends State<ComparePlansScreen> {
+class _ComparePlansScreenState extends ConsumerState<ComparePlansScreen> {
   _Cadence _cadence = _Cadence.monthly;
+  bool _purchasing = false;
+
+  String get _selectedPlan =>
+      _cadence == _Cadence.monthly ? 'pro_monthly' : 'pro_yearly';
+
+  Future<void> _upgrade() async {
+    if (_purchasing) return;
+    setState(() => _purchasing = true);
+    try {
+      await ref.read(billingServiceProvider).upgrade(_selectedPlan);
+      // Entitlement changed server-side — refresh anything that renders it.
+      ref.invalidate(subscriptionProvider);
+      ref.invalidate(billingHistoryProvider);
+      if (!mounted) return;
+      showDrapeToast(context, 'Welcome to Drape Pro!');
+      context.pop();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _purchasing = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
 
   static const _categories = <_FeatureCategory>[
     _FeatureCategory(
@@ -82,7 +112,12 @@ class _ComparePlansScreenState extends State<ComparePlansScreen> {
                     onChanged: (c) => setState(() => _cadence = c),
                   ),
                   const SizedBox(height: 20),
-                  _PlanColumns(cadence: _cadence),
+                  _PlanColumns(
+                    cadence: _cadence,
+                    subscription:
+                        ref.watch(subscriptionProvider).valueOrNull,
+                    onUpgrade: _upgrade,
+                  ),
                   const SizedBox(height: 24),
                   for (final cat in _categories) ...[
                     _CategoryBlock(category: cat),
@@ -125,7 +160,8 @@ class _ComparePlansScreenState extends State<ComparePlansScreen> {
                   const SizedBox(height: 8),
                   Center(
                     child: TextButton(
-                      onPressed: () => debugPrint('compare: contact support'),
+                      onPressed: () =>
+                          context.goNamed(ContactUsScreen.name),
                       child: Text(
                         'Contact Support',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -137,7 +173,7 @@ class _ComparePlansScreenState extends State<ComparePlansScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _ProTrialCta(),
+                  _ProTrialCta(onUpgrade: _purchasing ? null : _upgrade),
                 ],
               ),
             ),
@@ -263,12 +299,27 @@ class _ToggleChoice extends StatelessWidget {
 
 class _PlanColumns extends StatelessWidget {
   final _Cadence cadence;
-  const _PlanColumns({required this.cadence});
+  final SubscriptionInfo? subscription;
+  final VoidCallback onUpgrade;
+  const _PlanColumns({
+    required this.cadence,
+    required this.subscription,
+    required this.onUpgrade,
+  });
+
+  PlanSummary? get _plan {
+    final plans = subscription?.plans ?? const <PlanSummary>[];
+    for (final p in plans) {
+      if (p.isYearly == (cadence == _Cadence.annual)) return p;
+    }
+    return null;
+  }
 
   String get _proPrice =>
-      cadence == _Cadence.monthly ? r'$14.99' : r'$149.99';
+      _plan?.priceLabel ?? (cadence == _Cadence.monthly ? r'$9.99' : r'$79.99');
   String get _proCadence =>
       cadence == _Cadence.monthly ? '/month' : '/year';
+  bool get _isPro => subscription?.isPro ?? false;
 
   @override
   Widget build(BuildContext context) {
@@ -294,7 +345,8 @@ class _PlanColumns extends StatelessWidget {
             name: 'Pro',
             price: _proPrice,
             cadence: _proCadence,
-            cta: 'Upgrade to Pro',
+            cta: _isPro ? "You're on Pro" : 'Upgrade to Pro',
+            onTap: _isPro ? null : onUpgrade,
             highlighted: true,
             background: AppColors.espresso,
             foreground: AppColors.brandText,
@@ -311,6 +363,7 @@ class _PlanCard extends StatelessWidget {
   final String price;
   final String cadence;
   final String cta;
+  final VoidCallback? onTap;
   final bool highlighted;
   final Color background;
   final Color foreground;
@@ -321,6 +374,7 @@ class _PlanCard extends StatelessWidget {
     required this.price,
     required this.cadence,
     required this.cta,
+    this.onTap,
     required this.highlighted,
     required this.background,
     required this.foreground,
@@ -377,7 +431,7 @@ class _PlanCard extends StatelessWidget {
               color: AppColors.gold,
               borderRadius: BorderRadius.circular(8),
               child: InkWell(
-                onTap: () => debugPrint('compare: upgrade'),
+                onTap: onTap,
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
                   width: double.infinity,
@@ -517,6 +571,9 @@ class _FeatureRowWidget extends StatelessWidget {
 }
 
 class _ProTrialCta extends StatelessWidget {
+  final VoidCallback? onUpgrade;
+  const _ProTrialCta({required this.onUpgrade});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -536,7 +593,7 @@ class _ProTrialCta extends StatelessWidget {
             color: AppColors.espresso,
             borderRadius: BorderRadius.circular(8),
             child: InkWell(
-              onTap: () => debugPrint('compare: start trial'),
+              onTap: onUpgrade,
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
                 width: double.infinity,

@@ -1,17 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/drape_toast.dart';
+import '../billing_service.dart';
+import 'contact_us_screen.dart';
 import 'final_cancellation_confirmation_screen.dart';
 
-class RetentionOfferScreen extends StatelessWidget {
+class RetentionOfferScreen extends ConsumerWidget {
   static const path = 'retention-offer';
   static const name = 'profile_retention_offer';
 
   const RetentionOfferScreen({super.key});
 
+  Future<void> _accept(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(billingServiceProvider).acceptRetentionOffer();
+      ref.invalidate(subscriptionProvider);
+      ref.invalidate(billingHistoryProvider);
+      if (!context.mounted) return;
+      showDrapeToast(context, "Offer applied — you're staying on Pro!");
+      context.pop();
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -44,18 +64,14 @@ class RetentionOfferScreen extends StatelessWidget {
                     color: AppColors.gold,
                     borderRadius: BorderRadius.circular(8),
                     child: InkWell(
-                      onTap: () {
-                        debugPrint('retention: accept offer');
-                        context.pop();
-                        // Phase E: write subscription.applyRetention, then pop again to subscription screen.
-                      },
+                      onTap: () => _accept(context, ref),
                       borderRadius: BorderRadius.circular(8),
                       child: SizedBox(
                         width: double.infinity,
                         height: 56,
                         child: Center(
                           child: Text(
-                            r'ACCEPT OFFER - $7.50/MONTH',
+                            _offerLabel(ref),
                             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                   color: AppColors.white,
                                   fontWeight: FontWeight.w700,
@@ -119,7 +135,7 @@ class _Header extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.help_outline, color: AppColors.ink),
-            onPressed: () => debugPrint('retention: help'),
+            onPressed: () => context.goNamed(ContactUsScreen.name),
           ),
         ],
       ),
@@ -200,4 +216,15 @@ class _Bullet extends StatelessWidget {
       ],
     );
   }
+}
+
+/// "ACCEPT OFFER - $5.00/MONTH" — 50% off the current plan for one period
+/// (mirrors backend RETENTION_DISCOUNT_PCT). Falls back to a generic label
+/// while the subscription is loading.
+String _offerLabel(WidgetRef ref) {
+  final sub = ref.watch(subscriptionProvider).valueOrNull;
+  final cents = sub?.priceCents;
+  if (cents == null) return 'ACCEPT OFFER - 50% OFF';
+  final unit = sub!.plan == 'pro_yearly' ? 'YEAR' : 'MONTH';
+  return 'ACCEPT OFFER - \$${(cents / 2 / 100).toStringAsFixed(2)}/$unit';
 }

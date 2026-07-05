@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../widgets/buy_dont_buy_usage_banner.dart';
 import '../widgets/measurement_required_modal.dart';
@@ -432,7 +433,7 @@ class _ProUpsell extends StatelessWidget {
               color: AppColors.gold,
               borderRadius: BorderRadius.circular(8),
               child: InkWell(
-                onTap: () => debugPrint('bdb: upgrade'),
+                onTap: () => context.goNamed(ComparePlansScreen.name),
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),

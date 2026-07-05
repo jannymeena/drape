@@ -1,17 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../../../shared/widgets/drape_toast.dart';
+import '../billing_service.dart';
+import 'contact_us_screen.dart';
 
-class FinalCancellationConfirmationScreen extends StatelessWidget {
+class FinalCancellationConfirmationScreen extends ConsumerWidget {
   static const path = 'final-cancellation';
   static const name = 'profile_final_cancellation';
 
   const FinalCancellationConfirmationScreen({super.key});
 
+  /// "Keep My Pro Subscription" = accept the retention offer (un-cancels).
+  Future<void> _keepPro(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(billingServiceProvider).acceptRetentionOffer();
+      ref.invalidate(subscriptionProvider);
+      if (!context.mounted) return;
+      showDrapeToast(context, "You're staying on Pro!");
+      context.pop();
+      context.pop();
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -105,9 +126,9 @@ class FinalCancellationConfirmationScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
                       onTap: () {
-                        debugPrint('cancel: confirmed');
-                        // Phase E: subscription.cancel(reason); then pop to subscription.
-                        context.pop();
+                        // The cancel API already ran at the reason step (soft
+                        // cancel; Pro runs to period end) — this just closes
+                        // the flow back to the subscription screen.
                         context.pop();
                         context.pop();
                       },
@@ -131,10 +152,7 @@ class FinalCancellationConfirmationScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   DrapeButton.outlined(
                     label: 'Keep My Pro Subscription',
-                    onPressed: () {
-                      context.pop();
-                      context.pop();
-                    },
+                    onPressed: () => _keepPro(context, ref),
                   ),
                   const SizedBox(height: 16),
                   Center(
@@ -192,7 +210,7 @@ class _Header extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.help_outline, color: AppColors.ink),
-            onPressed: () => debugPrint('final-cancel: help'),
+            onPressed: () => context.goNamed(ContactUsScreen.name),
           ),
         ],
       ),

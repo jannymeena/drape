@@ -1,17 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
-import '../../../shared/widgets/drape_button.dart';
+import '../../../shared/widgets/drape_toast.dart';
+import '../billing_service.dart';
+import '../models/billing.dart';
 
-class PaymentMethodsScreen extends StatelessWidget {
+/// Stored payment methods (`GET/POST /payment-methods`). "Add card" collects
+/// the number only to derive a token — in dev the mock provider mints a visa
+/// from it; the real Stripe tokenization SDK lands with 11c.
+class PaymentMethodsScreen extends ConsumerStatefulWidget {
   static const path = 'payment-methods';
   static const name = 'profile_payment_methods';
 
   const PaymentMethodsScreen({super.key});
 
   @override
+  ConsumerState<PaymentMethodsScreen> createState() =>
+      _PaymentMethodsScreenState();
+}
+
+class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
+  bool _adding = false;
+
+  Future<void> _addCard() async {
+    final number = await _promptCardNumber(context);
+    if (number == null || !mounted) return;
+    setState(() => _adding = true);
+    try {
+      await ref
+          .read(billingServiceProvider)
+          .addPaymentMethod('tok_${number.replaceAll(' ', '')}');
+      ref.invalidate(paymentMethodsProvider);
+      if (!mounted) return;
+      showDrapeToast(context, 'Payment method added');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _adding = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final async = ref.watch(paymentMethodsProvider);
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -24,7 +60,7 @@ class PaymentMethodsScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 children: [
                   Text(
-                    'CURRENT METHOD',
+                    'SAVED METHODS',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: AppColors.taupe,
                           letterSpacing: 1.4,
@@ -32,7 +68,38 @@ class PaymentMethodsScreen extends StatelessWidget {
                         ),
                   ),
                   const SizedBox(height: 10),
-                  const _CardRow(),
+                  ...async.when(
+                    loading: () => const [
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.espresso),
+                        ),
+                      ),
+                    ],
+                    error: (e, _) => [
+                      Text(
+                        e is ApiException
+                            ? e.message
+                            : "We couldn't load your payment methods.",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                    data: (methods) => methods.isEmpty
+                        ? [
+                            Text(
+                              'No payment methods yet — add one below.',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ]
+                        : [
+                            for (final m in methods) ...[
+                              _CardRow(method: m),
+                              const SizedBox(height: 10),
+                            ],
+                          ],
+                  ),
                   const SizedBox(height: 24),
                   Text(
                     'ADD NEW METHOD',
@@ -44,15 +111,9 @@ class PaymentMethodsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   _MethodTile(
-                    icon: Icons.apple,
-                    label: 'Apple Pay',
-                    onTap: () => debugPrint('payment: apple pay'),
-                  ),
-                  const SizedBox(height: 10),
-                  _MethodTile(
                     icon: Icons.credit_card,
-                    label: 'Credit or Debit Card',
-                    onTap: () => debugPrint('payment: card'),
+                    label: _adding ? 'Adding…' : 'Credit or Debit Card',
+                    onTap: _adding ? null : _addCard,
                   ),
                   const SizedBox(height: 24),
                   Center(
@@ -62,20 +123,12 @@ class PaymentMethodsScreen extends StatelessWidget {
                             color: AppColors.sage, size: 18),
                         const SizedBox(height: 6),
                         Text(
-                          'Your billing information is encrypted and processed securely by Stripe.',
+                          'Your billing information is encrypted and processed securely.',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  DrapeButton(
-                    label: 'Save Changes',
-                    onPressed: () {
-                      debugPrint('payment: save changes');
-                      context.pop();
-                    },
                   ),
                 ],
               ),
@@ -85,6 +138,38 @@ class PaymentMethodsScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Minimal card-number prompt. Dev-only UX: the mock provider only needs the
+/// last 4 digits; the Stripe SDK sheet replaces this in 11c.
+Future<String?> _promptCardNumber(BuildContext context) {
+  final controller = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: AppColors.ivory,
+      title: const Text('Add card'),
+      content: TextField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        autofocus: true,
+        decoration: const InputDecoration(hintText: 'Card number'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final value = controller.text.trim();
+            Navigator.of(dialogContext).pop(value.isEmpty ? null : value);
+          },
+          child: const Text('Add'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _Header extends StatelessWidget {
@@ -105,21 +190,12 @@ class _Header extends StatelessWidget {
             child: Text(
               'Payment Methods',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontStyle: FontStyle.italic,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
             ),
           ),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: AppColors.tanFixed,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.person, color: AppColors.espresso, size: 16),
-          ),
+          const SizedBox(width: 36),
         ],
       ),
     );
@@ -127,103 +203,63 @@ class _Header extends StatelessWidget {
 }
 
 class _CardRow extends StatelessWidget {
-  const _CardRow();
+  final PaymentMethodInfo method;
+  const _CardRow({required this.method});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.4)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: AppColors.tanFixed,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                alignment: Alignment.center,
-                child: const Icon(Icons.credit_card,
-                    color: AppColors.espresso, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text('Mastercard',
-                            style: Theme.of(context).textTheme.titleSmall),
-                        const SizedBox(width: 6),
-                        Text(
-                          '• • • • 8842',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.inkSoft,
-                                letterSpacing: 2,
-                              ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'Expires 04/28',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.sageDim,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  'PRIMARY',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.sageContent,
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-            ],
+          Container(
+            width: 40,
+            height: 28,
+            decoration: BoxDecoration(
+              color: AppColors.tanFixed,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.credit_card,
+                color: AppColors.espresso, size: 16),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.location_on_outlined,
-                  color: AppColors.taupe, size: 14),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Billing Address: 123 Editorial Way, Toronto, ON',
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${method.brand[0].toUpperCase()}${method.brand.substring(1)} •••• ${method.last4}',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                Text(
+                  'Expiry ${method.expMonth.toString().padLeft(2, '0')}/${method.expYear % 100}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const Divider(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _TextAction(label: 'Update CVV', onTap: () => debugPrint('cvv')),
-              _TextAction(
-                label: 'Remove Card',
-                color: AppColors.error,
-                onTap: () => debugPrint('remove card'),
+          if (method.isDefault)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.sageDim,
+                borderRadius: BorderRadius.circular(999),
               ),
-              _TextAction(label: 'Edit', onTap: () => debugPrint('edit card')),
-            ],
-          ),
+              child: Text(
+                'DEFAULT',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.sageContent,
+                      letterSpacing: 1.2,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
         ],
       ),
     );
@@ -233,8 +269,8 @@ class _CardRow extends StatelessWidget {
 class _MethodTile extends StatelessWidget {
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
-  const _MethodTile({required this.icon, required this.label, required this.onTap});
+  final VoidCallback? onTap;
+  const _MethodTile({required this.icon, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -244,52 +280,25 @@ class _MethodTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border:
+                Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.4)),
+          ),
           child: Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                  color: AppColors.ivoryWarm,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: AppColors.espresso, size: 18),
-              ),
-              const SizedBox(width: 12),
+              Icon(icon, color: AppColors.espresso, size: 20),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(label,
                     style: Theme.of(context).textTheme.titleSmall),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.taupe),
+              const Icon(Icons.add, color: AppColors.espresso, size: 18),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _TextAction extends StatelessWidget {
-  final String label;
-  final Color? color;
-  final VoidCallback onTap;
-  const _TextAction({required this.label, this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: color ?? AppColors.ink,
-              fontWeight: FontWeight.w700,
-              decoration: TextDecoration.underline,
-              decorationColor: color ?? AppColors.ink,
-            ),
       ),
     );
   }

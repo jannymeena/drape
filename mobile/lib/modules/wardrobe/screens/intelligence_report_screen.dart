@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/services/share_service.dart';
 import '../../../shared/theme/app_colors.dart';
@@ -378,7 +379,7 @@ class _ProLockCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           FilledButton(
-            onPressed: () => debugPrint('intel: upgrade (paywall not built)'),
+            onPressed: () => context.goNamed(ComparePlansScreen.name),
             child: const Text('Upgrade to Pro'),
           ),
         ],
