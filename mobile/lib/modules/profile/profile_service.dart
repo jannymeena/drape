@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
 import '../../shared/providers/network_provider.dart';
+import '../../shared/providers/session_epoch.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_service.dart';
 import '../auth/models/current_user.dart';
@@ -132,8 +133,10 @@ final currentUserProvider = FutureProvider<CurrentUser>((ref) async {
 
 /// Whether the signed-in user is on the Pro tier. Sourced from
 /// `GET /usage/current-week` (`subscription_tier`); best-effort — a failed
-/// fetch defaults to free rather than blanking the header.
+/// fetch defaults to free rather than blanking the header. User-scoped, so it
+/// watches the session epoch (rebuilt on login/logout).
 final profileIsProProvider = FutureProvider<bool>((ref) async {
+  ref.watch(sessionEpochProvider);
   try {
     final usage = await ref.read(todayServiceProvider).getCurrentWeekUsage();
     return usage.isPro;

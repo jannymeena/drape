@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
+import '../../shared/providers/session_epoch.dart';
 import 'image_pick.dart';
 import 'models/wardrobe_item.dart';
 import 'models/wardrobe_mutations.dart';
@@ -305,5 +306,8 @@ class WardrobeController extends StateNotifier<WardrobeState> {
 
 final wardrobeControllerProvider =
     StateNotifierProvider<WardrobeController, WardrobeState>((ref) {
+  // User-scoped: rebuilt on login/logout so the keep-items-visible refresh
+  // never shows the previous account's grid to the next one.
+  ref.watch(sessionEpochProvider);
   return WardrobeController(ref.read(wardrobeServiceProvider));
 });

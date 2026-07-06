@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
 import '../../shared/providers/network_provider.dart';
+import '../../shared/providers/session_epoch.dart';
 import '../../shared/services/dashboard_cache.dart';
 import '../../shared/services/location_service.dart';
 import 'models/log_outfit_result.dart';
@@ -355,6 +356,9 @@ class TodayController extends StateNotifier<TodayState> {
 
 final todayControllerProvider =
     StateNotifierProvider<TodayController, TodayState>((ref) {
+  // User-scoped: rebuilt on login/logout so stale-while-revalidate never
+  // paints the previous account's dashboard for the next one.
+  ref.watch(sessionEpochProvider);
   return TodayController(
     ref.read(todayServiceProvider),
     ref.read(dashboardCacheProvider),

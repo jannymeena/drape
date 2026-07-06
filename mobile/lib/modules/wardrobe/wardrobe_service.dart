@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
 import '../../shared/providers/network_provider.dart';
+import '../../shared/providers/session_epoch.dart';
 import '../today/today_service.dart';
 import 'image_pick.dart';
 import 'models/scan_detection.dart';
@@ -245,10 +246,15 @@ final wardrobeServiceProvider = Provider<WardrobeService>((ref) {
   return WardrobeService(ref.read(dioProvider));
 });
 
+// Every provider below caches user-scoped data for the app's lifetime, so
+// each watches the session epoch — rebuilt on login/logout (see
+// session_epoch.dart).
+
 /// Read-once item detail, keyed by id (same pattern as the Today reasoning
 /// provider). `AsyncValue` gives the detail screen loading/error/data for free.
 final wardrobeItemProvider =
     FutureProvider.family<WardrobeItem, String>((ref, itemId) {
+  ref.watch(sessionEpochProvider);
   return ref.read(wardrobeServiceProvider).getItem(itemId);
 });
 
@@ -257,6 +263,7 @@ final wardrobeItemProvider =
 /// `/usage/current-week` (the only endpoint exposing it today), defaulting to
 /// free if that read fails. Invalidate after create/delete to refresh.
 final wardrobeCapacityProvider = FutureProvider<WardrobeCapacity>((ref) async {
+  ref.watch(sessionEpochProvider);
   final service = ref.read(wardrobeServiceProvider);
   final real = await service.getItems(isStarter: false, limit: 1);
   var isPro = false;
@@ -270,14 +277,22 @@ final wardrobeCapacityProvider = FutureProvider<WardrobeCapacity>((ref) async {
 });
 
 // Read-once analytics providers (same pattern as the detail/reasoning reads).
-final costPerWearProvider = FutureProvider<CostPerWearReport>(
-    (ref) => ref.read(wardrobeServiceProvider).costPerWear());
+final costPerWearProvider = FutureProvider<CostPerWearReport>((ref) {
+  ref.watch(sessionEpochProvider);
+  return ref.read(wardrobeServiceProvider).costPerWear();
+});
 
-final utilizationScoreProvider = FutureProvider<UtilizationScore>(
-    (ref) => ref.read(wardrobeServiceProvider).utilizationScore());
+final utilizationScoreProvider = FutureProvider<UtilizationScore>((ref) {
+  ref.watch(sessionEpochProvider);
+  return ref.read(wardrobeServiceProvider).utilizationScore();
+});
 
-final weeklyReportProvider = FutureProvider<WeeklyReport>(
-    (ref) => ref.read(wardrobeServiceProvider).weeklyReport());
+final weeklyReportProvider = FutureProvider<WeeklyReport>((ref) {
+  ref.watch(sessionEpochProvider);
+  return ref.read(wardrobeServiceProvider).weeklyReport();
+});
 
-final intelligenceReportProvider = FutureProvider<IntelligenceReport>(
-    (ref) => ref.read(wardrobeServiceProvider).intelligenceReport());
+final intelligenceReportProvider = FutureProvider<IntelligenceReport>((ref) {
+  ref.watch(sessionEpochProvider);
+  return ref.read(wardrobeServiceProvider).intelligenceReport();
+});

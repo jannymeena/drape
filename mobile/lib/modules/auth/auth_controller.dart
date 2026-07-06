@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
 import '../../shared/providers/network_provider.dart';
+import '../../shared/providers/session_epoch.dart';
 import '../../shared/services/dashboard_cache.dart';
 import '../../shared/services/session_store.dart';
 import '../../shared/services/storage_service.dart';
@@ -27,10 +28,12 @@ class AuthState {
 }
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._service, this._storage) : super(const AuthState());
+  AuthController(this._service, this._storage, this._ref)
+      : super(const AuthState());
 
   final AuthService _service;
   final StorageService _storage;
+  final Ref _ref;
 
   /// Logs in with email/password. On success: persist tokens + identity to
   /// secure storage, flip the session flag (which the router watches), and
@@ -134,6 +137,7 @@ class AuthController extends StateNotifier<AuthState> {
     await _storage.saveIdentity(userId: response.userId, email: response.email);
     await SessionStore.setLoggedIn(true);
     state = AuthState(session: response, currentUser: state.currentUser);
+    _bumpSessionEpoch();
   }
 
   Future<void> _clearSession() async {
@@ -143,6 +147,14 @@ class AuthController extends StateNotifier<AuthState> {
     // sees the previous user's outfits before the fresh frame loads.
     await DashboardCache().clear();
     state = const AuthState();
+    _bumpSessionEpoch();
+  }
+
+  /// Rebuilds every provider that caches user-scoped in-memory state (they
+  /// watch the epoch — see `session_epoch.dart`). Bumped on both sign-in and
+  /// sign-out so no cross-account path can leak the previous user's data.
+  void _bumpSessionEpoch() {
+    _ref.read(sessionEpochProvider.notifier).state++;
   }
 
   /// The backend requires a non-empty `display_name`; the email local-part is
@@ -158,5 +170,6 @@ final authControllerProvider =
   return AuthController(
     ref.read(authServiceProvider),
     ref.read(storageServiceProvider),
+    ref,
   );
 });

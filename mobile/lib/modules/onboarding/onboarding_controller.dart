@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
+import '../../shared/providers/session_epoch.dart';
 import 'models/measurements_draft.dart';
 import 'models/onboarding_status.dart';
 import 'models/starter_wardrobe.dart';
@@ -165,5 +166,8 @@ class OnboardingController extends StateNotifier<OnboardingState> {
 
 final onboardingControllerProvider =
     StateNotifierProvider<OnboardingController, OnboardingState>((ref) {
+  // User-scoped draft: rebuilt on login/logout so a register → logout →
+  // register cycle never prefills the next account with this one's answers.
+  ref.watch(sessionEpochProvider);
   return OnboardingController(ref.read(onboardingServiceProvider));
 });
