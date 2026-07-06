@@ -47,9 +47,13 @@ class WardrobeEmptyState extends StatelessWidget {
 }
 
 /// Designed empty state for the Favorites filter with no favorited items —
-/// mirrors `screens/CTO_Handoff_Wardrobe_Tab/favorites_empty_state`.
+/// mirrors `screens/CTO_Handoff_Wardrobe_Tab/favorites_empty_state`:
+/// star circle + copy, with the "Style inspiration" card linking to the
+/// Shop feed (the mockup's Atelier collection) at the bottom.
 class FavoritesEmptyState extends StatelessWidget {
-  const FavoritesEmptyState({super.key});
+  final VoidCallback onExplore;
+
+  const FavoritesEmptyState({super.key, required this.onExplore});
 
   @override
   Widget build(BuildContext context) {
@@ -71,8 +75,90 @@ class FavoritesEmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: textTheme.bodyMedium?.copyWith(color: AppColors.inkSoft),
           ),
+          const SizedBox(height: 44),
+          _StyleInspirationCard(onTap: onExplore),
         ],
       ),
+    );
+  }
+}
+
+/// Editorial cross-sell card from the `favorites_empty_state` mockup: sage
+/// "STYLE INSPIRATION" badge overlapping an image card that opens the Shop
+/// feed. Reuses the bundled onboarding flat-lay as the editorial image.
+class _StyleInspirationCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _StyleInspirationCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: AppColors.ivoryWarm,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Image.asset(
+                  'assets/onboarding/welcome_flat_lay.png',
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Discover new essentials',
+                        style: textTheme.headlineSmall?.copyWith(
+                          fontSize: 20,
+                          fontStyle: FontStyle.italic,
+                          color: AppColors.espressoDark,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'EXPLORE THE ATELIER COLLECTION',
+                        style: textTheme.labelSmall?.copyWith(
+                          fontSize: 10,
+                          letterSpacing: 2,
+                          color: AppColors.taupe,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          top: -10,
+          left: -6,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.sage,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              'STYLE INSPIRATION',
+              style: textTheme.labelSmall?.copyWith(
+                fontSize: 10,
+                color: AppColors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/drape_toast.dart';
 import '../image_pick.dart';
 import '../models/scan_detection.dart';
 import '../models/wardrobe_mutations.dart';
@@ -139,6 +140,7 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
       ));
     }
 
+    final capacityBefore = ref.read(wardrobeCapacityProvider).valueOrNull;
     final outcome =
         await ref.read(wardrobeControllerProvider.notifier).createBatch(entries);
     ref.invalidate(wardrobeCapacityProvider);
@@ -156,6 +158,14 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
             'Added ${outcome.created}, but some failed: ${outcome.error!.message}',
           ),
         ),
+      );
+    } else if (outcome.created > 0) {
+      showDrapeToast(
+        context,
+        outcome.created == 1
+            ? 'Item added to wardrobe!'
+            : 'Added ${outcome.created} items to wardrobe!',
+        trailing: capacityBefore?.toastDetailAfterAdding(outcome.created),
       );
     }
     context.pop();

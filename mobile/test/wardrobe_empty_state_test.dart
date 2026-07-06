@@ -21,8 +21,13 @@ void main() {
     expect(added, isTrue);
   });
 
-  testWidgets('FavoritesEmptyState shows the designed copy', (tester) async {
-    await tester.pumpWidget(_wrap(const FavoritesEmptyState()));
+  testWidgets(
+      'FavoritesEmptyState shows the designed copy and the style-inspiration '
+      'card fires onExplore', (tester) async {
+    var explored = false;
+    await tester.pumpWidget(
+      _wrap(FavoritesEmptyState(onExplore: () => explored = true)),
+    );
 
     expect(find.text('No favorites yet'), findsOneWidget);
     expect(
@@ -30,5 +35,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(Icons.star), findsOneWidget);
+    expect(find.text('STYLE INSPIRATION'), findsOneWidget);
+    expect(find.text('Discover new essentials'), findsOneWidget);
+
+    await tester.tap(find.text('Discover new essentials'));
+    expect(explored, isTrue);
   });
 }

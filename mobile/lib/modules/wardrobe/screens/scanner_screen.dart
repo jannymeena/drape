@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/drape_toast.dart';
 import '../image_pick.dart';
 import '../models/scan_detection.dart';
 import '../models/wardrobe_mutations.dart';
@@ -92,11 +93,17 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       formality: detection.formality,
     );
     try {
+      final capacityBefore = ref.read(wardrobeCapacityProvider).valueOrNull;
       await ref
           .read(wardrobeControllerProvider.notifier)
           .createItemWithImages(input, [image]);
       ref.invalidate(wardrobeCapacityProvider);
       if (!mounted) return;
+      showDrapeToast(
+        context,
+        'Item added to wardrobe!',
+        trailing: capacityBefore?.toastDetailAfterAdding(1),
+      );
       context.pop();
     } on ApiException catch (e) {
       if (!mounted) return;

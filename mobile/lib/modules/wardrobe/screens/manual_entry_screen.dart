@@ -291,15 +291,20 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       if (_isEditing) {
         await controller.updateItem(widget.itemId!, _buildInput());
         ref.invalidate(wardrobeItemProvider(widget.itemId!));
+        if (!mounted) return;
+        showDrapeToast(context, 'Changes saved');
       } else {
+        final capacityBefore =
+            ref.read(wardrobeCapacityProvider).valueOrNull;
         await controller.createItem(_buildInput());
         ref.invalidate(wardrobeCapacityProvider);
+        if (!mounted) return;
+        showDrapeToast(
+          context,
+          'Item added to wardrobe!',
+          trailing: capacityBefore?.toastDetailAfterAdding(1),
+        );
       }
-      if (!mounted) return;
-      showDrapeToast(
-        context,
-        _isEditing ? 'Changes saved' : 'Item added to wardrobe!',
-      );
       context.pop();
     } on ApiException catch (e) {
       if (!mounted) return;

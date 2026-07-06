@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../profile/screens/compare_plans_screen.dart';
+import '../../shop/screens/shop_feed_screen.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/wardrobe_item.dart';
@@ -12,6 +13,7 @@ import '../widgets/add_to_wardrobe_chooser.dart';
 import '../widgets/capacity_warning_banner.dart';
 import '../widgets/category_filter_chips.dart';
 import '../widgets/item_card.dart';
+import '../widgets/low_count_warning_banner.dart';
 import '../widgets/wardrobe_empty_state.dart';
 import '../../today/widgets/starter_wardrobe_banner.dart';
 import 'batch_upload_screen.dart';
@@ -89,6 +91,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                               WardrobeCategoryFilter.values[i - 1]),
                     ),
                     const SizedBox(height: 16),
+                    ..._buildLowCountBanner(state),
                     ..._buildBody(context, state, controller),
                     const SizedBox(height: 24),
                   ],
@@ -136,7 +139,11 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
         ];
       }
       if (state.favoritesOnly) {
-        return const [FavoritesEmptyState()];
+        return [
+          FavoritesEmptyState(
+            onExplore: () => context.goNamed(ShopFeedScreen.name),
+          ),
+        ];
       }
       if (state.category == WardrobeCategoryFilter.all) {
         // Truly empty wardrobe — the full designed empty state.
@@ -210,6 +217,32 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
         child: StarterWardrobeBanner(
           realItems: real,
           onAdd: _openAddSheet,
+        ),
+      ),
+      const SizedBox(height: 16),
+    ];
+  }
+
+  /// Low-count warning (wardrobe_with_low_count_warning mockup): the wardrobe
+  /// has real items but fewer than 10, and the starter banner no longer
+  /// applies (no starter items in the grid). Session-dismissible; only on the
+  /// main All view so "You have N items." refers to what's on screen.
+  List<Widget> _buildLowCountBanner(WardrobeState state) {
+    if (ref.watch(lowCountBannerDismissedProvider)) return const [];
+    if (state.favoritesOnly || state.category != WardrobeCategoryFilter.all) {
+      return const [];
+    }
+    final hasStarter = state.items.any((i) => i.isStarterWardrobe);
+    final real = ref.watch(wardrobeCapacityProvider).valueOrNull?.used;
+    if (hasStarter || real == null || real < 1 || real >= 10) return const [];
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: LowCountWarningBanner(
+          itemCount: real,
+          onScanMore: () => context.goNamed(ScannerScreen.name),
+          onDismiss: () =>
+              ref.read(lowCountBannerDismissedProvider.notifier).state = true,
         ),
       ),
       const SizedBox(height: 16),

@@ -148,4 +148,12 @@ class WardrobeCapacity {
     if (used >= _urgent) return 'urgent';
     return 'soft';
   }
+
+  /// Trailing detail for the item-added toast ("27/30 items") once [added]
+  /// more items land, computed from this pre-add snapshot so the toast never
+  /// waits on a refetch. Null for Pro — no cap to show.
+  String? toastDetailAfterAdding(int added) {
+    if (isPro) return null;
+    return '${(used + added).clamp(0, cap)}/$cap items';
+  }
 }
