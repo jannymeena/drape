@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../../../shared/widgets/garment_placeholder.dart';
 import '../models/outfit_reasoning.dart';
 import '../today_service.dart';
 
@@ -260,6 +261,13 @@ class _ItemRow extends StatelessWidget {
   final ReasoningItem item;
   const _ItemRow({required this.item});
 
+  /// Coloured category silhouette (the app's house placeholder) instead of a
+  /// bare hanger icon when the item has no photo.
+  Widget get _placeholder => GarmentPlaceholder(
+        category: item.category ?? '',
+        color: garmentColorFromName(item.colorName),
+      );
+
   @override
   Widget build(BuildContext context) {
     final note = item.whyItWorks;
@@ -273,20 +281,15 @@ class _ItemRow extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Container(
+            child: SizedBox(
               width: 56,
               height: 56,
-              color: AppColors.ivory,
               child: item.imageUrl == null
-                  ? const Icon(Icons.checkroom_outlined,
-                      color: AppColors.taupeSoft)
+                  ? _placeholder
                   : Image.network(
                       item.imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(
-                        Icons.checkroom_outlined,
-                        color: AppColors.taupeSoft,
-                      ),
+                      errorBuilder: (_, _, _) => _placeholder,
                     ),
             ),
           ),

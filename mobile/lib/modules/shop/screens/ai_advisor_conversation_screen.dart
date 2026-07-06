@@ -7,6 +7,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../../profile/screens/compare_plans_screen.dart';
 import '../models/shop.dart';
 import '../shop_service.dart';
+import '../widgets/product_options_sheet.dart';
 
 /// AI Style Advisor chat (`POST /shop/advisor/ask`). Opens with either an
 /// initial [question] (fired immediately, one call per turn) or an existing
@@ -313,44 +314,64 @@ class _SuggestionCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Resolve the matched catalog product (if any) from the loaded feed.
+    // A resolved card opens the same product-options sheet as the feed grid;
+    // an unmatched suggestion stays informational.
     final product = ref
         .watch(shopFeedProvider)
         .valueOrNull
         ?.products
         .where((p) => p.id == suggestion.productId)
         .firstOrNull;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.white,
+    return Material(
+      color: AppColors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: product == null
+            ? null
+            : () => showProductOptionsSheet(
+                  context,
+                  title: product.name,
+                  unlockCount: 6,
+                ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.checkroom_outlined,
-              color: AppColors.espresso, size: 22),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(suggestion.name,
-                    style: Theme.of(context).textTheme.titleSmall),
-                Text(suggestion.reason,
-                    style: Theme.of(context).textTheme.bodySmall),
-                if (product != null)
-                  Text(
-                    '${product.brand} · ${product.priceLabel}',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: AppColors.espresso,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-              ],
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border:
+                Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.4)),
           ),
-        ],
+          child: Row(
+            children: [
+              const Icon(Icons.checkroom_outlined,
+                  color: AppColors.espresso, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(suggestion.name,
+                        style: Theme.of(context).textTheme.titleSmall),
+                    Text(suggestion.reason,
+                        style: Theme.of(context).textTheme.bodySmall),
+                    if (product != null)
+                      Text(
+                        '${product.brand} · ${product.priceLabel}',
+                        style:
+                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: AppColors.espresso,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                      ),
+                  ],
+                ),
+              ),
+              if (product != null)
+                const Icon(Icons.chevron_right,
+                    color: AppColors.taupe, size: 20),
+            ],
+          ),
+        ),
       ),
     );
   }

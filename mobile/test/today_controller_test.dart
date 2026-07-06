@@ -149,7 +149,7 @@ void main() {
     expect(controller.state.pendingOccasions, isEmpty);
   });
 
-  test('retryOccasion re-generates a previously failed occasion', () async {
+  test('generateOccasion re-generates a previously failed occasion', () async {
     service.frame = _dashboard([], pending: ['casual']);
     service.failOccasions.add('casual');
     await controller.loadFrame();
@@ -157,12 +157,27 @@ void main() {
     expect(controller.state.failedOccasions.keys, contains('casual'));
 
     service.failOccasions.remove('casual'); // it'll succeed now
-    await controller.retryOccasion('casual');
+    await controller.generateOccasion('casual');
     await pumpEventQueue();
 
     expect(controller.state.failedOccasions, isEmpty);
     expect(controller.state.dashboard!.outfits.map((o) => o.occasion),
         contains('casual'));
+  });
+
+  test('generateOccasion styles an occasion the frame never scheduled',
+      () async {
+    service.frame = _dashboard([], pending: []);
+    await controller.loadFrame();
+    await pumpEventQueue();
+    expect(controller.state.dashboard!.outfits, isEmpty);
+
+    await controller.generateOccasion('gym');
+    await pumpEventQueue();
+
+    expect(controller.state.dashboard!.outfits.map((o) => o.occasion),
+        contains('gym'));
+    expect(controller.state.pendingOccasions, isEmpty);
   });
 
   test('a non-ApiException from getFrame never sticks the spinner', () async {

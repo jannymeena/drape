@@ -147,6 +147,10 @@ class ReasoningItem(BaseModel):
     name: str
     why_it_works: str | None
     image_url: str | None = None
+    # For the client's coloured category-silhouette placeholder when the item
+    # has no photo.
+    category: str | None = None
+    color_name: str | None = None
 
 
 class OutfitReasoningResponse(BaseModel):

@@ -916,6 +916,8 @@ def get_reasoning(
             name=i.name,
             why_it_works=i.why_it_works,
             image_url=i.primary_image_url,
+            category=i.category,
+            color_name=i.color_name,
         )
         for i in items
     ]

@@ -226,14 +226,18 @@ class TodayController extends StateNotifier<TodayState> {
     );
   }
 
-  /// Retries a previously failed occasion. No-op if it's already generating.
-  Future<void> retryOccasion(String occasion) async {
+  /// Generates one occasion on demand — the chip row's "Generate" CTA for an
+  /// occasion the frame didn't schedule, and the failed card's retry. No-op if
+  /// it's already generating. Refreshes usage afterwards (an on-demand
+  /// generation consumes an outfit credit).
+  Future<void> generateOccasion(String occasion) async {
     if (state.pendingOccasions.contains(occasion)) return;
     state = state.copyWith(
       pendingOccasions: {...state.pendingOccasions, occasion},
       failedOccasions: {...state.failedOccasions}..remove(occasion),
     );
     await _fill(occasion);
+    unawaited(_refreshUsage());
   }
 
   /// Regenerates one outfit in place. The backend returns a *new* outfit row

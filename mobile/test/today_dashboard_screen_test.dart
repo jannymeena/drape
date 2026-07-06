@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/modules/onboarding/models/measurements_draft.dart';
-import 'package:mobile/modules/profile/profile_service.dart';
+import 'package:mobile/modules/onboarding/models/onboarding_status.dart';
+import 'package:mobile/modules/onboarding/onboarding_service.dart';
 import 'package:mobile/modules/today/models/outfit.dart';
 import 'package:mobile/modules/today/models/today_dashboard.dart';
 import 'package:mobile/modules/today/models/usage.dart';
@@ -75,13 +75,24 @@ TodayDashboard _frame(List<String> pending,
       'pending_occasions': pending,
     });
 
-Widget _host(TodayService service, {MeasurementsDraft? measurements}) =>
+/// Backend onboarding-status payload driving the resume banner. [next] null
+/// means the 7 required measurements are in (nudge hidden).
+OnboardingStatus _status({int stepsDone = 0, String? next = 'height'}) =>
+    OnboardingStatus(
+      onboardingCompleted: true,
+      onboardingLastStep: null,
+      nextStep: 'completed',
+      measurementStepsCompleted: stepsDone,
+      nextIncompleteStep: next,
+    );
+
+Widget _host(TodayService service, {OnboardingStatus? status}) =>
     ProviderScope(
       overrides: [
         todayServiceProvider.overrideWithValue(service),
         dashboardCacheProvider.overrideWithValue(_NullCache()),
-        // Deterministic resume-banner input (null → nothing saved yet).
-        measurementsProvider.overrideWith((ref) async => measurements),
+        // Deterministic resume-banner input (default → nothing saved yet).
+        onboardingStatusProvider.overrideWith((ref) async => status ?? _status()),
       ],
       child: const MaterialApp(home: TodayDashboardScreen()),
     );
@@ -205,14 +216,10 @@ void main() {
   testWidgets('resume banner counts saved steps', (tester) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
-    const partial = MeasurementsDraft(values: {
-      MeasurementField.height: 175,
-      MeasurementField.chest: 100,
-      MeasurementField.waist: 84,
-      MeasurementField.hips: 98,
-    });
-    await tester
-        .pumpWidget(_host(_StubService(_frame([])), measurements: partial));
+    await tester.pumpWidget(_host(
+      _StubService(_frame([])),
+      status: _status(stepsDone: 4, next: 'shoulders'),
+    ));
     await _settle(tester);
 
     expect(find.text('4 of 8 steps done'), findsOneWidget);
@@ -222,18 +229,12 @@ void main() {
       (tester) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
-    // All 7 required — weight (optional) missing must NOT keep the nudge alive.
-    const complete = MeasurementsDraft(values: {
-      MeasurementField.height: 175,
-      MeasurementField.shoulders: 46,
-      MeasurementField.chest: 100,
-      MeasurementField.waist: 84,
-      MeasurementField.inseam: 78,
-      MeasurementField.thigh: 55,
-      MeasurementField.hips: 98,
-    });
-    await tester
-        .pumpWidget(_host(_StubService(_frame([])), measurements: complete));
+    // A null next step means the 7 required are in — weight (optional)
+    // missing must NOT keep the nudge alive (steps_done 7 of 8).
+    await tester.pumpWidget(_host(
+      _StubService(_frame([])),
+      status: _status(stepsDone: 7, next: null),
+    ));
     await _settle(tester);
 
     expect(find.byType(ResumeBanner), findsNothing);

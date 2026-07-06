@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
@@ -17,7 +18,23 @@ class ContactUsScreen extends ConsumerStatefulWidget {
   static const path = 'contact';
   static const name = 'profile_contact';
 
-  const ContactUsScreen({super.key});
+  /// Subject preselected by the privacy screen's "Correct Your Data" row
+  /// (PIPEDA right to correction) — must be one of [subjects].
+  static const privacySubject = 'Privacy & My Data';
+
+  static const subjects = [
+    'General Inquiry',
+    'Billing',
+    'Technical',
+    'Styling',
+    privacySubject,
+  ];
+
+  /// Optional deep-link subject (`?subject=…`); ignored when not in
+  /// [subjects].
+  final String? initialSubject;
+
+  const ContactUsScreen({super.key, this.initialSubject});
 
   @override
   ConsumerState<ContactUsScreen> createState() => _ContactUsScreenState();
@@ -25,11 +42,22 @@ class ContactUsScreen extends ConsumerStatefulWidget {
 
 class _ContactUsScreenState extends ConsumerState<ContactUsScreen> {
   final _message = TextEditingController();
+  final _email = TextEditingController();
+  late String _subject;
   bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _subject = ContactUsScreen.subjects.contains(widget.initialSubject)
+        ? widget.initialSubject!
+        : ContactUsScreen.subjects.first;
+  }
 
   @override
   void dispose() {
     _message.dispose();
+    _email.dispose();
     super.dispose();
   }
 
@@ -42,10 +70,16 @@ class _ContactUsScreenState extends ConsumerState<ContactUsScreen> {
       return;
     }
     setState(() => _submitting = true);
+    final email = _email.text.trim();
     try {
-      await ref
-          .read(settingsServiceProvider)
-          .submitSupport(kind: 'contact', message: message);
+      await ref.read(settingsServiceProvider).submitSupport(
+            kind: 'contact',
+            subject: _subject,
+            message: message,
+            // The backend replies to the account email by default; an
+            // explicit reply-to is a free-form extra.
+            extra: email.isEmpty ? null : {'reply_to': email},
+          );
       if (!mounted) return;
       showDrapeToast(context, "Message sent — we'll be in touch.");
       context.pop();
@@ -85,10 +119,16 @@ class _ContactUsScreenState extends ConsumerState<ContactUsScreen> {
                       style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   _FieldLabel('SUBJECT'),
-                  _DropdownField(),
+                  _DropdownField(
+                    value: _subject,
+                    onChanged: (v) => setState(() => _subject = v),
+                  ),
                   const SizedBox(height: 14),
                   _FieldLabel('YOUR EMAIL'),
-                  _Field(hint: 'alexander.v@atelier.com'),
+                  _Field(
+                    hint: 'Reply-to (optional — defaults to your account)',
+                    controller: _email,
+                  ),
                   const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -105,20 +145,10 @@ class _ContactUsScreenState extends ConsumerState<ContactUsScreen> {
                     lines: 4,
                     controller: _message,
                   ),
+                  // The mockup's "Attach Screenshot" is intentionally absent:
+                  // the support API has no attachment field (needs backend
+                  // work if the product wants it). Screenshots go via email.
                   const SizedBox(height: 12),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () => debugPrint('contact: attach'),
-                      icon: const Icon(Icons.attach_file,
-                          size: 16, color: AppColors.espresso),
-                      label: Text('Attach Screenshot',
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                                color: AppColors.espresso,
-                                fontWeight: FontWeight.w700,
-                              )),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
                   DrapeButton(
                     label: _submitting ? 'Sending…' : 'SEND MESSAGE',
                     onPressed: _submitting ? null : _submit,
@@ -263,7 +293,9 @@ class _EmailSupportCard extends StatelessWidget {
           const SizedBox(height: 12),
           DrapeButton(
             label: 'Send Email',
-            onPressed: () => debugPrint('contact: email'),
+            onPressed: () => launchUrl(
+              Uri(scheme: 'mailto', path: 'concierge@drape.luxury'),
+            ),
           ),
         ],
       ),
@@ -426,6 +458,10 @@ class _Field extends StatelessWidget {
 }
 
 class _DropdownField extends StatelessWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+  const _DropdownField({required this.value, required this.onChanged});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -436,19 +472,19 @@ class _DropdownField extends StatelessWidget {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: 'General Inquiry',
+          value: value,
           isExpanded: true,
           icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.taupe),
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: AppColors.ink,
               ),
-          items: const [
-            DropdownMenuItem(value: 'General Inquiry', child: Text('General Inquiry')),
-            DropdownMenuItem(value: 'Billing', child: Text('Billing')),
-            DropdownMenuItem(value: 'Technical', child: Text('Technical')),
-            DropdownMenuItem(value: 'Styling', child: Text('Styling')),
+          items: [
+            for (final s in ContactUsScreen.subjects)
+              DropdownMenuItem(value: s, child: Text(s)),
           ],
-          onChanged: (_) {},
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
         ),
       ),
     );

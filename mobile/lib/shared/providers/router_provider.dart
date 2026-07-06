@@ -560,7 +560,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: ContactUsScreen.path,
                     name: ContactUsScreen.name,
-                    builder: (_, _) => const ContactUsScreen(),
+                    builder: (_, state) => ContactUsScreen(
+                      initialSubject: state.uri.queryParameters['subject'],
+                    ),
                   ),
                   GoRoute(
                     path: ReportBugScreen.path,

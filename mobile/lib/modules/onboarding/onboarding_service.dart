@@ -135,3 +135,10 @@ class OnboardingService {
 final onboardingServiceProvider = Provider<OnboardingService>((ref) {
   return OnboardingService(ref.read(dioProvider));
 });
+
+/// Live onboarding/measurement status for the Today resume banner. Invalidate
+/// after saving measurements so the banner's progress updates right away.
+final onboardingStatusProvider =
+    FutureProvider.autoDispose<OnboardingStatus>((ref) {
+  return ref.read(onboardingServiceProvider).getOnboardingStatus();
+});

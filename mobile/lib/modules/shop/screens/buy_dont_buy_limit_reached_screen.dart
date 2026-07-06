@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/theme/app_colors.dart';
+import 'buy_dont_buy_scan_screen.dart';
 
 class BuyDontBuyLimitReachedScreen extends StatelessWidget {
   static const path = 'buy-dont-buy/limit-reached';
@@ -138,7 +139,10 @@ class BuyDontBuyLimitReachedScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   Center(
                     child: TextButton(
-                      onPressed: () => debugPrint('limit: purchase history'),
+                      // Past checks live on the scanner's Recent Checks list —
+                      // there is no separate purchase-history screen.
+                      onPressed: () =>
+                          context.goNamed(BuyDontBuyScanScreen.name),
                       child: Text('View Purchase History',
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                 color: AppColors.espresso,

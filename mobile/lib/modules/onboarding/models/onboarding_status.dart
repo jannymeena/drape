@@ -13,6 +13,8 @@ class OnboardingStatus {
     this.shoppingStyle,
     this.ageRange,
     this.styleGoals,
+    this.measurementStepsCompleted = 0,
+    this.nextIncompleteStep,
   });
 
   final bool onboardingCompleted;
@@ -22,6 +24,12 @@ class OnboardingStatus {
   final String? ageRange;
   final List<String>? styleGoals;
 
+  /// Measurement progress for the Today resume banner: 0–8 fields saved, and
+  /// the next incomplete measurement id — null once the 7 required are in
+  /// (weight is optional and never blocks completion).
+  final int measurementStepsCompleted;
+  final String? nextIncompleteStep;
+
   factory OnboardingStatus.fromJson(Map<String, dynamic> json) {
     return OnboardingStatus(
       onboardingCompleted: json['onboarding_completed'] as bool? ?? false,
@@ -30,6 +38,9 @@ class OnboardingStatus {
       shoppingStyle: json['shopping_style'] as String?,
       ageRange: json['age_range'] as String?,
       styleGoals: (json['style_goals'] as List<dynamic>?)?.cast<String>(),
+      measurementStepsCompleted:
+          json['measurement_steps_completed'] as int? ?? 0,
+      nextIncompleteStep: json['next_incomplete_step'] as String?,
     );
   }
 }

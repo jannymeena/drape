@@ -6,8 +6,8 @@ import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/theme/app_colors.dart';
-import '../../onboarding/models/measurements_draft.dart';
-import '../../profile/profile_service.dart';
+import '../../onboarding/models/onboarding_status.dart';
+import '../../onboarding/onboarding_service.dart';
 import '../../profile/screens/edit_measurements_screen.dart';
 import '../../wardrobe/screens/wardrobe_screen.dart';
 import '../models/log_outfit_result.dart';
@@ -181,7 +181,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     final pickWidgets = _pickWidgets(state, dashboard);
     return RefreshIndicator(
       onRefresh: () {
-        ref.invalidate(measurementsProvider);
+        ref.invalidate(onboardingStatusProvider);
         return ref.read(todayControllerProvider.notifier).loadFrame();
       },
       child: CustomScrollView(
@@ -312,8 +312,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
 
   /// Builds the picks list: real outfit cards, then a skeleton per occasion
   /// still generating, then a retry card per occasion that failed. An active
-  /// occasion chip filters all three by the backend literal; per-occasion
-  /// *generation* is a follow-up (MOBILE_CHANGES P3).
+  /// occasion chip filters all three by the backend literal; a chip whose
+  /// occasion has no outfit offers on-demand generation instead.
   List<Widget> _pickWidgets(TodayState state, TodayDashboard dashboard) {
     final filter = _selectedOccasion;
     bool matches(String occasion) => filter == null || occasion == filter;
@@ -335,14 +335,22 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
       widgets.add(OutfitOccasionRetryCard(
         occasionLabel: _occasionLabel(occasion),
         message: state.failedOccasions[occasion]!.message,
-        onRetry: () =>
-            ref.read(todayControllerProvider.notifier).retryOccasion(occasion),
+        onRetry: () => ref
+            .read(todayControllerProvider.notifier)
+            .generateOccasion(occasion),
       ));
     }
 
-    // The filter matched nothing today (e.g. no Gym pick was generated).
+    // The filter matched nothing today (e.g. no Gym pick was generated) —
+    // offer to style that occasion on the spot (one backend call per tap,
+    // per the one-by-one AI-call convention).
     if (widgets.isEmpty && filter != null && dashboard.wardrobeReady) {
-      widgets.add(_FilteredEmptyMessage(label: _occasionLabel(filter)));
+      widgets.add(_FilteredEmptyMessage(
+        label: _occasionLabel(filter),
+        onGenerate: () => ref
+            .read(todayControllerProvider.notifier)
+            .generateOccasion(filter),
+      ));
     }
     return widgets;
   }
@@ -389,20 +397,20 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
   }
 
   /// "Complete your DRAPE profile" nudge — shown while measurements are
-  /// incomplete (CTO doc 2, Screen 5). Progress is computed client-side from
-  /// `GET /profile/measurements` because the frame's `incomplete_profile` flag
-  /// tracks onboarding, not measurements (see BE P5). Weight is optional, so
-  /// all-7-required counts as complete and stops the nudge. Hidden while the
-  /// fetch is loading or failed (best-effort, like the capacity banner).
+  /// incomplete (CTO doc 2, Screen 5). Progress comes from the backend
+  /// `GET /profile/onboarding-status` payload (`measurement_steps_completed`
+  /// + `next_incomplete_step`); a null next step means the 7 required are in
+  /// (weight is optional) and the nudge stops. Hidden while the fetch is
+  /// loading or failed (best-effort, like the capacity banner).
   List<Widget> _resumeBanner() {
-    final async = ref.watch(measurementsProvider);
-    if (async is! AsyncData<MeasurementsDraft?>) return const [];
-    final draft = async.value;
-    if (draft != null && draft.hasAllRequired) return const [];
+    final async = ref.watch(onboardingStatusProvider);
+    if (async is! AsyncData<OnboardingStatus>) return const [];
+    final status = async.value;
+    if (status.nextIncompleteStep == null) return const [];
     return [
       const SizedBox(height: 20),
       ResumeBanner(
-        stepsDone: draft?.values.length ?? 0,
+        stepsDone: status.measurementStepsCompleted,
         onTap: () => context.goNamed(EditMeasurementsScreen.name),
       ),
     ];
@@ -563,9 +571,13 @@ class _AddItemsEmptyState extends StatelessWidget {
   }
 }
 
+/// Shown when the active occasion chip has no generated outfit — offers
+/// on-demand generation for exactly that occasion. Tapping flips the slot to
+/// the usual skeleton via `pendingOccasions`.
 class _FilteredEmptyMessage extends StatelessWidget {
   final String label;
-  const _FilteredEmptyMessage({required this.label});
+  final VoidCallback onGenerate;
+  const _FilteredEmptyMessage({required this.label, required this.onGenerate});
 
   @override
   Widget build(BuildContext context) {
@@ -581,7 +593,27 @@ class _FilteredEmptyMessage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 14),
+          Material(
+            color: AppColors.espresso,
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              onTap: onGenerate,
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                child: Text(
+                  'Generate $label Look',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           Text(
             'Switch to All to see everything we styled today.',
             textAlign: TextAlign.center,

@@ -1,25 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../widgets/settings_row.dart';
 import '../widgets/settings_section.dart';
+import 'contact_us_screen.dart';
 import 'delete_account_screen.dart';
 import 'export_my_data_screen.dart';
 import 'how_drape_uses_data_screen.dart';
 
-class PrivacyDataScreen extends StatefulWidget {
+// Decisions 2026-07-07: the mockup's 2FA switch and Connected Apps (Google
+// Calendar / Instagram revoke) sections are intentionally absent — 2FA is cut
+// for v1 and no app integrations exist; showing dead controls for either
+// would be misleading. Re-add if the features ever ship.
+class PrivacyDataScreen extends StatelessWidget {
   static const path = 'privacy-data';
   static const name = 'profile_privacy_data';
 
   const PrivacyDataScreen({super.key});
 
-  @override
-  State<PrivacyDataScreen> createState() => _PrivacyDataScreenState();
-}
+  /// The live policy pages land with release prep (MOBILE_CHANGES P6).
+  static final _privacyPolicyUrl = Uri.parse('https://drape.app/privacy');
+  static final _termsUrl = Uri.parse('https://drape.app/terms');
 
-class _PrivacyDataScreenState extends State<PrivacyDataScreen> {
-  bool _twoFactor = false;
+  Future<void> _openPolicy(BuildContext context, Uri url) async {
+    final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the page.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,22 +46,6 @@ class _PrivacyDataScreenState extends State<PrivacyDataScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 children: [
-                  SettingsSection(
-                    title: 'SECURITY',
-                    rows: [
-                      SettingsRow(
-                        icon: Icons.shield_outlined,
-                        label: 'Enable Two-Factor (2FA)',
-                        subtitle: 'Adds an extra layer of protection to your style profile.',
-                        trailing: Switch(
-                          value: _twoFactor,
-                          onChanged: (v) => setState(() => _twoFactor = v),
-                          activeThumbColor: AppColors.espresso,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
                   _ResidencyCard(
                     onLearnMore: () =>
                         context.goNamed(HowDrapeUsesDataScreen.name),
@@ -84,22 +80,6 @@ class _PrivacyDataScreenState extends State<PrivacyDataScreen> {
                   ),
                   const SizedBox(height: 20),
                   SettingsSection(
-                    title: 'CONNECTED APPS',
-                    rows: [
-                      SettingsRow(
-                        icon: Icons.calendar_today_outlined,
-                        label: 'Google Calendar',
-                        trailing: _RevokeButton(onTap: () => debugPrint('revoke gcal')),
-                      ),
-                      SettingsRow(
-                        icon: Icons.camera_alt_outlined,
-                        label: 'Instagram',
-                        trailing: _RevokeButton(onTap: () => debugPrint('revoke ig')),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  SettingsSection(
                     title: 'YOUR RIGHTS (PIPEDA)',
                     rows: [
                       SettingsRow(
@@ -114,7 +94,15 @@ class _PrivacyDataScreenState extends State<PrivacyDataScreen> {
                       SettingsRow(
                         icon: Icons.edit_outlined,
                         label: 'Correct Your Data',
-                        onTap: () => debugPrint('privacy: correct'),
+                        // PIPEDA correction requests go to support with the
+                        // subject preselected (profile + measurements are
+                        // also directly editable in-app).
+                        onTap: () => context.goNamed(
+                          ContactUsScreen.name,
+                          queryParameters: {
+                            'subject': ContactUsScreen.privacySubject,
+                          },
+                        ),
                       ),
                       SettingsRow(
                         icon: Icons.delete_outline,
@@ -138,11 +126,18 @@ class _PrivacyDataScreenState extends State<PrivacyDataScreen> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: _PolicyLink(label: 'Privacy Policy', onTap: () => debugPrint('policy')),
+                          child: _PolicyLink(
+                            label: 'Privacy Policy',
+                            onTap: () =>
+                                _openPolicy(context, _privacyPolicyUrl),
+                          ),
                         ),
                         Container(width: 1, height: 28, color: AppColors.taupeSoft.withValues(alpha: 0.4)),
                         Expanded(
-                          child: _PolicyLink(label: 'Terms of Service', onTap: () => debugPrint('terms')),
+                          child: _PolicyLink(
+                            label: 'Terms of Service',
+                            onTap: () => _openPolicy(context, _termsUrl),
+                          ),
                         ),
                       ],
                     ),
@@ -283,27 +278,6 @@ class _TrailingNote extends StatelessWidget {
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: AppColors.taupe,
           ),
-    );
-  }
-}
-
-class _RevokeButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _RevokeButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Text(
-        'Revoke',
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: AppColors.error,
-              fontWeight: FontWeight.w700,
-              decoration: TextDecoration.underline,
-              decorationColor: AppColors.error,
-            ),
-      ),
     );
   }
 }

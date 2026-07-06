@@ -14,6 +14,8 @@ class ReasoningItem {
     required this.name,
     this.whyItWorks,
     this.imageUrl,
+    this.category,
+    this.colorName,
   });
 
   final String itemId;
@@ -21,12 +23,19 @@ class ReasoningItem {
   final String? whyItWorks;
   final String? imageUrl;
 
+  /// Drive the coloured category-silhouette placeholder when [imageUrl] is
+  /// missing or fails to load.
+  final String? category;
+  final String? colorName;
+
   factory ReasoningItem.fromJson(Map<String, dynamic> json) {
     return ReasoningItem(
       itemId: json['item_id'] as String,
       name: json['name'] as String,
       whyItWorks: json['why_it_works'] as String?,
       imageUrl: ApiConfig.resolveImageUrl(json['image_url'] as String?),
+      category: json['category'] as String?,
+      colorName: json['color_name'] as String?,
     );
   }
 }

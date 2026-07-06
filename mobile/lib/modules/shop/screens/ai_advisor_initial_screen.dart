@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/theme/app_colors.dart';
 import 'ai_advisor_conversation_screen.dart';
 import 'ai_advisor_history_screen.dart';
+import 'wishlist_screen.dart';
 
 class AiAdvisorInitialScreen extends StatelessWidget {
   static const path = 'advisor';
@@ -32,6 +33,7 @@ class AiAdvisorInitialScreen extends StatelessWidget {
           children: [
             _Header(
               onBack: () => context.pop(),
+              onFavorites: () => context.goNamed(WishlistScreen.name),
               onHistory: () => context.goNamed(AiAdvisorHistoryScreen.name),
             ),
             const _MeasurementBanner(),
@@ -119,8 +121,13 @@ class AiAdvisorInitialScreen extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
+  final VoidCallback onFavorites;
   final VoidCallback onHistory;
-  const _Header({required this.onBack, required this.onHistory});
+  const _Header({
+    required this.onBack,
+    required this.onFavorites,
+    required this.onHistory,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +147,7 @@ class _Header extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.favorite_border, color: AppColors.espresso),
-            onPressed: () => debugPrint('advisor: favorites'),
+            onPressed: onFavorites,
           ),
           IconButton(
             icon: const Icon(Icons.history, color: AppColors.espresso),

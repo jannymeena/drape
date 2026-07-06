@@ -6,6 +6,7 @@ import '../../../shared/models/api_error.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../onboarding/models/measurements_draft.dart';
+import '../../onboarding/onboarding_service.dart';
 import '../../../shared/units.dart';
 import '../profile_service.dart';
 import '../settings_service.dart';
@@ -120,8 +121,10 @@ class _EditMeasurementsScreenState
     setState(() => _saving = true);
     try {
       await ref.read(profileServiceProvider).updateMeasurements(draft);
-      // Refresh any live watcher (e.g. the Today resume banner) right away.
+      // Refresh any live watcher right away (the Today resume banner reads
+      // onboardingStatusProvider; this screen's prefill reads measurements).
       ref.invalidate(measurementsProvider);
+      ref.invalidate(onboardingStatusProvider);
       if (!mounted) return;
       showDrapeToast(context, 'Measurements saved.');
       context.pop();
