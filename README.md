@@ -158,7 +158,7 @@ Set via `ENVIRONMENT`. Pydantic validates at startup — anything other than `de
 | Variable                     | Required in            | Purpose                                                |
 |------------------------------|------------------------|--------------------------------------------------------|
 | `ENVIRONMENT`                | all (default `dev`)    | One of `dev`, `tbd`, `prd`.                            |
-| `DISABLED_FEATURES`          | optional               | Comma-separated feature switches to turn **off**: `apple_login`, `google_login`. See below. |
+| `DISABLED_FEATURES`          | optional               | Comma-separated feature switches to turn **off**: `apple_login`, `google_login`, `billing`. See below. |
 | `DATABASE_URL`               | all                    | Postgres connection string.                            |
 | `JWT_SECRET`                 | all *(default in dev)* | HS256 signing secret. From Secrets Manager in tbd/prd. |
 | `JWT_ACCESS_TTL_MINUTES`     | optional               | Default 60.                                            |
@@ -172,21 +172,24 @@ Set via `ENVIRONMENT`. Pydantic validates at startup — anything other than `de
 | `SES_REGION`, `SES_FROM_ADDRESS` | `tbd`, `prd`       | Password-reset emails (`SesEmailProvider`).            |
 | `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_PATH` | `tbd`, `prd` — unless `apple_login` is disabled | Apple Sign-In server-side verification. `APPLE_CLIENT_ID` may be comma-separated (bundle ID + Service ID). |
 | `GOOGLE_CLIENT_ID`           | `tbd`, `prd` — unless `google_login` is disabled | Google ID token audience. May be comma-separated (iOS + Android client IDs). |
+| `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO_MONTHLY`, `STRIPE_PRICE_ID_PRO_YEARLY` | `tbd`, `prd` — unless `billing` is disabled | Real payments (`StripeProvider`); dev uses `MockPaymentProvider`. Webhook: `POST /api/v1/billing/webhook/stripe` (subscribe `invoice.paid`, `invoice.payment_failed`, `customer.subscription.deleted`). |
+| `STRIPE_PORTAL_RETURN_URL`   | optional               | Customer-portal return target (default: `drape://drape.app/billing`). |
 
 The same `uvicorn app.main:app` command runs in every env — only the `.env` values change. Sanity checks: `ENVIRONMENT=staging` → fails at startup; `ENVIRONMENT=tbd` with no `JWT_SECRET` → fails at startup, not at first request.
 
 ### Feature switches (`DISABLED_FEATURES`)
 
-Per-feature kill switches, Spring `@ConditionalOnProperty`-style. Known names: `apple_login`, `google_login` (an unknown name refuses to boot, so typos can't silently leave a feature on). Default: empty — everything enabled.
+Per-feature kill switches, Spring `@ConditionalOnProperty`-style. Known names: `apple_login`, `google_login`, `billing` (an unknown name refuses to boot, so typos can't silently leave a feature on). Default: empty — everything enabled.
 
 ```bash
-DISABLED_FEATURES=apple_login,google_login   # both off
-DISABLED_FEATURES=apple_login                # Apple off, Google on
+DISABLED_FEATURES=apple_login,google_login   # OAuth off
+DISABLED_FEATURES=billing                    # Stripe off (upgrade/portal/webhook answer 400)
 ```
 
 Semantics:
-- A disabled feature's config keys are **not required at startup** — e.g. `tbd` can boot without `APPLE_CLIENT_ID` while Apple's credentials are pending approval.
-- Its endpoints answer **400 `oauth_unavailable`** (the same contract mobile already handles in dev); the other provider, email auth, and everything else are unaffected.
+- A disabled feature's config keys are **not required at startup** — e.g. `tbd` can boot without `APPLE_CLIENT_ID` or the `STRIPE_*` keys while those accounts are pending.
+- Its endpoints answer **400** with a typed code (`oauth_unavailable` / `billing_unavailable` — the same contract mobile already handles in dev); everything else is unaffected.
+- Dev is not affected by the switches for providers it already mocks (`MockPaymentProvider` stays; OAuth stays off).
 - Read **once at boot**: flipping a flag means restarting the server (dev) or updating the secret + `aws ecs update-service --force-new-deployment` (tbd/prd — rolling, zero downtime).
 
 ---
