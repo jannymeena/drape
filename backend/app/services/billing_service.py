@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import BillingRecord, PaymentMethod, Subscription, User
-from app.services.providers.payment.base import PaymentProvider
+from app.services.providers.payment.base import PaymentProvider, PaymentProviderError
 
 _log = structlog.get_logger("billing")
 
@@ -105,9 +105,12 @@ def upgrade(
     if sub is not None and sub.status == "active" and not sub.cancel_at_period_end:
         raise BillingError("already_subscribed", "Already on Drape Pro")
 
-    result = payment.create_subscription(
-        user_id=user.id, plan=plan, amount_cents=price_cents, currency="CAD"
-    )
+    try:
+        result = payment.create_subscription(
+            user_id=user.id, plan=plan, amount_cents=price_cents, currency="CAD"
+        )
+    except PaymentProviderError as exc:
+        raise BillingError(exc.code, str(exc)) from exc
     now = _now()
     if sub is None:
         sub = Subscription(
@@ -116,8 +119,7 @@ def upgrade(
             price_cents=price_cents,
             current_period_start=now,
             current_period_end=now + period,
-            provider=type(payment).__name__.replace("PaymentProvider", "").lower()
-            or "mock",
+            provider=payment.name,
             provider_subscription_id=result.provider_subscription_id,
         )
         db.add(sub)
@@ -150,7 +152,7 @@ def upgrade(
 
 
 def cancel(
-    db: Session, *, user: User, reason: Optional[str], payment: PaymentProvider
+    db: Session, *, user: User, reason: Optional[str], payment: PaymentProvider | None
 ) -> Subscription:
     sub = get_subscription(db, user=user)
     if sub is None or sub.status != "active":
@@ -158,9 +160,21 @@ def cancel(
     if sub.cancel_at_period_end:
         return sub  # idempotent
     if sub.provider_subscription_id:
-        payment.cancel_subscription(
-            provider_subscription_id=sub.provider_subscription_id
-        )
+        # payment is None only when billing is feature-disabled; still honor
+        # the cancel locally so entitlement lapses at period end.
+        if payment is None:
+            _log.warning(
+                "billing.cancel.no_provider",
+                user_id=str(user.id),
+                provider_subscription_id=sub.provider_subscription_id,
+            )
+        else:
+            try:
+                payment.cancel_subscription(
+                    provider_subscription_id=sub.provider_subscription_id
+                )
+            except PaymentProviderError as exc:
+                raise BillingError(exc.code, str(exc)) from exc
     sub.cancel_at_period_end = True
     sub.canceled_at = _now()
     sub.cancellation_reason = reason
@@ -217,7 +231,10 @@ def list_payment_methods(db: Session, *, user: User) -> list[PaymentMethod]:
 def add_payment_method(
     db: Session, *, user: User, token: str, payment: PaymentProvider
 ) -> PaymentMethod:
-    result = payment.add_payment_method(user_id=user.id, token=token)
+    try:
+        result = payment.add_payment_method(user_id=user.id, token=token)
+    except PaymentProviderError as exc:
+        raise BillingError(exc.code, str(exc)) from exc
     first = not list_payment_methods(db, user=user)
     row = PaymentMethod(
         user_id=user.id,
@@ -233,3 +250,99 @@ def add_payment_method(
     db.commit()
     db.refresh(row)
     return row
+
+
+def portal_url(*, user: User, payment: PaymentProvider) -> str:
+    try:
+        return payment.create_portal_url(user_id=user.id)
+    except PaymentProviderError as exc:
+        raise BillingError(exc.code, str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Stripe webhook (signature already verified by the route)
+# ---------------------------------------------------------------------------
+
+
+def _from_epoch(value) -> Optional[datetime]:
+    return datetime.fromtimestamp(value, tz=timezone.utc) if value else None
+
+
+def _sub_by_provider_id(db: Session, provider_subscription_id: str) -> Optional[Subscription]:
+    return db.scalar(
+        select(Subscription).where(
+            Subscription.provider_subscription_id == provider_subscription_id
+        )
+    )
+
+
+def apply_stripe_event(db: Session, *, event: dict) -> str:
+    """Apply one verified Stripe event; returns an outcome slug for logging.
+
+    Unknown event types and unknown subscription ids are acknowledged, not
+    errors — Stripe retries anything that isn't answered 2xx.
+    """
+    event_type = event.get("type", "")
+    obj = (event.get("data") or {}).get("object") or {}
+
+    if event_type == "invoice.paid":
+        if obj.get("billing_reason") == "subscription_create":
+            return "ignored"  # first charge is recorded synchronously by upgrade()
+        sub = _sub_by_provider_id(db, obj.get("subscription") or "")
+        if sub is None:
+            _log.warning("billing.webhook.unknown_subscription", event_type=event_type)
+            return "unknown_subscription"
+        user = db.get(User, sub.user_id)
+        lines = (obj.get("lines") or {}).get("data") or [{}]
+        period = lines[0].get("period") or {}
+        now = _now()
+        sub.status = "active"
+        sub.current_period_start = _from_epoch(period.get("start")) or now
+        sub.current_period_end = _from_epoch(period.get("end")) or (
+            now + PLANS[sub.plan][1]
+        )
+        user.subscription_tier = "pro"
+        _record(
+            db,
+            user=user,
+            description=f"Drape Pro renewal ({'yearly' if sub.plan == 'pro_yearly' else 'monthly'})",
+            amount_cents=int(obj.get("amount_paid") or sub.price_cents),
+            currency=(obj.get("currency") or "cad").upper(),
+            invoice_number=obj.get("number"),
+        )
+        db.commit()
+        _log.info("billing.webhook.renewed", user_id=str(user.id))
+        return "renewed"
+
+    if event_type == "invoice.payment_failed":
+        sub = _sub_by_provider_id(db, obj.get("subscription") or "")
+        if sub is None:
+            return "unknown_subscription"
+        user = db.get(User, sub.user_id)
+        # Entitlement is NOT flipped here: Stripe retries the charge, and a
+        # terminal failure arrives as customer.subscription.deleted.
+        row = _record(
+            db,
+            user=user,
+            description="Drape Pro renewal — payment failed",
+            amount_cents=int(obj.get("amount_due") or sub.price_cents),
+            currency=(obj.get("currency") or "cad").upper(),
+            invoice_number=obj.get("number"),
+        )
+        row.status = "failed"
+        db.commit()
+        _log.warning("billing.webhook.payment_failed", user_id=str(user.id))
+        return "payment_failed_recorded"
+
+    if event_type == "customer.subscription.deleted":
+        sub = _sub_by_provider_id(db, obj.get("id") or "")
+        if sub is None:
+            return "unknown_subscription"
+        user = db.get(User, sub.user_id)
+        sub.status = "canceled"
+        user.subscription_tier = "free"
+        db.commit()
+        _log.info("billing.webhook.subscription_deleted", user_id=str(user.id))
+        return "canceled"
+
+    return "ignored"

@@ -21,6 +21,8 @@ _log = structlog.get_logger("payment")
 
 
 class MockPaymentProvider(PaymentProvider):
+    name = "mock"
+
     def create_subscription(
         self, *, user_id: UUID, plan: str, amount_cents: int, currency: str
     ) -> ProviderSubscription:
@@ -58,3 +60,7 @@ class MockPaymentProvider(PaymentProvider):
             exp_month=12,
             exp_year=2030,
         )
+
+    def create_portal_url(self, *, user_id: UUID) -> str:
+        _log.info("payment.mock.portal", user_id=str(user_id))
+        return "https://billing.example.test/mock-portal"

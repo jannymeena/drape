@@ -8,7 +8,20 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import ClassVar
 from uuid import UUID
+
+
+class PaymentProviderError(Exception):
+    """Domain-level payment failure. Services translate to BillingError.
+
+    code: 'payment_failed' (card declined & co — user-facing 402) or
+    'payment_provider_error' (upstream unreachable/misbehaving — 502).
+    """
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 @dataclass(frozen=True)
@@ -30,6 +43,9 @@ class ProviderPaymentMethod:
 
 
 class PaymentProvider(ABC):
+    # Short slug persisted in subscriptions.provider (e.g. 'mock', 'stripe').
+    name: ClassVar[str]
+
     @abstractmethod
     def create_subscription(
         self, *, user_id: UUID, plan: str, amount_cents: int, currency: str
@@ -45,3 +61,7 @@ class PaymentProvider(ABC):
         self, *, user_id: UUID, token: str
     ) -> ProviderPaymentMethod:
         """Exchange a client-side token for a stored payment method."""
+
+    @abstractmethod
+    def create_portal_url(self, *, user_id: UUID) -> str:
+        """Short-lived URL to the provider-hosted billing management page."""

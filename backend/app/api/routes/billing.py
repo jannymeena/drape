@@ -7,11 +7,14 @@ discount credit) or nothing (lazy expiry drops the user to free).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.providers import get_payment_provider
+from app.core.config import settings
 from app.db.models import Subscription, User
 from app.db.session import get_db
 from app.schemas.billing import (
@@ -22,12 +25,14 @@ from app.schemas.billing import (
     PaymentMethodListResponse,
     PaymentMethodResponse,
     PlanSummary,
+    PortalResponse,
     SubscriptionResponse,
     UpgradeRequest,
 )
 from app.services import billing_service
 from app.services.billing_service import PLAN_SUMMARY, BillingError
-from app.services.providers.payment.base import PaymentProvider
+from app.services.providers.payment.base import PaymentProvider, PaymentProviderError
+from app.services.providers.payment.stripe import verify_webhook_signature
 
 router = APIRouter(tags=["billing"])
 
@@ -40,8 +45,20 @@ def _translate(err: BillingError) -> HTTPException:
         "already_subscribed": status.HTTP_409_CONFLICT,
         "not_subscribed": status.HTTP_404_NOT_FOUND,
         "no_offer": status.HTTP_409_CONFLICT,
+        "payment_failed": status.HTTP_402_PAYMENT_REQUIRED,
+        "payment_provider_error": status.HTTP_502_BAD_GATEWAY,
     }.get(err.code, status.HTTP_400_BAD_REQUEST)
     return HTTPException(status_code=code, detail={"error": err.code, "message": str(err)})
+
+
+def _require_payment(payment: PaymentProvider | None) -> PaymentProvider:
+    """Billing is feature-disabled (DISABLED_FEATURES=billing) when None."""
+    if payment is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "billing_unavailable", "message": "Billing not enabled in this environment"},
+        )
+    return payment
 
 
 def _to_response(user: User, sub: Subscription | None) -> SubscriptionResponse:
@@ -74,10 +91,12 @@ def upgrade(
     payload: UpgradeRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    payment: PaymentProvider = Depends(get_payment_provider),
+    payment: PaymentProvider | None = Depends(get_payment_provider),
 ) -> SubscriptionResponse:
     try:
-        sub = billing_service.upgrade(db, user=user, plan=payload.plan, payment=payment)
+        sub = billing_service.upgrade(
+            db, user=user, plan=payload.plan, payment=_require_payment(payment)
+        )
     except BillingError as err:
         raise _translate(err) from err
     return _to_response(user, sub)
@@ -88,7 +107,7 @@ def cancel(
     payload: CancelRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    payment: PaymentProvider = Depends(get_payment_provider),
+    payment: PaymentProvider | None = Depends(get_payment_provider),
 ) -> SubscriptionResponse:
     try:
         sub = billing_service.cancel(
@@ -142,9 +161,57 @@ def add_payment_method(
     payload: AddPaymentMethodRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    payment: PaymentProvider = Depends(get_payment_provider),
+    payment: PaymentProvider | None = Depends(get_payment_provider),
 ) -> PaymentMethodResponse:
-    method = billing_service.add_payment_method(
-        db, user=user, token=payload.token, payment=payment
-    )
+    try:
+        method = billing_service.add_payment_method(
+            db, user=user, token=payload.token, payment=_require_payment(payment)
+        )
+    except BillingError as err:
+        raise _translate(err) from err
     return PaymentMethodResponse.model_validate(method)
+
+
+@router.post("/billing/portal", response_model=PortalResponse)
+def billing_portal(
+    user: User = Depends(get_current_user),
+    payment: PaymentProvider | None = Depends(get_payment_provider),
+) -> PortalResponse:
+    try:
+        url = billing_service.portal_url(user=user, payment=_require_payment(payment))
+    except BillingError as err:
+        raise _translate(err) from err
+    return PortalResponse(url=url)
+
+
+@router.post("/billing/webhook/stripe")
+async def stripe_webhook(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Unauthenticated by design — Stripe calls it; the HMAC signature is the auth."""
+    secret = settings.stripe_webhook_secret
+    if not secret:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "billing_unavailable", "message": "Stripe webhook not configured"},
+        )
+    payload = await request.body()
+    try:
+        verify_webhook_signature(
+            payload, request.headers.get("stripe-signature", ""), secret
+        )
+    except PaymentProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "invalid_signature", "message": str(exc)},
+        ) from exc
+    try:
+        event = json.loads(payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "invalid_payload", "message": "Body is not valid JSON"},
+        ) from exc
+    outcome = billing_service.apply_stripe_event(db, event=event)
+    return {"received": True, "outcome": outcome}

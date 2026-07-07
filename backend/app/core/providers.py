@@ -42,7 +42,7 @@ class Providers:
         self.image_storage: ImageStorageProvider = self._build_image_storage(s)
         self.ai: AIProvider = self._build_ai(s)
         self.weather: WeatherProvider = self._build_weather(s)
-        self.payment: PaymentProvider = self._build_payment(s)
+        self.payment: PaymentProvider | None = self._build_payment(s)
         self.push: PushProvider = self._build_push(s)
         self.affiliate: AffiliateProvider = self._build_affiliate(s)
         _log.info(
@@ -55,7 +55,7 @@ class Providers:
             image_storage=type(self.image_storage).__name__,
             ai=type(self.ai).__name__,
             weather=type(self.weather).__name__,
-            payment=type(self.payment).__name__,
+            payment=type(self.payment).__name__ if self.payment else None,
             push=type(self.push).__name__,
             affiliate=type(self.affiliate).__name__,
         )
@@ -82,11 +82,21 @@ class Providers:
         return ApnsFcmProvider(fcm_credentials_json=s.fcm_credentials_json)
 
     @staticmethod
-    def _build_payment(s: Settings) -> PaymentProvider:
+    def _build_payment(s: Settings) -> PaymentProvider | None:
         if s.environment == "dev":
             return MockPaymentProvider()
-        assert s.stripe_api_key, "stripe_api_key required outside dev"
-        return StripeProvider(api_key=s.stripe_api_key)
+        if not s.feature_enabled("billing"):
+            return None  # billing routes answer 400 billing_unavailable
+        # Config validator guarantees the Stripe keys when billing is enabled.
+        assert s.stripe_api_key and s.stripe_price_id_pro_monthly and s.stripe_price_id_pro_yearly
+        return StripeProvider(
+            api_key=s.stripe_api_key,
+            price_ids={
+                "pro_monthly": s.stripe_price_id_pro_monthly,
+                "pro_yearly": s.stripe_price_id_pro_yearly,
+            },
+            portal_return_url=s.stripe_portal_return_url,
+        )
 
     @staticmethod
     def _build_oauth(s: Settings) -> OAuthVerifier | None:

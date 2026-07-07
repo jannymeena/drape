@@ -39,7 +39,7 @@ def get_weather_provider() -> WeatherProvider:
     return providers.weather
 
 
-def get_payment_provider() -> PaymentProvider:
+def get_payment_provider() -> PaymentProvider | None:
     return providers.payment
 
 

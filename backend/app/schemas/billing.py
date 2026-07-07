@@ -16,6 +16,10 @@ class PlanSummary(BaseModel):
     currency: str
 
 
+class PortalResponse(BaseModel):
+    url: str
+
+
 class SubscriptionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

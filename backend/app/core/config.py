@@ -8,8 +8,8 @@ Environment = Literal["dev", "tbd", "prd"]
 _DEV_JWT_SECRET = "dev-only-do-not-use-in-tbd-or-prd-min-32-bytes"
 
 # Feature names DISABLED_FEATURES may reference. Grow this set as more
-# switchable features land (e.g. billing, push).
-_KNOWN_FEATURES = {"apple_login", "google_login"}
+# switchable features land (e.g. push).
+_KNOWN_FEATURES = {"apple_login", "google_login", "billing"}
 
 
 class Settings(BaseSettings):
@@ -22,10 +22,10 @@ class Settings(BaseSettings):
     environment: Environment = "dev"
 
     # Comma-separated feature names to turn OFF (see _KNOWN_FEATURES), e.g.
-    # DISABLED_FEATURES=apple_login,google_login. A disabled feature's config
-    # keys are not required at startup and its endpoints answer
-    # 400 oauth_unavailable. Read once at boot — flipping it means a restart
-    # (redeploy in tbd/prd). Unknown names fail at startup.
+    # DISABLED_FEATURES=apple_login,billing. A disabled feature's config keys
+    # are not required at startup and its endpoints answer 400
+    # (oauth_unavailable / billing_unavailable). Read once at boot — flipping
+    # it means a restart (redeploy in tbd/prd). Unknown names fail at startup.
     disabled_features: str = ""
 
     database_url: str = "postgresql+psycopg2://admin:password@localhost:5433/drape"
@@ -47,7 +47,13 @@ class Settings(BaseSettings):
     ses_region: str | None = None
     ses_from_address: str | None = None
     password_reset_url_template: str = "https://drape.local/reset?token={token}"
-    stripe_api_key: str | None = None  # required outside dev (11c)
+    # Stripe (11c) — required outside dev unless `billing` is disabled.
+    stripe_api_key: str | None = None
+    stripe_webhook_secret: str | None = None  # whsec_... for /billing/webhook/stripe
+    stripe_price_id_pro_monthly: str | None = None
+    stripe_price_id_pro_yearly: str | None = None
+    # Where the Stripe customer portal sends the user back; deep link in prod.
+    stripe_portal_return_url: str = "drape://drape.app/billing"
     fcm_credentials_json: str | None = None  # required outside dev (11d)
     awin_api_key: str | None = None  # required outside dev (11e)
 
@@ -117,6 +123,11 @@ class Settings(BaseSettings):
                 required["APPLE_CLIENT_ID"] = self.apple_client_id
             if self.feature_enabled("google_login"):
                 required["GOOGLE_CLIENT_ID"] = self.google_client_id
+            if self.feature_enabled("billing"):
+                required["STRIPE_API_KEY"] = self.stripe_api_key
+                required["STRIPE_WEBHOOK_SECRET"] = self.stripe_webhook_secret
+                required["STRIPE_PRICE_ID_PRO_MONTHLY"] = self.stripe_price_id_pro_monthly
+                required["STRIPE_PRICE_ID_PRO_YEARLY"] = self.stripe_price_id_pro_yearly
             missing = [k for k, v in required.items() if not v]
             if missing:
                 raise ValueError(
