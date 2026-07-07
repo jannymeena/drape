@@ -158,7 +158,7 @@ Set via `ENVIRONMENT`. Pydantic validates at startup — anything other than `de
 | Variable                     | Required in            | Purpose                                                |
 |------------------------------|------------------------|--------------------------------------------------------|
 | `ENVIRONMENT`                | all (default `dev`)    | One of `dev`, `tbd`, `prd`.                            |
-| `DISABLED_FEATURES`          | optional               | Comma-separated feature switches to turn **off**: `apple_login`, `google_login`, `billing`. See below. |
+| `DISABLED_FEATURES`          | optional               | Comma-separated feature switches to turn **off**: `apple_login`, `google_login`, `billing`, `push`. See below. |
 | `DATABASE_URL`               | all                    | Postgres connection string.                            |
 | `JWT_SECRET`                 | all *(default in dev)* | HS256 signing secret. From Secrets Manager in tbd/prd. |
 | `JWT_ACCESS_TTL_MINUTES`     | optional               | Default 60.                                            |
@@ -174,22 +174,23 @@ Set via `ENVIRONMENT`. Pydantic validates at startup — anything other than `de
 | `GOOGLE_CLIENT_ID`           | `tbd`, `prd` — unless `google_login` is disabled | Google ID token audience. May be comma-separated (iOS + Android client IDs). |
 | `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO_MONTHLY`, `STRIPE_PRICE_ID_PRO_YEARLY` | `tbd`, `prd` — unless `billing` is disabled | Real payments (`StripeProvider`); dev uses `MockPaymentProvider`. Webhook: `POST /api/v1/billing/webhook/stripe` (subscribe `invoice.paid`, `invoice.payment_failed`, `customer.subscription.deleted`). |
 | `STRIPE_PORTAL_RETURN_URL`   | optional               | Customer-portal return target (default: `drape://drape.app/billing`). |
+| `FCM_CREDENTIALS_JSON`       | `tbd`, `prd` — unless `push` is disabled | Firebase service-account JSON (raw or base64) for FCM HTTP v1; FCM relays iOS to APNS via the `.p8` uploaded to the Firebase project. Dev logs via `LogPushProvider`. |
 
 The same `uvicorn app.main:app` command runs in every env — only the `.env` values change. Sanity checks: `ENVIRONMENT=staging` → fails at startup; `ENVIRONMENT=tbd` with no `JWT_SECRET` → fails at startup, not at first request.
 
 ### Feature switches (`DISABLED_FEATURES`)
 
-Per-feature kill switches, Spring `@ConditionalOnProperty`-style. Known names: `apple_login`, `google_login`, `billing` (an unknown name refuses to boot, so typos can't silently leave a feature on). Default: empty — everything enabled.
+Per-feature kill switches, Spring `@ConditionalOnProperty`-style. Known names: `apple_login`, `google_login`, `billing`, `push` (an unknown name refuses to boot, so typos can't silently leave a feature on). Default: empty — everything enabled.
 
 ```bash
 DISABLED_FEATURES=apple_login,google_login   # OAuth off
-DISABLED_FEATURES=billing                    # Stripe off (upgrade/portal/webhook answer 400)
+DISABLED_FEATURES=billing,push               # Stripe off (endpoints answer 400) + push off (sends become logged no-ops)
 ```
 
 Semantics:
-- A disabled feature's config keys are **not required at startup** — e.g. `tbd` can boot without `APPLE_CLIENT_ID` or the `STRIPE_*` keys while those accounts are pending.
-- Its endpoints answer **400** with a typed code (`oauth_unavailable` / `billing_unavailable` — the same contract mobile already handles in dev); everything else is unaffected.
-- Dev is not affected by the switches for providers it already mocks (`MockPaymentProvider` stays; OAuth stays off).
+- A disabled feature's config keys are **not required at startup** — e.g. `tbd` can boot without `APPLE_CLIENT_ID`, the `STRIPE_*` keys, or `FCM_CREDENTIALS_JSON` while those accounts are pending.
+- User-facing endpoints answer **400** with a typed code (`oauth_unavailable` / `billing_unavailable` — the same contract mobile already handles in dev). `push` is the exception: sends are server-initiated, so disabling it turns the `notify_user` fan-out into a logged no-op while device registration keeps collecting tokens.
+- Dev is not affected by the switches for providers it already mocks (`MockPaymentProvider` and `LogPushProvider` stay; OAuth stays off).
 - Read **once at boot**: flipping a flag means restarting the server (dev) or updating the secret + `aws ecs update-service --force-new-deployment` (tbd/prd — rolling, zero downtime).
 
 ---
