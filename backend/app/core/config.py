@@ -7,6 +7,10 @@ Environment = Literal["dev", "tbd", "prd"]
 
 _DEV_JWT_SECRET = "dev-only-do-not-use-in-tbd-or-prd-min-32-bytes"
 
+# Feature names DISABLED_FEATURES may reference. Grow this set as more
+# switchable features land (e.g. billing, push).
+_KNOWN_FEATURES = {"apple_login", "google_login"}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -16,6 +20,13 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
 
     environment: Environment = "dev"
+
+    # Comma-separated feature names to turn OFF (see _KNOWN_FEATURES), e.g.
+    # DISABLED_FEATURES=apple_login,google_login. A disabled feature's config
+    # keys are not required at startup and its endpoints answer
+    # 400 oauth_unavailable. Read once at boot — flipping it means a restart
+    # (redeploy in tbd/prd). Unknown names fail at startup.
+    disabled_features: str = ""
 
     database_url: str = "postgresql+psycopg2://admin:password@localhost:5433/drape"
 
@@ -69,8 +80,20 @@ class Settings(BaseSettings):
     local_image_dir: str = "uploads"
     local_image_base_url: str = "http://localhost:8000/uploads"
 
+    def _disabled_feature_set(self) -> set[str]:
+        return {f.strip() for f in self.disabled_features.split(",") if f.strip()}
+
+    def feature_enabled(self, feature: str) -> bool:
+        return feature not in self._disabled_feature_set()
+
     @model_validator(mode="after")
     def _validate(self) -> "Settings":
+        unknown = self._disabled_feature_set() - _KNOWN_FEATURES
+        if unknown:
+            raise ValueError(
+                f"Unknown feature name(s) in DISABLED_FEATURES: {', '.join(sorted(unknown))}. "
+                f"Known: {', '.join(sorted(_KNOWN_FEATURES))}"
+            )
         if self.environment == "dev":
             if not self.measurement_dek_dev:
                 raise ValueError(
@@ -85,13 +108,15 @@ class Settings(BaseSettings):
                 )
             required = {
                 "ANTHROPIC_API_KEY": self.anthropic_api_key,
-                "APPLE_CLIENT_ID": self.apple_client_id,
-                "GOOGLE_CLIENT_ID": self.google_client_id,
                 "SES_REGION": self.ses_region,
                 "SES_FROM_ADDRESS": self.ses_from_address,
                 "KMS_KEY_ID": self.kms_key_id,
                 "IMAGE_BUCKET": self.image_bucket,
             }
+            if self.feature_enabled("apple_login"):
+                required["APPLE_CLIENT_ID"] = self.apple_client_id
+            if self.feature_enabled("google_login"):
+                required["GOOGLE_CLIENT_ID"] = self.google_client_id
             missing = [k for k, v in required.items() if not v]
             if missing:
                 raise ValueError(

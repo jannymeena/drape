@@ -20,7 +20,7 @@ from app.schemas.user import Role
 from app.services.profile_service import next_step as onboarding_next_step
 from app.services.providers.email.base import EmailProvider
 from app.services.providers.hash.base import PasswordHasher
-from app.services.providers.oauth.base import OAuthVerifier
+from app.services.providers.oauth.base import OAuthVerificationError, OAuthVerifier
 
 _log = structlog.get_logger("auth")
 
@@ -148,14 +148,19 @@ async def _upsert_oauth_user(
     provider: Literal["apple", "google"],
     id_token: str,
 ) -> User:
-    if provider == "apple":
-        claims = await verifier.verify_apple(id_token)
-        oauth_id_field = "apple_id"
-        method = AuthMethod.apple
-    else:
-        claims = await verifier.verify_google(id_token)
-        oauth_id_field = "google_id"
-        method = AuthMethod.google
+    try:
+        if provider == "apple":
+            claims = await verifier.verify_apple(id_token)
+            oauth_id_field = "apple_id"
+            method = AuthMethod.apple
+        else:
+            claims = await verifier.verify_google(id_token)
+            oauth_id_field = "google_id"
+            method = AuthMethod.google
+    except OAuthVerificationError as exc:
+        # Preserve the verifier's code — routes map oauth_unavailable
+        # (feature-disabled) to 400, everything else to 401.
+        raise AuthError(exc.code, str(exc)) from exc
 
     sub = claims.get("sub")
     email = claims.get("email")

@@ -306,3 +306,139 @@ def test_logout_idempotent_with_unknown_token(client):
         "/api/v1/auth/logout", json={"refresh_token": "totally-not-a-real-token"}
     )
     assert r.status_code == 204
+
+
+# ---------------------------------------------------------------------------
+# OAuth (Tier 2.1) — route plumbing with a stubbed verifier; RealOAuthVerifier
+# itself is covered in tests/services/test_oauth_verifier.py.
+# ---------------------------------------------------------------------------
+
+from typing import Any
+
+from app.main import app
+from app.api.dependencies.providers import get_oauth_verifier
+from app.services.providers.oauth.base import OAuthVerificationError, OAuthVerifier
+
+
+class _StubOAuthVerifier(OAuthVerifier):
+    def __init__(
+        self,
+        claims: dict[str, Any] | None = None,
+        error: OAuthVerificationError | None = None,
+    ) -> None:
+        self.claims = claims or {"sub": "oauth-sub-1", "email": "oauth@example.com"}
+        self.error = error
+
+    async def _result(self) -> dict[str, Any]:
+        if self.error is not None:
+            raise self.error
+        return self.claims
+
+    async def verify_apple(self, id_token: str) -> dict[str, Any]:
+        return await self._result()
+
+    async def verify_google(self, id_token: str) -> dict[str, Any]:
+        return await self._result()
+
+
+@pytest.fixture
+def oauth_client(client):
+    """The standard client with a stub OAuth verifier mounted. Yields
+    (client, stub); the `client` fixture clears all overrides on teardown."""
+    stub = _StubOAuthVerifier()
+    app.dependency_overrides[get_oauth_verifier] = lambda: stub
+    return client, stub
+
+
+def test_oauth_login_unavailable_in_dev(client):
+    # No override: the dev container wires oauth=None → 400, not 404/500.
+    r = client.post(
+        "/api/v1/auth/login",
+        json={"auth_method": "apple", "apple_id_token": "some-token"},
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "oauth_unavailable"
+
+
+def test_oauth_signup_creates_user(oauth_client):
+    client, _ = oauth_client
+    r = client.post(
+        "/api/v1/auth/signup",
+        json={
+            "auth_method": "apple",
+            "apple_id_token": "stub-token",
+            "agreed_to_terms": True,
+            "agreed_to_privacy": True,
+        },
+    )
+    assert r.status_code == 201, r.text
+    payload = r.json()
+    assert payload["email"] == "oauth@example.com"
+    assert payload["access_token"]
+    assert payload["onboarding_completed"] is False
+
+
+def test_oauth_login_is_idempotent_upsert(oauth_client):
+    client, _ = oauth_client
+    body = {"auth_method": "google", "google_id_token": "stub-token"}
+    first = client.post("/api/v1/auth/login", json=body)
+    second = client.post("/api/v1/auth/login", json=body)
+    assert first.status_code == 200 and second.status_code == 200
+    assert first.json()["user_id"] == second.json()["user_id"]
+
+
+def test_oauth_login_links_existing_email_account(oauth_client, make_user):
+    client, stub = oauth_client
+    existing = make_user(email="linkme@example.com")
+    stub.claims = {"sub": "google-sub-9", "email": "linkme@example.com"}
+    r = client.post(
+        "/api/v1/auth/login", json={"auth_method": "google", "google_id_token": "stub-token"}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["user_id"] == str(existing.id)
+
+
+def test_oauth_invalid_token_returns_401(oauth_client):
+    client, stub = oauth_client
+    stub.error = OAuthVerificationError("oauth_invalid_token", "Token verification failed")
+    r = client.post(
+        "/api/v1/auth/login", json={"auth_method": "apple", "apple_id_token": "bad-token"}
+    )
+    assert r.status_code == 401, r.text
+    assert r.json()["detail"]["code"] == "oauth_invalid_token"
+
+
+def test_oauth_feature_disabled_returns_400_on_login(oauth_client):
+    client, stub = oauth_client
+    stub.error = OAuthVerificationError("oauth_unavailable", "Apple sign-in is disabled")
+    r = client.post(
+        "/api/v1/auth/login", json={"auth_method": "apple", "apple_id_token": "stub-token"}
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "oauth_unavailable"
+
+
+def test_oauth_feature_disabled_returns_400_on_signup(oauth_client):
+    client, stub = oauth_client
+    stub.error = OAuthVerificationError("oauth_unavailable", "Google sign-in is disabled")
+    r = client.post(
+        "/api/v1/auth/signup",
+        json={
+            "auth_method": "google",
+            "google_id_token": "stub-token",
+            "agreed_to_terms": True,
+            "agreed_to_privacy": True,
+        },
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "oauth_unavailable"
+
+
+def test_oauth_missing_claims_returns_401(oauth_client):
+    client, stub = oauth_client
+    stub.claims = {"sub": "no-email-sub"}  # e.g. provider returned no email
+    r = client.post(
+        "/api/v1/auth/login", json={"auth_method": "apple", "apple_id_token": "stub-token"}
+    )
+    assert r.status_code == 401, r.text
+    assert r.json()["detail"]["code"] == "oauth_missing_claims"

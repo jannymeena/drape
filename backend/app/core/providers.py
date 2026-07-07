@@ -92,11 +92,14 @@ class Providers:
     def _build_oauth(s: Settings) -> OAuthVerifier | None:
         if s.environment == "dev":
             return None
-        assert s.apple_client_id and s.google_client_id
-        return RealOAuthVerifier(
-            apple_client_id=s.apple_client_id,
-            google_client_id=s.google_client_id,
-        )
+        # Config validator guarantees the client ID is present for every
+        # enabled provider; a disabled side gets no audience and its
+        # sign-in answers 400 oauth_unavailable.
+        apple = s.apple_client_id if s.feature_enabled("apple_login") else None
+        google = s.google_client_id if s.feature_enabled("google_login") else None
+        if not apple and not google:
+            return None
+        return RealOAuthVerifier(apple_client_id=apple, google_client_id=google)
 
     @staticmethod
     def _build_encryptor(s: Settings) -> Encryptor:

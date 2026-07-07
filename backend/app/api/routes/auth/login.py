@@ -35,7 +35,10 @@ async def login(
             db, verifier=verifier, provider=provider, id_token=id_token
         )
     except AuthError as e:
-        code = (
-            status.HTTP_403_FORBIDDEN if e.code == "inactive" else status.HTTP_401_UNAUTHORIZED
-        )
+        if e.code == "inactive":
+            code = status.HTTP_403_FORBIDDEN
+        elif e.code == "oauth_unavailable":
+            code = status.HTTP_400_BAD_REQUEST
+        else:
+            code = status.HTTP_401_UNAUTHORIZED
         raise HTTPException(status_code=code, detail={"code": e.code, "message": str(e)})

@@ -46,9 +46,7 @@ async def signup(
             agreed_to_privacy=payload.agreed_to_privacy,
         )
     except AuthError as e:
-        if e.code == "email_already_exists":
-            code = status.HTTP_400_BAD_REQUEST
-        elif e.code == "consent_required":
+        if e.code in ("email_already_exists", "consent_required", "oauth_unavailable"):
             code = status.HTTP_400_BAD_REQUEST
         else:
             code = status.HTTP_401_UNAUTHORIZED
