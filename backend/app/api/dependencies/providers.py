@@ -43,7 +43,7 @@ def get_payment_provider() -> PaymentProvider | None:
     return providers.payment
 
 
-def get_push_provider() -> PushProvider:
+def get_push_provider() -> PushProvider | None:
     return providers.push
 
 

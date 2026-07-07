@@ -43,7 +43,7 @@ class Providers:
         self.ai: AIProvider = self._build_ai(s)
         self.weather: WeatherProvider = self._build_weather(s)
         self.payment: PaymentProvider | None = self._build_payment(s)
-        self.push: PushProvider = self._build_push(s)
+        self.push: PushProvider | None = self._build_push(s)
         self.affiliate: AffiliateProvider = self._build_affiliate(s)
         _log.info(
             "providers.built",
@@ -56,7 +56,7 @@ class Providers:
             ai=type(self.ai).__name__,
             weather=type(self.weather).__name__,
             payment=type(self.payment).__name__ if self.payment else None,
-            push=type(self.push).__name__,
+            push=type(self.push).__name__ if self.push else None,
             affiliate=type(self.affiliate).__name__,
         )
 
@@ -75,10 +75,13 @@ class Providers:
         return AwinProvider(api_key=s.awin_api_key)
 
     @staticmethod
-    def _build_push(s: Settings) -> PushProvider:
+    def _build_push(s: Settings) -> PushProvider | None:
         if s.environment == "dev":
             return LogPushProvider()
-        assert s.fcm_credentials_json, "fcm_credentials_json required outside dev"
+        if not s.feature_enabled("push"):
+            return None  # notify_user fan-out becomes a logged no-op
+        # Config validator guarantees the credentials when push is enabled.
+        assert s.fcm_credentials_json
         return ApnsFcmProvider(fcm_credentials_json=s.fcm_credentials_json)
 
     @staticmethod

@@ -8,8 +8,8 @@ Environment = Literal["dev", "tbd", "prd"]
 _DEV_JWT_SECRET = "dev-only-do-not-use-in-tbd-or-prd-min-32-bytes"
 
 # Feature names DISABLED_FEATURES may reference. Grow this set as more
-# switchable features land (e.g. push).
-_KNOWN_FEATURES = {"apple_login", "google_login", "billing"}
+# switchable features land.
+_KNOWN_FEATURES = {"apple_login", "google_login", "billing", "push"}
 
 
 class Settings(BaseSettings):
@@ -54,7 +54,9 @@ class Settings(BaseSettings):
     stripe_price_id_pro_yearly: str | None = None
     # Where the Stripe customer portal sends the user back; deep link in prod.
     stripe_portal_return_url: str = "drape://drape.app/billing"
-    fcm_credentials_json: str | None = None  # required outside dev (11d)
+    # FCM service-account JSON, raw or base64-encoded (11d) — required outside
+    # dev unless `push` is disabled. Dev logs via LogPushProvider.
+    fcm_credentials_json: str | None = None
     awin_api_key: str | None = None  # required outside dev (11e)
 
     anthropic_api_key: str | None = None
@@ -128,6 +130,8 @@ class Settings(BaseSettings):
                 required["STRIPE_WEBHOOK_SECRET"] = self.stripe_webhook_secret
                 required["STRIPE_PRICE_ID_PRO_MONTHLY"] = self.stripe_price_id_pro_monthly
                 required["STRIPE_PRICE_ID_PRO_YEARLY"] = self.stripe_price_id_pro_yearly
+            if self.feature_enabled("push"):
+                required["FCM_CREDENTIALS_JSON"] = self.fcm_credentials_json
             missing = [k for k, v in required.items() if not v]
             if missing:
                 raise ValueError(

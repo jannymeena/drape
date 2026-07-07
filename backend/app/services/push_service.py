@@ -57,7 +57,7 @@ def remove_device(db: Session, *, user: User, token: str) -> bool:
 def notify_user(
     db: Session,
     *,
-    push: PushProvider,
+    push: PushProvider | None,
     user_id: UUID,
     title: str,
     body: str,
@@ -65,6 +65,11 @@ def notify_user(
 ) -> int:
     """Best-effort fan-out to every registered device. Returns how many sends
     were attempted; never raises."""
+    if push is None:
+        # Feature-disabled (DISABLED_FEATURES=push): a logged no-op, not an
+        # error — pushes are server-initiated, there is no caller to 400.
+        _log.info("push.disabled_skip", user_id=str(user_id))
+        return 0
     devices = list(db.scalars(select(Device).where(Device.user_id == user_id)).all())
     sent = 0
     for d in devices:

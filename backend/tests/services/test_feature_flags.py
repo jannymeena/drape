@@ -1,4 +1,4 @@
-"""DISABLED_FEATURES — per-feature switches (apple_login, google_login, billing).
+"""DISABLED_FEATURES — per-feature switches (apple_login, google_login, billing, push).
 
 Covers the whole flag matrix: disabled features skip startup key validation,
 enabled ones still fail fast when their key is missing, unknown names refuse
@@ -38,6 +38,10 @@ def _tbd_settings(**overrides) -> Settings:
         stripe_webhook_secret="whsec_x",
         stripe_price_id_pro_monthly="price_m",
         stripe_price_id_pro_yearly="price_y",
+        fcm_credentials_json=(
+            '{"project_id": "p", "client_email": "e@p.iam", '
+            '"private_key": "pem", "token_uri": "https://t"}'
+        ),
     )
     base.update(overrides)
     return Settings(**base)
@@ -101,6 +105,16 @@ def test_billing_enabled_requires_all_stripe_keys():
     ):
         with pytest.raises(ValidationError, match=key.upper()):
             _tbd_settings(**{key: None})
+
+
+def test_push_disabled_boots_without_fcm_credentials():
+    s = _tbd_settings(disabled_features="push", fcm_credentials_json=None)
+    assert not s.feature_enabled("push")
+
+
+def test_push_enabled_requires_fcm_credentials():
+    with pytest.raises(ValidationError, match="FCM_CREDENTIALS_JSON"):
+        _tbd_settings(fcm_credentials_json=None)
 
 
 def test_whitespace_and_trailing_commas_tolerated():
@@ -167,3 +181,23 @@ def test_dev_keeps_mock_payment_regardless_of_flags():
     )
     provider = Providers._build_payment(s)
     assert type(provider).__name__ == "MockPaymentProvider"
+
+
+def test_push_disabled_wires_none_and_fanout_noops():
+    s = _tbd_settings(disabled_features="push", fcm_credentials_json=None)
+    assert Providers._build_push(s) is None
+
+
+def test_push_enabled_wires_fcm():
+    provider = Providers._build_push(_tbd_settings())
+    assert type(provider).__name__ == "ApnsFcmProvider"
+
+
+def test_dev_keeps_log_push_regardless_of_flags():
+    s = Settings(
+        _env_file=None,
+        environment="dev",
+        measurement_dek_dev="ZGV2LWtleQ==",
+        disabled_features="push",
+    )
+    assert type(Providers._build_push(s)).__name__ == "LogPushProvider"
