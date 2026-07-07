@@ -158,6 +158,7 @@ Set via `ENVIRONMENT`. Pydantic validates at startup — anything other than `de
 | Variable                     | Required in            | Purpose                                                |
 |------------------------------|------------------------|--------------------------------------------------------|
 | `ENVIRONMENT`                | all (default `dev`)    | One of `dev`, `tbd`, `prd`.                            |
+| `DISABLED_FEATURES`          | optional               | Comma-separated feature switches to turn **off**: `apple_login`, `google_login`. See below. |
 | `DATABASE_URL`               | all                    | Postgres connection string.                            |
 | `JWT_SECRET`                 | all *(default in dev)* | HS256 signing secret. From Secrets Manager in tbd/prd. |
 | `JWT_ACCESS_TTL_MINUTES`     | optional               | Default 60.                                            |
@@ -169,10 +170,24 @@ Set via `ENVIRONMENT`. Pydantic validates at startup — anything other than `de
 | `KMS_KEY_ID`                 | `tbd`, `prd`           | KMS CMK ARN for measurement envelope encryption.       |
 | `AWS_REGION`                 | `tbd`, `prd`           | Defaults to `ca-central-1`.                            |
 | `SES_REGION`, `SES_FROM_ADDRESS` | `tbd`, `prd`       | Password-reset emails (`SesEmailProvider`).            |
-| `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_PATH` | `tbd`, `prd` | Apple Sign-In server-side verification. |
-| `GOOGLE_CLIENT_ID`           | `tbd`, `prd`           | Google ID token audience.                              |
+| `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_PATH` | `tbd`, `prd` — unless `apple_login` is disabled | Apple Sign-In server-side verification. `APPLE_CLIENT_ID` may be comma-separated (bundle ID + Service ID). |
+| `GOOGLE_CLIENT_ID`           | `tbd`, `prd` — unless `google_login` is disabled | Google ID token audience. May be comma-separated (iOS + Android client IDs). |
 
 The same `uvicorn app.main:app` command runs in every env — only the `.env` values change. Sanity checks: `ENVIRONMENT=staging` → fails at startup; `ENVIRONMENT=tbd` with no `JWT_SECRET` → fails at startup, not at first request.
+
+### Feature switches (`DISABLED_FEATURES`)
+
+Per-feature kill switches, Spring `@ConditionalOnProperty`-style. Known names: `apple_login`, `google_login` (an unknown name refuses to boot, so typos can't silently leave a feature on). Default: empty — everything enabled.
+
+```bash
+DISABLED_FEATURES=apple_login,google_login   # both off
+DISABLED_FEATURES=apple_login                # Apple off, Google on
+```
+
+Semantics:
+- A disabled feature's config keys are **not required at startup** — e.g. `tbd` can boot without `APPLE_CLIENT_ID` while Apple's credentials are pending approval.
+- Its endpoints answer **400 `oauth_unavailable`** (the same contract mobile already handles in dev); the other provider, email auth, and everything else are unaffected.
+- Read **once at boot**: flipping a flag means restarting the server (dev) or updating the secret + `aws ecs update-service --force-new-deployment` (tbd/prd — rolling, zero downtime).
 
 ---
 
@@ -185,6 +200,7 @@ When `ENVIRONMENT=dev`:
 
 When `ENVIRONMENT=tbd` / `prd`:
 - `/auth/signup` and `/auth/login` also accept `auth_method=apple|google` with the platform-issued `id_token`; the server verifies it against the platform's JWKS and returns our own JWT pair. OAuth signup and login are idempotent get-or-create — the client picks the endpoint by which screen fired.
+- Either provider can be switched off via `DISABLED_FEATURES` (see Feature switches above) — its sign-in then answers 400 `oauth_unavailable` while the other provider and email auth keep working.
 
 ---
 
