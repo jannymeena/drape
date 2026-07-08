@@ -40,6 +40,12 @@ def export_user_data(db: Session, *, user: User, encryptor: Encryptor) -> dict:
             "timezone": user.timezone,
             "avatar_url": user.avatar_url,
             "community_share_avatar": user.community_share_avatar,
+            "use_measurements_for_fit": user.use_measurements_for_fit,
+            "measurements_fit_consent_at": (
+                user.measurements_fit_consent_at.isoformat()
+                if user.measurements_fit_consent_at
+                else None
+            ),
         },
         "settings": SettingsResponse.model_validate(settings).model_dump(),
         "measurements": measurements.model_dump() if measurements else None,
@@ -61,7 +67,8 @@ def export_user_data(db: Session, *, user: User, encryptor: Encryptor) -> dict:
 
 
 def delete_account(db: Session, *, user: User) -> None:
-    """Hard-delete the user. FK cascades remove profile, settings, measurements,
+    """Hard-delete the user. FK cascades remove profile, settings, measurements
+    (including the derived fit profile — the §5.5.1 purge requirement),
     wardrobe, outfits, tokens, tickets, etc."""
     _log.info("account.deleted", user_id=str(user.id))
     db.delete(user)

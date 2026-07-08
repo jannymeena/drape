@@ -102,12 +102,16 @@ class _CannedAIProvider(AIProvider):
         model=None,
         system=None,
         max_tokens=1024,
+        cache_system=False,
     ) -> str:
         self.calls += 1
         prompt = ""
         if messages:
             raw = messages[-1].get("content", "")
             prompt = raw if isinstance(raw, str) else str(raw)
+        # Tier 1.3 moved the item list into the (cacheable) system prefix;
+        # sniff both so id extraction keeps working.
+        prompt = f"{system or ''}\n{prompt}"
         # Extract item ids in the same order the prompt presented them.
         import re
 

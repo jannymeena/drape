@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select
@@ -32,6 +33,14 @@ def update_user(db: Session, user: User, payload: UserUpdate) -> User:
         existing = get_user_by_email(db, new_email)
         if existing is not None and existing.id != user.id:
             raise EmailTakenError(new_email)
+    # §5.5.1 — consent is flag + timestamp: record when it was granted,
+    # clear the timestamp on revoke.
+    if data.get("use_measurements_for_fit") is not None:
+        granted = bool(data["use_measurements_for_fit"])
+        if granted and not user.use_measurements_for_fit:
+            user.measurements_fit_consent_at = datetime.now(timezone.utc)
+        elif not granted:
+            user.measurements_fit_consent_at = None
     for key, value in data.items():
         setattr(user, key, value)
     db.commit()

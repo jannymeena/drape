@@ -19,7 +19,9 @@ class _CountingAIProvider(AIProvider):
         self.analyze_calls = 0
         self.chat_calls = 0
 
-    async def chat(self, messages, *, model=None, system=None, max_tokens=1024) -> str:
+    async def chat(
+        self, messages, *, model=None, system=None, max_tokens=1024, cache_system=False
+    ) -> str:
         self.chat_calls += 1
         return "chat-reply"
 

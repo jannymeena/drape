@@ -22,13 +22,14 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.localtime import user_tz as _user_tz
 from app.db.models import UsageTracking, User
 from app.schemas.usage import (
     CurrentWeekUsage,
@@ -70,15 +71,6 @@ class UsageError(Exception):
         self.used = used
         self.limit = limit
         self.resets_at = resets_at
-
-
-def _user_tz(user: User) -> ZoneInfo:
-    if user.timezone:
-        try:
-            return ZoneInfo(user.timezone)
-        except ZoneInfoNotFoundError:
-            _log.warning("usage.bad_tz", user_id=str(user.id), tz=user.timezone)
-    return ZoneInfo("UTC")
 
 
 def _now() -> datetime:

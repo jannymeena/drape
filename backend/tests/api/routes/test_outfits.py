@@ -12,15 +12,16 @@ Test groups:
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
+
+from app.core.localtime import user_today
 
 
-def _utc_today() -> date:
-    """The service's notion of 'today' (outfit_service._today is UTC). Using
-    local date.today() here is flaky: it breaks whenever the local date is
-    ahead of/behind UTC (e.g. IST early morning). User-local streaks are a
-    product follow-up — see BACKEND_CHANGES 1.1b."""
-    return datetime.now(timezone.utc).date()
+def _app_today(user) -> date:
+    """The service's notion of 'today': the user's app day (05:00-local
+    rollover — Tier 1.2). Streak-walking tests must anchor to the same
+    boundary the service uses or they flake around UTC midnight."""
+    return user_today(user)
 
 import pytest
 from sqlalchemy import select
@@ -401,7 +402,7 @@ def test_log_advances_streak_to_streak_toast(authed_client, db):
             StreakTracking.user_id == authed_client.test_user.id
         )
     )
-    streak.last_logged_date = _utc_today() - timedelta(days=1)
+    streak.last_logged_date = _app_today(authed_client.test_user) - timedelta(days=1)
     streak.current_streak = 2
     db.commit()
 
@@ -425,7 +426,7 @@ def test_log_advances_to_milestone_toast(authed_client, db):
         current_streak=0,
         longest_streak=0,
         total_outfits_logged=4,
-        last_logged_date=_utc_today() - timedelta(days=2),
+        last_logged_date=_app_today(authed_client.test_user) - timedelta(days=2),
     )
     db.add(streak)
     db.commit()

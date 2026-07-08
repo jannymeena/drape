@@ -50,13 +50,25 @@ def record(
     latency_ms: int,
     output: str,
     cached: bool = False,
+    cache_creation_input_tokens: int = 0,
+    cache_read_input_tokens: int = 0,
     image_bytes: Optional[bytes] = None,
     media_type: Optional[str] = None,
 ) -> None:
     if not settings.ai_usage_log_enabled:
         return
     try:
-        cost = 0.0 if cached else ai_pricing.cost_usd(model, input_tokens, output_tokens)
+        cost = (
+            0.0
+            if cached
+            else ai_pricing.cost_usd(
+                model,
+                input_tokens,
+                output_tokens,
+                cache_creation_input_tokens=cache_creation_input_tokens,
+                cache_read_input_tokens=cache_read_input_tokens,
+            )
+        )
         entry: dict = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "model": model,
@@ -64,6 +76,8 @@ def record(
             "latency_ms": latency_ms,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
+            "cache_creation_input_tokens": cache_creation_input_tokens,
+            "cache_read_input_tokens": cache_read_input_tokens,
             "cost_usd": round(cost, 6),
             "cached": cached,
             "output": output,

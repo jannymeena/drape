@@ -20,8 +20,14 @@ class AIProvider(ABC):
         model: str | None = None,
         system: str | None = None,
         max_tokens: int = 1024,
+        cache_system: bool = False,
     ) -> str:
-        """Text chat. Returns the assistant's text reply."""
+        """Text chat. Returns the assistant's text reply.
+
+        cache_system hints that `system` is a stable prefix reused across
+        calls; providers with native prompt caching mark it accordingly
+        (Tier 1.3 — callers put stable content in `system`, volatile content
+        in `messages`, since caching is a byte-exact prefix match)."""
 
     @abstractmethod
     async def analyze_image(

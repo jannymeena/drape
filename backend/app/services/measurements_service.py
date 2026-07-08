@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import User, UserMeasurements
 from app.schemas.measurements import MeasurementsRequest, MeasurementsResponse
+from app.services import fit_profile
 from app.services.providers.crypto.base import Encryptor
 
 _log = structlog.get_logger("measurements")
@@ -57,6 +58,9 @@ def submit(
     """Encrypt + upsert the user's measurements; advance onboarding to avatar_reveal."""
     plaintext = _serialize(payload)
     ciphertext = encryptor.encrypt(plaintext, user_id=user.id)
+    # Derive the coarse fit profile now, while the plaintext is in hand —
+    # outfit generation then never needs to decrypt (§5.5.1).
+    derived = fit_profile.derive({f: getattr(payload, f) for f in _PLAINTEXT_FIELDS})
 
     row = db.scalar(
         select(UserMeasurements).where(UserMeasurements.user_id == user.id)
@@ -71,6 +75,7 @@ def submit(
             unit_system=payload.unit_system,
             is_complete=True,
             completed_at=now,
+            fit_profile=derived,
         )
         db.add(row)
     else:
@@ -78,6 +83,7 @@ def submit(
         row.unit_system = payload.unit_system
         row.is_complete = True
         row.completed_at = now
+        row.fit_profile = derived
 
     user.onboarding_last_step = "measurements_step_8"
     db.commit()
@@ -129,6 +135,21 @@ def step_progress(
         if field != "weight_kg" and getattr(result, field) is None:
             return done, f"measurements_step_{i}"
     return done, None
+
+
+def fit_profile_for_user(db: Session, *, user: User) -> dict | None:
+    """The derived fit profile, gated on the §5.5.1 consent flag.
+
+    This is the single choke point between measurements-derived data and AI
+    prompts: without `use_measurements_for_fit`, callers get None no matter
+    what is stored. Never returns raw measurements (the profile is coarse
+    categorical strings only — see fit_profile.derive)."""
+    if not user.use_measurements_for_fit:
+        return None
+    row = db.scalar(
+        select(UserMeasurements.fit_profile).where(UserMeasurements.user_id == user.id)
+    )
+    return row or None
 
 
 def get_for_user(

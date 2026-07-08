@@ -88,6 +88,9 @@ def test_account_export_returns_snapshot(client, make_user, auth_headers):
     body = r.json()
     assert body["account"]["email"] == "exp@example.com"
     assert "settings" in body and "wardrobe" in body and "stats" in body
+    # §5.5.1 consent state is part of the PIPEDA access-request snapshot.
+    assert body["account"]["use_measurements_for_fit"] is False
+    assert body["account"]["measurements_fit_consent_at"] is None
 
 
 def test_account_delete_removes_user(client, db, make_user, auth_headers):

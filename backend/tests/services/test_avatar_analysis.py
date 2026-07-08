@@ -12,7 +12,9 @@ class _CannedAI(AIProvider):
         self.reply = reply
         self.raise_on_image = raise_on_image
 
-    async def chat(self, messages, *, model=None, system=None, max_tokens=1024) -> str:
+    async def chat(
+        self, messages, *, model=None, system=None, max_tokens=1024, cache_system=False
+    ) -> str:
         return ""
 
     async def analyze_image(
@@ -57,27 +59,24 @@ def test_analyze_body_returns_none_on_ai_error():
     assert out is None
 
 
-def test_prompt_includes_wearer_block_when_analysis_present():
-    prompt = outfit_service._build_user_prompt(
-        occasion="work",
+def test_system_context_includes_wearer_block_when_analysis_present():
+    # Tier 1.3 moved the wearer block into the cacheable system prefix.
+    system = outfit_service._build_system_context(
         items=[],
-        weather=None,
         style_goals=None,
         using_starter_wardrobe=False,
         body_analysis={"body_type": "hourglass", "skin_tone": "cool/fair"},
     )
-    assert "Wearer:" in prompt
-    assert "hourglass" in prompt
-    assert "cool/fair" in prompt
+    assert "Wearer:" in system
+    assert "hourglass" in system
+    assert "cool/fair" in system
 
 
-def test_prompt_omits_wearer_block_when_no_analysis():
-    prompt = outfit_service._build_user_prompt(
-        occasion="work",
+def test_system_context_omits_wearer_block_when_no_analysis():
+    system = outfit_service._build_system_context(
         items=[],
-        weather=None,
         style_goals=None,
         using_starter_wardrobe=False,
         body_analysis=None,
     )
-    assert "Wearer" not in prompt
+    assert "Wearer" not in system

@@ -30,11 +30,25 @@ class AnthropicProvider(AIProvider):
         model: str | None = None,
         system: str | None = None,
         max_tokens: int = 1024,
+        cache_system: bool = False,
     ) -> str:
         model_id = model or self._default_model
         kwargs: dict = {"model": model_id, "max_tokens": max_tokens, "messages": messages}
         if system:
-            kwargs["system"] = system
+            if cache_system:
+                # Native prompt caching (Tier 1.3): a breakpoint on the last
+                # system block caches the whole prefix; reads bill at ~10% of
+                # base input. Below the model's minimum cacheable prefix this
+                # silently no-ops — watch cache_* in the usage log.
+                kwargs["system"] = [
+                    {
+                        "type": "text",
+                        "text": system,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ]
+            else:
+                kwargs["system"] = system
         started = time.monotonic()
         try:
             resp = await self._client.messages.create(**kwargs)
@@ -43,11 +57,15 @@ class AnthropicProvider(AIProvider):
             raise AIProviderError("ai_call_failed", f"Anthropic chat failed: {exc}") from exc
         latency_ms = int((time.monotonic() - started) * 1000)
         text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
+        cache_creation = getattr(resp.usage, "cache_creation_input_tokens", 0) or 0
+        cache_read = getattr(resp.usage, "cache_read_input_tokens", 0) or 0
         _log.info(
             "ai.chat",
             model=model_id,
             input_tokens=resp.usage.input_tokens,
             output_tokens=resp.usage.output_tokens,
+            cache_creation_input_tokens=cache_creation,
+            cache_read_input_tokens=cache_read,
             latency_ms=latency_ms,
         )
         ai_usage_log.record(
@@ -57,6 +75,8 @@ class AnthropicProvider(AIProvider):
             output_tokens=resp.usage.output_tokens,
             latency_ms=latency_ms,
             output=text,
+            cache_creation_input_tokens=cache_creation,
+            cache_read_input_tokens=cache_read,
         )
         return text
 

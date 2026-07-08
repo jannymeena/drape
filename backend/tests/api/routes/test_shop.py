@@ -31,7 +31,7 @@ class _ShopAI(AIProvider):
             "gap_reason": "You already own three similar tops.",
         }
 
-    async def chat(self, messages, *, model=None, system=None, max_tokens=1024):
+    async def chat(self, messages, *, model=None, system=None, max_tokens=1024, cache_system=False):
         return json.dumps(self._chat)
 
     async def analyze_image(self, image_bytes, prompt, *, media_type="image/jpeg"):
@@ -150,7 +150,7 @@ def test_buy_check_unparseable_ai_degrades_not_500(authed_client):
 
 
 class _BrokenAI(AIProvider):
-    async def chat(self, messages, *, model=None, system=None, max_tokens=1024):
+    async def chat(self, messages, *, model=None, system=None, max_tokens=1024, cache_system=False):
         return "not json at all"
 
     async def analyze_image(self, image_bytes, prompt, *, media_type="image/jpeg"):

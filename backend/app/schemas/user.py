@@ -29,6 +29,9 @@ class UserUpdate(BaseModel):
     gender: str | None = None
     phone: str | None = None
     community_share_avatar: bool | None = None
+    # §5.5.1 — separate opt-in: use a derived body-shape summary (never exact
+    # measurements) to personalize outfit fit via the AI provider.
+    use_measurements_for_fit: bool | None = None
 
 
 class UserResponse(UserBase):
@@ -48,3 +51,4 @@ class UserResponse(UserBase):
     style_goals: list[str] | None = None
     avatar_url: str | None = None
     community_share_avatar: bool = False
+    use_measurements_for_fit: bool = False

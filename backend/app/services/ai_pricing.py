@@ -48,7 +48,23 @@ def _rate(model: str) -> dict[str, float]:
     return PRICING[_FALLBACK]
 
 
-def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
-    """Estimated USD cost for a single call (base input + output tokens)."""
+def cost_usd(
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    *,
+    cache_creation_input_tokens: int = 0,
+    cache_read_input_tokens: int = 0,
+) -> float:
+    """Estimated USD cost for a single call.
+
+    `input_tokens` from the API is the *uncached remainder* — cache writes
+    (~1.25x base, 5m TTL) and cache reads (~0.1x base) are billed separately
+    and reported in their own usage fields (§5.4 / Tier 1.3)."""
     p = _rate(model)
-    return input_tokens * p["input"] / 1_000_000 + output_tokens * p["output"] / 1_000_000
+    return (
+        input_tokens * p["input"]
+        + output_tokens * p["output"]
+        + cache_creation_input_tokens * p["cache_write_5m"]
+        + cache_read_input_tokens * p["cache_read"]
+    ) / 1_000_000

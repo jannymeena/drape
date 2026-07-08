@@ -83,6 +83,15 @@ class User(Base, TimestampMixin):
     community_share_avatar: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
+    # §5.5.1 — separate, explicit opt-in to using a *derived* fit summary
+    # (never raw cm) in outfit prompts. Default off; timestamp records when
+    # consent was granted (nulled on revoke). Mirrors community_share_avatar.
+    use_measurements_for_fit: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    measurements_fit_consent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     subscription_tier: Mapped[str] = mapped_column(
         String(20), nullable=False, default="free", server_default="free"
     )
@@ -582,6 +591,12 @@ class UserMeasurements(Base, TimestampMixin):
     )
     # Reserved for KMS DEK rotation (Phase 7). Null while running on LocalAesEncryptor.
     encryption_key_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # §5.5.1 — coarse derived fit profile (body_shape / height_band / build).
+    # Deliberately plaintext: categorical only, no measurements — this is the
+    # ONLY measurement-derived data allowed to reach an AI prompt, and only
+    # when users.use_measurements_for_fit consents. Recomputed on submit;
+    # deleted with the row on DELETE /account (cascade).
+    fit_profile: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
 
 class StarterWardrobeTemplate(Base, TimestampMixin):

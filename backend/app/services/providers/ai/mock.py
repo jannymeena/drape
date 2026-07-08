@@ -23,6 +23,7 @@ class MockAIProvider(AIProvider):
         model: str | None = None,
         system: str | None = None,
         max_tokens: int = 1024,
+        cache_system: bool = False,  # no-op: nothing real to cache
     ) -> str:
         last_content = ""
         if messages:

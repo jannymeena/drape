@@ -9,8 +9,6 @@ calls when no outfits exist yet, so behaviour is consistent.
 """
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -31,6 +29,7 @@ from app.schemas.outfit import (
     WeatherContext,
     payload_to_outfit_items,
 )
+from app.core.localtime import next_day_rollover_utc
 from app.core.providers import providers
 from app.services import banner_service, outfit_service, push_service, usage_service
 from app.services.outfit_service import (
@@ -116,10 +115,7 @@ def _to_outfit_response(outfit) -> OutfitResponse:
     )
 
 
-def _next_midnight_utc() -> datetime:
-    now = datetime.now(timezone.utc)
-    tomorrow = (now + timedelta(days=1)).date()
-    return datetime.combine(tomorrow, time.min, tzinfo=timezone.utc)
+# (Daily reset is the user's next 05:00-local rollover — see core/localtime.)
 
 
 @router.get("/dashboard", response_model=TodayDashboardResponse)
@@ -134,9 +130,9 @@ async def dashboard(
     # occasions still pending. Generation happens out-of-band via
     # POST /today/outfits, so the client paints the shell instantly and fills
     # each card as its AI call returns. No AI provider needed here.
-    outfits = outfit_service._today_outfits(db, user_id=user.id)[:DAILY_OUTFIT_TARGET]
+    outfits = outfit_service._today_outfits(db, user=user)[:DAILY_OUTFIT_TARGET]
     ready = outfit_service.wardrobe_ready(db, user_id=user.id)
-    pending = outfit_service.pending_occasions(db, user_id=user.id) if ready else []
+    pending = outfit_service.pending_occasions(db, user=user) if ready else []
 
     weather_ctx = None
     if outfits and outfits[0].weather_context:
@@ -169,9 +165,9 @@ async def dashboard(
         weather=weather_ctx,
         outfits=[_to_outfit_response(o) for o in outfits],
         usage=TodayUsage(
-            outfits_generated_today=_outfits_generated_today(db, user_id=user.id),
+            outfits_generated_today=_outfits_generated_today(db, user=user),
             outfit_target_per_day=DAILY_OUTFIT_TARGET,
-            resets_at=_next_midnight_utc(),
+            resets_at=next_day_rollover_utc(user),
         ),
         banners=TodayBanners(
             starter_wardrobe=_starter_wardrobe_banner(db, user_id=user.id),

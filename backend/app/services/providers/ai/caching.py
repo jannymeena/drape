@@ -41,10 +41,15 @@ class CachingAIProvider(AIProvider):
         model: str | None = None,
         system: str | None = None,
         max_tokens: int = 1024,
+        cache_system: bool = False,
     ) -> str:
         # Not cached by design — passes through to the real provider.
         return await self._inner.chat(
-            messages, model=model, system=system, max_tokens=max_tokens
+            messages,
+            model=model,
+            system=system,
+            max_tokens=max_tokens,
+            cache_system=cache_system,
         )
 
     async def analyze_image(

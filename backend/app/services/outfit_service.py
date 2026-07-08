@@ -40,6 +40,9 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.localtime import as_user_day, user_day_start_utc, user_today
+from app.services import fit_profile as fit_profile_mod
+from app.services import measurements_service
 from app.db.models import (
     Outfit,
     OutfitHistory,
@@ -113,10 +116,6 @@ class OutfitError(Exception):
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def _today() -> date:
-    return _now().date()
 
 
 # ---------------------------------------------------------------------------
@@ -203,15 +202,36 @@ def _build_wearer_block(body_analysis: Optional[dict]) -> str:
     return f"{head}{tail} Favor fits and colours that flatter this.\n"
 
 
-def _build_user_prompt(
+_RESPONSE_FORMAT = (
+    "Respond with ONLY a JSON object — no prose, no markdown, no code "
+    "fences. Schema:\n"
+    "{\n"
+    '  "occasion": "<echo the requested occasion exactly>",\n'
+    '  "item_ids": ["uuid", "uuid", ...]   // 2-6 ids drawn from the available items,\n'
+    '  "reasoning_short": "1-2 sentence hook for the card",\n'
+    '  "reasoning_full": "3-4 sentences, references items by name, '
+    'covers color harmony / occasion / weather",\n'
+    '  "per_item_rationales": {"<item_id>": "why this piece fits"},\n'
+    '  "compatibility_score": 0-100 integer,\n'
+    '  "factors": ["Color harmony", "Occasion appropriateness", ...]\n'
+    "}\n"
+)
+
+
+def _build_system_context(
     *,
-    occasion: Occasion,
     items: Sequence[WardrobeItem],
-    weather: Optional[WeatherSnapshot],
     style_goals: Optional[list[str]],
     using_starter_wardrobe: bool,
     body_analysis: Optional[dict] = None,
+    fit: Optional[dict] = None,
 ) -> str:
+    """The stable, cacheable prefix (Tier 1.3): persona, response format,
+    wardrobe inventory, goals, wearer. Byte-identical across the per-occasion
+    generation burst, so native prompt caching (cache_system=True) can serve
+    it at ~10% of base input price on calls 2..N. Volatile content (occasion,
+    weather) lives in the user message — caching is a byte-exact prefix
+    match, so anything that varies must come after this block."""
     item_lines = []
     for it in items:
         descriptors = [
@@ -224,13 +244,6 @@ def _build_user_prompt(
         descriptor_str = " | ".join(d for d in descriptors if d)
         item_lines.append(f'- id={it.id} name="{it.name}" [{descriptor_str}]')
 
-    weather_block = "Weather: not available."
-    if weather is not None:
-        weather_block = (
-            f"Weather: {weather.temp_c:.0f}°C ({weather.condition}), "
-            f"feels like {weather.feels_like_c:.0f}°C."
-        )
-
     goals_block = (
         f"Style goals: {', '.join(style_goals)}." if style_goals else "Style goals: none."
     )
@@ -239,28 +252,33 @@ def _build_user_prompt(
     if using_starter_wardrobe:
         starter_note = (
             "Note: this user is on a starter wardrobe (curated bootstrap kit). "
-            "Encourage them in your reasoning to add their own items. "
+            "Encourage them in your reasoning to add their own items.\n"
         )
 
     wearer_block = _build_wearer_block(body_analysis)
+    # §5.5.1 — consent-gated derived fit summary (coarse categories, never
+    # raw cm; the caller resolves it via measurements_service.fit_profile_for_user).
+    fit_block = fit_profile_mod.to_prompt_block(fit)
 
     return (
-        f"Build ONE outfit for the occasion: {occasion}.\n\n"
-        f"{weather_block}\n{goals_block}\n{starter_note}\n{wearer_block}\n"
-        f"Available items ({len(items)}):\n" + "\n".join(item_lines) + "\n\n"
-        "Respond with ONLY a JSON object — no prose, no markdown, no code "
-        "fences. Schema:\n"
-        "{\n"
-        f'  "occasion": "{occasion}",\n'
-        '  "item_ids": ["uuid", "uuid", ...]   // 2-6 ids drawn from the list above,\n'
-        '  "reasoning_short": "1-2 sentence hook for the card",\n'
-        '  "reasoning_full": "3-4 sentences, references items by name, '
-        'covers color harmony / occasion / weather",\n'
-        '  "per_item_rationales": {"<item_id>": "why this piece fits"},\n'
-        '  "compatibility_score": 0-100 integer,\n'
-        '  "factors": ["Color harmony", "Occasion appropriateness", ...]\n'
-        "}\n"
+        f"{_SYSTEM_PROMPT}\n\n{_RESPONSE_FORMAT}\n"
+        f"{goals_block}\n{starter_note}{wearer_block}{fit_block}"
+        f"Available items ({len(items)}):\n" + "\n".join(item_lines)
     )
+
+
+def _build_user_prompt(
+    *,
+    occasion: Occasion,
+    weather: Optional[WeatherSnapshot],
+) -> str:
+    weather_block = "Weather: not available."
+    if weather is not None:
+        weather_block = (
+            f"Weather: {weather.temp_c:.0f}°C ({weather.condition}), "
+            f"feels like {weather.feels_like_c:.0f}°C."
+        )
+    return f"Build ONE outfit for the occasion: {occasion}.\n{weather_block}"
 
 
 def _parse_proposal(text: str) -> StructuredOutfitProposal:
@@ -388,20 +406,22 @@ async def _ask_ai_for_outfit(
     style_goals: Optional[list[str]],
     using_starter_wardrobe: bool,
     body_analysis: Optional[dict] = None,
+    fit: Optional[dict] = None,
 ) -> StructuredOutfitProposal:
-    prompt = _build_user_prompt(
-        occasion=occasion,
+    system = _build_system_context(
         items=items,
-        weather=weather,
         style_goals=style_goals,
         using_starter_wardrobe=using_starter_wardrobe,
         body_analysis=body_analysis,
+        fit=fit,
     )
+    prompt = _build_user_prompt(occasion=occasion, weather=weather)
     try:
         text = await ai.chat(
             [{"role": "user", "content": prompt}],
-            system=_SYSTEM_PROMPT,
+            system=system,
             max_tokens=1200,
+            cache_system=True,
         )
     except AIProviderError as exc:
         _log.warning("outfit.ai_call_failed", code=exc.code, error=str(exc))
@@ -552,6 +572,8 @@ async def generate_one(
             style_goals=user.style_goals,
             using_starter_wardrobe=using_starter,
             body_analysis=user.profile.body_analysis if user.profile else None,
+            # Consent-gated (§5.5.1): None unless use_measurements_for_fit.
+            fit=measurements_service.fit_profile_for_user(db, user=user),
         )
         chosen = _materialize_items(proposal, user_items_by_id=items_by_id)
     except OutfitError as exc:
@@ -643,24 +665,25 @@ async def generate_for_user(
 # ---------------------------------------------------------------------------
 
 
-def _outfits_generated_today(db: Session, *, user_id: UUID) -> int:
-    start = datetime.combine(_today(), datetime.min.time(), tzinfo=timezone.utc)
+def _outfits_generated_today(db: Session, *, user: User) -> int:
+    # "Today" = the user's app day, which starts 05:00 local (Tier 1.2).
+    start = user_day_start_utc(user, now_utc=_now())
     return int(
         db.scalar(
             select(func.count(Outfit.id)).where(
-                Outfit.user_id == user_id, Outfit.created_at >= start
+                Outfit.user_id == user.id, Outfit.created_at >= start
             )
         )
         or 0
     )
 
 
-def _today_outfits(db: Session, *, user_id: UUID) -> list[Outfit]:
-    start = datetime.combine(_today(), datetime.min.time(), tzinfo=timezone.utc)
+def _today_outfits(db: Session, *, user: User) -> list[Outfit]:
+    start = user_day_start_utc(user, now_utc=_now())
     return list(
         db.scalars(
             select(Outfit)
-            .where(Outfit.user_id == user_id, Outfit.created_at >= start)
+            .where(Outfit.user_id == user.id, Outfit.created_at >= start)
             .order_by(Outfit.created_at.desc())
         ).all()
     )
@@ -673,14 +696,14 @@ def wardrobe_ready(db: Session, *, user_id: UUID) -> bool:
     return len(_user_wardrobe(db, user_id=user_id)) >= _MIN_ITEMS_PER_OUTFIT
 
 
-def pending_occasions(db: Session, *, user_id: UUID) -> list[Occasion]:
+def pending_occasions(db: Session, *, user: User) -> list[Occasion]:
     """Default occasions that still lack a today-outfit, in canonical order.
 
     Drives the dashboard's per-occasion skeletons. Empty when the wardrobe isn't
     ready (nothing can be generated) or every default occasion already has one."""
-    if not wardrobe_ready(db, user_id=user_id):
+    if not wardrobe_ready(db, user_id=user.id):
         return []
-    have = {o.occasion for o in _today_outfits(db, user_id=user_id)}
+    have = {o.occasion for o in _today_outfits(db, user=user)}
     return [occ for occ in DEFAULT_OCCASIONS if occ not in have]
 
 
@@ -702,7 +725,7 @@ async def ensure_one(
     path — callers must NOT charge weekly usage for it, matching the prior
     inline-dashboard-generation behaviour.
     """
-    for existing in _today_outfits(db, user_id=user.id):
+    for existing in _today_outfits(db, user=user):
         if existing.occasion == occasion:
             return existing
     return await generate_one(
@@ -725,7 +748,7 @@ async def load_dashboard_outfits(
     request: Optional[GenerateOutfitsRequest] = None,
 ) -> tuple[list[Outfit], bool]:
     """Returns (outfits, were_just_generated)."""
-    existing = _today_outfits(db, user_id=user.id)
+    existing = _today_outfits(db, user=user)
     if len(existing) >= DAILY_OUTFIT_TARGET:
         # Newest 3 — older same-day generations sit silent in history.
         return existing[:DAILY_OUTFIT_TARGET], False
@@ -1020,13 +1043,16 @@ def log_outfit(
 ) -> tuple[Outfit, LogOutfitToast, StreakTracking]:
     outfit = _get_outfit_owned(db, user=user, outfit_id=outfit_id)
     streak = _get_or_create_streak(db, user_id=user.id)
-    today = _today()
+    # Streak days are the user's app days (05:00-local rollover, Tier 1.2):
+    # a 1 AM log counts toward the evening before, and consecutive local
+    # evenings stay consecutive even when UTC has already rolled over.
+    today = user_today(user, now_utc=_now())
 
     already_today = (
         streak.last_logged_date == today
         and outfit.is_logged
         and outfit.logged_at is not None
-        and outfit.logged_at.date() == today
+        and as_user_day(user, outfit.logged_at) == today
     )
 
     now = _now()
@@ -1068,8 +1094,8 @@ def log_outfit(
 # ---------------------------------------------------------------------------
 
 
-def _filter_window(filter_: HistoryFilter) -> Optional[date]:
-    today = _today()
+def _filter_window(filter_: HistoryFilter, *, user: User) -> Optional[date]:
+    today = user_today(user, now_utc=_now())
     if filter_ == "this_week":
         start = today - timedelta(days=today.weekday())
         return start
@@ -1089,7 +1115,7 @@ def get_history(
         .where(OutfitHistory.user_id == user.id)
         .order_by(OutfitHistory.logged_at.desc())
     )
-    window_start = _filter_window(filter_)
+    window_start = _filter_window(filter_, user=user)
     if window_start is not None:
         cutoff = datetime.combine(window_start, datetime.min.time(), tzinfo=timezone.utc)
         base = base.where(OutfitHistory.logged_at >= cutoff)
@@ -1111,7 +1137,7 @@ def get_history(
 
     streak = _get_or_create_streak(db, user_id=user.id)
     db.commit()
-    today = _today()
+    today = user_today(user, now_utc=_now())
     is_active = bool(
         streak.last_logged_date is not None
         and (today - streak.last_logged_date).days <= 1
