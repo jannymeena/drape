@@ -9,6 +9,56 @@ at the end), not a scheduled task.
 **Updated:** 2026-07-07 · the settings-privacy follow-on (old 1.3) was resolved with **no
 backend work** — mobile dropped the Connected Apps rows (no integrations exist); Tier 1
 renumbered. `ReasoningItem` gained `category`/`color_name` (additive, shipped with mobile P2).
+**Updated:** 2026-07-07 (later) · Tier 2 OAuth (old 2.1) **shipped** — `RealOAuthVerifier`
+does JWKS signature/issuer/audience verification for Apple + Google (comma-separated
+client IDs supported for multi-platform audiences); verification failures map to 401
+`oauth_invalid_token`. No new config keys. Tier 2 renumbered. Mobile buttons follow
+(MOBILE_CHANGES P2). Also shipped: **`DISABLED_FEATURES`** env key (feature switches;
+known names `apple_login`, `google_login`) — a disabled feature's config keys are not
+required at startup and its sign-in answers 400 `oauth_unavailable`, so tbd can launch
+before Apple/Google credentials are approved. Boot-time flag: flipping it = redeploy.
+Extend `_KNOWN_FEATURES` (`core/config.py`) when Stripe/push land if they need switches.
+**Updated:** 2026-07-07 (evening) · Tier 2 Stripe (old 2.1) **shipped** behind the `billing`
+feature switch (`DISABLED_FEATURES=billing` ⇒ Stripe keys not required, billing endpoints
+400 `billing_unavailable`; dev keeps `MockPaymentProvider` regardless). `StripeProvider`
+over raw httpx (no SDK dep): subscriptions charge the configured price
+(`STRIPE_PRICE_ID_PRO_*`, `error_if_incomplete`), soft-cancel maps to
+`cancel_at_period_end`, customers keyed by `metadata[user_id]` (search + deterministic
+idempotency key — no schema change), portal via `POST /billing/portal`. Webhook
+`POST /billing/webhook/stripe` (HMAC-verified, replay-guarded): `invoice.paid` cycle →
+extend period + history row; `payment_failed` → failed row only (Stripe retries);
+`subscription.deleted` → drop to free. Config: `STRIPE_WEBHOOK_SECRET`,
+`STRIPE_PRICE_ID_PRO_MONTHLY/_YEARLY`, `STRIPE_PORTAL_RETURN_URL`. Tier 2 renumbered.
+**Mobile follow-up (→ MOBILE_CHANGES):** payment-method `token` must become a real Stripe
+PaymentMethod id (`pm_...`) from the Stripe SDK in tbd/prd; mock accepts anything in dev.
+**Updated:** 2026-07-08 · **Tier 1 shipped** (all three buildable items; only the deploy-time
+reset-URL default remains, renumbered 1.1). **1.3 prompt caching:** outfit prompts restructured
+— stable prefix (persona, JSON schema, wardrobe, goals, wearer/fit) moved into `system` with
+`cache_control` (new `cache_system` flag on `AIProvider.chat`); volatile occasion/weather stay
+in the user turn. Cache reads bill ~10% of base input across the per-occasion burst;
+`ai_usage.jsonl` + cost math now record `cache_read/creation_input_tokens` (watch them —
+below the model's minimum cacheable prefix, ~4k tokens on Haiku, caching silently no-ops).
+**1.2 local streak timing:** new `core/localtime.py` — the app day rolls over at **05:00
+user-local** (matches the Monday-05:00 weekly reset + the handoff's 6pm–5am greeting cycle);
+streaks, the Today window, the dashboard reset countdown, and history filters all use it
+(UTC fallback when timezone is null). **1.1 fit-summary consent path (§5.5.1):** coarse
+`fit_profile` (body_shape/height_band/build — categorical only, never cm) derived at
+measurements submit and stored on `user_measurements` (plaintext by design; dies with the
+row on DELETE /account); separate `use_measurements_for_fit` opt-in on `users` (+consent
+timestamp, set on grant / cleared on revoke, PATCH /users/{id}, in the export snapshot);
+single consent choke point `measurements_service.fit_profile_for_user` feeds the outfit
+prompt's "Fit:" line. Privacy contract lives in `app/services/fit_profile.py`. Schema change
+squashed into the init migration — **local dev + test DBs were wiped/reseeded**.
+**Mobile follow-ups (→ MOBILE_CHANGES):** consent toggle UI (P4, with the privacy-policy line);
+Today's `usage.resets_at` is now the 5am-local rollover (was UTC midnight).
+**Updated:** 2026-07-07 (late) · Push **delivery half shipped** behind the `push` switch:
+real `ApnsFcmProvider` (FCM HTTP v1, service-account OAuth minted locally via pyjwt — no
+firebase-admin dep; APNS relay via the .p8 uploaded to the Firebase project).
+`FCM_CREDENTIALS_JSON` accepts raw or base64 JSON. `DISABLED_FEATURES=push` ⇒ creds not
+required, `notify_user` fan-out becomes a logged no-op (device registration keeps working
+— pushes are server-initiated, so no 400 contract). Dead tokens logged as
+`push.fcm.unregistered` (pruning = future nicety). The **18 campaigns + scheduler remain**
+(2.1); blocked on the Firebase project + APNS key upload + mobile client (MOBILE_CHANGES P3).
 Companion doc: `MOBILE_CHANGES.md`.
 
 Schema convention (pre-prod): fold all new tables into the **single init migration**
@@ -19,24 +69,7 @@ migrations once prd has real users.
 
 ## Tier 1 — Buildable now (no outside input)
 
-### 1.1 Measurements → fit-summary consent path *(§5.5.1 — full design note below)*
-- [ ] Server-side derived **fit profile** (body shape from chest/waist/hip ratio; height band;
-      build) — exact cm never leave our infra.
-- [ ] Separate opt-in consent flag + timestamp (default off; mirror `community_share_avatar`).
-- [ ] Feed the derived block into the outfit prompt; ensure `ai_usage.jsonl` logs the derived
-      block, not raw measurements.
-- [ ] `DELETE /account` purges any cached derived fit profile.
-- [ ] Privacy-policy line lands with MOBILE_CHANGES P4 (PIPEDA cross-border disclosure).
-- Independent of the avatar removal (see the Avatar note).
-
-### 1.2 User-local streak timing
-- [ ] Monday 5 AM **local** reset per the Today handoff; streak math is currently UTC-pinned
-      (the 2026-07-05 fix only de-flaked the tests).
-
-### 1.3 Anthropic native prompt caching
-- [ ] `cache_control` on the repeated outfit-gen prefix (~90% cheaper input tokens).
-
-### 1.4 Reset-password URL default *(trivial)*
+### 1.1 Reset-password URL default *(trivial)*
 - [ ] Config default (`core/config.py`) still points at `https://drape.local/reset`; dev `.env`
       carries the `drape://` template. Set the real https App/Universal Link template at deploy
       time (Tier 3.2 step 7).
@@ -45,30 +78,20 @@ migrations once prd has real users.
 
 Each item is blocked on something only you can provide; listed smallest build first.
 
-### 2.1 OAuth *(item 11a)* — blocked on: Apple/Google client IDs
-- [ ] `RealOAuthVerifier` — Apple + Google JWKS verification (currently raises
-      `NotImplementedError`; dev disables OAuth). Server-side token verification
-      per the own-JWT design. Mobile buttons follow (MOBILE_CHANGES P2).
-
-### 2.2 Stripe *(item 11c)* — blocked on: Stripe test keys + price IDs
-- [ ] Real `StripeProvider` behind the existing `PaymentProvider` interface
-      (webhook → subscription flip, customer portal). `MockPaymentProvider`
-      covers dev end-to-end today.
-
-### 2.3 Push delivery *(item 11d)* — blocked on: FCM/APNS project
-- [ ] Real `ApnsFcmProvider` behind the existing `PushProvider` interface;
-      APNS entitlement. (`LogPushProvider` covers dev; `devices` table +
-      registration endpoints + `notify_user` fan-out already shipped.)
+### 2.1 Push campaigns *(item 11d, remaining half)* — blocked on: FCM/APNS project
+- [x] Real `ApnsFcmProvider` — shipped 2026-07-07 behind the `push` switch (see header
+      note). Still needed from you: Firebase project + service-account JSON
+      (`FCM_CREDENTIALS_JSON`), APNS .p8 uploaded to Firebase, iOS push entitlement.
 - [ ] The 18 spec'd campaigns (6 per tab doc: wardrobe nudges, limit warnings,
       price drops, win-back, renewal reminders) on the scheduler.
       Mobile client work follows (MOBILE_CHANGES P3).
 
-### 2.4 AWIN affiliate *(item 11e)* — blocked on: affiliate account / data-source decision
+### 2.2 AWIN affiliate *(item 11e)* — blocked on: affiliate account / data-source decision
 - [ ] Real `AwinProvider` replacing the mock catalog `AffiliateProvider`
       (product data source is an open decision — seeded/mock vs real
       affiliate API).
 
-### 2.5 Analytics *(decision 2026-07-05)* — blocked on: PostHog project + key
+### 2.3 Analytics *(decision 2026-07-05)* — blocked on: PostHog project + key
 - [ ] Recommended: PostHog Flutter SDK direct-to-PostHog — **no backend work** beyond adding
       the project key to config. Only if we later want first-party capture does a `/events`
       proxy endpoint make sense. Mobile implements the events (MOBILE_CHANGES P1).
@@ -182,33 +205,10 @@ nobody builds against the handoff doc:
   (recommended: keep it).
 - `user_avatars` / avatar fields cleanup happens with the removal work, not before
   (squash into the init migration when it does).
-- The measurements→fit-summary path (Tier 1.1) is independent of the avatar and proceeds
-  regardless. Mobile-side consequences are in the MOBILE_CHANGES avatar note.
+- The measurements→fit-summary path (**shipped 2026-07-08**) is independent of the avatar and
+  proceeds regardless. Mobile-side consequences are in the MOBILE_CHANGES avatar note.
 
-## Design note — measurements → outfit personalization, the PIPEDA-safe way *(§5.5.1 — implements Tier 1.1)*
-
-*(The photo half of §5.5 is built — body/skin from the uploaded photo → `Profile.body_analysis` →
-outfit-prompt "Wearer:" block; its fate under the avatar removal is covered in the Avatar note.
-This note is the design for the remaining, consent-gated half. POC reference: `cli_claude.py`.)*
-
-`UserMeasurements` (`models.py`) stores height/weight/shoulders/chest/waist/inseam/hips as encrypted
-ciphertext — personal, arguably *sensitive*, information under **PIPEDA** (the reason for
-`ca-central-1` + own-JWT + encryption at rest). Feeding it to outfit generation means *decrypting* it
-and *disclosing* it to a third-party US processor (Anthropic) — allowed, but only if **consented,
-disclosed, and minimized** (PIPEDA hooks: consent, identified purpose, limiting use/disclosure,
-safeguards, data minimization). Five points:
-
-1. **Derive, don't disclose.** Convert raw measurements server-side into a coarse **fit profile**
-   before the prompt: chest/waist/hip ratio → body shape (rectangle/triangle/inverted-triangle/
-   hourglass); height band (petite/average/tall); build (slim/regular/broad) from shoulders+chest.
-   Prompt gets e.g. *"Wearer: tall, athletic build, broad shoulders — favor structured fits"* —
-   **exact cm never leave our infra** (matches the POC: it inferred body type, didn't ship numbers).
-2. **Explicit, separate, opt-in consent** (default **off**): *"Use my measurements to personalize
-   fit. We send a general body-shape summary (not exact measurements) to our AI provider."* Store
-   consent flag + timestamp (mirror `community_share_avatar`).
-3. **Raw numbers stay server-side only.** Decryption never leaves the backend; the AI usage log
-   (`ai_usage.jsonl`) must capture the derived block, not raw measurements.
-4. **Privacy-policy transparency.** One line: measurements may be used in derived/generalized form
-   to personalize recs via a US-based AI processor (PIPEDA cross-border-transfer disclosure).
-5. **Honor deletion.** `DELETE /account` must purge any cached derived fit profile alongside the
-   encrypted measurements.
+*(The §5.5.1 design note — measurements → outfit personalization, the PIPEDA-safe way — was
+implemented 2026-07-08; the privacy contract now lives in `app/services/fit_profile.py` and the
+consent gate in `measurements_service.fit_profile_for_user`. The only outstanding piece is the
+privacy-policy line + consent toggle UI, tracked in MOBILE_CHANGES P4.)*

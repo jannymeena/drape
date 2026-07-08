@@ -1,0 +1,347 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  Drape backend — TEST rig (App Runner + RDS PostgreSQL 16) in ca-central-1.
+  Runs the app in ENVIRONMENT=dev so it boots without any external keys
+  (OAuth / SES / KMS / S3 / Stripe / FCM): log-only email, local AES
+  encryption, local-disk image storage, mock billing, log-only push. This is
+  deliberately simpler than the Tier 3 production architecture in
+  BACKEND_CHANGES.md (no ALB/CloudFront/Secrets Manager/multi-AZ). Intended
+  for exercising the already-wired mobile features against a real, HTTPS,
+  internet-reachable backend.
+
+# ---------------------------------------------------------------------------
+# Console grouping (cosmetic).
+# ---------------------------------------------------------------------------
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: { default: "Container image" }
+        Parameters: [ImageUri]
+      - Label: { default: "Secrets (NoEcho)" }
+        Parameters: [DBPassword, JwtSecret, MeasurementDek, AnthropicApiKey]
+      - Label: { default: "App config" }
+        Parameters: [ImageBaseUrl]
+      - Label: { default: "Database sizing" }
+        Parameters: [DBEngineVersion, DBInstanceClass, DBAllocatedStorage]
+
+Parameters:
+  ImageUri:
+    Type: String
+    Description: >
+      ECR image URI (with tag) you pushed in ca-central-1, e.g.
+      123456789012.dkr.ecr.ca-central-1.amazonaws.com/drape-backend:latest
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    MaxLength: 41
+    AllowedPattern: "[A-Za-z0-9]+"
+    Description: >
+      RDS master password. Alphanumeric only (keeps the DATABASE_URL valid and
+      satisfies RDS character rules). 16-41 chars.
+
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: >
+      HS256 signing secret for own-issued JWTs. Generate with:
+      python -c "import secrets; print(secrets.token_urlsafe(64))"
+
+  MeasurementDek:
+    Type: String
+    NoEcho: true
+    MinLength: 44
+    MaxLength: 44
+    Description: >
+      Base64 of 32 random bytes — the dev AES data-encryption key for
+      measurements (required when ENVIRONMENT=dev). Generate with:
+      python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"
+
+  AnthropicApiKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: >
+      Optional. Set to use real Claude outfit generation / scanning; leave blank
+      to fall back to the mock AI provider (still lets you test the flows).
+
+  ImageBaseUrl:
+    Type: String
+    Default: "http://localhost:8000/uploads"
+    Description: >
+      Base URL the API hands back for wardrobe/avatar images (LocalFsStorage).
+      Leave as the default for the FIRST deploy, then redeploy with the
+      'ImageBaseUrlToSet' output value (https://<service-url>/uploads) so images
+      render in the app. Other features work regardless.
+
+  DBEngineVersion:
+    Type: String
+    Default: "16"
+    Description: >
+      PostgreSQL engine version. The bare major ("16") lets RDS pick the
+      current default minor — pinned minors get retired and then fail the
+      deploy. To pin one anyway, list what's available:
+      aws rds describe-db-engine-versions --engine postgres
+      --query "DBEngineVersions[?starts_with(EngineVersion,'16.')].EngineVersion"
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    MinValue: 20
+
+Resources:
+  # --------------------------------------------------------------------- VPC
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-vpc" }]
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-igw" }]
+
+  IgwAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public subnet hosts the NAT gateway so the App Runner egress (which routes
+  # through the VPC connector in the private subnets) can reach the internet
+  # (Open-Meteo weather, optional Anthropic).
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-public" }]
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-private-a" }]
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-private-b" }]
+
+  NatEip:
+    Type: AWS::EC2::EIP
+    DependsOn: IgwAttachment
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEip.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-nat" }]
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-public-rt" }]
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: IgwAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-private-rt" }]
+
+  PrivateDefaultRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnetARtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetA
+
+  PrivateSubnetBRtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetB
+
+  # --------------------------------------------------------- Security groups
+  AppRunnerSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: App Runner VPC connector ENIs (egress only).
+      VpcId: !Ref Vpc
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+          Description: All egress (RDS via SG + internet via NAT).
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-apprunner-sg" }]
+
+  RdsSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RDS Postgres — accept 5432 from the App Runner connector only.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref AppRunnerSg
+          Description: Postgres from App Runner.
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-rds-sg" }]
+
+  # ----------------------------------------------------------------- RDS
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Private subnets for the Drape test DB.
+      SubnetIds: [!Ref PrivateSubnetA, !Ref PrivateSubnetB]
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    # Test data is disposable — delete cleanly on stack teardown (no snapshot).
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Engine: postgres
+      EngineVersion: !Ref DBEngineVersion
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: gp3
+      DBName: drape
+      MasterUsername: drape
+      MasterUserPassword: !Ref DBPassword
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups: [!GetAtt RdsSg.GroupId]
+      PubliclyAccessible: false
+      MultiAZ: false
+      StorageEncrypted: true
+      BackupRetentionPeriod: 1
+      DeletionProtection: false
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-db" }]
+
+  # ------------------------------------------------- App Runner (compute)
+  # Role App Runner assumes to pull the private ECR image.
+  EcrAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: build.apprunner.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess
+
+  # Egress connector so the service can reach RDS privately (and the internet
+  # via the NAT route on the private subnets).
+  VpcConnector:
+    Type: AWS::AppRunner::VpcConnector
+    Properties:
+      VpcConnectorName: !Sub "${AWS::StackName}-conn"
+      Subnets: [!Ref PrivateSubnetA, !Ref PrivateSubnetB]
+      SecurityGroups: [!Ref AppRunnerSg]
+
+  Service:
+    Type: AWS::AppRunner::Service
+    Properties:
+      ServiceName: !Sub "${AWS::StackName}-svc"
+      SourceConfiguration:
+        AutoDeploymentsEnabled: false
+        AuthenticationConfiguration:
+          AccessRoleArn: !GetAtt EcrAccessRole.Arn
+        ImageRepository:
+          ImageIdentifier: !Ref ImageUri
+          ImageRepositoryType: ECR
+          ImageConfiguration:
+            Port: "8000"
+            RuntimeEnvironmentVariables:
+              - { Name: ENVIRONMENT, Value: dev }
+              - Name: DATABASE_URL
+                Value: !Sub "postgresql+psycopg2://drape:${DBPassword}@${DBInstance.Endpoint.Address}:5432/drape"
+              - { Name: JWT_SECRET, Value: !Ref JwtSecret }
+              - { Name: JWT_ACCESS_TTL_MINUTES, Value: "60" }
+              - { Name: MEASUREMENT_DEK_DEV, Value: !Ref MeasurementDek }
+              - { Name: ANTHROPIC_API_KEY, Value: !Ref AnthropicApiKey }
+              - { Name: AWS_REGION, Value: !Ref "AWS::Region" }
+              - { Name: LOCAL_IMAGE_BASE_URL, Value: !Ref ImageBaseUrl }
+              # Same drape:// deep link as local dev — the mobile app opens it
+              # from the (log-only) reset email flow.
+              - { Name: PASSWORD_RESET_URL_TEMPLATE, Value: "drape://drape.app/auth/reset-password?token={token}" }
+      InstanceConfiguration:
+        Cpu: "512"      # 0.5 vCPU
+        Memory: "1024"  # 1 GB
+      HealthCheckConfiguration:
+        Protocol: HTTP
+        Path: /api/v1/health
+        Interval: 10
+        Timeout: 5
+        HealthyThreshold: 1
+        UnhealthyThreshold: 5
+      NetworkConfiguration:
+        EgressConfiguration:
+          EgressType: VPC
+          VpcConnectorArn: !GetAtt VpcConnector.VpcConnectorArn
+      Tags: [{ Key: Name, Value: !Sub "${AWS::StackName}-svc" }]
+
+Outputs:
+  ServiceUrl:
+    Description: App Runner service domain (HTTPS).
+    Value: !GetAtt Service.ServiceUrl
+
+  MobileApiBaseUrl:
+    Description: Pass this to the app — flutter run --dart-define=API_BASE_URL=<this>
+    Value: !Sub "https://${Service.ServiceUrl}/api/v1"
+
+  HealthCheckUrl:
+    Description: Smoke-test target (expect 200).
+    Value: !Sub "https://${Service.ServiceUrl}/api/v1/health"
+
+  ImageBaseUrlToSet:
+    Description: >
+      Redeploy the stack with ImageBaseUrl set to this value so wardrobe/avatar
+      images render in the app.
+    Value: !Sub "https://${Service.ServiceUrl}/uploads"
+
+  RdsEndpoint:
+    Description: RDS endpoint (private; reachable only from the App Runner connector).
+    Value: !GetAtt DBInstance.Endpoint.Address
