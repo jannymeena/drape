@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../billing_service.dart';
@@ -27,6 +29,11 @@ class SubscriptionManagementScreen extends ConsumerWidget {
     if (reason == null || !context.mounted) return;
     try {
       await ref.read(billingServiceProvider).cancel(reason: reason);
+      // The reason literal comes from the sheet's fixed options, not free text.
+      ref.read(analyticsProvider).capture(
+        AnalyticsEvents.subscriptionCanceled,
+        {'reason': reason},
+      );
       ref.invalidate(subscriptionProvider);
       if (!context.mounted) return;
       context.goNamed(RetentionOfferScreen.name);

@@ -5,7 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../profile/screens/compare_plans_screen.dart';
 import '../../shop/screens/shop_feed_screen.dart';
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/analytics_screen_view.dart';
 import '../models/wardrobe_item.dart';
 import '../wardrobe_controller.dart';
 import '../wardrobe_service.dart';
@@ -36,6 +39,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
   @override
   void initState() {
     super.initState();
+    ref.read(analyticsProvider).capture(AnalyticsEvents.wardrobeTabViewed);
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => ref.read(wardrobeControllerProvider.notifier).load(),
     );
@@ -147,7 +151,12 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
       }
       if (state.category == WardrobeCategoryFilter.all) {
         // Truly empty wardrobe — the full designed empty state.
-        return [WardrobeEmptyState(onAdd: _openAddSheet)];
+        return [
+          AnalyticsScreenView(
+            event: AnalyticsEvents.wardrobeEmptyStateViewed,
+            child: WardrobeEmptyState(onAdd: _openAddSheet),
+          ),
+        ];
       }
       return const [
         _MessageBlock(
@@ -257,15 +266,27 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
     return [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: CapacityWarningBanner(
-          used: capacity.used,
-          total: capacity.cap,
-          level: switch (capacity.level) {
-            'blocked' => CapacityLevel.blocked,
-            'urgent' => CapacityLevel.urgent,
-            _ => CapacityLevel.soft,
-          },
-          onUpgrade: () => context.goNamed(ComparePlansScreen.name),
+        child: AnalyticsScreenView(
+          event: capacity.level == 'blocked'
+              ? AnalyticsEvents.usageLimitReached
+              : AnalyticsEvents.usageLimitWarningShown,
+          properties: {'feature': 'wardrobe', 'level': capacity.level},
+          child: CapacityWarningBanner(
+            used: capacity.used,
+            total: capacity.cap,
+            level: switch (capacity.level) {
+              'blocked' => CapacityLevel.blocked,
+              'urgent' => CapacityLevel.urgent,
+              _ => CapacityLevel.soft,
+            },
+            onUpgrade: () {
+              ref.read(analyticsProvider).capture(
+                AnalyticsEvents.upgradeTapped,
+                {'source': 'wardrobe_capacity_banner'},
+              );
+              context.goNamed(ComparePlansScreen.name);
+            },
+          ),
         ),
       ),
       const SizedBox(height: 16),
@@ -294,6 +315,9 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
       );
 
   void _openAddSheet() {
+    final analytics = ref.read(analyticsProvider);
+    analytics.capture(AnalyticsEvents.wardrobeFabTapped);
+    analytics.capture(AnalyticsEvents.addWardrobeChooserOpened);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -327,6 +351,10 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                     // Capacity (used/remaining) deferred to SP2.
                     onUpgrade: () => context.goNamed(ComparePlansScreen.name),
                     onChoice: (choice) {
+                      analytics.capture(
+                        AnalyticsEvents.addMethodSelected,
+                        {'method': choice.name},
+                      );
                       Navigator.of(ctx).pop();
                       switch (choice) {
                         case AddToWardrobeChoice.upload:

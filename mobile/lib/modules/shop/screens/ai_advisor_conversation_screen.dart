@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../profile/screens/compare_plans_screen.dart';
 import '../models/shop.dart';
@@ -82,6 +84,11 @@ class _AiAdvisorConversationScreenState
             question,
             conversationId: _conversationId,
           );
+      // Length only — never the question text (free-form user input).
+      ref.read(analyticsProvider).capture(
+        AnalyticsEvents.aiStyleAdvisorQuestionAsked,
+        {'question_length': question.length},
+      );
       ref.invalidate(advisorHistoryProvider);
       if (!mounted) return;
       setState(() {
@@ -130,12 +137,21 @@ class _AiAdvisorConversationScreenState
   }
 
   void _showLimit(String message) {
+    ref
+        .read(analyticsProvider)
+        .capture(AnalyticsEvents.aiAdvisorLimitReached);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         action: SnackBarAction(
           label: 'Upgrade',
-          onPressed: () => context.goNamed(ComparePlansScreen.name),
+          onPressed: () {
+            ref.read(analyticsProvider).capture(
+              AnalyticsEvents.upgradeTapped,
+              {'source': 'advisor_limit'},
+            );
+            context.goNamed(ComparePlansScreen.name);
+          },
         ),
       ),
     );

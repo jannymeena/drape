@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
@@ -30,6 +32,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
   bool _submitting = false;
   String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(analyticsProvider).capture(AnalyticsEvents.signupStarted);
+  }
 
   @override
   void dispose() {

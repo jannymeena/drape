@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/services/share_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
@@ -51,6 +53,12 @@ class _OutfitHistoryScreenState extends ConsumerState<OutfitHistoryScreen> {
   HistoryFilter _filter = HistoryFilter.thisWeek;
 
   @override
+  void initState() {
+    super.initState();
+    ref.read(analyticsProvider).capture(AnalyticsEvents.outfitHistoryViewed);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final history = ref.watch(outfitHistoryProvider(_filter.query));
 
@@ -94,12 +102,12 @@ class _OutfitHistoryScreenState extends ConsumerState<OutfitHistoryScreen> {
   }
 }
 
-class _HistoryList extends StatelessWidget {
+class _HistoryList extends ConsumerWidget {
   final OutfitHistory data;
   const _HistoryList({required this.data});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final groups = data.groupedByMonth();
     final streakDays = data.currentStreak.days;
 
@@ -119,10 +127,15 @@ class _HistoryList extends StatelessWidget {
           for (final item in entry.value) ...[
             _HistoryEntryCard(
               entry: item,
-              onTap: () => context.pushNamed(
-                AiReasoningDetailScreen.name,
-                pathParameters: {'id': item.outfitId},
-              ),
+              onTap: () {
+                ref
+                    .read(analyticsProvider)
+                    .capture(AnalyticsEvents.outfitHistoryRowTapped);
+                context.pushNamed(
+                  AiReasoningDetailScreen.name,
+                  pathParameters: {'id': item.outfitId},
+                );
+              },
             ),
             const SizedBox(height: 10),
           ],

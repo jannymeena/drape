@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/analytics_screen_view.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../models/outfit_reasoning.dart';
@@ -24,7 +26,9 @@ class AiReasoningDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final reasoning = ref.watch(outfitReasoningProvider(outfitId));
 
-    return Scaffold(
+    return AnalyticsScreenView(
+      event: AnalyticsEvents.aiReasoningViewed,
+      child: Scaffold(
       backgroundColor: AppColors.espressoDeep.withValues(alpha: 0.4),
       body: SafeArea(
         top: false,
@@ -105,6 +109,7 @@ class AiReasoningDetailScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

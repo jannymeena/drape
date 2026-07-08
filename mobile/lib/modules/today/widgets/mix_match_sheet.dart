@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
@@ -41,6 +43,16 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
   String? _newItemId;
   bool _applying = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Single choke point for both entry paths (quick action + outfit card).
+    ref.read(analyticsProvider).capture(
+      AnalyticsEvents.mixAndMatchOpened,
+      {'occasion': widget.outfit.occasion},
+    );
+  }
+
   OutfitItem? get _oldItem =>
       widget.outfit.items.where((i) => i.itemId == _oldItemId).firstOrNull;
 
@@ -52,6 +64,11 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
         widget.outfit.id,
         [(oldItemId: _oldItemId!, newItemId: _newItemId!)],
       );
+      ref
+          .read(analyticsProvider)
+          .capture(AnalyticsEvents.outfitItemSwapped, {
+        'category': _oldItem?.category,
+      });
       if (!mounted) return;
       Navigator.of(context).pop();
       showDrapeToast(context, 'Swapped — match score updated.');

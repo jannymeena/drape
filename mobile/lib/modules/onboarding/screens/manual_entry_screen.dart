@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
+import '../../../shared/widgets/analytics_screen_view.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
 import 'wardrobe_setup_screen.dart';
 
-class ManualEntryScreen extends StatelessWidget {
+class ManualEntryScreen extends ConsumerWidget {
   static const path = '/onboarding/manual-entry';
   static const name = 'manual_entry';
 
   const ManualEntryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AnalyticsScreenView(
+      event: AnalyticsEvents.manualEntryOpened,
+      properties: const {'source': 'onboarding'},
+      child: Scaffold(
       appBar: const DrapeAppBar(title: 'Enter Measurements'),
       body: SafeArea(
         child: ListView(
@@ -46,7 +53,13 @@ class ManualEntryScreen extends StatelessWidget {
             const SizedBox(height: 28),
             DrapeButton(
               label: 'Save Measurements',
-              onPressed: () => context.goNamed(WardrobeSetupScreen.name),
+              onPressed: () {
+                ref.read(analyticsProvider).capture(
+                  AnalyticsEvents.manualEntrySubmitted,
+                  {'source': 'onboarding'},
+                );
+                context.goNamed(WardrobeSetupScreen.name);
+              },
             ),
             const SizedBox(height: 12),
             Center(
@@ -57,6 +70,7 @@ class ManualEntryScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

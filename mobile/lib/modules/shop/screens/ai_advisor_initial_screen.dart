@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/analytics_screen_view.dart';
 import 'ai_advisor_conversation_screen.dart';
 import 'ai_advisor_history_screen.dart';
 import 'wishlist_screen.dart';
@@ -25,7 +27,10 @@ class AiAdvisorInitialScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AnalyticsScreenView(
+      event: AnalyticsEvents.aiStyleAdvisorOpened,
+      properties: const {'source': 'shop_tab'},
+      child: Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
         bottom: false,
@@ -114,6 +119,7 @@ class AiAdvisorInitialScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:mobile/modules/today/models/usage.dart';
 import 'package:mobile/modules/today/today_controller.dart';
 import 'package:mobile/modules/today/today_service.dart';
 import 'package:mobile/shared/models/api_error.dart';
+import 'package:mobile/shared/services/analytics/analytics_service.dart';
 import 'package:mobile/shared/services/dashboard_cache.dart';
 
 /// A TodayService whose network calls are replaced with canned results, so the
@@ -118,7 +119,7 @@ void main() {
     service = _FakeTodayService()
       ..frame = _dashboard(['a', 'b'])
       ..usage = _usage();
-    controller = TodayController(service, cache);
+    controller = TodayController(service, cache, DebugAnalyticsService());
   });
 
   test('loadFrame seeds pending and fills each occasion in parallel', () async {

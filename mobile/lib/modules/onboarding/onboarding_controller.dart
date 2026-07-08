@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
+import '../../shared/providers/analytics_provider.dart';
 import '../../shared/providers/session_epoch.dart';
+import '../../shared/services/analytics/analytics_events.dart';
+import '../../shared/services/analytics/analytics_service.dart';
 import 'models/measurements_draft.dart';
 import 'models/onboarding_status.dart';
 import 'models/starter_wardrobe.dart';
@@ -63,15 +66,19 @@ class OnboardingState {
 }
 
 class OnboardingController extends StateNotifier<OnboardingState> {
-  OnboardingController(this._service) : super(const OnboardingState());
+  OnboardingController(this._service, this._analytics)
+      : super(const OnboardingState());
 
   final OnboardingService _service;
+  final AnalyticsService _analytics;
 
   /// Persists the shopping style and stores it in the draft. Returns the
   /// backend `next_step`. Throws [ApiException] on failure (the screen shows it).
   Future<String> setShoppingStyle(String style) async {
     final next = await _service.setShoppingStyle(style);
     state = state.copyWith(shoppingStyle: style, nextStep: next);
+    _analytics
+        .capture(AnalyticsEvents.shoppingStyleSelected, {'style': style});
     return next;
   }
 
@@ -80,6 +87,10 @@ class OnboardingController extends StateNotifier<OnboardingState> {
   Future<String> setAgeRange(String? range) async {
     final next = await _service.setAgeRange(range);
     state = state.copyWith(ageRange: range, nextStep: next);
+    _analytics.capture(
+      AnalyticsEvents.ageRangeSelected,
+      {'range': range ?? 'skipped'},
+    );
     return next;
   }
 
@@ -88,6 +99,10 @@ class OnboardingController extends StateNotifier<OnboardingState> {
   Future<String> setStyleGoals(List<String> goals) async {
     final next = await _service.setStyleGoals(goals);
     state = state.copyWith(styleGoals: goals, nextStep: next);
+    _analytics.capture(
+      AnalyticsEvents.styleGoalsSelected,
+      {'goals_count': goals.length},
+    );
     return next;
   }
 
@@ -128,6 +143,7 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     }
     final next = await _service.submitMeasurements(state.measurements);
     state = state.copyWith(nextStep: next);
+    _analytics.capture(AnalyticsEvents.allMeasurementsCompleted);
     return next;
   }
 
@@ -169,5 +185,8 @@ final onboardingControllerProvider =
   // User-scoped draft: rebuilt on login/logout so a register → logout →
   // register cycle never prefills the next account with this one's answers.
   ref.watch(sessionEpochProvider);
-  return OnboardingController(ref.read(onboardingServiceProvider));
+  return OnboardingController(
+    ref.read(onboardingServiceProvider),
+    ref.read(analyticsProvider),
+  );
 });

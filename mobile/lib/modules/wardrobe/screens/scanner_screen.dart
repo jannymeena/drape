@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../image_pick.dart';
@@ -40,6 +42,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   @override
   void initState() {
     super.initState();
+    ref.read(analyticsProvider).capture(AnalyticsEvents.scannerOpened);
     // Jump straight to the picker; an empty viewfinder isn't useful.
     WidgetsBinding.instance.addPostFrameCallback((_) => _pickAndScan());
   }
@@ -61,6 +64,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     });
     try {
       final result = await ref.read(wardrobeServiceProvider).scanItem(picked);
+      ref.read(analyticsProvider).capture(
+        AnalyticsEvents.scannerDetectionSuccess,
+        {'category': result.detection.category},
+      );
       if (!mounted) return;
       _nameController.text = result.detection.suggestedName;
       setState(() {
@@ -68,6 +75,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         _scanning = false;
       });
     } on ApiException catch (e) {
+      ref.read(analyticsProvider).capture(
+        AnalyticsEvents.scannerDetectionFailed,
+        {'code': e.code},
+      );
       if (!mounted) return;
       setState(() {
         _error = e;
@@ -97,6 +108,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       await ref
           .read(wardrobeControllerProvider.notifier)
           .createItemWithImages(input, [image]);
+      ref.read(analyticsProvider).capture(
+        AnalyticsEvents.scannerItemAdded,
+        {'category': detection.category},
+      );
       ref.invalidate(wardrobeCapacityProvider);
       if (!mounted) return;
       showDrapeToast(
@@ -118,6 +133,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
   }
 
   void _showLimitDialog(String message) {
+    ref.read(analyticsProvider).capture(
+      AnalyticsEvents.usageLimitReached,
+      {'feature': 'wardrobe', 'source': 'scanner_add'},
+    );
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(

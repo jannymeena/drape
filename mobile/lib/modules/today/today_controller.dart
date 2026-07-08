@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
+import '../../shared/providers/analytics_provider.dart';
 import '../../shared/providers/network_provider.dart';
 import '../../shared/providers/session_epoch.dart';
+import '../../shared/services/analytics/analytics_events.dart';
+import '../../shared/services/analytics/analytics_service.dart';
 import '../../shared/services/dashboard_cache.dart';
 import '../../shared/services/location_service.dart';
 import 'models/log_outfit_result.dart';
@@ -76,10 +79,12 @@ class TodayState {
 }
 
 class TodayController extends StateNotifier<TodayState> {
-  TodayController(this._service, this._cache) : super(const TodayState());
+  TodayController(this._service, this._cache, this._analytics)
+      : super(const TodayState());
 
   final TodayService _service;
   final DashboardCache _cache;
+  final AnalyticsService _analytics;
 
   /// Device coords from the most recent [loadFrame], reused so each per-occasion
   /// fill personalizes weather the same way the frame did.
@@ -250,6 +255,10 @@ class TodayController extends StateNotifier<TodayState> {
     try {
       final fresh = await _service.regenerateOutfit(outfitId);
       _replaceOutfit(outfitId, fresh);
+      _analytics.capture(
+        AnalyticsEvents.outfitRegenerated,
+        {'occasion': fresh.occasion},
+      );
       // A regenerate consumed an outfit credit — refresh the banner counters.
       unawaited(_refreshUsage());
     } finally {
@@ -273,6 +282,7 @@ class TodayController extends StateNotifier<TodayState> {
           wornCount: o.wornCount + 1,
         ),
       );
+      _analytics.capture(AnalyticsEvents.outfitLogged);
       return result;
     } finally {
       _markBusy(logging: outfitId, busy: false);
@@ -308,6 +318,10 @@ class TodayController extends StateNotifier<TodayState> {
     _patchOutfit(
       outfitId,
       (o) => o.copyWith(items: result.items, compatibilityScore: result.score),
+    );
+    _analytics.capture(
+      AnalyticsEvents.mixAndMatchSaved,
+      {'swaps': swaps.length},
     );
     // A mix consumes a `mix_and_match` credit — refresh the banner counters.
     unawaited(_refreshUsage());
@@ -362,5 +376,6 @@ final todayControllerProvider =
   return TodayController(
     ref.read(todayServiceProvider),
     ref.read(dashboardCacheProvider),
+    ref.read(analyticsProvider),
   );
 });

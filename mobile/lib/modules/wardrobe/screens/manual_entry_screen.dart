@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
@@ -62,6 +64,18 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   bool _prefilled = false;
 
   bool get _isEditing => widget.itemId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    // Creation only — edit mode is instrumented as item_edit_tapped upstream.
+    if (!_isEditing) {
+      ref.read(analyticsProvider).capture(
+        AnalyticsEvents.manualEntryOpened,
+        {'source': 'wardrobe'},
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -297,6 +311,10 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
         final capacityBefore =
             ref.read(wardrobeCapacityProvider).valueOrNull;
         await controller.createItem(_buildInput());
+        ref.read(analyticsProvider).capture(
+          AnalyticsEvents.manualEntrySubmitted,
+          {'source': 'wardrobe'},
+        );
         ref.invalidate(wardrobeCapacityProvider);
         if (!mounted) return;
         showDrapeToast(
@@ -319,6 +337,10 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   }
 
   void _showLimitDialog(String message) {
+    ref.read(analyticsProvider).capture(
+      AnalyticsEvents.usageLimitReached,
+      {'feature': 'wardrobe', 'source': 'manual_add'},
+    );
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -331,6 +353,9 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
           ),
           TextButton(
             onPressed: () {
+              ref.read(analyticsProvider).capture(
+                AnalyticsEvents.proUpgradeTappedFromLimit,
+              );
               Navigator.of(ctx).pop();
               context.goNamed(ComparePlansScreen.name);
             },

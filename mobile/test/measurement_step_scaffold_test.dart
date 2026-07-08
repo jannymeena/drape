@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/modules/onboarding/widgets/measurement_step_scaffold.dart';
 
@@ -12,16 +13,19 @@ void main() {
     VoidCallback? onContinue,
   }) {
     return tester.pumpWidget(
-      MaterialApp(
-        home: MeasurementStepScaffold(
+      // ProviderScope: the scaffold reads analyticsProvider on Continue taps.
+      ProviderScope(
+        child: MaterialApp(
+          home: MeasurementStepScaffold(
           step: 4,
           stepLabel: 'WAIST',
           bodyPart: 'waist',
           title: 'Waist',
           description: 'Measure at the narrowest part of your torso.',
-          canContinue: canContinue,
-          onContinue: onContinue,
-          input: const SizedBox(key: Key('input')),
+            canContinue: canContinue,
+            onContinue: onContinue,
+            input: const SizedBox(key: Key('input')),
+          ),
         ),
       ),
     );

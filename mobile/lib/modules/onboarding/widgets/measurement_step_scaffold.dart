@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
@@ -14,7 +17,7 @@ import 'measurement_guide.dart';
 /// vs. required gating ([canContinue]), and submit handling ([loading]) — stays
 /// in each screen, which builds its own [MeasurementInput] and passes it as
 /// [input].
-class MeasurementStepScaffold extends StatelessWidget {
+class MeasurementStepScaffold extends ConsumerWidget {
   /// 1-based position in the flow, rendered in the step marker.
   final int step;
   final int totalSteps;
@@ -61,7 +64,19 @@ class MeasurementStepScaffold extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // One choke point covers `measurement_step_completed` for all 8 steps:
+    // fired on the Continue tap (the value is already valid — the button is
+    // gated), before the per-screen handler stores/submits it.
+    final onPressed = onContinue == null
+        ? null
+        : () {
+            ref.read(analyticsProvider).capture(
+              AnalyticsEvents.measurementStepCompleted,
+              {'step': step, 'label': stepLabel.toLowerCase()},
+            );
+            onContinue!();
+          };
     return Scaffold(
       appBar: const DrapeAppBar(title: 'Build Your Avatar'),
       body: SafeArea(
@@ -98,7 +113,7 @@ class MeasurementStepScaffold extends StatelessWidget {
               child: DrapeButton(
                 label: buttonLabel,
                 loading: loading,
-                onPressed: canContinue ? onContinue : null,
+                onPressed: canContinue ? onPressed : null,
                 leading: const Icon(Icons.arrow_forward,
                     color: AppColors.white, size: 18),
               ),

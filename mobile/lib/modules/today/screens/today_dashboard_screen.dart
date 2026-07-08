@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
+import '../../../shared/widgets/analytics_screen_view.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../onboarding/models/onboarding_status.dart';
@@ -56,6 +59,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    ref.read(analyticsProvider).capture(AnalyticsEvents.todayDashboardViewed);
     // Defer past the first frame so we don't mutate the provider during build.
     Future.microtask(
         () => ref.read(todayControllerProvider.notifier).loadFrame());
@@ -121,6 +125,10 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
   /// Weekly free-tier cap hit (429 `limit_reached`). The backend message already
   /// names the count + reset time; the CTA points at the (unbuilt) paywall.
   void _showLimitDialog(ApiException e) {
+    ref.read(analyticsProvider).capture(
+      AnalyticsEvents.usageLimitReached,
+      {'feature': 'outfits', 'source': 'generate'},
+    );
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -134,6 +142,9 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
           ),
           FilledButton(
             onPressed: () {
+              ref
+                  .read(analyticsProvider)
+                  .capture(AnalyticsEvents.proUpgradeTappedFromLimit);
               Navigator.of(dialogContext).pop();
               context.goNamed(ComparePlansScreen.name);
             },
@@ -409,9 +420,17 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     if (status.nextIncompleteStep == null) return const [];
     return [
       const SizedBox(height: 20),
-      ResumeBanner(
-        stepsDone: status.measurementStepsCompleted,
-        onTap: () => context.goNamed(EditMeasurementsScreen.name),
+      AnalyticsScreenView(
+        event: AnalyticsEvents.resumeBannerShown,
+        child: ResumeBanner(
+          stepsDone: status.measurementStepsCompleted,
+          onTap: () {
+            ref
+                .read(analyticsProvider)
+                .capture(AnalyticsEvents.resumeBannerTapped);
+            context.goNamed(EditMeasurementsScreen.name);
+          },
+        ),
       ),
     ];
   }
@@ -425,16 +444,27 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     }
     return [
       const SizedBox(height: 20),
-      StarterWardrobeBanner(
-        onAdd: () => context.goNamed(WardrobeScreen.name),
-        onDismiss: () {
-          setState(() => _starterBannerDismissed = true);
-          // Fire-and-forget; the flag also drops from the next frame load.
-          ref
-              .read(todayServiceProvider)
-              .dismissBanner('starter_wardrobe')
-              .catchError((_) {});
-        },
+      AnalyticsScreenView(
+        event: AnalyticsEvents.starterWardrobeBannerShown,
+        child: StarterWardrobeBanner(
+          onAdd: () {
+            ref
+                .read(analyticsProvider)
+                .capture(AnalyticsEvents.starterWardrobeAddItemsTapped);
+            context.goNamed(WardrobeScreen.name);
+          },
+          onDismiss: () {
+            ref
+                .read(analyticsProvider)
+                .capture(AnalyticsEvents.starterWardrobeBannerDismissed);
+            setState(() => _starterBannerDismissed = true);
+            // Fire-and-forget; the flag also drops from the next frame load.
+            ref
+                .read(todayServiceProvider)
+                .dismissBanner('starter_wardrobe')
+                .catchError((_) {});
+          },
+        ),
       ),
     ];
   }
@@ -448,11 +478,24 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
         ? UsageLevel.blocked
         : (c.percentage >= 90 ? UsageLevel.urgent : UsageLevel.soft);
     return [
-      UsageWarningBanner(
-        used: c.used,
-        total: c.limit,
-        level: level,
-        onUpgrade: () => context.goNamed(ComparePlansScreen.name),
+      AnalyticsScreenView(
+        // Blocked (100%) is the hard stop; below that it's a warning.
+        event: level == UsageLevel.blocked
+            ? AnalyticsEvents.usageLimitReached
+            : AnalyticsEvents.usageLimitWarningShown,
+        properties: {'feature': 'outfits', 'level': level.name},
+        child: UsageWarningBanner(
+          used: c.used,
+          total: c.limit,
+          level: level,
+          onUpgrade: () {
+            ref.read(analyticsProvider).capture(
+              AnalyticsEvents.upgradeTapped,
+              {'source': 'usage_banner'},
+            );
+            context.goNamed(ComparePlansScreen.name);
+          },
+        ),
       ),
       const SizedBox(height: 20),
     ];

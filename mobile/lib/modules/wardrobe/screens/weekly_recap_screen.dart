@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/services/share_service.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/analytics_screen_view.dart';
 import '../models/wardrobe_analytics.dart';
 import '../wardrobe_service.dart';
 import 'intelligence_report_screen.dart';
@@ -130,9 +132,13 @@ class _Body extends StatelessWidget {
             ),
           ),
         if (report.topItems.isNotEmpty) const SizedBox(height: 16),
-        _ProTeaserCard(
-          text: report.proTeaser,
-          onTap: () => context.goNamed(IntelligenceReportScreen.name),
+        AnalyticsScreenView(
+          event: AnalyticsEvents.proTeaseShown,
+          properties: const {'source': 'weekly_recap'},
+          child: _ProTeaserCard(
+            text: report.proTeaser,
+            onTap: () => context.goNamed(IntelligenceReportScreen.name),
+          ),
         ),
         const SizedBox(height: 20),
         _ShareButton(onTap: () => _shareRecap(report)),

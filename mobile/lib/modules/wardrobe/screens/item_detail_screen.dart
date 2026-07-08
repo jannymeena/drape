@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/analytics_screen_view.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../image_pick.dart';
@@ -29,7 +32,9 @@ class ItemDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final item = ref.watch(wardrobeItemProvider(itemId));
 
-    return Scaffold(
+    return AnalyticsScreenView(
+      event: AnalyticsEvents.itemDetailViewed,
+      child: Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
         bottom: false,
@@ -81,11 +86,13 @@ class ItemDetailScreen extends ConsumerWidget {
             ],
           ),
         ),
+        ),
       ),
     );
   }
 
   Future<void> _edit(BuildContext context, WidgetRef ref) async {
+    ref.read(analyticsProvider).capture(AnalyticsEvents.itemEditTapped);
     await context.pushNamed(
       ManualEntryScreen.name,
       queryParameters: {'id': itemId},
@@ -127,6 +134,11 @@ class ItemDetailScreen extends ConsumerWidget {
     try {
       final result =
           await ref.read(wardrobeControllerProvider.notifier).logWorn(itemId);
+      ref
+          .read(analyticsProvider)
+          .capture(AnalyticsEvents.itemLoggedAsWorn, {
+        'already_logged': result.alreadyLoggedToday,
+      });
       ref.invalidate(wardrobeItemProvider(itemId));
       if (!context.mounted) return;
       if (result.alreadyLoggedToday) {
@@ -143,11 +155,14 @@ class ItemDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _remove(BuildContext context, WidgetRef ref, String name) async {
+    final analytics = ref.read(analyticsProvider);
+    analytics.capture(AnalyticsEvents.removeItemConfirmationShown);
     final confirmed =
         await RemoveConfirmationModal.show(context, itemName: name);
     if (!confirmed || !context.mounted) return;
     try {
       await ref.read(wardrobeControllerProvider.notifier).deleteItem(itemId);
+      analytics.capture(AnalyticsEvents.itemRemoved);
       ref.invalidate(wardrobeCapacityProvider);
       if (!context.mounted) return;
       showDrapeToast(context, 'Removed from wardrobe',

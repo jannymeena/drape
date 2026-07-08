@@ -1,24 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import 'login_screen.dart';
 import 'sign_up_screen.dart';
 
-class WelcomeScreen extends StatefulWidget {
+class WelcomeScreen extends ConsumerStatefulWidget {
   static const path = '/';
   static const name = 'welcome';
 
   const WelcomeScreen({super.key});
 
   @override
-  State<WelcomeScreen> createState() => _WelcomeScreenState();
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen> {
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   final _controller = PageController();
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _trackSlide(0);
+  }
+
+  void _trackSlide(int index) {
+    ref
+        .read(analyticsProvider)
+        .capture(AnalyticsEvents.welcomeSlideViewed, {'slide_number': index + 1});
+  }
 
   static const _slides = [
     _Slide(
@@ -58,7 +73,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     }
   }
 
-  void _onSkip() => context.goNamed(SignUpScreen.name);
+  void _onSkip() {
+    ref
+        .read(analyticsProvider)
+        .capture(AnalyticsEvents.welcomeSkipped, {'slide_number': _index + 1});
+    context.goNamed(SignUpScreen.name);
+  }
   void _onSignIn() => context.goNamed(LoginScreen.name);
 
   @override
@@ -117,7 +137,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               child: PageView.builder(
                 controller: _controller,
                 itemCount: _slides.length,
-                onPageChanged: (i) => setState(() => _index = i),
+                onPageChanged: (i) {
+                  setState(() => _index = i);
+                  _trackSlide(i);
+                },
                 itemBuilder: (_, i) => _Hero(slide: _slides[i]),
               ),
             ),

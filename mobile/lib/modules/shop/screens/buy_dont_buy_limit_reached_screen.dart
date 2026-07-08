@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../profile/screens/compare_plans_screen.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import 'buy_dont_buy_scan_screen.dart';
 
-class BuyDontBuyLimitReachedScreen extends StatelessWidget {
+class BuyDontBuyLimitReachedScreen extends ConsumerWidget {
   static const path = 'buy-dont-buy/limit-reached';
   static const name = 'shop_buy_dont_buy_limit';
 
   const BuyDontBuyLimitReachedScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
@@ -102,7 +105,13 @@ class BuyDontBuyLimitReachedScreen extends StatelessWidget {
                     color: AppColors.gold,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
-                      onTap: () => context.goNamed(ComparePlansScreen.name),
+                      onTap: () {
+                        ref.read(analyticsProvider).capture(
+                          AnalyticsEvents.upgradeTapped,
+                          {'source': 'buy_dont_buy_limit'},
+                        );
+                        context.goNamed(ComparePlansScreen.name);
+                      },
                       borderRadius: BorderRadius.circular(12),
                       child: SizedBox(
                         height: 56,

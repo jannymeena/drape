@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
+import '../../shared/providers/analytics_provider.dart';
 import '../../shared/providers/network_provider.dart';
 import '../../shared/providers/session_epoch.dart';
+import '../../shared/services/analytics/analytics_events.dart';
 import '../../shared/services/dashboard_cache.dart';
 import '../../shared/services/session_store.dart';
 import '../../shared/services/storage_service.dart';
@@ -48,6 +50,9 @@ class AuthController extends StateNotifier<AuthState> {
       password: password,
     );
     await _persistSession(response);
+    _ref
+        .read(analyticsProvider)
+        .capture(AnalyticsEvents.loginCompleted, {'method': 'email'});
     return response;
   }
 
@@ -60,12 +65,25 @@ class AuthController extends StateNotifier<AuthState> {
     required String email,
     required String password,
   }) async {
-    final response = await _service.signupWithEmail(
-      email: email,
-      password: password,
-      displayName: _displayNameFromEmail(email),
-    );
+    final AuthResponse response;
+    try {
+      response = await _service.signupWithEmail(
+        email: email,
+        password: password,
+        displayName: _displayNameFromEmail(email),
+      );
+    } on ApiException catch (e) {
+      // The error code is a stable backend literal (e.g. email_already_exists),
+      // never user input — safe as an event property.
+      _ref
+          .read(analyticsProvider)
+          .capture(AnalyticsEvents.signupFailed, {'code': e.code});
+      rethrow;
+    }
     await _persistSession(response);
+    _ref
+        .read(analyticsProvider)
+        .capture(AnalyticsEvents.signupCompleted, {'method': 'email'});
     return response;
   }
 
@@ -100,6 +118,7 @@ class AuthController extends StateNotifier<AuthState> {
       final me = await _service.fetchCurrentUser();
       await SessionStore.setLoggedIn(true);
       state = AuthState(session: state.session, currentUser: me);
+      _ref.read(analyticsProvider).identify(me.id);
       return true;
     } on ApiException {
       await _clearSession();
@@ -137,6 +156,7 @@ class AuthController extends StateNotifier<AuthState> {
     await _storage.saveIdentity(userId: response.userId, email: response.email);
     await SessionStore.setLoggedIn(true);
     state = AuthState(session: response, currentUser: state.currentUser);
+    _ref.read(analyticsProvider).identify(response.userId);
     _bumpSessionEpoch();
   }
 
@@ -147,6 +167,7 @@ class AuthController extends StateNotifier<AuthState> {
     // sees the previous user's outfits before the fresh frame loads.
     await DashboardCache().clear();
     state = const AuthState();
+    _ref.read(analyticsProvider).reset();
     _bumpSessionEpoch();
   }
 

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../billing_service.dart';
@@ -29,11 +31,27 @@ class _ComparePlansScreenState extends ConsumerState<ComparePlansScreen> {
   String get _selectedPlan =>
       _cadence == _Cadence.monthly ? 'pro_monthly' : 'pro_yearly';
 
+  @override
+  void initState() {
+    super.initState();
+    // Compare Plans IS the paywall (the dedicated hard-block screens were
+    // deliberately collapsed into it — MOBILE_CHANGES notes).
+    ref.read(analyticsProvider).capture(AnalyticsEvents.paywallViewed);
+  }
+
   Future<void> _upgrade() async {
     if (_purchasing) return;
+    ref.read(analyticsProvider).capture(
+      AnalyticsEvents.upgradeTapped,
+      {'source': 'compare_plans', 'plan': _selectedPlan},
+    );
     setState(() => _purchasing = true);
     try {
       await ref.read(billingServiceProvider).upgrade(_selectedPlan);
+      ref.read(analyticsProvider).capture(
+        AnalyticsEvents.subscriptionStarted,
+        {'plan': _selectedPlan},
+      );
       // Entitlement changed server-side — refresh anything that renders it.
       ref.invalidate(subscriptionProvider);
       ref.invalidate(billingHistoryProvider);

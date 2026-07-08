@@ -11,6 +11,7 @@ import 'package:mobile/modules/wardrobe/models/wardrobe_item.dart';
 import 'package:mobile/modules/wardrobe/screens/item_detail_screen.dart';
 import 'package:mobile/modules/wardrobe/wardrobe_service.dart';
 import 'package:mobile/shared/providers/router_provider.dart';
+import 'package:mobile/shared/services/analytics/analytics_service.dart';
 import 'package:mobile/shared/services/dashboard_cache.dart';
 import 'package:mobile/shared/services/session_store.dart';
 
@@ -18,7 +19,8 @@ import 'package:mobile/shared/services/session_store.dart';
 /// branch (which the reasoning deep link sits under) doesn't fire a real
 /// dashboard fetch during these routing-only tests.
 class _StubTodayController extends TodayController {
-  _StubTodayController() : super(TodayService(Dio()), DashboardCache());
+  _StubTodayController()
+      : super(TodayService(Dio()), DashboardCache(), DebugAnalyticsService());
   @override
   Future<void> loadFrame() async {}
 }

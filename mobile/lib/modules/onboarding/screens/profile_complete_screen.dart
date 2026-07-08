@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/services/session_store.dart';
 import '../../../shared/services/share_service.dart';
 import '../../../shared/theme/app_colors.dart';
@@ -35,6 +37,13 @@ class _ProfileCompleteScreenState extends ConsumerState<ProfileCompleteScreen> {
   /// Null until the user's stored value loads; then mirrors it locally.
   bool? _shareCommunity;
   bool _uploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Reaching this screen is the end of the onboarding funnel.
+    ref.read(analyticsProvider).capture(AnalyticsEvents.onboardingCompleted);
+  }
 
   /// Persist the community-share opt-in. Optimistic: flips locally, then PATCHes
   /// `community_share_avatar`; reverts on failure.

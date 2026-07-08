@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../billing_service.dart';
@@ -18,6 +20,10 @@ class RetentionOfferScreen extends ConsumerWidget {
   Future<void> _accept(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(billingServiceProvider).acceptRetentionOffer();
+      ref.read(analyticsProvider).capture(
+        AnalyticsEvents.subscriptionReactivated,
+        {'source': 'retention_offer'},
+      );
       ref.invalidate(subscriptionProvider);
       ref.invalidate(billingHistoryProvider);
       if (!context.mounted) return;

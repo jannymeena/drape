@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../profile/screens/compare_plans_screen.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/analytics_screen_view.dart';
 import '../../../shared/models/api_error.dart';
 import '../../wardrobe/image_pick.dart';
 import '../models/shop.dart';
@@ -61,6 +64,9 @@ class _BuyDontBuyScanScreenState extends ConsumerState<BuyDontBuyScanScreen> {
       if (!mounted) return;
       setState(() => _checking = false);
       if (e.statusCode == 429) {
+        ref
+            .read(analyticsProvider)
+            .capture(AnalyticsEvents.buyDontBuyLimitReached);
         context.goNamed(BuyDontBuyLimitReachedScreen.name);
       } else {
         ScaffoldMessenger.of(context)
@@ -75,6 +81,10 @@ class _BuyDontBuyScanScreenState extends ConsumerState<BuyDontBuyScanScreen> {
       // Live camera scan reuses the same photo path for now.
       await _startCheck();
     } else if (i == 2) {
+      ref.read(analyticsProvider).capture(
+        AnalyticsEvents.measurementModalShown,
+        {'source': 'buy_dont_buy'},
+      );
       await showMeasurementRequiredModal(context);
     }
   }
@@ -103,10 +113,14 @@ class _BuyDontBuyScanScreenState extends ConsumerState<BuyDontBuyScanScreen> {
                   _MethodTabs(selected: _tab, onSelected: _onTab),
                   if (_checksLeft <= 1) ...[
                     const SizedBox(height: 12),
-                    BuyDontBuyUsageBanner(
-                      checksLeft: _checksLeft,
-                      onUpgrade: () =>
-                          context.goNamed(BuyDontBuyLimitReachedScreen.name),
+                    AnalyticsScreenView(
+                      event: AnalyticsEvents.buyDontBuyWarningShown,
+                      properties: {'checks_left': _checksLeft},
+                      child: BuyDontBuyUsageBanner(
+                        checksLeft: _checksLeft,
+                        onUpgrade: () =>
+                            context.goNamed(BuyDontBuyLimitReachedScreen.name),
+                      ),
                     ),
                   ],
                   const SizedBox(height: 16),

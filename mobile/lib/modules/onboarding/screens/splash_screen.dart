@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
 import '../../auth/auth_controller.dart';
@@ -38,6 +40,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     ]);
     final restored = results.first as bool;
     if (!mounted) return;
+    ref
+        .read(analyticsProvider)
+        .capture(AnalyticsEvents.appLaunched, {'has_valid_token': restored});
     if (!restored) {
       context.goNamed(WelcomeScreen.name);
       return;
