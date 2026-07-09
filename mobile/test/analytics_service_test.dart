@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/shared/providers/analytics_provider.dart';
 import 'package:mobile/shared/services/analytics/analytics_service.dart';
+import 'package:mobile/shared/services/analytics/posthog_analytics_service.dart';
 import 'package:mobile/shared/widgets/analytics_screen_view.dart';
 
 /// Guards the P1 analytics plumbing: the default sink is safe to call, and
@@ -31,6 +32,16 @@ void main() {
     analytics.capture('bare_event');
     analytics.identify('user-id');
     analytics.reset();
+  });
+
+  test('provider falls back to the debug sink with no POSTHOG_API_KEY', () {
+    // This test binary builds with no dart-defines, so the key is absent and
+    // the PostHog sink must never be selected (nothing leaves the device).
+    expect(PosthogAnalyticsService.isConfigured, isFalse);
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    expect(container.read(analyticsProvider), isA<DebugAnalyticsService>());
   });
 
   testWidgets('AnalyticsScreenView captures once, not on rebuild',
