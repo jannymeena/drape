@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
 import '../../shared/providers/analytics_provider.dart';
+import '../../shared/providers/crash_provider.dart';
 import '../../shared/providers/network_provider.dart';
 import '../../shared/providers/session_epoch.dart';
 import '../../shared/services/analytics/analytics_events.dart';
@@ -165,6 +166,7 @@ class AuthController extends StateNotifier<AuthState> {
       await SessionStore.setLoggedIn(true);
       state = AuthState(session: state.session, currentUser: me);
       _ref.read(analyticsProvider).identify(me.id);
+      _ref.read(crashReporterProvider).setUser(me.id);
       return true;
     } on ApiException {
       await _clearSession();
@@ -203,6 +205,7 @@ class AuthController extends StateNotifier<AuthState> {
     await SessionStore.setLoggedIn(true);
     state = AuthState(session: response, currentUser: state.currentUser);
     _ref.read(analyticsProvider).identify(response.userId);
+    _ref.read(crashReporterProvider).setUser(response.userId);
     _bumpSessionEpoch();
   }
 
@@ -214,6 +217,7 @@ class AuthController extends StateNotifier<AuthState> {
     await DashboardCache().clear();
     state = const AuthState();
     _ref.read(analyticsProvider).reset();
+    _ref.read(crashReporterProvider).clearUser();
     _bumpSessionEpoch();
   }
 
