@@ -11,6 +11,7 @@ import '../../shared/services/storage_service.dart';
 import 'auth_service.dart';
 import 'models/auth_response.dart';
 import 'models/current_user.dart';
+import 'oauth_signin_service.dart';
 
 /// In-memory auth state. The router gates on [SessionStore.state] (a sync
 /// `ValueNotifier`); this notifier additionally exposes the signed-in user's
@@ -84,6 +85,51 @@ class AuthController extends StateNotifier<AuthState> {
     _ref
         .read(analyticsProvider)
         .capture(AnalyticsEvents.signupCompleted, {'method': 'email'});
+    return response;
+  }
+
+  /// Logs in via Apple/Google. [idToken] comes from the native sheet
+  /// (OAuthSignInService); the backend verifies it and get-or-creates the
+  /// account, so this also serves first-time users who tapped the button on
+  /// the login screen. Same persistence + analytics as email login.
+  Future<AuthResponse> loginWithOAuth({
+    required OAuthProvider provider,
+    required String idToken,
+  }) async {
+    final response = await _service.loginWithOAuth(
+      provider: provider.name,
+      idToken: idToken,
+    );
+    await _persistSession(response);
+    _ref
+        .read(analyticsProvider)
+        .capture(AnalyticsEvents.loginCompleted, {'method': provider.name});
+    return response;
+  }
+
+  /// Signs up via Apple/Google. Idempotent with [loginWithOAuth] server-side —
+  /// a returning user is signed in, so callers route on the response's
+  /// `nextStep`, not straight to onboarding step 1.
+  Future<AuthResponse> signupWithOAuth({
+    required OAuthProvider provider,
+    required String idToken,
+  }) async {
+    final AuthResponse response;
+    try {
+      response = await _service.signupWithOAuth(
+        provider: provider.name,
+        idToken: idToken,
+      );
+    } on ApiException catch (e) {
+      _ref
+          .read(analyticsProvider)
+          .capture(AnalyticsEvents.signupFailed, {'code': e.code});
+      rethrow;
+    }
+    await _persistSession(response);
+    _ref
+        .read(analyticsProvider)
+        .capture(AnalyticsEvents.signupCompleted, {'method': provider.name});
     return response;
   }
 

@@ -67,6 +67,59 @@ class AuthService {
     }
   }
 
+  /// `POST /auth/login` with `auth_method: "apple" | "google"`. The backend
+  /// verifies [idToken] against the provider's JWKS and get-or-creates the
+  /// account (login and signup are idempotent server-side).
+  ///
+  /// Throws [ApiException] on a rejected token (401 `oauth_invalid_token`),
+  /// OAuth disabled in this environment (400 `oauth_unavailable`), or
+  /// transport errors.
+  Future<AuthResponse> loginWithOAuth({
+    required String provider,
+    required String idToken,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/auth/login',
+        data: {
+          'auth_method': provider,
+          _idTokenField(provider): idToken,
+        },
+      );
+      return AuthResponse.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// `POST /auth/signup` with `auth_method: "apple" | "google"`. Consent is
+  /// implied by the screen copy, same as email signup. Idempotent with
+  /// [loginWithOAuth] server-side — a returning user is simply signed in.
+  ///
+  /// Throws [ApiException] on the same failures as [loginWithOAuth].
+  Future<AuthResponse> signupWithOAuth({
+    required String provider,
+    required String idToken,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/auth/signup',
+        data: {
+          'auth_method': provider,
+          _idTokenField(provider): idToken,
+          'agreed_to_terms': true,
+          'agreed_to_privacy': true,
+        },
+      );
+      return AuthResponse.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  static String _idTokenField(String provider) =>
+      provider == 'apple' ? 'apple_id_token' : 'google_id_token';
+
   /// `POST /auth/forgot-password`. Always succeeds (202) regardless of whether
   /// the address has an account — the backend never confirms existence (no
   /// enumeration). Throws [ApiException] only on validation/transport errors.

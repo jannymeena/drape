@@ -9,9 +9,12 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
+import '../../onboarding/onboarding_controller.dart';
+import '../../onboarding/resume_route_map.dart';
 import '../../onboarding/screens/shopping_style_screen.dart';
 import '../../today/screens/today_dashboard_screen.dart';
 import '../auth_controller.dart';
+import '../oauth_signin_service.dart';
 import '../widgets/oauth_buttons.dart';
 import '../widgets/password_field.dart';
 import 'login_screen.dart';
@@ -31,7 +34,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _passwordController = TextEditingController();
 
   bool _submitting = false;
+  bool _oauthBusy = false;
   String? _errorText;
+
+  bool get _busy => _submitting || _oauthBusy;
 
   @override
   void initState() {
@@ -47,7 +53,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   }
 
   Future<void> _onCreate() async {
-    if (_submitting) return;
+    if (_busy) return;
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -84,6 +90,55 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     }
   }
 
+  Future<void> _onOAuth(OAuthProvider provider) async {
+    if (_busy) return;
+
+    setState(() {
+      _oauthBusy = true;
+      _errorText = null;
+    });
+
+    try {
+      final idToken =
+          await ref.read(oauthSignInServiceProvider).idTokenFor(provider);
+      // Null means the user backed out of the native sheet — not an error.
+      if (idToken == null) return;
+      await ref
+          .read(authControllerProvider.notifier)
+          .signupWithOAuth(provider: provider, idToken: idToken);
+      if (!mounted) return;
+      // An OAuth "signup" may be a returning user (the backend upserts), so
+      // resolve the landing spot from the backend status like login does —
+      // it also seeds the onboarding draft for prefill. A brand-new account
+      // resolves to the first onboarding step; a status fetch failure
+      // shouldn't trap a just-authenticated user, so default to Today.
+      try {
+        final status = await ref
+            .read(onboardingControllerProvider.notifier)
+            .loadAndHydrate();
+        if (!mounted) return;
+        context.goNamed(
+          status.onboardingCompleted || isOnboardingDone(status.nextStep)
+              ? TodayDashboardScreen.name
+              : routeForNextStep(status.nextStep),
+        );
+      } on ApiException {
+        if (mounted) context.goNamed(TodayDashboardScreen.name);
+      }
+    } on OAuthSignInException catch (e) {
+      if (!mounted) return;
+      setState(() => _errorText = e.message);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _errorText = e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorText = 'Something went wrong. Please try again.');
+    } finally {
+      if (mounted) setState(() => _oauthBusy = false);
+    }
+  }
+
   void _clearError() {
     if (_errorText != null) setState(() => _errorText = null);
   }
@@ -106,8 +161,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     OAuthButtons(
-                      onApple: () => debugPrint('signup: apple'),
-                      onGoogle: () => debugPrint('signup: google'),
+                      onApple: _busy
+                          ? null
+                          : () => _onOAuth(OAuthProvider.apple),
+                      onGoogle: _busy
+                          ? null
+                          : () => _onOAuth(OAuthProvider.google),
                     ),
                     DrapeTextField(
                       label: 'Email address',

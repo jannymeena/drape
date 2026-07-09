@@ -11,6 +11,7 @@ import '../../onboarding/onboarding_controller.dart';
 import '../../onboarding/resume_route_map.dart';
 import '../../today/screens/today_dashboard_screen.dart';
 import '../auth_controller.dart';
+import '../oauth_signin_service.dart';
 import '../widgets/oauth_buttons.dart';
 import 'forgot_password_screen.dart';
 import 'sign_up_screen.dart';
@@ -30,7 +31,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _submitting = false;
+  bool _oauthBusy = false;
   String? _errorText;
+
+  bool get _busy => _submitting || _oauthBusy;
 
   @override
   void dispose() {
@@ -40,7 +44,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _onSignIn() async {
-    if (_submitting) return;
+    if (_busy) return;
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
@@ -59,24 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .read(authControllerProvider.notifier)
           .loginWithEmail(email: email, password: password);
       if (!mounted) return;
-      // Resolve where to land from the backend status (same as the splash boot),
-      // which also seeds the onboarding draft so a resumed flow is prefilled with
-      // what the user already saved. Completed users land on Today; everyone else
-      // resumes at the step they left off — not back at step 1. A status fetch
-      // failure shouldn't trap a just-authenticated user, so default to Today.
-      try {
-        final status = await ref
-            .read(onboardingControllerProvider.notifier)
-            .loadAndHydrate();
-        if (!mounted) return;
-        context.goNamed(
-          status.onboardingCompleted || isOnboardingDone(status.nextStep)
-              ? TodayDashboardScreen.name
-              : routeForNextStep(status.nextStep),
-        );
-      } on ApiException {
-        if (mounted) context.goNamed(TodayDashboardScreen.name);
-      }
+      await _routeAfterAuth();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _errorText = e.message);
@@ -85,6 +72,59 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _errorText = 'Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _onOAuth(OAuthProvider provider) async {
+    if (_busy) return;
+
+    setState(() {
+      _oauthBusy = true;
+      _errorText = null;
+    });
+
+    try {
+      final idToken =
+          await ref.read(oauthSignInServiceProvider).idTokenFor(provider);
+      // Null means the user backed out of the native sheet — not an error.
+      if (idToken == null) return;
+      await ref
+          .read(authControllerProvider.notifier)
+          .loginWithOAuth(provider: provider, idToken: idToken);
+      if (!mounted) return;
+      await _routeAfterAuth();
+    } on OAuthSignInException catch (e) {
+      if (!mounted) return;
+      setState(() => _errorText = e.message);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _errorText = e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorText = 'Something went wrong. Please try again.');
+    } finally {
+      if (mounted) setState(() => _oauthBusy = false);
+    }
+  }
+
+  /// Resolve where to land from the backend status (same as the splash boot),
+  /// which also seeds the onboarding draft so a resumed flow is prefilled with
+  /// what the user already saved. Completed users land on Today; everyone else
+  /// resumes at the step they left off — not back at step 1. A status fetch
+  /// failure shouldn't trap a just-authenticated user, so default to Today.
+  Future<void> _routeAfterAuth() async {
+    try {
+      final status = await ref
+          .read(onboardingControllerProvider.notifier)
+          .loadAndHydrate();
+      if (!mounted) return;
+      context.goNamed(
+        status.onboardingCompleted || isOnboardingDone(status.nextStep)
+            ? TodayDashboardScreen.name
+            : routeForNextStep(status.nextStep),
+      );
+    } on ApiException {
+      if (mounted) context.goNamed(TodayDashboardScreen.name);
     }
   }
 
@@ -111,8 +151,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 28),
                     OAuthButtons(
-                      onApple: () => debugPrint('login: apple'),
-                      onGoogle: () => debugPrint('login: google'),
+                      onApple: _busy
+                          ? null
+                          : () => _onOAuth(OAuthProvider.apple),
+                      onGoogle: _busy
+                          ? null
+                          : () => _onOAuth(OAuthProvider.google),
                     ),
                     DrapeTextField(
                       label: 'Email address',
