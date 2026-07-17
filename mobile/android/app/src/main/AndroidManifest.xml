@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Coarse location is enough for local-weather outfit suggestions. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Android 13+ runtime permission for showing push notifications; the
+         prompt fires post-onboarding on the Today dashboard, not at launch. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Zoura"
         android:name="${applicationName}"

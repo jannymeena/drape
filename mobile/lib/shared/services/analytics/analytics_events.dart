@@ -87,4 +87,9 @@ abstract final class AnalyticsEvents {
   static const buyDontBuyWarningShown = 'buy_dont_buy_warning_shown';
   static const buyDontBuyLimitReached = 'buy_dont_buy_limit_reached';
   static const measurementModalShown = 'measurement_modal_shown';
+
+  // --- Push (P3) ---
+  static const pushPermissionResult = 'push_permission_result';
+  static const pushNotificationTapped = 'push_notification_tapped';
+  static const pushForegroundReceived = 'push_foreground_received';
 }

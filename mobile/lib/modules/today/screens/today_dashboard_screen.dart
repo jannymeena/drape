@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/providers/analytics_provider.dart';
+import '../../../shared/providers/push_provider.dart';
 import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/widgets/analytics_screen_view.dart';
 import '../../../shared/widgets/drape_toast.dart';
@@ -63,6 +64,10 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     // Defer past the first frame so we don't mutate the provider during build.
     Future.microtask(
         () => ref.read(todayControllerProvider.notifier).loadFrame());
+    // One-time OS notification prompt, deliberately here (post-onboarding
+    // home) and not at launch/login — see MOBILE_CHANGES P3. No-op after the
+    // first ask, and on platforms where push is off.
+    Future.microtask(() => ref.read(pushRegistrarProvider).ensurePermission());
   }
 
   Future<void> _onRegenerate(String outfitId) async {

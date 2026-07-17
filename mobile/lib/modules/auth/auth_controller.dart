@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
 import '../../shared/providers/analytics_provider.dart';
 import '../../shared/providers/crash_provider.dart';
 import '../../shared/providers/network_provider.dart';
+import '../../shared/providers/push_provider.dart';
 import '../../shared/providers/session_epoch.dart';
 import '../../shared/services/analytics/analytics_events.dart';
 import '../../shared/services/dashboard_cache.dart';
@@ -167,6 +170,9 @@ class AuthController extends StateNotifier<AuthState> {
       state = AuthState(session: state.session, currentUser: me);
       _ref.read(analyticsProvider).identify(me.id);
       _ref.read(crashReporterProvider).setUser(me.id);
+      // Fire-and-forget: the registrar is internally best-effort and must
+      // never delay or fail the session restore.
+      unawaited(_ref.read(pushRegistrarProvider).register());
       return true;
     } on ApiException {
       await _clearSession();
@@ -178,6 +184,9 @@ class AuthController extends StateNotifier<AuthState> {
   /// tokens + session flag. The router's redirect bounces protected routes back
   /// to Welcome once the flag flips.
   Future<void> logout() async {
+    // Remove this device from the push registry while the access token is
+    // still valid (internally best-effort, like the revoke below).
+    await _ref.read(pushRegistrarProvider).unregister();
     final refresh = await _storage.getRefreshToken();
     if (refresh != null) {
       try {
@@ -206,6 +215,7 @@ class AuthController extends StateNotifier<AuthState> {
     state = AuthState(session: response, currentUser: state.currentUser);
     _ref.read(analyticsProvider).identify(response.userId);
     _ref.read(crashReporterProvider).setUser(response.userId);
+    unawaited(_ref.read(pushRegistrarProvider).register());
     _bumpSessionEpoch();
   }
 

@@ -26,7 +26,7 @@ class FeatureFlags {
       String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
 
   /// Grow alongside the backend's `_KNOWN_FEATURES` as switches land here.
-  static const _knownFeatures = {'apple_login', 'google_login'};
+  static const _knownFeatures = {'apple_login', 'google_login', 'push'};
 
   static Set<String> get _disabled {
     final names = _disabledRaw
@@ -56,4 +56,10 @@ class FeatureFlags {
   /// Hidden until the Google client IDs arrive (MOBILE_CHANGES P2).
   static bool get googleLogin =>
       googleServerClientId.isNotEmpty && _enabled('google_login');
+
+  /// Push (FCM) is Android-only until the APNs key lands (Apple Developer
+  /// enrollment) — widen this gate to bring iOS in. No build-time key: the
+  /// Firebase client config is the committed google-services.json.
+  static bool get push =>
+      !kIsWeb && Platform.isAndroid && _enabled('push');
 }
