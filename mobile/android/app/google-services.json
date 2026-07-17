@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "365473480549",
+    "project_id": "zoura-ec971",
+    "storage_bucket": "zoura-ec971.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:365473480549:android:e480c8822bd09b760c6b8c",
+        "android_client_info": {
+          "package_name": "style.zoura.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCjsfKFia2yT7eFuRUBd6tiSasZBfYWXU4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
