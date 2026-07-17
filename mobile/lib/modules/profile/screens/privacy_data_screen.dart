@@ -21,8 +21,8 @@ class PrivacyDataScreen extends StatelessWidget {
   const PrivacyDataScreen({super.key});
 
   /// The live policy pages land with release prep (MOBILE_CHANGES P6).
-  static final _privacyPolicyUrl = Uri.parse('https://drape.app/privacy');
-  static final _termsUrl = Uri.parse('https://drape.app/terms');
+  static final _privacyPolicyUrl = Uri.parse('https://zoura.style/privacy');
+  static final _termsUrl = Uri.parse('https://zoura.style/terms');
 
   Future<void> _openPolicy(BuildContext context, Uri url) async {
     final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -152,7 +152,7 @@ class PrivacyDataScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'privacy@drape.app',
+                          'privacy@zoura.style',
                           style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),

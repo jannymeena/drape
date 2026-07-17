@@ -548,7 +548,7 @@ class _InviteFriendsCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    'drape.app/r/alex2024',
+                    'zoura.style/r/alex2024',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.espressoDark,
                           fontWeight: FontWeight.w600,

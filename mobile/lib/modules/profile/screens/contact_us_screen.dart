@@ -288,13 +288,13 @@ class _EmailSupportCard extends StatelessWidget {
             ],
           )),
           const SizedBox(height: 10),
-          Text('concierge@drape.luxury',
+          Text('concierge@zoura.style',
               style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 12),
           DrapeButton(
             label: 'Send Email',
             onPressed: () => launchUrl(
-              Uri(scheme: 'mailto', path: 'concierge@drape.luxury'),
+              Uri(scheme: 'mailto', path: 'concierge@zoura.style'),
             ),
           ),
         ],

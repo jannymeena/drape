@@ -163,7 +163,7 @@ class HowDrapeUsesDataScreen extends StatelessWidget {
                         children: const [
                           TextSpan(text: 'Questions? '),
                           TextSpan(
-                            text: 'privacy@drape.app',
+                            text: 'privacy@zoura.style',
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               decoration: TextDecoration.underline,

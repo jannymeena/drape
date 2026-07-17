@@ -27,7 +27,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
             <!-- Custom-scheme deep link for the password-reset email:
-                 drape://drape.app/auth/reset-password?token=…
+                 drape://zoura.style/auth/reset-password?token=…
                  (host is a placeholder segment so the URI path maps 1:1 onto
                  the go_router location). Enables Flutter's default deep-link
                  handling; App Links (https) need a hosted assetlinks.json and
@@ -39,7 +39,7 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="drape" android:host="drape.app"/>
+                <data android:scheme="drape" android:host="zoura.style"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
