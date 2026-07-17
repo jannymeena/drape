@@ -103,10 +103,11 @@ class Providers:
 
     @staticmethod
     def _build_oauth(s: Settings) -> OAuthVerifier | None:
-        if s.environment == "dev":
-            return None
-        # Config validator guarantees the client ID is present for every
-        # enabled provider; a disabled side gets no audience and its
+        # Key-presence selection in every environment, dev included: a dev
+        # .env without client IDs keeps OAuth off (400 oauth_unavailable),
+        # adding GOOGLE_CLIENT_ID/APPLE_CLIENT_ID turns the real verifier on.
+        # In tbd/prd the config validator guarantees the client ID is present
+        # for every enabled provider; a disabled side gets no audience and its
         # sign-in answers 400 oauth_unavailable.
         apple = s.apple_client_id if s.feature_enabled("apple_login") else None
         google = s.google_client_id if s.feature_enabled("google_login") else None

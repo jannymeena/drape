@@ -351,7 +351,9 @@ def oauth_client(client):
 
 
 def test_oauth_login_unavailable_in_dev(client):
-    # No override: the dev container wires oauth=None → 400, not 404/500.
+    # No override: with a keyless .env the dev container wires oauth=None;
+    # with a Google-only .env the Apple side has no audience. Either path
+    # answers 400 oauth_unavailable, not 404/500.
     r = client.post(
         "/api/v1/auth/login",
         json={"auth_method": "apple", "apple_id_token": "some-token"},

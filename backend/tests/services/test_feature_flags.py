@@ -156,9 +156,25 @@ def test_one_disabled_side_answers_unavailable_other_stays_wired():
     assert exc_info.value.code == "oauth_invalid_token"
 
 
-def test_dev_never_wires_oauth_regardless_of_flags():
+def test_dev_without_keys_wires_no_oauth():
     s = Settings(_env_file=None, environment="dev", measurement_dek_dev="ZGV2LWtleQ==")
     assert Providers._build_oauth(s) is None
+
+
+def test_dev_with_google_key_wires_real_verifier():
+    # Key presence turns real OAuth on in dev too — same selection as tbd/prd.
+    s = Settings(
+        _env_file=None,
+        environment="dev",
+        measurement_dek_dev="ZGV2LWtleQ==",
+        google_client_id="test-client-id.apps.googleusercontent.com",
+    )
+    verifier = Providers._build_oauth(s)
+    assert verifier is not None
+    # The keyless Apple side answers unavailable, not invalid.
+    with pytest.raises(OAuthVerificationError) as exc_info:
+        asyncio.run(verifier.verify_apple("any-token"))
+    assert exc_info.value.code == "oauth_unavailable"
 
 
 def test_billing_disabled_wires_no_payment_provider():
