@@ -86,7 +86,15 @@ class Providers:
 
     @staticmethod
     def _build_payment(s: Settings) -> PaymentProvider | None:
-        if s.environment == "dev":
+        # Key-presence selection in dev, same rule as OAuth: a keyless dev
+        # .env keeps the mock lifecycle; the full sandbox key set turns the
+        # real StripeProvider on for local end-to-end billing (webhooks via
+        # `stripe listen`).
+        if s.environment == "dev" and not (
+            s.stripe_api_key
+            and s.stripe_price_id_pro_monthly
+            and s.stripe_price_id_pro_yearly
+        ):
             return MockPaymentProvider()
         if not s.feature_enabled("billing"):
             return None  # billing routes answer 400 billing_unavailable

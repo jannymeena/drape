@@ -49,6 +49,18 @@ if not os.environ.get("MEASUREMENT_DEK_DEV"):
     # anything that escapes this DB.
     os.environ["MEASUREMENT_DEK_DEV"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
+# The billing suite exercises the full mock-provider lifecycle; a developer
+# .env carrying real (sandbox) Stripe keys must not flip the dev container to
+# the real StripeProvider and send tests to the network. Env vars outrank
+# .env values in pydantic-settings, so blanking them keeps tests hermetic.
+for _stripe_key in (
+    "STRIPE_API_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_PRICE_ID_PRO_MONTHLY",
+    "STRIPE_PRICE_ID_PRO_YEARLY",
+):
+    os.environ[_stripe_key] = ""
+
 # Now safe to import the app stack.
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402

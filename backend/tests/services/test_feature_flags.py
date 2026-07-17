@@ -188,7 +188,7 @@ def test_billing_enabled_wires_stripe_with_price_map():
     assert provider._price_ids == {"pro_monthly": "price_m", "pro_yearly": "price_y"}
 
 
-def test_dev_keeps_mock_payment_regardless_of_flags():
+def test_dev_without_stripe_keys_keeps_mock_payment():
     s = Settings(
         _env_file=None,
         environment="dev",
@@ -197,6 +197,35 @@ def test_dev_keeps_mock_payment_regardless_of_flags():
     )
     provider = Providers._build_payment(s)
     assert type(provider).__name__ == "MockPaymentProvider"
+
+
+def test_dev_with_stripe_keys_wires_real_provider():
+    # Key presence turns real (sandbox) billing on in dev too — same
+    # selection rule as OAuth.
+    s = Settings(
+        _env_file=None,
+        environment="dev",
+        measurement_dek_dev="ZGV2LWtleQ==",
+        stripe_api_key="sk_test_x",
+        stripe_price_id_pro_monthly="price_m",
+        stripe_price_id_pro_yearly="price_y",
+    )
+    provider = Providers._build_payment(s)
+    assert isinstance(provider, StripeProvider)
+
+
+def test_dev_with_stripe_keys_but_billing_disabled_wires_none():
+    # The explicit off-switch still wins over key presence.
+    s = Settings(
+        _env_file=None,
+        environment="dev",
+        measurement_dek_dev="ZGV2LWtleQ==",
+        disabled_features="billing",
+        stripe_api_key="sk_test_x",
+        stripe_price_id_pro_monthly="price_m",
+        stripe_price_id_pro_yearly="price_y",
+    )
+    assert Providers._build_payment(s) is None
 
 
 def test_push_disabled_wires_none_and_fanout_noops():
