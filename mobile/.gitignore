@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Build-time defines (--dart-define-from-file); .env.example is the canonical
+# key list, same convention as backend/.env.
+.env
