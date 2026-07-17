@@ -80,6 +80,11 @@
 		     and stay a prod follow-up. -->
 		<key>FlutterDeepLinkingEnabled</key>
 		<true/>
+		<!-- iOS OAuth client ID (Google Cloud project "zoura"); the native
+		     Google Sign-In SDK reads this key. The server client ID stays a
+		     --dart-define (GOOGLE_SERVER_CLIENT_ID) shared with Android. -->
+		<key>GIDClientID</key>
+		<string>364249279816-ikqtrnqsd1nocu3tcefcg8rm0i2i3l0o.apps.googleusercontent.com</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>
@@ -88,6 +93,16 @@
 				<key>CFBundleURLSchemes</key>
 				<array>
 					<string>zoura</string>
+				</array>
+			</dict>
+			<!-- Reversed iOS client ID: the redirect back from the Google
+			     auth sheet. -->
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>style.zoura.google-oauth</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.364249279816-ikqtrnqsd1nocu3tcefcg8rm0i2i3l0o</string>
 				</array>
 			</dict>
 		</array>
