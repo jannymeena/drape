@@ -56,7 +56,7 @@ class _ComparePlansScreenState extends ConsumerState<ComparePlansScreen> {
       ref.invalidate(subscriptionProvider);
       ref.invalidate(billingHistoryProvider);
       if (!mounted) return;
-      showDrapeToast(context, 'Welcome to Drape Pro!');
+      showDrapeToast(context, 'Welcome to Zoura Pro!');
       context.pop();
     } on ApiException catch (e) {
       if (!mounted) return;

@@ -82,7 +82,7 @@ class _GapAnalysisScreenState extends ConsumerState<GapAnalysisScreen> {
                     const SizedBox(height: 12),
                     _ProTeaserCard(
                       message: gaps!.proTeaser ??
-                          'Upgrade to Drape Pro for the full analysis.',
+                          'Upgrade to Zoura Pro for the full analysis.',
                       onUpgrade: () =>
                           context.goNamed(ComparePlansScreen.name),
                     ),

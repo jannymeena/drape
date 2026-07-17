@@ -11,7 +11,7 @@ class DrapeApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
     return MaterialApp.router(
-      title: 'Drape',
+      title: 'Zoura',
       theme: AppTheme.light,
       routerConfig: router,
       debugShowCheckedModeBanner: false,

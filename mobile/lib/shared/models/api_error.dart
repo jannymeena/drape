@@ -35,7 +35,7 @@ class ApiException implements Exception {
         return const ApiException(
           code: 'network',
           message:
-              "Can't reach Drape. Check your connection and that the server is running.",
+              "Can't reach Zoura. Check your connection and that the server is running.",
         );
       default:
         break;

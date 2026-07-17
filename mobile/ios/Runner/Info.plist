@@ -3,17 +3,17 @@
 <plist version="1.0">
 	<dict>
 		<key>NSCameraUsageDescription</key>
-		<string>Drape uses the camera to scan and photograph your clothing items.</string>
+		<string>Zoura uses the camera to scan and photograph your clothing items.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
-		<string>Drape needs access to your photos to add clothing items to your wardrobe.</string>
+		<string>Zoura needs access to your photos to add clothing items to your wardrobe.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>Drape uses your location to tailor outfit suggestions to your local weather.</string>
+		<string>Zoura uses your location to tailor outfit suggestions to your local weather.</string>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Mobile</string>
+		<string>Zoura</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -21,7 +21,7 @@
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
 		<key>CFBundleName</key>
-		<string>mobile</string>
+		<string>zoura</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
@@ -75,7 +75,7 @@
 		<key>UIStatusBarHidden</key>
 		<false/>
 		<!-- Custom-scheme deep link for the password-reset email:
-		     drape://zoura.style/auth/reset-password?token=…
+		     zoura://zoura.style/auth/reset-password?token=…
 		     Universal Links (https) need a hosted apple-app-site-association
 		     and stay a prod follow-up. -->
 		<key>FlutterDeepLinkingEnabled</key>
@@ -84,10 +84,10 @@
 		<array>
 			<dict>
 				<key>CFBundleURLName</key>
-				<string>app.drape.auth</string>
+				<string>style.zoura.auth</string>
 				<key>CFBundleURLSchemes</key>
 				<array>
-					<string>drape</string>
+					<string>zoura</string>
 				</array>
 			</dict>
 		</array>

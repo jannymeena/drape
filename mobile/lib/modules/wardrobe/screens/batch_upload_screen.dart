@@ -178,7 +178,7 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
         title: const Text('Wardrobe full'),
         content: Text(
           'Added $created before hitting the free-tier 30-item limit. '
-          'Upgrade to Drape Pro for unlimited storage.',
+          'Upgrade to Zoura Pro for unlimited storage.',
         ),
         actions: [
           TextButton(
