@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -95,10 +96,10 @@ class _AvatarRevealScreenState extends ConsumerState<AvatarRevealScreen> {
                       fit: StackFit.expand,
                       children: [
                         if (hasAvatar)
-                          Image.network(
-                            avatarUrl,
+                          CachedNetworkImage(
+                            imageUrl: avatarUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const _AvatarEmpty(),
+                            errorWidget: (_, _, _) => const _AvatarEmpty(),
                           )
                         else
                           const _AvatarEmpty(),

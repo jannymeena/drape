@@ -67,6 +67,10 @@ dependencies:
   firebase_messaging: ^16.4.3
   uuid: ^4.6.0
 
+  # On-device (disk) cache for server images — plain Image.network only has
+  # Flutter's in-memory cache, so every fresh session re-downloaded from S3.
+  cached_network_image: ^3.4.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

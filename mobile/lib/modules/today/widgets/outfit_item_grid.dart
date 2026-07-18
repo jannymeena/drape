@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
@@ -56,12 +57,12 @@ class _OutfitGridCell extends StatelessWidget {
     if (cell.imageUrl == null) {
       child = GarmentPlaceholder(category: cell.category, color: cell.color);
     } else {
-      child = Image.network(
-        cell.imageUrl!,
+      child = CachedNetworkImage(
+        imageUrl: cell.imageUrl!,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, _, _) =>
+        errorWidget: (_, _, _) =>
             GarmentPlaceholder(category: cell.category, color: cell.color),
       );
     }

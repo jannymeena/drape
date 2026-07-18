@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -291,10 +292,10 @@ class _ItemRow extends StatelessWidget {
               height: 56,
               child: item.imageUrl == null
                   ? _placeholder
-                  : Image.network(
-                      item.imageUrl!,
+                  : CachedNetworkImage(
+                      imageUrl: item.imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _placeholder,
+                      errorWidget: (_, _, _) => _placeholder,
                     ),
             ),
           ),

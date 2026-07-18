@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
@@ -65,10 +66,10 @@ class ProductCard extends StatelessWidget {
                               child: Icon(Icons.checkroom_outlined,
                                   color: AppColors.taupeSoft, size: 40),
                             )
-                          : Image.network(
-                              product.imageUrl!,
+                          : CachedNetworkImage(
+                              imageUrl: product.imageUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => const Center(
+                              errorWidget: (_, _, _) => const Center(
                                 child: Icon(Icons.checkroom_outlined,
                                     color: AppColors.taupeSoft),
                               ),

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -271,10 +272,10 @@ class _Tile extends StatelessWidget {
                 ),
               ),
               child: (imageUrl != null && imageUrl!.isNotEmpty)
-                  ? Image.network(
-                      imageUrl!,
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
+                      errorWidget: (_, _, _) =>
                           GarmentPlaceholder(category: category, color: color),
                     )
                   : GarmentPlaceholder(category: category, color: color),

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
@@ -58,10 +59,10 @@ class ItemCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                       child: item.imageUrl == null
                           ? _placeholder()
-                          : Image.network(
-                              item.imageUrl!,
+                          : CachedNetworkImage(
+                              imageUrl: item.imageUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => _placeholder(),
+                              errorWidget: (_, _, _) => _placeholder(),
                             ),
                     ),
                   ),

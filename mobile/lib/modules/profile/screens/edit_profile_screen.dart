@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -191,12 +192,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                                 ? const CircularProgressIndicator(
                                     color: AppColors.espresso)
                                 : (user?.avatarUrl != null
-                                    ? Image.network(
-                                        user!.avatarUrl!,
+                                    ? CachedNetworkImage(
+                                        imageUrl: user!.avatarUrl!,
                                         width: 96,
                                         height: 96,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => const Icon(
+                                        errorWidget: (_, _, _) => const Icon(
                                             Icons.checkroom,
                                             color: AppColors.espresso,
                                             size: 48),
