@@ -107,7 +107,11 @@ def upgrade(
 
     try:
         result = payment.create_subscription(
-            user_id=user.id, plan=plan, amount_cents=price_cents, currency="CAD"
+            user_id=user.id,
+            plan=plan,
+            amount_cents=price_cents,
+            currency="CAD",
+            email=user.email,
         )
     except PaymentProviderError as exc:
         raise BillingError(exc.code, str(exc)) from exc
@@ -232,7 +236,9 @@ def add_payment_method(
     db: Session, *, user: User, token: str, payment: PaymentProvider
 ) -> PaymentMethod:
     try:
-        result = payment.add_payment_method(user_id=user.id, token=token)
+        result = payment.add_payment_method(
+            user_id=user.id, token=token, email=user.email
+        )
     except PaymentProviderError as exc:
         raise BillingError(exc.code, str(exc)) from exc
     first = not list_payment_methods(db, user=user)
@@ -254,7 +260,7 @@ def add_payment_method(
 
 def portal_url(*, user: User, payment: PaymentProvider) -> str:
     try:
-        return payment.create_portal_url(user_id=user.id)
+        return payment.create_portal_url(user_id=user.id, email=user.email)
     except PaymentProviderError as exc:
         raise BillingError(exc.code, str(exc)) from exc
 

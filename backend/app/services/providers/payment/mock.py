@@ -24,7 +24,13 @@ class MockPaymentProvider(PaymentProvider):
     name = "mock"
 
     def create_subscription(
-        self, *, user_id: UUID, plan: str, amount_cents: int, currency: str
+        self,
+        *,
+        user_id: UUID,
+        plan: str,
+        amount_cents: int,
+        currency: str,
+        email: str | None = None,
     ) -> ProviderSubscription:
         sub_id = f"mock_sub_{secrets.token_hex(8)}"
         invoice = f"INV-{secrets.token_hex(4).upper()}"
@@ -49,7 +55,7 @@ class MockPaymentProvider(PaymentProvider):
         )
 
     def add_payment_method(
-        self, *, user_id: UUID, token: str
+        self, *, user_id: UUID, token: str, email: str | None = None
     ) -> ProviderPaymentMethod:
         # The "token" is opaque; the mock mints a plausible Visa.
         return ProviderPaymentMethod(
@@ -61,6 +67,6 @@ class MockPaymentProvider(PaymentProvider):
             exp_year=2030,
         )
 
-    def create_portal_url(self, *, user_id: UUID) -> str:
+    def create_portal_url(self, *, user_id: UUID, email: str | None = None) -> str:
         _log.info("payment.mock.portal", user_id=str(user_id))
         return "https://billing.example.test/mock-portal"

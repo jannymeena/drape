@@ -80,14 +80,20 @@ class StripeProvider(PaymentProvider):
         self._customer_cache: dict[str, str] = {}
 
     def create_subscription(
-        self, *, user_id: UUID, plan: str, amount_cents: int, currency: str
+        self,
+        *,
+        user_id: UUID,
+        plan: str,
+        amount_cents: int,
+        currency: str,
+        email: str | None = None,
     ) -> ProviderSubscription:
         price_id = self._price_ids.get(plan)
         if not price_id:
             raise PaymentProviderError(
                 "payment_provider_error", f"No Stripe price configured for plan {plan!r}"
             )
-        customer = self._ensure_customer(user_id)
+        customer = self._ensure_customer(user_id, email=email)
         # error_if_incomplete: charge the default payment method now or fail
         # loudly — no silent 'incomplete' subscriptions on our books.
         sub = self._request(
@@ -129,9 +135,9 @@ class StripeProvider(PaymentProvider):
         )
 
     def add_payment_method(
-        self, *, user_id: UUID, token: str
+        self, *, user_id: UUID, token: str, email: str | None = None
     ) -> ProviderPaymentMethod:
-        customer = self._ensure_customer(user_id)
+        customer = self._ensure_customer(user_id, email=email)
         pm = self._request(
             "POST", f"/payment_methods/{token}/attach", data={"customer": customer}
         )
@@ -151,8 +157,8 @@ class StripeProvider(PaymentProvider):
             exp_year=int(card.get("exp_year") or 0),
         )
 
-    def create_portal_url(self, *, user_id: UUID) -> str:
-        customer = self._ensure_customer(user_id)
+    def create_portal_url(self, *, user_id: UUID, email: str | None = None) -> str:
+        customer = self._ensure_customer(user_id, email=email)
         session = self._request(
             "POST",
             "/billing_portal/sessions",
@@ -164,7 +170,7 @@ class StripeProvider(PaymentProvider):
     # Internals
     # ------------------------------------------------------------------
 
-    def _ensure_customer(self, user_id: UUID) -> str:
+    def _ensure_customer(self, user_id: UUID, *, email: str | None = None) -> str:
         key = str(user_id)
         cached = self._customer_cache.get(key)
         if cached:
@@ -175,11 +181,21 @@ class StripeProvider(PaymentProvider):
         matches = found.get("data") or []
         if matches:
             customer_id = matches[0]["id"]
+            # Backfill/refresh the email so the dashboard shows a human
+            # identity instead of the bare cus_ id (also covers customers
+            # created before email threading, and address changes).
+            if email and matches[0].get("email") != email:
+                self._request(
+                    "POST", f"/customers/{customer_id}", data={"email": email}
+                )
         else:
+            data = {"metadata[user_id]": key}
+            if email:
+                data["email"] = email
             created = self._request(
                 "POST",
                 "/customers",
-                data={"metadata[user_id]": key},
+                data=data,
                 idempotency_key=f"drape-customer-{key}",
             )
             customer_id = created["id"]

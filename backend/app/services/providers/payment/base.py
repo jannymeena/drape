@@ -48,9 +48,19 @@ class PaymentProvider(ABC):
 
     @abstractmethod
     def create_subscription(
-        self, *, user_id: UUID, plan: str, amount_cents: int, currency: str
+        self,
+        *,
+        user_id: UUID,
+        plan: str,
+        amount_cents: int,
+        currency: str,
+        email: str | None = None,
     ) -> ProviderSubscription:
-        """Charge the first period and open the upstream subscription."""
+        """Charge the first period and open the upstream subscription.
+
+        [email] labels the upstream customer record so provider dashboards
+        show a human identity instead of an opaque id; never used for lookup
+        (metadata user_id is the key)."""
 
     @abstractmethod
     def cancel_subscription(self, *, provider_subscription_id: str) -> None:
@@ -58,10 +68,10 @@ class PaymentProvider(ABC):
 
     @abstractmethod
     def add_payment_method(
-        self, *, user_id: UUID, token: str
+        self, *, user_id: UUID, token: str, email: str | None = None
     ) -> ProviderPaymentMethod:
         """Exchange a client-side token for a stored payment method."""
 
     @abstractmethod
-    def create_portal_url(self, *, user_id: UUID) -> str:
+    def create_portal_url(self, *, user_id: UUID, email: str | None = None) -> str:
         """Short-lived URL to the provider-hosted billing management page."""
