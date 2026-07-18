@@ -69,10 +69,11 @@ migrations once prd has real users.
 
 ## Tier 1 — Buildable now (no outside input)
 
-### 1.1 Reset-password URL default *(trivial)*
-- [ ] Config default (`core/config.py`) still points at `https://drape.local/reset`; dev `.env`
-      carries the `drape://` template. Set the real https App/Universal Link template at deploy
-      time (Tier 3.2 step 7).
+### 1.1 Reset-password URL default *(done 2026-07-18, Zoura rename pass)*
+- [x] Config default, dev `.env`, `.env.example`, and the App Runner yaml all carry
+      `zoura://zoura.style/auth/reset-password?token={token}`, matching the mobile intent
+      filter (verified end-to-end via the logged dev reset email). Swap to the real https
+      App/Universal Link template at deploy time (Tier 3.2 step 7).
 
 ## Tier 2 — Blocked on keys/accounts — by build complexity
 
@@ -130,9 +131,18 @@ repo yet; this is the target runbook. All resources in **`ca-central-1`** (PIPED
 4. [ ] KMS CMK `alias/drape-tbd-measurements`; key policy: task role gets
        `kms:Encrypt/Decrypt/GenerateDataKey` only. Key ARN → `KMS_KEY_ID`.
 5. [ ] SES: verify sending domain + `no-reply@` from-address → `SES_REGION`, `SES_FROM_ADDRESS`.
-6. [ ] OAuth creds: Apple Service ID (e.g. `com.drape.app`) + `.p8` private key (record Team/Key IDs;
-       `.p8` contents into Secrets Manager); Google OAuth clients (iOS + Android) — the backend only
-       needs `GOOGLE_CLIENT_ID` as the audience (verification is JWKS-based).
+6. [ ] OAuth creds: Apple — native-app flow audience is the bundle ID `style.zoura.mobile`
+       (a Service ID is only needed if a web flow is added) + `.p8` private key (record Team/Key
+       IDs; `.p8` contents into Secrets Manager). Google — clients created 2026-07-17/18
+       (Android + iOS + web); the backend needs only the web client ID as `GOOGLE_CLIENT_ID`
+       (verification is JWKS-based); value is in dev `.env`.
+6b. [ ] Stripe per mode — **sandbox settings don't carry to live**; redo at go-live: create the
+        live product/prices (new `price_` IDs), the dashboard webhook endpoint
+        (`https://api-<env>.zoura.style/api/v1/billing/webhook/stripe`, 3 events) with its own
+        `whsec_`, portal configuration (card update + invoices ON, cancel + plan-switch OFF —
+        in-app soft-cancel owns cancellation; done via API in sandbox 2026-07-18), statement
+        descriptor (`ZOURA.STYLE`), and customer emails (receipts + failed payments) under
+        Settings → Customer emails / Billing → Subscriptions and emails.
 7. [ ] Secrets Manager: one JSON secret per env (e.g. `drape/tbd/app`) holding the full `.env`
        envelope — `JWT_SECRET` (64-byte urlsafe), `DATABASE_URL`, `ANTHROPIC_API_KEY`, Apple/Google
        IDs, `SES_*`, `KMS_KEY_ID`, `AWS_REGION`, `PASSWORD_RESET_URL_TEMPLATE` (https App/Universal
@@ -154,7 +164,7 @@ repo yet; this is the target runbook. All resources in **`ca-central-1`** (PIPED
 12. [ ] Smoke test: `/api/v1/health` 200 · OAuth route returns **401 not 404** (mounted in tbd,
         unlike dev) · `forgot-password` → 202 / SES delivery · CloudWatch shows JSON logs with
         `request_id` (pretty colored logs ⇒ `ENVIRONMENT` isn't `tbd`; fix before anything else).
-13. [ ] DNS: Route53 alias `api-tbd.drape.app` → ALB; ACM cert `*.drape.app` on the listener.
+13. [ ] DNS: Route53 alias `api-tbd.zoura.style` → ALB; ACM cert `*.zoura.style` on the listener.
 14. [ ] Record every provisioned ARN (RDS, KMS, ECR, ECS service, secret) in `infra/`.
 
 ### 3.3 CI + release flow *(lands with 3.2)*

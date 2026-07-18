@@ -9,11 +9,12 @@ Enterprise AI B2C application — Flutter mobile client + FastAPI backend + Post
 | `README.md` (this file) | Orientation + the full local runbook: setup, run, test, reset, troubleshoot |
 | [`BACKEND_CHANGES.md`](./BACKEND_CHANGES.md) | Backend task doc — open work by tier, deploy runbook, design notes |
 | [`MOBILE_CHANGES.md`](./MOBILE_CHANGES.md) | Mobile task doc — gap-closure plan, release prep |
+| [`PRD_MIGRATION_CHECKLIST.md`](./PRD_MIGRATION_CHECKLIST.md) | Every go-live shadow task: vendor dashboards, live keys, DNS, legal |
 | [`CLAUDE.md`](./CLAUDE.md) | Conventions + commands for AI-assisted work |
 
 Product/design specs live in `handoff/` (`CTO_Handoff_*.md` + screen mockups) — the authoritative contract per tab; the code implements those docs, it doesn't improvise on them.
 
-> **Where we are (2026-07):** the backend API surface is shipped and the Flutter app is built and wired to it. The core happy path — signup → profile → measurements (encrypted) → avatar photo → wardrobe scan → Today outfits — runs end-to-end against real providers (Claude vision + chat, Open-Meteo weather); billing, shop, and push run on mock providers in dev. Backend suite: 198 pytest tests + 8 bash smoke scripts, green. Remaining work lives in the two task docs: backend Tier 3 (blocked on external keys: OAuth, Stripe, FCM/APNS, AWIN), Tier 4 (hardening + AWS deploy), and mobile release prep.
+> **Where we are (2026-07):** the backend API surface is shipped and the Flutter app is built and wired to it. The core happy path — signup → profile → measurements (encrypted) → avatar photo → wardrobe scan → Today outfits — runs end-to-end against real providers (Claude vision + chat, Open-Meteo weather); billing, shop, and push run on mock providers in dev. Backend suite: 198 pytest tests + 8 bash smoke scripts, green. Remaining work lives in the two task docs: backend Tier 3 (blocked on external keys: OAuth, Stripe, FCM/APNS, AWIN), Tier 4 (hardening + AWS deploy), and mobile release prep. **Current focus: the mobile app.** The product is rebranding to **Zoura** (`zoura.style`): the mobile client now carries the new display name, `style.zoura.mobile` bundle IDs, `zoura://` deep-link scheme, `zoura.style` links/emails, and Zoura user-facing copy (internal `Drape*` widget/class names deliberately kept). The matching backend/env/infra updates (`PASSWORD_RESET_URL_TEMPLATE`, `STRIPE_PORTAL_RETURN_URL`, SES sender, DNS/cert) come next.
 
 ---
 
@@ -172,7 +173,7 @@ Set via `ENVIRONMENT`. Pydantic validates at startup — anything other than `de
 | `SES_REGION`, `SES_FROM_ADDRESS` | `tbd`, `prd`       | Password-reset emails (`SesEmailProvider`).            |
 | `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_PATH` | `tbd`, `prd` — unless `apple_login` is disabled | Apple Sign-In server-side verification. `APPLE_CLIENT_ID` may be comma-separated (bundle ID + Service ID). |
 | `GOOGLE_CLIENT_ID`           | `tbd`, `prd` — unless `google_login` is disabled | Google ID token audience. May be comma-separated (iOS + Android client IDs). |
-| `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO_MONTHLY`, `STRIPE_PRICE_ID_PRO_YEARLY` | `tbd`, `prd` — unless `billing` is disabled | Real payments (`StripeProvider`); dev uses `MockPaymentProvider`. Webhook: `POST /api/v1/billing/webhook/stripe` (subscribe `invoice.paid`, `invoice.payment_failed`, `customer.subscription.deleted`). |
+| `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_PRO_MONTHLY`, `STRIPE_PRICE_ID_PRO_YEARLY` | `tbd`, `prd` — unless `billing` is disabled | Real payments (`StripeProvider`). Dev: keyless → `MockPaymentProvider`; full key set → real sandbox Stripe (see "Real Stripe billing in dev"). Webhook: `POST /api/v1/billing/webhook/stripe` (subscribe `invoice.paid`, `invoice.payment_failed`, `customer.subscription.deleted`). |
 | `STRIPE_PORTAL_RETURN_URL`   | optional               | Customer-portal return target (default: `drape://drape.app/billing`). |
 | `FCM_CREDENTIALS_JSON`       | `tbd`, `prd` — unless `push` is disabled | Firebase service-account JSON (raw or base64) for FCM HTTP v1; FCM relays iOS to APNS via the `.p8` uploaded to the Firebase project. Dev logs via `LogPushProvider`. |
 
@@ -192,6 +193,29 @@ Semantics:
 - User-facing endpoints answer **400** with a typed code (`oauth_unavailable` / `billing_unavailable` — the same contract mobile already handles in dev). `push` is the exception: sends are server-initiated, so disabling it turns the `notify_user` fan-out into a logged no-op while device registration keeps collecting tokens.
 - Dev is not affected by the switches for providers it already mocks (`MockPaymentProvider` and `LogPushProvider` stay; OAuth stays off).
 - Read **once at boot**: flipping a flag means restarting the server (dev) or updating the secret + `aws ecs update-service --force-new-deployment` (tbd/prd — rolling, zero downtime).
+
+### Mobile build-time keys (`--dart-define`)
+
+Client config is injected at **build time** (`String.fromEnvironment`), sourced from a gitignored `mobile/.env` passed with `--dart-define-from-file=.env` — the mobile mirror of the backend `.env` convention (`mobile/.env.example` is the canonical key list; CI materializes the real file from the secrets manager). All keys are **optional**; each is gated by key presence, so a plain `flutter run` without the flag is a valid keyless build (analytics log to the console, OAuth buttons stay hidden). Feature names in `DISABLED_FEATURES` mirror the backend's.
+
+| Key                       | Purpose                                                                                                   |
+|---------------------------|-----------------------------------------------------------------------------------------------------------|
+| `POSTHOG_API_KEY`         | PostHog project key. Absent → the debug/log sink is used and **nothing leaves the device**. Present → the real `PosthogAnalyticsService`. |
+| `POSTHOG_HOST`            | PostHog ingestion host. Defaults to `https://us.i.posthog.com`; set for EU/self-host.                     |
+| `SENTRY_DSN`              | Sentry DSN. Absent → the no-op crash sink is used (**nothing leaves the device**; uncaught errors still print). Present → uncaught errors are reported to Sentry. |
+| `SENTRY_ENVIRONMENT`      | Deployment tag on Sentry events. Defaults by build mode (`release`/`debug`); set to `tbd`/`prd` per backend target. |
+| `GOOGLE_SERVER_CLIENT_ID` | Google OAuth server client ID; must equal one of the backend's `GOOGLE_CLIENT_ID` audiences. Absent → the Google button is hidden. |
+| `DISABLED_FEATURES`       | Client mirror of the backend switch: `apple_login`, `google_login` hide their buttons (and the divider).  |
+
+```bash
+# Keyed build (real analytics + crash reporting + OAuth): put keys in
+# mobile/.env (copy from .env.example, gitignored) and pass the file
+flutter run --dart-define-from-file=.env
+flutter build apk --release --dart-define-from-file=.env
+
+# Individual --dart-define flags still work and override the file
+flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=xxx.apps.googleusercontent.com
+```
 
 ---
 
@@ -286,6 +310,45 @@ flutter analyze && flutter test
 ```bash
 docker compose exec db psql -U admin -d drape -c "UPDATE users SET subscription_tier='pro' WHERE email='dev@example.com'"
 ```
+
+### Real Stripe billing in dev (sandbox)
+
+Dev selects the payment provider by key presence (same rule as OAuth): a keyless
+`.env` keeps `MockPaymentProvider`; setting `STRIPE_API_KEY` + both
+`STRIPE_PRICE_ID_*` wires the real `StripeProvider` against the sandbox. The
+first charge needs a card on file — the app's card form is mock-era, so attach
+Stripe's test card via the API:
+
+```bash
+# terminal 1 — webhook bridge (prints the whsec_… for STRIPE_WEBHOOK_SECRET)
+stripe listen --forward-to localhost:8000/api/v1/billing/webhook/stripe
+
+# terminal 2 — card on file, then upgrade (or upgrade from the app)
+TOKEN=<seed_dev_user token>
+curl -X POST localhost:8000/api/v1/payment-methods -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"token": "pm_card_visa"}'
+curl -X POST localhost:8000/api/v1/subscription/upgrade -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"plan": "pro_monthly"}'
+```
+
+**Renewal / dunning webhooks — `scripts/stripe_test_clock.py`** (dev-only). The
+interesting lifecycle (`invoice.paid` renewals, `invoice.payment_failed`,
+`customer.subscription.deleted`) only fires as time passes, and a customer can
+only join a Stripe *test clock* at creation — so the script builds a clocked
+twin of the dev user and repoints the local subscription row at it:
+
+```bash
+python scripts/stripe_test_clock.py setup --plan pro_monthly   # clock + clocked customer/sub; cancels the app-created Stripe sub
+python scripts/stripe_test_clock.py advance --days 31          # renewal invoice is CREATED (draft)…
+python scripts/stripe_test_clock.py advance --days 1           # …and finalized + charged (Stripe's ~1h finalization lag)
+python scripts/stripe_test_clock.py fail-next                  # swap in a declining card; next advance = payment_failed path
+```
+
+Needs uvicorn + `stripe listen` running. After the two advances, expect
+`invoice.paid → 200` in the listener, `billing.webhook.renewed` in the server
+log, a "Zoura Pro renewal" row in `GET /billing/history`, and
+`current_period_end` extended. Everything the clock creates is sandbox junk
+tied to the dev user; `reset_dev_db.py` + a fresh `setup` starts over.
 
 ---
 

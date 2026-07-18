@@ -4,11 +4,13 @@ AI fashion stylist: Flutter mobile app (`mobile/`) + FastAPI backend (`backend/`
 Own-issued JWT auth (no Firebase — rejected for PIPEDA; everything targets AWS `ca-central-1`).
 Environments follow the Spring-style `dev` / `tbd` / `prd` convention.
 
-## Doc system — exactly four docs; do not create new root-level planning files
+## Doc system — exactly five docs; do not create new root-level planning files
 
 - `README.md` — orientation + the full local runbook (setup, run, test, reset, troubleshoot).
 - `BACKEND_CHANGES.md` — backend task doc: open work by tier, deploy runbook, design notes.
 - `MOBILE_CHANGES.md` — mobile task doc: gap-closure plan, release prep.
+- `PRD_MIGRATION_CHECKLIST.md` — every go-live shadow task (vendor dashboards, live keys,
+  DNS, legal). Whenever a dev/tbd step has a "redo this for live" twin, record it here at once.
 - `CLAUDE.md` — this file.
 
 New tasks/plans go into the two `*_CHANGES.md` docs. Product/design specs live in `handoff/`
