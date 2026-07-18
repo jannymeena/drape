@@ -168,7 +168,7 @@ def test_system_context_carries_the_stable_content():
         using_starter_wardrobe=False,
         body_analysis=None,
     )
-    assert "You are Drape" in system  # persona
+    assert "You are Zoura" in system  # persona
     assert "Respond with ONLY a JSON object" in system  # response format
     assert "Blue Oxford Shirt" in system and "Grey Chinos" in system
     assert "Style goals: polished." in system
@@ -236,5 +236,5 @@ def test_outfit_generation_requests_system_caching():
     )
     call = ai.calls[0]
     assert call["cache_system"] is True
-    assert "You are Drape" in call["system"]
+    assert "You are Zoura" in call["system"]
     assert call["messages"][0]["content"].startswith("Build ONE outfit")

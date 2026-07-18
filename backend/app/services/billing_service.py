@@ -103,7 +103,7 @@ def upgrade(
 
     sub = get_subscription(db, user=user)
     if sub is not None and sub.status == "active" and not sub.cancel_at_period_end:
-        raise BillingError("already_subscribed", "Already on Drape Pro")
+        raise BillingError("already_subscribed", "Already on Zoura Pro")
 
     try:
         result = payment.create_subscription(
@@ -144,7 +144,7 @@ def upgrade(
     _record(
         db,
         user=user,
-        description=f"Drape Pro ({'yearly' if plan == 'pro_yearly' else 'monthly'})",
+        description=f"Zoura Pro ({'yearly' if plan == 'pro_yearly' else 'monthly'})",
         amount_cents=result.amount_cents,
         currency=result.currency,
         invoice_number=result.invoice_number,
@@ -311,7 +311,7 @@ def apply_stripe_event(db: Session, *, event: dict) -> str:
         _record(
             db,
             user=user,
-            description=f"Drape Pro renewal ({'yearly' if sub.plan == 'pro_yearly' else 'monthly'})",
+            description=f"Zoura Pro renewal ({'yearly' if sub.plan == 'pro_yearly' else 'monthly'})",
             amount_cents=int(obj.get("amount_paid") or sub.price_cents),
             currency=(obj.get("currency") or "cad").upper(),
             invoice_number=obj.get("number"),
@@ -330,7 +330,7 @@ def apply_stripe_event(db: Session, *, event: dict) -> str:
         row = _record(
             db,
             user=user,
-            description="Drape Pro renewal — payment failed",
+            description="Zoura Pro renewal — payment failed",
             amount_cents=int(obj.get("amount_due") or sub.price_cents),
             currency=(obj.get("currency") or "cad").upper(),
             invoice_number=obj.get("number"),

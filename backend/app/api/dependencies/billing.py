@@ -36,7 +36,7 @@ def require_pro(
             "error": "pro_required",
             "feature": feature,
             "message": (
-                "This feature is available on Drape Pro. "
+                "This feature is available on Zoura Pro. "
                 "Upgrade to unlock unlimited intelligence reports."
             ),
             # Paywall payload — plans the client can render immediately.

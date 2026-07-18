@@ -240,7 +240,7 @@ async def forgot_password(
     reset_url = settings.password_reset_url_template.format(token=raw)
     await email_provider.send(
         to=email,
-        subject="Drape — reset your password",
+        subject="Zoura — reset your password",
         body=f"Reset your password with this link (valid 30 minutes): {reset_url}",
     )
     _log.info("auth.forgot_password.sent", user_id=str(user.id))

@@ -110,7 +110,7 @@ def get_feed(
 # ---------------------------------------------------------------------------
 
 _ADVISOR_SYSTEM = (
-    "You are Drape's personal stylist. Answer the user's styling question in "
+    "You are Zoura's personal stylist. Answer the user's styling question in "
     "2-4 sentences, then suggest up to 3 product categories to look for. "
     'Reply with ONLY JSON: {"reply": "...", "suggestions": '
     '[{"name": "...", "category": "tops|bottoms|shoes|outerwear|dresses|accessories", '
@@ -216,7 +216,7 @@ def advisor_history(db: Session, *, user: User) -> list[AdvisorConversation]:
 # ---------------------------------------------------------------------------
 
 _BDB_PROMPT = (
-    "You are Drape's purchase advisor. The user is considering buying the "
+    "You are Zoura's purchase advisor. The user is considering buying the "
     "garment in this image. Assess it against a typical versatile wardrobe: "
     "fit risk, value, and whether it fills a gap. Reply with ONLY JSON: "
     '{"verdict": "buy"|"dont_buy", "score": 0-100, '

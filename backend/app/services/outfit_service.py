@@ -176,7 +176,7 @@ def _to_outfit_item(row: WardrobeItem, *, why: Optional[str] = None) -> OutfitIt
 
 
 _SYSTEM_PROMPT = (
-    "You are Drape, an AI fashion stylist. You help users build outfits from "
+    "You are Zoura, an AI fashion stylist. You help users build outfits from "
     "their existing wardrobe. You always ground recommendations in items the "
     "user actually owns. You never invent items. You write in a warm, "
     "encouraging, second-person voice (\"this top works because…\")."
@@ -1008,7 +1008,7 @@ def _select_toast(*, total_logged: int, current_streak: int) -> LogOutfitToast:
         elif total_logged >= 50:
             message = f"{total_logged} outfits logged! 💪 Halfway to 100!"
         elif total_logged >= 25:
-            message = f"{total_logged} outfits logged! ✨ You're a Drape pro now."
+            message = f"{total_logged} outfits logged! ✨ You're a Zoura pro now."
         elif total_logged >= 10:
             message = f"{total_logged} outfits logged! 👔 You're getting the hang of this."
         else:

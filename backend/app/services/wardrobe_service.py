@@ -118,7 +118,7 @@ def _enforce_free_item_limit(db: Session, *, user: User) -> None:
         raise WardrobeError(
             "limit_reached",
             f"Free-tier wardrobe is capped at {FREE_TIER_REAL_ITEM_LIMIT} real items "
-            f"(you have {real}). Upgrade to Drape Pro for unlimited storage.",
+            f"(you have {real}). Upgrade to Zoura Pro for unlimited storage.",
         )
 
 

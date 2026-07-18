@@ -181,7 +181,7 @@ def gap_analysis(
         gaps=gaps[:1],
         is_teaser=len(gaps) > 1,
         pro_teaser=(
-            f"{len(gaps) - 1} more gaps found — upgrade to Drape Pro for the "
+            f"{len(gaps) - 1} more gaps found — upgrade to Zoura Pro for the "
             "full analysis."
         )
         if len(gaps) > 1
