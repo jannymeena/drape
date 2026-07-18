@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
 import '../config/api_config.dart';
 import 'session_store.dart';
@@ -26,6 +27,7 @@ Dio buildDio(StorageService storage) {
     ),
   );
 
+  dio.interceptors.add(_RequestIdInterceptor());
   dio.interceptors.add(_AuthInterceptor(storage));
   dio.interceptors.add(_RefreshInterceptor(storage: storage, client: dio));
   if (kDebugMode) {
@@ -33,6 +35,20 @@ Dio buildDio(StorageService storage) {
   }
 
   return dio;
+}
+
+/// Client-minted correlation id, one per request. The backend middleware
+/// accepts the X-Request-ID header and stamps it on every server log line
+/// for that request, so an id captured from a client error joins both sides
+/// of the same call — even for timeouts, where only the server log exists.
+class _RequestIdInterceptor extends Interceptor {
+  static const _uuid = Uuid();
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.headers['X-Request-ID'] = _uuid.v4();
+    handler.next(options);
+  }
 }
 
 class _AuthInterceptor extends Interceptor {
@@ -193,7 +209,8 @@ class _LoggingInterceptor extends Interceptor {
     debugPrint(
       '✗ ${err.response?.statusCode ?? err.type.name} '
       '${err.requestOptions.method} ${err.requestOptions.uri} '
-      '— ${err.response?.data ?? err.message}',
+      '— ${err.response?.data ?? err.message} '
+      '(rid ${err.requestOptions.headers['X-Request-ID']})',
     );
     handler.next(err);
   }

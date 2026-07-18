@@ -13,29 +13,42 @@ class ApiException implements Exception {
     required this.code,
     required this.message,
     this.statusCode,
+    this.requestId,
   });
 
   final String code;
   final String message;
   final int? statusCode;
 
+  /// Correlation id of the failed call — the client-minted X-Request-ID (the
+  /// server echoes the same value and logs every line under it). Rides in
+  /// [toString] so crash reports and debug logs can be joined with the exact
+  /// backend log lines.
+  final String? requestId;
+
   factory ApiException.fromDio(DioException error) {
     final response = error.response;
+    // Prefer the server's echo; fall back to the sent header, which exists
+    // even when the server never answered (timeout) but may have logged it.
+    final requestId = response?.headers.value('x-request-id') ??
+        error.requestOptions.headers['X-Request-ID'] as String?;
 
     // Transport-level failures never reach the server.
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return const ApiException(
+        return ApiException(
           code: 'timeout',
           message: 'The server took too long to respond. Please try again.',
+          requestId: requestId,
         );
       case DioExceptionType.connectionError:
-        return const ApiException(
+        return ApiException(
           code: 'network',
           message:
               "Can't reach Zoura. Check your connection and that the server is running.",
+          requestId: requestId,
         );
       default:
         break;
@@ -54,6 +67,7 @@ class ApiException implements Exception {
             'error',
         message: (detail['message'] as String?) ?? _statusFallback(status),
         statusCode: status,
+        requestId: requestId,
       );
     }
 
@@ -63,6 +77,7 @@ class ApiException implements Exception {
         code: 'validation_error',
         message: 'Please check your details and try again.',
         statusCode: status,
+        requestId: requestId,
       );
     }
 
@@ -70,6 +85,7 @@ class ApiException implements Exception {
       code: 'error',
       message: detail is String ? detail : _statusFallback(status),
       statusCode: status,
+      requestId: requestId,
     );
   }
 
@@ -81,5 +97,7 @@ class ApiException implements Exception {
   }
 
   @override
-  String toString() => 'ApiException($code, $statusCode): $message';
+  String toString() =>
+      'ApiException($code, $statusCode): $message'
+      '${requestId != null ? ' [rid $requestId]' : ''}';
 }

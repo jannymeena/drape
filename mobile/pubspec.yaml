@@ -65,6 +65,7 @@ dependencies:
   sentry_flutter: ^9.24.0
   firebase_core: ^4.12.1
   firebase_messaging: ^16.4.3
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
