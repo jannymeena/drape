@@ -98,7 +98,7 @@ class _NotificationsPreferencesScreenState
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                     children: [
                   Text(
-                    'Control when and how DRAPE reaches you',
+                    'Control when and how ZOURA reaches you',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
@@ -168,7 +168,7 @@ class _NotificationsPreferencesScreenState
                   _ToggleCard(
                     icon: Icons.shopping_bag_outlined,
                     label: 'Shopping Suggestions',
-                    subtitle: 'When DRAPE spots a wardrobe gap',
+                    subtitle: 'When ZOURA spots a wardrobe gap',
                     value: _shopping,
                     onChanged: (v) => _toggle(
                         'shopping_suggestions', v, (x) => _shopping = x),

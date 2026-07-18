@@ -212,7 +212,7 @@ class SettingsScreen extends ConsumerWidget {
                     child: Column(
                       children: [
                         Text(
-                          'DRAPE V1.0.0',
+                          'ZOURA V1.0.0',
                           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                 color: AppColors.taupe,
                                 letterSpacing: 1.4,

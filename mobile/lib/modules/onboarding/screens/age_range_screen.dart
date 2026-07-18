@@ -104,7 +104,7 @@ class _AgeRangeScreenState extends ConsumerState<AgeRangeScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        TextSpan(text: ' — helps DRAPE suggest age-appropriate styles. You can skip this.'),
+                        TextSpan(text: ' — helps ZOURA suggest age-appropriate styles. You can skip this.'),
                       ],
                     ),
                   ),

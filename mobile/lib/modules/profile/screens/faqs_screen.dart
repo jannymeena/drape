@@ -34,11 +34,11 @@ class _FaqsScreenState extends State<FaqsScreen> {
         ),
         FaqItem(
           'What measurements do I need to provide?',
-          'DRAPE uses 8 key measurements: Height, Weight, Chest/Bust, Waist, Hips, Inseam, Arm Length. Add these in Settings → Profile → Measurements.',
+          'ZOURA uses 8 key measurements: Height, Weight, Chest/Bust, Waist, Hips, Inseam, Arm Length. Add these in Settings → Profile → Measurements.',
         ),
         FaqItem(
           'Can I sync multiple devices?',
-          'Yes. DRAPE syncs your wardrobe data automatically across all logged-in devices.',
+          'Yes. ZOURA syncs your wardrobe data automatically across all logged-in devices.',
         ),
       ],
     ),
@@ -58,7 +58,7 @@ class _FaqsScreenState extends State<FaqsScreen> {
       items: [
         FaqItem(
           'How are my daily outfits chosen?',
-          "DRAPE considers the weather, your calendar occasions, what you've worn recently, and your style profile.",
+          "ZOURA considers the weather, your calendar occasions, what you've worn recently, and your style profile.",
         ),
       ],
     ),

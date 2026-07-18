@@ -47,7 +47,7 @@ class ShopFeedEmptyScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Complete your style profile so DRAPE can curate products and spot wardrobe gaps tailored to you.',
+                      'Complete your style profile so ZOURA can curate products and spot wardrobe gaps tailored to you.',
                       style: Theme.of(context).textTheme.bodyMedium,
                       textAlign: TextAlign.center,
                     ),

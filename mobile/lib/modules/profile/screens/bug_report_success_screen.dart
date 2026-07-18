@@ -44,7 +44,7 @@ class BugReportSuccessScreen extends StatelessWidget {
                   children: const [
                     TextSpan(
                         text:
-                            "Thanks for helping us improve DRAPE. We'll investigate and email you at "),
+                            "Thanks for helping us improve ZOURA. We'll investigate and email you at "),
                     TextSpan(
                       text: 'alex.chen@email.com',
                       style: TextStyle(fontWeight: FontWeight.w700),
@@ -108,7 +108,7 @@ class BugReportSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'DRAPE',
+                'ZOURA',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppColors.taupe,
                       letterSpacing: 4,

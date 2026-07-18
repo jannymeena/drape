@@ -412,7 +412,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     );
   }
 
-  /// "Complete your DRAPE profile" nudge — shown while measurements are
+  /// "Complete your ZOURA profile" nudge — shown while measurements are
   /// incomplete (CTO doc 2, Screen 5). Progress comes from the backend
   /// `GET /profile/onboarding-status` payload (`measurement_steps_completed`
   /// + `next_incomplete_step`); a null next step means the 7 required are in
@@ -684,7 +684,7 @@ class _TopBar extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'DRAPE',
+            'ZOURA',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: AppColors.espresso,
                   letterSpacing: 4,

@@ -91,7 +91,7 @@ class _FeatureRequestScreenState extends ConsumerState<FeatureRequestScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                 children: [
-                  Text('Shape the future of DRAPE 💡',
+                  Text('Shape the future of ZOURA 💡',
                       style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 6),
                   Text(

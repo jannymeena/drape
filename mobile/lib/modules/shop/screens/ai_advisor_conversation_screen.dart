@@ -291,7 +291,7 @@ class _StylistReply extends ConsumerWidget {
                   color: AppColors.gold, size: 14),
             ),
             const SizedBox(width: 8),
-            Text('DRAPE STYLIST',
+            Text('ZOURA STYLIST',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: AppColors.espresso,
                       letterSpacing: 1.2,

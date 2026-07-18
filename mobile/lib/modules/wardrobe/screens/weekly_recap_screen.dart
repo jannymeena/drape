@@ -15,16 +15,16 @@ import 'intelligence_report_screen.dart';
 /// line if the report isn't loaded yet.
 void _shareRecap(WeeklyReport? r) {
   if (r == null) {
-    shareText('My week in style with DRAPE 👗', subject: 'My DRAPE recap');
+    shareText('My week in style with Zoura 👗', subject: 'My Zoura recap');
     return;
   }
   final parts = <String>[
-    'My DRAPE week in style:',
+    'My Zoura week in style:',
     '• ${r.outfitsLogged} outfits logged',
     if (r.streakDays > 0) '• ${r.streakDays}-day streak 🔥',
     if (r.itemsWornDistinct > 0) '• ${r.itemsWornDistinct} different items worn',
   ];
-  shareText(parts.join('\n'), subject: 'My DRAPE recap');
+  shareText(parts.join('\n'), subject: 'My Zoura recap');
 }
 
 /// Free weekly recap (`GET /wardrobe/analytics/weekly-report`): activity, the

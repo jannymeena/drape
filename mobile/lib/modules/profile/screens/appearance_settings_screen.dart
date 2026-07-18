@@ -219,7 +219,7 @@ class _AppearanceSettingsScreenState
                       _IconChoice(
                         label: 'Dark',
                         background: AppColors.black,
-                        text: 'DRAPE',
+                        text: 'ZOURA',
                         textColor: AppColors.gold,
                         selected: _iconIndex == 1,
                         onTap: () => setState(() => _iconIndex = 1),
@@ -227,7 +227,7 @@ class _AppearanceSettingsScreenState
                       _IconChoice(
                         label: 'Cream',
                         background: AppColors.tanFixed,
-                        text: 'DRAPE',
+                        text: 'ZOURA',
                         textColor: AppColors.espressoDark,
                         selected: _iconIndex == 2,
                         onTap: () => setState(() => _iconIndex = 2),

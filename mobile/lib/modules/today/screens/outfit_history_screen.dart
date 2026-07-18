@@ -17,20 +17,20 @@ import 'ai_reasoning_detail_screen.dart';
 /// Shares a summary of the user's logged-outfit history.
 void _shareHistory(OutfitHistory? h) {
   if (h == null) {
-    shareText('Tracking my outfits with DRAPE 👗', subject: 'My DRAPE history');
+    shareText('Tracking my outfits with ZOURA 👗', subject: 'My ZOURA history');
     return;
   }
   final parts = <String>[
-    'My DRAPE outfit history:',
+    'My ZOURA outfit history:',
     if (h.currentStreak.days > 0) '• ${h.currentStreak.days}-day logging streak 🔥',
     '• ${h.totalCount} outfits logged',
   ];
-  shareText(parts.join('\n'), subject: 'My DRAPE history');
+  shareText(parts.join('\n'), subject: 'My ZOURA history');
 }
 
 void _shareStreak(int days) {
-  shareText("🔥 I'm on a $days-day outfit-logging streak with DRAPE!",
-      subject: 'My DRAPE streak');
+  shareText("🔥 I'm on a $days-day outfit-logging streak with ZOURA!",
+      subject: 'My ZOURA streak');
 }
 
 /// Logged-outfit history (`GET /outfits/history`). Only worn outfits land here,

@@ -467,7 +467,7 @@ class _ProUpsell extends StatelessWidget {
             children: [
               const Icon(Icons.workspace_premium, color: AppColors.gold, size: 16),
               const SizedBox(width: 6),
-              Text('DRAPE ATELIER PRO',
+              Text('ZOURA ATELIER PRO',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: AppColors.gold,
                         letterSpacing: 1.4,

@@ -209,7 +209,7 @@ void main() {
     await _settle(tester);
 
     expect(find.byType(ResumeBanner), findsOneWidget);
-    expect(find.text('Complete your DRAPE profile'), findsOneWidget);
+    expect(find.text('Complete your ZOURA profile'), findsOneWidget);
     expect(find.text('0 of 8 steps done'), findsOneWidget);
   });
 

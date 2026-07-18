@@ -81,7 +81,7 @@ class AppTypography {
         ),
       );
 
-  /// Splash-screen wordmark style (DRAPE, 48dp, wide tracking).
+  /// Splash-screen wordmark style (ZOURA, 48dp, wide tracking).
   static TextStyle get brandMark => _serif(
         size: 48,
         weight: FontWeight.w600,

@@ -82,7 +82,7 @@ class _ShoppingStyleScreenState extends ConsumerState<ShoppingStyleScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'This helps DRAPE suggest the right products and outfit ideas for you.',
+                    'This helps ZOURA suggest the right products and outfit ideas for you.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 24),

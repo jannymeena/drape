@@ -51,7 +51,7 @@ class _PrivacySheet extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'How DRAPE Protects Your Profile',
+              'How ZOURA Protects Your Profile',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const Divider(height: 32, color: AppColors.taupeSoft),
@@ -74,7 +74,7 @@ class _PrivacySheet extends StatelessWidget {
             const SizedBox(height: 12),
             const _Bullet(
               title: 'Access:',
-              body: 'Only you. No DRAPE employee can view your measurements.',
+              body: 'Only you. No ZOURA employee can view your measurements.',
             ),
             const SizedBox(height: 24),
             DrapeButton.outlined(

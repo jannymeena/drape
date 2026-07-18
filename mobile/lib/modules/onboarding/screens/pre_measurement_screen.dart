@@ -86,7 +86,7 @@ class PreMeasurementScreen extends ConsumerWidget {
                     ),
                     TextSpan(
                       text:
-                          ' exact body — so every outfit DRAPE suggests actually fits you.',
+                          ' exact body — so every outfit ZOURA suggests actually fits you.',
                     ),
                   ],
                 ),
@@ -115,7 +115,7 @@ class PreMeasurementScreen extends ConsumerWidget {
               const _ValueProp(
                 icon: Icons.auto_awesome_outlined,
                 title: 'More accurate AI suggestions',
-                body: 'DRAPE considers your shape when styling.',
+                body: 'ZOURA considers your shape when styling.',
               ),
               const SizedBox(height: 12),
               const _ValueProp(

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
 
-/// "Complete your DRAPE profile" nudge — shown on the Today dashboard while
+/// "Complete your ZOURA profile" nudge — shown on the Today dashboard while
 /// measurements are incomplete. Mirrors
 /// `screens/CTO_Handoff_Today_Tab/today_dashboard_with_resume_banner`.
 /// The whole banner is tappable and routes to the measurements editor.
@@ -55,7 +55,7 @@ class ResumeBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Complete your DRAPE profile',
+                      'Complete your ZOURA profile',
                       style: textTheme.titleSmall
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),

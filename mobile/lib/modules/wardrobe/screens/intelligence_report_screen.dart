@@ -15,14 +15,14 @@ import '../wardrobe_service.dart';
 /// when the score isn't loaded yet.
 void _shareIntelligence(UtilizationScore? u) {
   if (u == null) {
-    shareText('My wardrobe intelligence report from DRAPE 📊',
-        subject: 'My DRAPE report');
+    shareText('My wardrobe intelligence report from Zoura 📊',
+        subject: 'My Zoura report');
     return;
   }
   shareText(
-    'My DRAPE wardrobe utilization score: ${u.score}/100 (${u.label}).\n'
+    'My Zoura wardrobe utilization score: ${u.score}/100 (${u.label}).\n'
     '${u.itemsWornRecently} of ${u.itemsTotal} items worn in the last ${u.daysWindow} days.',
-    subject: 'My DRAPE report',
+    subject: 'My Zoura report',
   );
 }
 
@@ -405,7 +405,7 @@ class _Header extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              'DRAPE REPORT',
+              'ZOURA REPORT',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                     color: AppColors.espresso,

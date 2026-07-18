@@ -62,7 +62,7 @@ class _CancellationReasonSheetState extends State<_CancellationReasonSheet> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Help us improve DRAPE',
+              'Help us improve ZOURA',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.espresso,
                     fontWeight: FontWeight.w500,

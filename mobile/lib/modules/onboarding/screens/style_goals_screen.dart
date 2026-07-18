@@ -86,7 +86,7 @@ class _StyleGoalsScreenState extends ConsumerState<StyleGoalsScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
               child: Text(
-                'Pick the goals that matter most to you. DRAPE will optimize your daily styling experience based on these priorities.',
+                'Pick the goals that matter most to you. ZOURA will optimize your daily styling experience based on these priorities.',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),

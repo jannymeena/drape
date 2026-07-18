@@ -67,7 +67,7 @@ class _ExportMyDataScreenState extends ConsumerState<ExportMyDataScreen> {
       await SharePlus.instance.share(
         ShareParams(
           files: [XFile(file.path, mimeType: 'application/json')],
-          subject: 'My DRAPE data export',
+          subject: 'My ZOURA data export',
         ),
       );
     } catch (e) {

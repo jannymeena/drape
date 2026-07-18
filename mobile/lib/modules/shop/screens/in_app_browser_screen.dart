@@ -271,7 +271,7 @@ class _BrowserChrome extends StatelessWidget {
                   const Icon(Icons.lock_outline,
                       color: AppColors.tan, size: 12),
                   const SizedBox(width: 6),
-                  Text('DRAPE · jcrew.com',
+                  Text('ZOURA · jcrew.com',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             color: AppColors.brandText,
                           )),
@@ -329,7 +329,7 @@ class _Footer extends StatelessWidget {
             const Icon(Icons.auto_awesome, color: AppColors.gold, size: 16),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('Unlocks 8 outfits in DRAPE',
+              child: Text('Unlocks 8 outfits in ZOURA',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.sage,
                         fontWeight: FontWeight.w600,

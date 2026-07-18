@@ -53,7 +53,7 @@ class BillingHistoryScreen extends ConsumerWidget {
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                         children: [
                           Text(
-                            'Your DRAPE invoices and receipts.',
+                            'Your ZOURA invoices and receipts.',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                           const SizedBox(height: 20),

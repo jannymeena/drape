@@ -64,7 +64,7 @@ class ManualEntryScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             Center(
               child: Text(
-                'Switch to step-by-step in Settings → Your DRAPE Profile.',
+                'Switch to step-by-step in Settings → Your ZOURA Profile.',
                 style: Theme.of(context).textTheme.bodySmall,
                 textAlign: TextAlign.center,
               ),

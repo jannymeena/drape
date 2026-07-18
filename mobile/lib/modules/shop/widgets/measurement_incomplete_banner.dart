@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/theme/app_colors.dart';
 
 /// Amber banner shown on product pages when the user's measurements aren't
-/// complete, so DRAPE can't predict fit. Tap routes to the measurement flow.
+/// complete, so ZOURA can't predict fit. Tap routes to the measurement flow.
 class MeasurementIncompleteBanner extends StatelessWidget {
   final VoidCallback onTap;
 

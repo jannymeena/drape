@@ -167,7 +167,7 @@ class _Header extends StatelessWidget {
                       color: AppColors.taupe,
                     )),
           ),
-          Text('DRAPE',
+          Text('ZOURA',
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                     color: AppColors.espresso,
                     letterSpacing: 3,

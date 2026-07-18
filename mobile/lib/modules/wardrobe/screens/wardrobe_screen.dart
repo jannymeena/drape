@@ -389,7 +389,7 @@ class _TopBar extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'DRAPE',
+            'ZOURA',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: AppColors.espresso,
                   letterSpacing: 4,

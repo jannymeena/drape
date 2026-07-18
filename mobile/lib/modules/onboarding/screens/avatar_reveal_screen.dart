@@ -13,7 +13,7 @@ import '../onboarding_controller.dart';
 import 'profile_complete_screen.dart';
 
 /// Avatar step. The avatar is the user's own photo (uploaded via
-/// `POST /profile/avatar/upload`) — DRAPE renders outfit suggestions against it.
+/// `POST /profile/avatar/upload`) — ZOURA renders outfit suggestions against it.
 /// Tap to add a photo now, or skip and add it later from the profile.
 class AvatarRevealScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/avatar-reveal';
@@ -80,8 +80,8 @@ class _AvatarRevealScreenState extends ConsumerState<AvatarRevealScreen> {
               const SizedBox(height: 8),
               Text(
                 hasAvatar
-                    ? 'DRAPE renders every outfit suggestion against your photo. Tap to change it.'
-                    : 'Add a photo so DRAPE can show outfits on you. You can change or add this anytime.',
+                    ? 'ZOURA renders every outfit suggestion against your photo. Tap to change it.'
+                    : 'Add a photo so ZOURA can show outfits on you. You can change or add this anytime.',
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),

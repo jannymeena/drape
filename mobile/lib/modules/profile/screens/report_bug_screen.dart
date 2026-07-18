@@ -79,7 +79,7 @@ class _ReportBugScreenState extends ConsumerState<ReportBugScreen> {
                       style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 6),
                   Text(
-                    'Your feedback helps make DRAPE better for everyone. We respond within 24 hours.',
+                    'Your feedback helps make ZOURA better for everyone. We respond within 24 hours.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 20),

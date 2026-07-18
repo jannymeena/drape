@@ -107,7 +107,7 @@ class _ProfileCompleteScreenState extends ConsumerState<ProfileCompleteScreen> {
                 const Icon(Icons.check_circle, color: AppColors.sage, size: 18),
                 const SizedBox(width: 6),
                 Text(
-                  'Your DRAPE Profile Is Complete',
+                  'Your ZOURA Profile Is Complete',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: AppColors.sageDim,
                         fontWeight: FontWeight.w700,
@@ -161,7 +161,7 @@ class _ProfileCompleteScreenState extends ConsumerState<ProfileCompleteScreen> {
             const SizedBox(height: 28),
             Center(
               child: Text(
-                'Your DRAPE avatar is ready — want to share it?',
+                'Your ZOURA avatar is ready — want to share it?',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.brandText.withValues(alpha: 0.8),
                     ),
@@ -173,8 +173,8 @@ class _ProfileCompleteScreenState extends ConsumerState<ProfileCompleteScreen> {
               icon: Icons.camera_alt_outlined,
               label: 'Share to Instagram Story',
               onPressed: () => shareText(
-                'Just built my AI-styled wardrobe with DRAPE 👗✨',
-                subject: 'My DRAPE wardrobe',
+                'Just built my AI-styled wardrobe with ZOURA 👗✨',
+                subject: 'My ZOURA wardrobe',
               ),
             ),
             const SizedBox(height: 12),
@@ -188,7 +188,7 @@ class _ProfileCompleteScreenState extends ConsumerState<ProfileCompleteScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Share my avatar publicly in DRAPE Community',
+                      'Share my avatar publicly in ZOURA Community',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.brandText,
                           ),

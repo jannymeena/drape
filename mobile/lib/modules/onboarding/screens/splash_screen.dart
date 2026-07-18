@@ -75,7 +75,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('DRAPE', style: AppTypography.brandMark),
+              Text('ZOURA', style: AppTypography.brandMark),
               const SizedBox(height: 12),
               Text('Your personal stylist.', style: AppTypography.tagline),
             ],

@@ -34,7 +34,7 @@ class _SaveProgressDialog extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'You can finish your style measurements anytime in Settings → Your DRAPE Profile.',
+              'You can finish your style measurements anytime in Settings → Your ZOURA Profile.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),

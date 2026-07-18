@@ -158,7 +158,7 @@ class _ProfileHeader extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        'DRAPE PRO',
+                        'ZOURA PRO',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                               color: AppColors.espressoDark,
                               letterSpacing: 1.2,

@@ -55,7 +55,7 @@ class _ThemeGalleryScreenState extends State<ThemeGalleryScreen> {
               ),
               child: Column(
                 children: [
-                  Text('DRAPE', style: AppTypography.brandMark),
+                  Text('ZOURA', style: AppTypography.brandMark),
                   const SizedBox(height: 8),
                   Text('Your personal stylist.', style: AppTypography.tagline),
                 ],

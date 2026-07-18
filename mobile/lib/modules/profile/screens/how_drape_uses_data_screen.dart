@@ -22,7 +22,7 @@ class HowDrapeUsesDataScreen extends StatelessWidget {
     ),
     _DataSection(
       icon: Icons.badge_outlined,
-      title: 'DRAPE Profile',
+      title: 'ZOURA Profile',
       bullets: [
         'Stored on your device and encrypted cloud.',
         'AES-256 encryption secures measurements.',
@@ -111,7 +111,7 @@ class HowDrapeUsesDataScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'How DRAPE Uses Your Data',
+                    'How ZOURA Uses Your Data',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
@@ -150,7 +150,7 @@ class HowDrapeUsesDataScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                   Center(
                     child: Text(
-                      'DRAPE is PIPEDA compliant and stores all data in Canada 🇨🇦',
+                      'ZOURA is PIPEDA compliant and stores all data in Canada 🇨🇦',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -210,7 +210,7 @@ class _Header extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              'How DRAPE Uses Your Data',
+              'How ZOURA Uses Your Data',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,

@@ -148,7 +148,7 @@ class _ProductOptionsSheetState extends State<_ProductOptionsSheet> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 child: Text(
-                  'DRAPE earns a small commission on purchases. Your price is never affected.',
+                  'ZOURA earns a small commission on purchases. Your price is never affected.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),

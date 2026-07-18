@@ -238,7 +238,7 @@ class _PlanCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  isPro ? 'DRAPE PRO' : 'FREE',
+                  isPro ? 'ZOURA PRO' : 'FREE',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: AppColors.espressoDark,
                         letterSpacing: 1.4,

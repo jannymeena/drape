@@ -41,7 +41,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       image: 'assets/onboarding/welcome_flat_lay.png',
       backdrop: Color(0xFFEEE0CD), // sampled from the flat-lay's own background
       title: 'You already own the\nperfect outfit.',
-      subtitle: 'DRAPE finds it every morning.',
+      subtitle: 'ZOURA finds it every morning.',
       cta: 'Get Started',
     ),
     _Slide(
@@ -104,7 +104,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'DRAPE',
+                    'ZOURA',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.w400,
                           letterSpacing: 3,
@@ -515,7 +515,7 @@ class _OutfitCardMock extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  "Why DRAPE picked this: relaxed day, "
+                  "Why ZOURA picked this: relaxed day, "
                   "you haven't worn the blazer in 2 weeks.",
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(

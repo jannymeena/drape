@@ -102,7 +102,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'This action is permanent and cannot be undone. All your curated data will be removed from the DRAPE servers.',
+                    'This action is permanent and cannot be undone. All your curated data will be removed from the ZOURA servers.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
@@ -229,7 +229,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'DRAPE Atelier · Security Protocol 8.2',
+                    'ZOURA Atelier · Security Protocol 8.2',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: AppColors.taupe,
                           letterSpacing: 1.2,
