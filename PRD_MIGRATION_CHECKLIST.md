@@ -88,5 +88,7 @@ targets AWS `ca-central-1` (PIPEDA).
 ## Monitoring & ops
 
 - [ ] CloudWatch alarms: 5xx rate, latency, DB connections; structlog JSON confirmed in prd (`ENVIRONMENT=prd`, not pretty logs).
+- [ ] Run uvicorn with `--no-access-log` in tbd/prd — the unstructured `uvicorn.access` lines are non-JSON noise in CloudWatch; ALB access logs + structured domain events cover it.
+- [ ] CloudWatch metric filter + alarm on repeated `auth.login_failed` `email_fp` (credential stuffing) — the per-event level stays `info`; the *pattern* is what alarms.
 - [ ] Stripe live webhook delivery monitoring (dashboard → Webhooks shows failures/retries) checked into the launch-week routine.
 - [ ] `backend/logs/ai_usage.jsonl` equivalent for prd — decide where AI cost logging lands (CloudWatch).

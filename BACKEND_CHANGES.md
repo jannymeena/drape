@@ -108,6 +108,9 @@ repo yet; this is the target runbook. All resources in **`ca-central-1`** (PIPED
       (memory: `project_pydantic_error_leak`).
 - [ ] CORS: `allow_origins=["*"]` in `app/main.py` is dev-only — restrict per env.
 - [ ] Rate-limit `/auth/login`, `/auth/forgot-password`, `/auth/reset-password` (unbounded today).
+      Observability half landed 2026-07-18: failed logins emit `auth.login_failed` with a sha256
+      `email_fp` (raw emails never logged — PII + typed-password-in-email-field leak vector), so a
+      CloudWatch metric filter on repeated `email_fp` can alarm on stuffing before limits exist.
 - [ ] Pagination caps; orphaned-image GC.
 - [ ] WAF in front of the ALB; CloudWatch alarms (5xx rate, p95 latency, RDS CPU, free storage).
 - [ ] RDS automated backups + a periodic manual snapshot; PITR in prd.

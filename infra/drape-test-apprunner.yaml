@@ -304,9 +304,9 @@ Resources:
               - { Name: ANTHROPIC_API_KEY, Value: !Ref AnthropicApiKey }
               - { Name: AWS_REGION, Value: !Ref "AWS::Region" }
               - { Name: LOCAL_IMAGE_BASE_URL, Value: !Ref ImageBaseUrl }
-              # Same drape:// deep link as local dev — the mobile app opens it
+              # Same zoura:// deep link as local dev — the mobile app opens it
               # from the (log-only) reset email flow.
-              - { Name: PASSWORD_RESET_URL_TEMPLATE, Value: "drape://drape.app/auth/reset-password?token={token}" }
+              - { Name: PASSWORD_RESET_URL_TEMPLATE, Value: "zoura://zoura.style/auth/reset-password?token={token}" }
       InstanceConfiguration:
         Cpu: "512"      # 0.5 vCPU
         Memory: "1024"  # 1 GB
