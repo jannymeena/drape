@@ -314,6 +314,26 @@ def _sub_by_provider_id(db: Session, provider_subscription_id: str) -> Optional[
     )
 
 
+def _invoice_subscription_id(obj: dict) -> str:
+    """The invoice's subscription reference moved across Stripe API versions:
+    top-level `subscription` (pre-Basil) vs `parent.subscription_details.
+    subscription` (2025+), with the line item's parent as a last resort.
+    Accept every shape — the webhook must not silently no-op on an API
+    version bump (caught live via a test clock, 2026-07-18)."""
+    if obj.get("subscription"):
+        return obj["subscription"]
+    parent = obj.get("parent") or {}
+    from_parent = (parent.get("subscription_details") or {}).get("subscription")
+    if from_parent:
+        return from_parent
+    for line in (obj.get("lines") or {}).get("data") or []:
+        line_parent = line.get("parent") or {}
+        sid = (line_parent.get("subscription_item_details") or {}).get("subscription")
+        if sid:
+            return sid
+    return ""
+
+
 def apply_stripe_event(db: Session, *, event: dict) -> str:
     """Apply one verified Stripe event; returns an outcome slug for logging.
 
@@ -326,7 +346,7 @@ def apply_stripe_event(db: Session, *, event: dict) -> str:
     if event_type == "invoice.paid":
         if obj.get("billing_reason") == "subscription_create":
             return "ignored"  # first charge is recorded synchronously by upgrade()
-        sub = _sub_by_provider_id(db, obj.get("subscription") or "")
+        sub = _sub_by_provider_id(db, _invoice_subscription_id(obj))
         if sub is None:
             _log.warning("billing.webhook.unknown_subscription", event_type=event_type)
             return "unknown_subscription"
@@ -353,7 +373,7 @@ def apply_stripe_event(db: Session, *, event: dict) -> str:
         return "renewed"
 
     if event_type == "invoice.payment_failed":
-        sub = _sub_by_provider_id(db, obj.get("subscription") or "")
+        sub = _sub_by_provider_id(db, _invoice_subscription_id(obj))
         if sub is None:
             return "unknown_subscription"
         user = db.get(User, sub.user_id)

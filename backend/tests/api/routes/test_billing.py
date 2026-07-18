@@ -258,6 +258,54 @@ def test_webhook_renewal_extends_period_and_records_charge(authed_client, db, mo
     assert records[0]["invoice_number"] == "INV-RENEW-1"
 
 
+def test_webhook_renewal_applies_with_basil_invoice_shape(authed_client, db, monkeypatch):
+    """Stripe API 2025+ ('Basil') dropped the invoice's top-level
+    `subscription` field — the reference lives at
+    parent.subscription_details.subscription. Regression for a live renewal
+    that no-opped as unknown_subscription (test clock, 2026-07-18)."""
+    monkeypatch.setattr(settings, "stripe_webhook_secret", _WEBHOOK_SECRET)
+    authed_client.post("/api/v1/subscription/upgrade", json={"plan": "pro_monthly"})
+    sub_id = _provider_sub_id(db, authed_client.test_user)
+
+    period_start = int(time.time())
+    period_end = period_start + 30 * 86400
+    r = _signed_post(
+        authed_client,
+        {
+            "type": "invoice.paid",
+            "data": {
+                "object": {
+                    "billing_reason": "subscription_cycle",
+                    "parent": {
+                        "type": "subscription_details",
+                        "subscription_details": {"subscription": sub_id},
+                    },
+                    "amount_paid": 999,
+                    "currency": "cad",
+                    "number": "INV-RENEW-B1",
+                    "lines": {
+                        "data": [
+                            {
+                                "period": {"start": period_start, "end": period_end},
+                                "parent": {
+                                    "subscription_item_details": {"subscription": sub_id}
+                                },
+                            }
+                        ]
+                    },
+                }
+            },
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["outcome"] == "renewed"
+    db.expire_all()
+    sub = db.scalar(
+        select(Subscription).where(Subscription.user_id == authed_client.test_user.id)
+    )
+    assert int(sub.current_period_end.timestamp()) == period_end
+
+
 def test_webhook_first_invoice_not_double_recorded(authed_client, db, monkeypatch):
     monkeypatch.setattr(settings, "stripe_webhook_secret", _WEBHOOK_SECRET)
     authed_client.post("/api/v1/subscription/upgrade", json={"plan": "pro_monthly"})
