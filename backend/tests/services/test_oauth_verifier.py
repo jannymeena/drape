@@ -22,7 +22,7 @@ from app.services.providers.oauth.real import (
     RealOAuthVerifier,
 )
 
-_APPLE_AUD = "com.drape.app"
+_APPLE_AUD = "style.zoura.mobile"
 _GOOGLE_AUD_IOS = "ios-client.apps.googleusercontent.com"
 _GOOGLE_AUD_ANDROID = "android-client.apps.googleusercontent.com"
 

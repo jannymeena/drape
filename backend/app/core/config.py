@@ -46,14 +46,14 @@ class Settings(BaseSettings):
 
     ses_region: str | None = None
     ses_from_address: str | None = None
-    password_reset_url_template: str = "https://drape.local/reset?token={token}"
+    password_reset_url_template: str = "zoura://zoura.style/auth/reset-password?token={token}"
     # Stripe (11c) — required outside dev unless `billing` is disabled.
     stripe_api_key: str | None = None
     stripe_webhook_secret: str | None = None  # whsec_... for /billing/webhook/stripe
     stripe_price_id_pro_monthly: str | None = None
     stripe_price_id_pro_yearly: str | None = None
     # Where the Stripe customer portal sends the user back; deep link in prod.
-    stripe_portal_return_url: str = "drape://drape.app/billing"
+    stripe_portal_return_url: str = "zoura://zoura.style/billing"
     # FCM service-account JSON, raw or base64-encoded (11d) — required outside
     # dev unless `push` is disabled. Dev logs via LogPushProvider.
     fcm_credentials_json: str | None = None

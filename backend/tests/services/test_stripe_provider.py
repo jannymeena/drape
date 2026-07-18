@@ -27,7 +27,7 @@ _PRICES = {"pro_monthly": "price_month", "pro_yearly": "price_year"}
 
 def _provider() -> StripeProvider:
     return StripeProvider(
-        api_key="sk_test_x", price_ids=_PRICES, portal_return_url="drape://billing"
+        api_key="sk_test_x", price_ids=_PRICES, portal_return_url="zoura://billing"
     )
 
 
@@ -197,7 +197,7 @@ def test_portal_url_returned():
     assert url == "https://billing.stripe.com/p/session_1"
     method, path, kwargs = stub.calls[1]
     assert (method, path) == ("POST", "/billing_portal/sessions")
-    assert kwargs["data"]["return_url"] == "drape://billing"
+    assert kwargs["data"]["return_url"] == "zoura://billing"
 
 
 # ---------------------------------------------------------------------------
