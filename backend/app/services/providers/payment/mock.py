@@ -23,6 +23,16 @@ _log = structlog.get_logger("payment")
 class MockPaymentProvider(PaymentProvider):
     name = "mock"
 
+    def ensure_customer(
+        self,
+        *,
+        user_id: UUID,
+        email: str | None = None,
+        name: str | None = None,
+        customer_id: str | None = None,
+    ) -> str | None:
+        return None  # no upstream customer concept to map
+
     def create_subscription(
         self,
         *,
@@ -30,7 +40,8 @@ class MockPaymentProvider(PaymentProvider):
         plan: str,
         amount_cents: int,
         currency: str,
-        email: str | None = None,
+        customer_id: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ProviderSubscription:
         sub_id = f"mock_sub_{secrets.token_hex(8)}"
         invoice = f"INV-{secrets.token_hex(4).upper()}"
@@ -55,7 +66,7 @@ class MockPaymentProvider(PaymentProvider):
         )
 
     def add_payment_method(
-        self, *, user_id: UUID, token: str, email: str | None = None
+        self, *, user_id: UUID, token: str, customer_id: str | None = None
     ) -> ProviderPaymentMethod:
         # The "token" is opaque; the mock mints a plausible Visa.
         return ProviderPaymentMethod(
@@ -67,6 +78,8 @@ class MockPaymentProvider(PaymentProvider):
             exp_year=2030,
         )
 
-    def create_portal_url(self, *, user_id: UUID, email: str | None = None) -> str:
+    def create_portal_url(
+        self, *, user_id: UUID, customer_id: str | None = None
+    ) -> str:
         _log.info("payment.mock.portal", user_id=str(user_id))
         return "https://billing.example.test/mock-portal"

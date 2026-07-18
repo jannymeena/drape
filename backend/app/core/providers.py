@@ -107,6 +107,7 @@ class Providers:
                 "pro_yearly": s.stripe_price_id_pro_yearly,
             },
             portal_return_url=s.stripe_portal_return_url,
+            environment=s.environment,
         )
 
     @staticmethod

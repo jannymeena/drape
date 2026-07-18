@@ -73,10 +73,14 @@ class StripeProvider(PaymentProvider):
         api_key: str,
         price_ids: dict[str, str],
         portal_return_url: str,
+        environment: str,
     ) -> None:
         self._api_key = api_key
         self._price_ids = price_ids  # plan slug -> Stripe price id
         self._portal_return_url = portal_return_url
+        # Tagged onto customers as metadata[environment] — dev and tbd share
+        # one sandbox, so this says which env minted a record.
+        self._environment = environment
         self._customer_cache: dict[str, str] = {}
 
     def create_subscription(
@@ -86,14 +90,15 @@ class StripeProvider(PaymentProvider):
         plan: str,
         amount_cents: int,
         currency: str,
-        email: str | None = None,
+        customer_id: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ProviderSubscription:
         price_id = self._price_ids.get(plan)
         if not price_id:
             raise PaymentProviderError(
                 "payment_provider_error", f"No Stripe price configured for plan {plan!r}"
             )
-        customer = self._ensure_customer(user_id, email=email)
+        customer = customer_id or self.ensure_customer(user_id=user_id)
         # error_if_incomplete: charge the default payment method now or fail
         # loudly — no silent 'incomplete' subscriptions on our books.
         sub = self._request(
@@ -106,6 +111,7 @@ class StripeProvider(PaymentProvider):
                 "expand[]": "latest_invoice",
                 "metadata[user_id]": str(user_id),
             },
+            idempotency_key=idempotency_key,
         )
         invoice = sub.get("latest_invoice") or {}
         _log.info(
@@ -135,9 +141,9 @@ class StripeProvider(PaymentProvider):
         )
 
     def add_payment_method(
-        self, *, user_id: UUID, token: str, email: str | None = None
+        self, *, user_id: UUID, token: str, customer_id: str | None = None
     ) -> ProviderPaymentMethod:
-        customer = self._ensure_customer(user_id, email=email)
+        customer = customer_id or self.ensure_customer(user_id=user_id)
         pm = self._request(
             "POST", f"/payment_methods/{token}/attach", data={"customer": customer}
         )
@@ -157,8 +163,10 @@ class StripeProvider(PaymentProvider):
             exp_year=int(card.get("exp_year") or 0),
         )
 
-    def create_portal_url(self, *, user_id: UUID, email: str | None = None) -> str:
-        customer = self._ensure_customer(user_id, email=email)
+    def create_portal_url(
+        self, *, user_id: UUID, customer_id: str | None = None
+    ) -> str:
+        customer = customer_id or self.ensure_customer(user_id=user_id)
         session = self._request(
             "POST",
             "/billing_portal/sessions",
@@ -166,12 +174,23 @@ class StripeProvider(PaymentProvider):
         )
         return session["url"]
 
-    # ------------------------------------------------------------------
-    # Internals
-    # ------------------------------------------------------------------
-
-    def _ensure_customer(self, user_id: UUID, *, email: str | None = None) -> str:
+    def ensure_customer(
+        self,
+        *,
+        user_id: UUID,
+        email: str | None = None,
+        name: str | None = None,
+        customer_id: str | None = None,
+    ) -> str | None:
+        """Resolve the Stripe customer. A persisted [customer_id] is trusted
+        outright — no network. Otherwise search by metadata user_id, refreshing
+        display identity (email/name) and the environment tag when drifted
+        (covers customers created before identity threading), or create with
+        the full identity on a miss."""
         key = str(user_id)
+        if customer_id:
+            self._customer_cache[key] = customer_id
+            return customer_id
         cached = self._customer_cache.get(key)
         if cached:
             return cached
@@ -180,18 +199,30 @@ class StripeProvider(PaymentProvider):
         )
         matches = found.get("data") or []
         if matches:
-            customer_id = matches[0]["id"]
-            # Backfill/refresh the email so the dashboard shows a human
-            # identity instead of the bare cus_ id (also covers customers
-            # created before email threading, and address changes).
-            if email and matches[0].get("email") != email:
-                self._request(
-                    "POST", f"/customers/{customer_id}", data={"email": email}
-                )
+            customer = matches[0]
+            customer_id = customer["id"]
+            # Refresh display identity only when the caller supplied it — the
+            # bare fallback resolution (ops called without a persisted id)
+            # must stay read-only.
+            if email or name:
+                update: dict[str, str] = {}
+                if email and customer.get("email") != email:
+                    update["email"] = email
+                if name and customer.get("name") != name:
+                    update["name"] = name
+                if (customer.get("metadata") or {}).get("environment") != self._environment:
+                    update["metadata[environment]"] = self._environment
+                if update:
+                    self._request("POST", f"/customers/{customer_id}", data=update)
         else:
-            data = {"metadata[user_id]": key}
+            data = {
+                "metadata[user_id]": key,
+                "metadata[environment]": self._environment,
+            }
             if email:
                 data["email"] = email
+            if name:
+                data["name"] = name
             created = self._request(
                 "POST",
                 "/customers",
@@ -202,6 +233,10 @@ class StripeProvider(PaymentProvider):
             _log.info("payment.stripe.customer_created", user_id=key, customer=customer_id)
         self._customer_cache[key] = customer_id
         return customer_id
+
+    # ------------------------------------------------------------------
+    # Internals
+    # ------------------------------------------------------------------
 
     def _request(
         self,

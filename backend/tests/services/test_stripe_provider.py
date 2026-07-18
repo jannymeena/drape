@@ -27,7 +27,10 @@ _PRICES = {"pro_monthly": "price_month", "pro_yearly": "price_year"}
 
 def _provider() -> StripeProvider:
     return StripeProvider(
-        api_key="sk_test_x", price_ids=_PRICES, portal_return_url="zoura://billing"
+        api_key="sk_test_x",
+        price_ids=_PRICES,
+        portal_return_url="zoura://billing",
+        environment="tbd",
     )
 
 
@@ -124,7 +127,92 @@ def test_customer_created_with_deterministic_idempotency_key_on_search_miss():
     method, path, kwargs = stub.calls[1]
     assert (method, path) == ("POST", "/customers")
     assert kwargs["idempotency_key"] == f"drape-customer-{_USER_ID}"
-    assert kwargs["data"] == {"metadata[user_id]": str(_USER_ID)}
+    assert kwargs["data"] == {
+        "metadata[user_id]": str(_USER_ID),
+        "metadata[environment]": "tbd",
+    }
+
+
+def test_persisted_customer_id_skips_lookup_entirely():
+    provider = _provider()
+    stub = _ScriptedRequests([{"id": "sub_1", "latest_invoice": {}}])
+    provider._request = stub
+    provider.create_subscription(
+        user_id=_USER_ID,
+        plan="pro_monthly",
+        amount_cents=999,
+        currency="CAD",
+        customer_id="cus_persisted",
+    )
+    paths = [path for _, path, _ in stub.calls]
+    assert paths == ["/subscriptions"]  # no search, no create
+    assert stub.calls[0][2]["data"]["customer"] == "cus_persisted"
+
+
+def test_ensure_customer_hint_is_trusted_without_network():
+    provider = _provider()
+    stub = _ScriptedRequests([])
+    provider._request = stub
+    assert (
+        provider.ensure_customer(user_id=_USER_ID, customer_id="cus_persisted")
+        == "cus_persisted"
+    )
+    assert stub.calls == []
+
+
+def test_ensure_customer_refreshes_drifted_identity_on_hit():
+    provider = _provider()
+    stub = _ScriptedRequests(
+        [
+            {"data": [{"id": "cus_1", "email": "old@example.com", "metadata": {}}]},
+            {},  # the identity update
+        ]
+    )
+    provider._request = stub
+    cid = provider.ensure_customer(
+        user_id=_USER_ID, email="new@example.com", name="Dev User"
+    )
+    assert cid == "cus_1"
+    method, path, kwargs = stub.calls[1]
+    assert (method, path) == ("POST", "/customers/cus_1")
+    assert kwargs["data"] == {
+        "email": "new@example.com",
+        "name": "Dev User",
+        "metadata[environment]": "tbd",
+    }
+
+
+def test_ensure_customer_creates_with_full_identity_on_miss():
+    provider = _provider()
+    stub = _ScriptedRequests([_SEARCH_MISS, {"id": "cus_new"}])
+    provider._request = stub
+    cid = provider.ensure_customer(
+        user_id=_USER_ID, email="dev@example.com", name="Dev User"
+    )
+    assert cid == "cus_new"
+    _, path, kwargs = stub.calls[1]
+    assert path == "/customers"
+    assert kwargs["data"] == {
+        "metadata[user_id]": str(_USER_ID),
+        "metadata[environment]": "tbd",
+        "email": "dev@example.com",
+        "name": "Dev User",
+    }
+
+
+def test_subscription_idempotency_key_forwarded():
+    provider = _provider()
+    stub = _ScriptedRequests([{"id": "sub_1", "latest_invoice": {}}])
+    provider._request = stub
+    provider.create_subscription(
+        user_id=_USER_ID,
+        plan="pro_monthly",
+        amount_cents=999,
+        currency="CAD",
+        customer_id="cus_1",
+        idempotency_key="zoura-sub-attempt-1",
+    )
+    assert stub.calls[0][2]["idempotency_key"] == "zoura-sub-attempt-1"
 
 
 def test_customer_memoized_across_calls():

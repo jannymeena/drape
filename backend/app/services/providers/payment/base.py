@@ -47,6 +47,21 @@ class PaymentProvider(ABC):
     name: ClassVar[str]
 
     @abstractmethod
+    def ensure_customer(
+        self,
+        *,
+        user_id: UUID,
+        email: str | None = None,
+        name: str | None = None,
+        customer_id: str | None = None,
+    ) -> str | None:
+        """Resolve (or create) the provider-side customer for this user and
+        return its id for the caller to persist; None when the provider has no
+        customer concept (mock). [email]/[name] are display identity only —
+        the authoritative key upstream is metadata user_id. [customer_id] is
+        the persisted mapping; when given, lookup round-trips are skipped."""
+
+    @abstractmethod
     def create_subscription(
         self,
         *,
@@ -54,13 +69,13 @@ class PaymentProvider(ABC):
         plan: str,
         amount_cents: int,
         currency: str,
-        email: str | None = None,
+        customer_id: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ProviderSubscription:
         """Charge the first period and open the upstream subscription.
 
-        [email] labels the upstream customer record so provider dashboards
-        show a human identity instead of an opaque id; never used for lookup
-        (metadata user_id is the key)."""
+        [idempotency_key] identifies the logical attempt: a retry after a lost
+        response replays the original result instead of double-charging."""
 
     @abstractmethod
     def cancel_subscription(self, *, provider_subscription_id: str) -> None:
@@ -68,10 +83,12 @@ class PaymentProvider(ABC):
 
     @abstractmethod
     def add_payment_method(
-        self, *, user_id: UUID, token: str, email: str | None = None
+        self, *, user_id: UUID, token: str, customer_id: str | None = None
     ) -> ProviderPaymentMethod:
         """Exchange a client-side token for a stored payment method."""
 
     @abstractmethod
-    def create_portal_url(self, *, user_id: UUID, email: str | None = None) -> str:
+    def create_portal_url(
+        self, *, user_id: UUID, customer_id: str | None = None
+    ) -> str:
         """Short-lived URL to the provider-hosted billing management page."""

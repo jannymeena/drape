@@ -92,6 +92,12 @@ class User(Base, TimestampMixin):
     measurements_fit_consent_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Provider-side billing customer id (Stripe `cus_...`), persisted on first
+    # billing touch so user -> provider lookups need no search API round-trip.
+    # The provider-side key remains metadata[user_id].
+    payment_customer_id: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )
     subscription_tier: Mapped[str] = mapped_column(
         String(20), nullable=False, default="free", server_default="free"
     )

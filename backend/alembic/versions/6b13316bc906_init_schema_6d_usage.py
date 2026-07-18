@@ -85,6 +85,7 @@ def upgrade() -> None:
     sa.Column('community_share_avatar', sa.Boolean(), server_default='false', nullable=False),
     sa.Column('use_measurements_for_fit', sa.Boolean(), server_default='false', nullable=False),
     sa.Column('measurements_fit_consent_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('payment_customer_id', sa.String(length=255), nullable=True),
     sa.Column('subscription_tier', sa.String(length=20), server_default='free', nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),

@@ -174,11 +174,14 @@ def add_payment_method(
 
 @router.post("/billing/portal", response_model=PortalResponse)
 def billing_portal(
+    db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     payment: PaymentProvider | None = Depends(get_payment_provider),
 ) -> PortalResponse:
     try:
-        url = billing_service.portal_url(user=user, payment=_require_payment(payment))
+        url = billing_service.portal_url(
+            db, user=user, payment=_require_payment(payment)
+        )
     except BillingError as err:
         raise _translate(err) from err
     return PortalResponse(url=url)

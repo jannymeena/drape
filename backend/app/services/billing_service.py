@@ -94,6 +94,27 @@ def get_subscription(db: Session, *, user: User) -> Optional[Subscription]:
     return _expire_if_due(db, user=user, sub=sub)
 
 
+def _sync_provider_customer(
+    db: Session, *, user: User, payment: PaymentProvider
+) -> Optional[str]:
+    """Resolve the provider-side customer and persist the mapping on the user
+    row — support can jump user → provider dashboard without a search API hop,
+    and later calls skip the lookup entirely."""
+    try:
+        cid = payment.ensure_customer(
+            user_id=user.id,
+            email=user.email,
+            name=user.display_name,
+            customer_id=user.payment_customer_id,
+        )
+    except PaymentProviderError as exc:
+        raise BillingError(exc.code, str(exc)) from exc
+    if cid and cid != user.payment_customer_id:
+        user.payment_customer_id = cid
+        db.commit()
+    return cid
+
+
 def upgrade(
     db: Session, *, user: User, plan: str, payment: PaymentProvider
 ) -> Subscription:
@@ -105,13 +126,22 @@ def upgrade(
     if sub is not None and sub.status == "active" and not sub.cancel_at_period_end:
         raise BillingError("already_subscribed", "Already on Zoura Pro")
 
+    customer_id = _sync_provider_customer(db, user=user, payment=payment)
+    # One key per logical attempt (user + plan + the subscription being
+    # replaced + day): a retry after a lost response replays the original
+    # Stripe result instead of double-charging.
+    idempotency_key = (
+        f"zoura-sub-{user.id}-{plan}-"
+        f"{sub.provider_subscription_id if sub else 'first'}-{_now():%Y%m%d}"
+    )
     try:
         result = payment.create_subscription(
             user_id=user.id,
             plan=plan,
             amount_cents=price_cents,
             currency="CAD",
-            email=user.email,
+            customer_id=customer_id,
+            idempotency_key=idempotency_key,
         )
     except PaymentProviderError as exc:
         raise BillingError(exc.code, str(exc)) from exc
@@ -235,9 +265,10 @@ def list_payment_methods(db: Session, *, user: User) -> list[PaymentMethod]:
 def add_payment_method(
     db: Session, *, user: User, token: str, payment: PaymentProvider
 ) -> PaymentMethod:
+    customer_id = _sync_provider_customer(db, user=user, payment=payment)
     try:
         result = payment.add_payment_method(
-            user_id=user.id, token=token, email=user.email
+            user_id=user.id, token=token, customer_id=customer_id
         )
     except PaymentProviderError as exc:
         raise BillingError(exc.code, str(exc)) from exc
@@ -258,9 +289,10 @@ def add_payment_method(
     return row
 
 
-def portal_url(*, user: User, payment: PaymentProvider) -> str:
+def portal_url(db: Session, *, user: User, payment: PaymentProvider) -> str:
+    customer_id = _sync_provider_customer(db, user=user, payment=payment)
     try:
-        return payment.create_portal_url(user_id=user.id, email=user.email)
+        return payment.create_portal_url(user_id=user.id, customer_id=customer_id)
     except PaymentProviderError as exc:
         raise BillingError(exc.code, str(exc)) from exc
 
