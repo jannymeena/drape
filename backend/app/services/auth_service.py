@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -23,6 +24,15 @@ from app.services.providers.hash.base import PasswordHasher
 from app.services.providers.oauth.base import OAuthVerificationError, OAuthVerifier
 
 _log = structlog.get_logger("auth")
+
+
+def _email_fp(email: str) -> str:
+    """12-hex log fingerprint of an email. One-way for log readers (no PII in
+    CloudWatch), but deterministic for support: whoever already holds the
+    address can hash it and grep pre-auth events for the same value. Raw
+    emails never enter logs — beyond privacy, failed-login input is a classic
+    typed-password-into-the-email-field leak vector."""
+    return hashlib.sha256(email.strip().lower().encode()).hexdigest()[:12]
 
 
 class AuthError(Exception):
@@ -89,7 +99,7 @@ def signup_email(
         db.rollback()
         raise AuthError("email_already_exists", "Email already registered")
     db.refresh(user)
-    _log.info("auth.signup.email", user_id=str(user.id), email=email)
+    _log.info("auth.signup.email", user_id=str(user.id), email_fp=_email_fp(email))
     return _build_response(db, user)
 
 
@@ -119,8 +129,16 @@ def login_email(
     user = db.scalar(select(User).where(User.email == email))
     # Constant message regardless of which check fails — don't leak which emails exist.
     if user is None or not user.password_hash or not hasher.verify(password, user.password_hash):
+        # Fingerprint, never the raw input: lets ops count failures per
+        # account (brute force / credential stuffing) without logging PII.
+        _log.info(
+            "auth.login_failed",
+            reason="invalid_credentials",
+            email_fp=_email_fp(email),
+        )
         raise AuthError("invalid_credentials", "Invalid email or password")
     if not user.is_active:
+        _log.info("auth.login_failed", reason="inactive", user_id=str(user.id))
         raise AuthError("inactive", "Account is inactive")
     _log.info("auth.login.email", user_id=str(user.id))
     return _build_response(db, user)
@@ -224,7 +242,7 @@ async def forgot_password(
     user = db.scalar(select(User).where(User.email == email))
     if user is None:
         # Don't leak which emails exist.
-        _log.info("auth.forgot_password.unknown_email", email=email)
+        _log.info("auth.forgot_password.unknown_email", email_fp=_email_fp(email))
         return
     raw, hashed = generate_opaque_token()
     db.add(

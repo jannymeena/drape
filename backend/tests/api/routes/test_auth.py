@@ -132,6 +132,33 @@ def test_login_for_unknown_user_returns_401(client):
     assert r.status_code == 401, r.text
 
 
+def test_login_failure_logs_fingerprint_never_raw_email(client, make_user):
+    """Failed logins emit auth.login_failed with a sha256 fingerprint so ops
+    can count attempts per account; the raw address (which may actually be a
+    mistyped password) must never reach the logs."""
+    import hashlib
+
+    from structlog.testing import capture_logs
+
+    make_user(email="fp@example.com", password="password1")
+    with capture_logs() as logs:
+        r = client.post(
+            "/api/v1/auth/login",
+            json={
+                "auth_method": "email",
+                "email": "fp@example.com",
+                "password": "not-the-password-1",
+            },
+        )
+    assert r.status_code == 401
+    failed = [entry for entry in logs if entry["event"] == "auth.login_failed"]
+    assert len(failed) == 1
+    assert failed[0]["reason"] == "invalid_credentials"
+    expected_fp = hashlib.sha256(b"fp@example.com").hexdigest()[:12]
+    assert failed[0]["email_fp"] == expected_fp
+    assert "fp@example.com" not in str(logs)
+
+
 # ---------------------------------------------------------------------------
 # Refresh
 # ---------------------------------------------------------------------------
