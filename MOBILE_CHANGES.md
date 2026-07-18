@@ -171,6 +171,12 @@ straight to step 1.
 
 ## 📝 Notes (not tasks)
 
+- **Welcome flow is login-first (2026-07-18, deliberate handoff deviation):** the last
+  slide's primary CTA and Skip land on Sign In; "New to Zoura? Create Account" is the
+  footer link (handoff had signup-first). Returning users are the common case, and OAuth
+  is get-or-create so new OAuth users are served from Login too. Don't revert to match
+  the handoff mock.
+
 **Avatar — the 2D avatar is confirmed for removal (2026-07-06); do NOT build avatar features.**
 No new avatar UI work, no avatar-reveal polish, no avatar-share features — the Onboarding
 handoff's parametric avatar reveal (600×800 render, stats cards, Instagram story share) is

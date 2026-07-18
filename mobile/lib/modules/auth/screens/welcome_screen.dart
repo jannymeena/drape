@@ -56,15 +56,18 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       backdrop: Color(0xFFFDF2E8), // warm peach backdrop from the handoff
       title: 'Every morning. 10\nseconds. Done.',
       subtitle: 'Your AI stylist, powered by your actual wardrobe.',
-      cta: 'Create My Account',
+      cta: 'Sign In',
     ),
   ];
 
   bool get _isLast => _index == _slides.length - 1;
 
+  // Login-first flow: the primary path lands on Sign In (returning users are
+  // the common case, and OAuth is get-or-create server-side so new OAuth
+  // users are served there too); Create Account is the reserved footer link.
   void _onPrimary() {
     if (_isLast) {
-      context.goNamed(SignUpScreen.name);
+      context.goNamed(LoginScreen.name);
     } else {
       _controller.nextPage(
         duration: const Duration(milliseconds: 280),
@@ -77,9 +80,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     ref
         .read(analyticsProvider)
         .capture(AnalyticsEvents.welcomeSkipped, {'slide_number': _index + 1});
-    context.goNamed(SignUpScreen.name);
+    context.goNamed(LoginScreen.name);
   }
-  void _onSignIn() => context.goNamed(LoginScreen.name);
+
+  void _onCreateAccount() => context.goNamed(SignUpScreen.name);
 
   @override
   void dispose() {
@@ -148,7 +152,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
             // Caption + CTA zone — fixed height so the dots, title and button
             // keep the same position on every slide (only the hero above
             // resizes, per device). The Spacer lets the title grow downward
-            // without nudging the CTA, and the Sign-In row is always reserved.
+            // without nudging the CTA, and the Create-Account row is always
+            // reserved.
             SizedBox(
               height: 340,
               child: Column(
@@ -235,14 +240,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           maintainAnimation: true,
                           maintainState: true,
                           child: TextButton(
-                            onPressed: _onSignIn,
+                            onPressed: _onCreateAccount,
                             child: Text.rich(
                               TextSpan(
                                 style: Theme.of(context).textTheme.bodyMedium,
                                 children: const [
-                                  TextSpan(text: 'Already have an account? '),
+                                  TextSpan(text: 'New to Zoura? '),
                                   TextSpan(
-                                    text: 'Sign In',
+                                    text: 'Create Account',
                                     style: TextStyle(
                                       color: AppColors.ink,
                                       decoration: TextDecoration.underline,
