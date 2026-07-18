@@ -69,9 +69,13 @@ class Providers:
 
     @staticmethod
     def _build_affiliate(s: Settings) -> AffiliateProvider:
-        if s.environment == "dev":
+        # Disabled affiliate keeps the mock catalog (shop stays demoable) —
+        # unlike billing/push, there's no meaningful "unavailable" response
+        # for the shop tab, so the mock is the degraded mode in every env.
+        if s.environment == "dev" or not s.feature_enabled("affiliate"):
             return MockAffiliateProvider()
-        assert s.awin_api_key, "awin_api_key required outside dev"
+        # Config validator guarantees the key when affiliate is enabled.
+        assert s.awin_api_key
         return AwinProvider(api_key=s.awin_api_key)
 
     @staticmethod

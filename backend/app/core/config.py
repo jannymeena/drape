@@ -9,7 +9,7 @@ _DEV_JWT_SECRET = "dev-only-do-not-use-in-tbd-or-prd-min-32-bytes"
 
 # Feature names DISABLED_FEATURES may reference. Grow this set as more
 # switchable features land.
-_KNOWN_FEATURES = {"apple_login", "google_login", "billing", "push"}
+_KNOWN_FEATURES = {"apple_login", "google_login", "billing", "push", "affiliate"}
 
 
 class Settings(BaseSettings):
@@ -132,6 +132,8 @@ class Settings(BaseSettings):
                 required["STRIPE_PRICE_ID_PRO_YEARLY"] = self.stripe_price_id_pro_yearly
             if self.feature_enabled("push"):
                 required["FCM_CREDENTIALS_JSON"] = self.fcm_credentials_json
+            if self.feature_enabled("affiliate"):
+                required["AWIN_API_KEY"] = self.awin_api_key
             missing = [k for k, v in required.items() if not v]
             if missing:
                 raise ValueError(

@@ -1,4 +1,4 @@
-"""DISABLED_FEATURES — per-feature switches (apple_login, google_login, billing, push).
+"""DISABLED_FEATURES — per-feature switches (apple_login, google_login, billing, push, affiliate).
 
 Covers the whole flag matrix: disabled features skip startup key validation,
 enabled ones still fail fast when their key is missing, unknown names refuse
@@ -42,6 +42,7 @@ def _tbd_settings(**overrides) -> Settings:
             '{"project_id": "p", "client_email": "e@p.iam", '
             '"private_key": "pem", "token_uri": "https://t"}'
         ),
+        awin_api_key="awin_x",
     )
     base.update(overrides)
     return Settings(**base)
@@ -115,6 +116,16 @@ def test_push_disabled_boots_without_fcm_credentials():
 def test_push_enabled_requires_fcm_credentials():
     with pytest.raises(ValidationError, match="FCM_CREDENTIALS_JSON"):
         _tbd_settings(fcm_credentials_json=None)
+
+
+def test_affiliate_disabled_boots_without_awin_key():
+    s = _tbd_settings(disabled_features="affiliate", awin_api_key=None)
+    assert not s.feature_enabled("affiliate")
+
+
+def test_affiliate_enabled_requires_awin_key():
+    with pytest.raises(ValidationError, match="AWIN_API_KEY"):
+        _tbd_settings(awin_api_key=None)
 
 
 def test_whitespace_and_trailing_commas_tolerated():
@@ -236,6 +247,18 @@ def test_push_disabled_wires_none_and_fanout_noops():
 def test_push_enabled_wires_fcm():
     provider = Providers._build_push(_tbd_settings())
     assert type(provider).__name__ == "ApnsFcmProvider"
+
+
+def test_affiliate_disabled_keeps_mock_catalog_in_tbd():
+    # Unlike billing/push there's no "unavailable" mode — the shop tab keeps
+    # working against the mock catalog until AWIN exists.
+    s = _tbd_settings(disabled_features="affiliate", awin_api_key=None)
+    assert type(Providers._build_affiliate(s)).__name__ == "MockAffiliateProvider"
+
+
+def test_affiliate_enabled_wires_awin():
+    provider = Providers._build_affiliate(_tbd_settings())
+    assert type(provider).__name__ == "AwinProvider"
 
 
 def test_dev_keeps_log_push_regardless_of_flags():
