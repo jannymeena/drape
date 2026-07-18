@@ -1,5 +1,6 @@
 from uuid import UUID
 
+import structlog
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -20,10 +21,13 @@ def _unauthorized(detail: str) -> HTTPException:
     )
 
 
-def get_current_user(
+async def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_security),
     db: Session = Depends(get_db),
 ) -> User:
+    # Async on purpose (the body is cheap sync work): a sync dependency runs
+    # in a threadpool with a *copied* context, so the user_id bound below
+    # would never reach the request middleware's completion event.
     if creds is None:
         raise _unauthorized("Missing bearer token")
     try:
@@ -39,6 +43,9 @@ def get_current_user(
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         raise _unauthorized("User not found or inactive")
+    # From here every log line in this request — domain events and the
+    # middleware's request.completed — carries the caller's user_id.
+    structlog.contextvars.bind_contextvars(user_id=str(user.id))
     return user
 
 
