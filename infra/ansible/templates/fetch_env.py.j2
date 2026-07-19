@@ -1,0 +1,38 @@
+#!/opt/zoura/venv/bin/python
+"""Materialize /opt/zoura/app/.env from SSM Parameter Store (/zoura/tbd/*).
+
+Runs as ExecStartPre under the instance role — the box never stores config
+outside this file, and the file is rewritten on every service start, so
+`systemctl restart zoura` picks up parameter changes (matches the project's
+.env policy: every env reads .env at runtime; deploy materializes it).
+"""
+import boto3
+
+# Operational-only keys that must not land in the app .env.
+SKIP = {"DB_PASSWORD"}
+
+ssm = boto3.client("ssm", region_name="ca-central-1")
+params = []
+next_token = None
+while True:
+    kwargs = {"Path": "/zoura/tbd", "WithDecryption": True}
+    if next_token:
+        kwargs["NextToken"] = next_token
+    reply = ssm.get_parameters_by_path(**kwargs)
+    params.extend(reply["Parameters"])
+    next_token = reply.get("NextToken")
+    if not next_token:
+        break
+
+lines = []
+for p in sorted(params, key=lambda p: p["Name"]):
+    key = p["Name"].rsplit("/", 1)[-1]
+    if key in SKIP:
+        continue
+    lines.append(f"{key}={p['Value']}")
+
+with open("/opt/zoura/app/.env", "w") as f:
+    f.write("\n".join(lines) + "\n")
+import os
+os.chmod("/opt/zoura/app/.env", 0o600)
+print(f"wrote /opt/zoura/app/.env with {len(lines)} keys")

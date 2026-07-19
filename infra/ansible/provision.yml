@@ -1,0 +1,163 @@
+# One-time (idempotent) server provisioning for the zoura-tbd box.
+# Cloud resources come from ../zoura-tbd.yaml (CloudFormation); this playbook
+# owns everything inside the instance: OS packages, the /data volume,
+# PostgreSQL 16 + pgvector, the app user/venv/systemd unit, Caddy TLS, swap,
+# and the nightly pg_dump -> S3 cron. DB credentials land in deploy.yml
+# (ALTER ROLE from the SSM-sourced .env), so no secrets pass through here.
+---
+- hosts: tbd
+  become: true
+  vars:
+    data_device: "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_{{ data_volume_id | replace('-', '') }}"
+    pg_data_dir: /data/postgres/16/main
+
+  tasks:
+    - name: Wait for cloud-init to finish
+      command: cloud-init status --wait
+      changed_when: false
+
+    - name: Apt update + base packages
+      apt:
+        update_cache: true
+        name:
+          - postgresql
+          - postgresql-16-pgvector
+          - python3-venv
+          - rsync
+          - acl
+          - curl
+        state: present
+
+    # ---------- 2G swap (1 GB RAM box) ----------
+    - name: Create + format swapfile
+      shell: |
+        fallocate -l 2G /swapfile
+        chmod 600 /swapfile
+        mkswap /swapfile
+      args: { creates: /swapfile }
+
+    - name: Enable swap in fstab
+      lineinfile:
+        path: /etc/fstab
+        line: "/swapfile none swap sw 0 0"
+      register: fstab_swap
+
+    - name: Swapon
+      command: swapon -a
+      when: fstab_swap.changed
+
+    # ---------- Data volume at /data ----------
+    - name: Wait for the data EBS device
+      wait_for: { path: "{{ data_device }}", timeout: 60 }
+
+    - name: Filesystem on data volume (no-op if already formatted)
+      filesystem: { fstype: ext4, dev: "{{ data_device }}" }
+
+    - name: Mount /data (persisted)
+      mount:
+        path: /data
+        src: "{{ data_device }}"
+        fstype: ext4
+        opts: defaults,nofail
+        state: mounted
+
+    # ---------- PostgreSQL 16 with its data on /data ----------
+    - name: Check whether the cluster already lives on /data
+      stat: { path: "{{ pg_data_dir }}/PG_VERSION" }
+      register: pg_on_data
+
+    - name: Move cluster data to /data
+      when: not pg_on_data.stat.exists
+      block:
+        - service: { name: postgresql, state: stopped }
+        - file: { path: /data/postgres, state: directory, owner: postgres, group: postgres, mode: "0700" }
+        - name: Copy existing cluster
+          command: rsync -a /var/lib/postgresql/ /data/postgres/
+        - name: Point postgresql.conf at /data
+          lineinfile:
+            path: /etc/postgresql/16/main/postgresql.conf
+            regexp: "^#?data_directory"
+            line: "data_directory = '{{ pg_data_dir }}'"
+
+    - name: Modest memory limits for a 1 GB box
+      copy:
+        dest: /etc/postgresql/16/main/conf.d/zoura.conf
+        mode: "0644"
+        content: |
+          shared_buffers = 128MB
+          max_connections = 40
+          effective_cache_size = 256MB
+
+    - name: Start + enable postgres
+      service: { name: postgresql, state: started, enabled: true }
+
+    - name: Create app role, database, pgvector extension
+      become_user: postgres
+      shell: |
+        psql -tc "SELECT 1 FROM pg_roles WHERE rolname='zoura'" | grep -q 1 || psql -c "CREATE ROLE zoura LOGIN"
+        psql -tc "SELECT 1 FROM pg_database WHERE datname='zoura_tbd'" | grep -q 1 || createdb -O zoura zoura_tbd
+        psql -d zoura_tbd -c "CREATE EXTENSION IF NOT EXISTS vector"
+      register: pg_setup
+      changed_when: false
+
+    # ---------- App user + layout ----------
+    - name: App user
+      user: { name: zoura, system: true, home: /opt/zoura, shell: /usr/sbin/nologin, create_home: true }
+
+    - name: App directories
+      file: { path: "{{ item }}", state: directory, owner: zoura, group: zoura, mode: "0750" }
+      loop: [/opt/zoura/app, /opt/zoura/bin]
+
+    - name: Python venv
+      command: python3 -m venv /opt/zoura/venv
+      args: { creates: /opt/zoura/venv/bin/python }
+
+    - name: Venv owned by app user
+      file: { path: /opt/zoura/venv, owner: zoura, group: zoura, recurse: true }
+
+    - name: Env-fetch script (SSM -> .env via the instance role)
+      template: { src: templates/fetch_env.py.j2, dest: /opt/zoura/bin/fetch_env.py, owner: zoura, group: zoura, mode: "0750" }
+
+    - name: Backup script (pg_dump -> S3)
+      template: { src: templates/backup_db.py.j2, dest: /opt/zoura/bin/backup_db.py, owner: zoura, group: zoura, mode: "0750" }
+
+    - name: Nightly backup cron (07:15 UTC = overnight in Canada)
+      cron:
+        name: zoura nightly pg_dump to S3
+        user: zoura
+        minute: "15"
+        hour: "7"
+        job: "/opt/zoura/venv/bin/python /opt/zoura/bin/backup_db.py >> /opt/zoura/backup.log 2>&1"
+
+    - name: Systemd unit
+      template: { src: templates/zoura.service.j2, dest: /etc/systemd/system/zoura.service, mode: "0644" }
+      notify: reload systemd
+
+    # ---------- Caddy (auto Let's Encrypt) ----------
+    - name: Caddy apt key
+      get_url:
+        url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
+        dest: /usr/share/keyrings/caddy-stable-archive-keyring.asc
+        mode: "0644"
+
+    - name: Caddy apt repo
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.asc] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
+        filename: caddy-stable
+        state: present
+
+    - name: Install caddy
+      apt: { name: caddy, state: present, update_cache: true }
+
+    - name: Caddyfile
+      template: { src: templates/Caddyfile.j2, dest: /etc/caddy/Caddyfile, mode: "0644" }
+      notify: restart caddy
+
+    - name: Caddy running
+      service: { name: caddy, state: started, enabled: true }
+
+  handlers:
+    - name: reload systemd
+      systemd: { daemon_reload: true }
+    - name: restart caddy
+      service: { name: caddy, state: restarted }

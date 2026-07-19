@@ -1,0 +1,59 @@
+# Deploy the backend to the zoura-tbd box: sync code, install deps, refresh
+# .env from SSM, sync the DB role password, run migrations, restart, health-check.
+# Usage:  ansible-playbook deploy.yml
+---
+- hosts: tbd
+  become: true
+  tasks:
+    - name: Sync backend source
+      ansible.posix.synchronize:
+        src: ../../backend/
+        dest: /opt/zoura/app/
+        rsync_path: "sudo rsync" # remote side writes as root; ownership fixed below
+        rsync_opts:
+          - "--exclude=.env"
+          - "--exclude=__pycache__"
+          - "--exclude=.pytest_cache"
+          - "--exclude=uploads"
+          - "--exclude=logs"
+          - "--exclude=tests"
+          - "--exclude=api_tests"
+      become: false
+
+    - name: App tree owned by app user
+      file: { path: /opt/zoura/app, owner: zoura, group: zoura, recurse: true }
+
+    - name: Install python dependencies
+      become_user: zoura
+      command: /opt/zoura/venv/bin/pip install -q -r /opt/zoura/app/requirements.txt
+
+    - name: Materialize .env from SSM
+      become_user: zoura
+      command: /opt/zoura/venv/bin/python /opt/zoura/bin/fetch_env.py
+
+    - name: Sync postgres role password with SSM (never logged)
+      shell: |
+        PW=$(/opt/zoura/venv/bin/python -c "import boto3; print(boto3.client('ssm', region_name='ca-central-1').get_parameter(Name='/zoura/tbd/DB_PASSWORD', WithDecryption=True)['Parameter']['Value'])")
+        sudo -u postgres psql -c "ALTER ROLE zoura PASSWORD '$PW'"
+      no_log: true
+      changed_when: true
+
+    - name: Run migrations (alembic upgrade head)
+      become_user: zoura
+      command: /opt/zoura/venv/bin/alembic upgrade head
+      args: { chdir: /opt/zoura/app }
+      register: alembic
+      changed_when: "'Running upgrade' in (alembic.stderr + alembic.stdout)"
+
+    - name: Restart app
+      systemd: { name: zoura, state: restarted, enabled: true, daemon_reload: true }
+
+    - name: Wait for health endpoint
+      uri: { url: "http://127.0.0.1:8000/api/v1/health", status_code: 200 }
+      register: health
+      until: health.status == 200
+      retries: 15
+      delay: 2
+
+    - name: Show health
+      debug: { var: health.json }

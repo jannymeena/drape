@@ -1,0 +1,290 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Zoura tbd stack (BACKEND_CHANGES 3.2A): one EC2 t4g.micro (Ubuntu 24.04 arm64,
+  native install - no Docker), separate data EBS for Postgres, S3 for images
+  (public-read) + private backups bucket, KMS CMK for measurement envelope
+  encryption, SES identities, SSM-parameter config. Ansible provisions the box;
+  this template owns only the cloud resources.
+
+Parameters:
+  HomeIpCidr:
+    Type: String
+    Description: Your current public IP as a /32 - only this IP may SSH.
+    AllowedPattern: ^\d+\.\d+\.\d+\.\d+/32$
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 key pair for SSH (Ansible).
+  UbuntuArmAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+  InstanceType:
+    Type: String
+    Default: t4g.micro
+  ApiDomain:
+    Type: String
+    Default: api-tbd.zoura.style
+  SesDomain:
+    Type: String
+    Default: zoura.style
+  TestRecipientEmail:
+    Type: String
+    Description: Verified SES sandbox recipient for tbd testing (gets a confirmation mail).
+    Default: developer@zoura.style
+
+Resources:
+  # ---------- Networking: one public subnet, no NAT ----------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/24
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{ Key: Name, Value: zoura-tbd }]
+
+  Igw:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: [{ Key: Name, Value: zoura-tbd }]
+
+  IgwAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref Igw
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.0.0/25
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags: [{ Key: Name, Value: zoura-tbd-public }]
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags: [{ Key: Name, Value: zoura-tbd }]
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: IgwAttach
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref Igw
+
+  SubnetRouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RouteTable
+
+  InstanceSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: zoura-tbd - HTTPS/HTTP from world, SSH from home IP only
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 } # Caddy ACME HTTP-01 + redirect
+        - { IpProtocol: tcp, FromPort: 22, ToPort: 22, CidrIp: !Ref HomeIpCidr }
+      Tags: [{ Key: Name, Value: zoura-tbd }]
+
+  # ---------- KMS: measurement envelope CMK ----------
+  MeasurementKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: zoura-tbd measurement envelope encryption CMK
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AccountAdmin
+            Effect: Allow
+            Principal: { AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root" }
+            Action: "kms:*"
+            Resource: "*"
+
+  MeasurementKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/zoura-tbd-measurements
+      TargetKeyId: !Ref MeasurementKey
+
+  # ---------- S3: public-read images + private backups ----------
+  ImagesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "zoura-tbd-images-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+
+  ImagesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ImagesBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PublicReadImages # tbd only; prd goes private behind CloudFront
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "${ImagesBucket.Arn}/*"
+
+  BackupsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "zoura-tbd-backups-${AWS::AccountId}"
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-dumps
+            Status: Enabled
+            ExpirationInDays: 30
+
+  # ---------- IAM: instance role ----------
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: zoura-tbd-instance
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore # SSM agent + Run Command
+      Policies:
+        - PolicyName: zoura-tbd-app
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadConfigParams
+                Effect: Allow
+                Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
+                Resource:
+                  # GetParametersByPath authorizes against the bare path (no
+                  # trailing segment), so both forms are required.
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/zoura/tbd"
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/zoura/tbd/*"
+              - Sid: DecryptSecureStringsViaSsm
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub "ssm.${AWS::Region}.amazonaws.com"
+              - Sid: MeasurementEnvelope
+                Effect: Allow
+                Action: [kms:Encrypt, kms:Decrypt, kms:GenerateDataKey]
+                Resource: !GetAtt MeasurementKey.Arn
+              - Sid: SendEmail
+                Effect: Allow
+                Action: [ses:SendEmail, ses:SendRawEmail]
+                Resource: "*"
+              - Sid: Buckets
+                Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:DeleteObject, s3:ListBucket]
+                Resource:
+                  - !GetAtt ImagesBucket.Arn
+                  - !Sub "${ImagesBucket.Arn}/*"
+                  - !GetAtt BackupsBucket.Arn
+                  - !Sub "${BackupsBucket.Arn}/*"
+              - Sid: Logs
+                Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/zoura/tbd*"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  # ---------- Compute: the box + separate data volume ----------
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref UbuntuArmAmi
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds: [!Ref InstanceSg]
+      IamInstanceProfile: !Ref InstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 10, VolumeType: gp3, DeleteOnTermination: true }
+      Tags: [{ Key: Name, Value: zoura-tbd }]
+
+  # Postgres data lives here; grows online (modify-volume + resize2fs).
+  # Retain: stack deletion must never take the database with it.
+  DataVolume:
+    Type: AWS::EC2::Volume
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Size: 10
+      VolumeType: gp3
+      Tags: [{ Key: Name, Value: zoura-tbd-data }]
+
+  DataVolumeAttach:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref Instance
+      VolumeId: !Ref DataVolume
+      Device: /dev/sdf
+
+  Eip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags: [{ Key: Name, Value: zoura-tbd }]
+
+  EipAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt Eip.AllocationId
+      InstanceId: !Ref Instance
+
+  # ---------- SES: sending domain + sandbox test recipient ----------
+  SesDomainIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref SesDomain
+
+  SesTestRecipient:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref TestRecipientEmail
+
+Outputs:
+  ElasticIp:
+    Value: !Ref Eip
+    Description: Namecheap A record target for api-tbd.zoura.style
+  InstanceId:
+    Value: !Ref Instance
+  ImagesBucket:
+    Value: !Ref ImagesBucket
+  BackupsBucket:
+    Value: !Ref BackupsBucket
+  KmsKeyArn:
+    Value: !GetAtt MeasurementKey.Arn
+  ApiDomain:
+    Value: !Ref ApiDomain
+  DkimCname1:
+    Value: !Sub "${SesDomainIdentity.DkimDNSTokenName1} -> ${SesDomainIdentity.DkimDNSTokenValue1}"
+    Description: Namecheap CNAME 1 for SES DKIM
+  DkimCname2:
+    Value: !Sub "${SesDomainIdentity.DkimDNSTokenName2} -> ${SesDomainIdentity.DkimDNSTokenValue2}"
+    Description: Namecheap CNAME 2 for SES DKIM
+  DkimCname3:
+    Value: !Sub "${SesDomainIdentity.DkimDNSTokenName3} -> ${SesDomainIdentity.DkimDNSTokenValue3}"
+    Description: Namecheap CNAME 3 for SES DKIM

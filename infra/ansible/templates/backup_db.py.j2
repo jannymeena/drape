@@ -1,0 +1,24 @@
+#!/opt/zoura/venv/bin/python
+"""Nightly pg_dump of zoura_tbd -> s3://{{ backups_bucket }} (private bucket).
+
+Peer auth as the local zoura user works because the cron runs as `zoura`.
+The bucket lifecycle rule expires dumps after 30 days.
+"""
+import datetime
+import gzip
+import subprocess
+
+import boto3
+
+stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H%M")
+key = f"pg_dump/zoura_tbd-{stamp}.sql.gz"
+
+dump = subprocess.run(
+    ["pg_dump", "--no-owner", "zoura_tbd"], check=True, capture_output=True
+)
+body = gzip.compress(dump.stdout)
+
+boto3.client("s3", region_name="ca-central-1").put_object(
+    Bucket="{{ backups_bucket }}", Key=key, Body=body
+)
+print(f"uploaded {key} ({len(body)} bytes)")
