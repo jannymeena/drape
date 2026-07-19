@@ -250,6 +250,28 @@ def test_forgot_password_with_unknown_email_also_returns_202(client):
     assert r.status_code == 202
 
 
+def test_forgot_password_still_202_when_email_provider_fails(client, make_user):
+    """A mail-provider outage (e.g. SES rejection) must not surface as a 500 —
+    the token is already stored, and the status must not leak email existence.
+    (Found live 2026-07-19: unverified SES sender turned this into a 500.)"""
+    from app.api.dependencies.providers import get_email_provider
+    from app.main import app
+
+    class _BrokenEmail:
+        async def send(self, *, to, subject, body):
+            raise RuntimeError("MessageRejected: sender not verified")
+
+    app.dependency_overrides[get_email_provider] = lambda: _BrokenEmail()
+    try:
+        make_user(email="outage@example.com")
+        r = client.post(
+            "/api/v1/auth/forgot-password", json={"email": "outage@example.com"}
+        )
+        assert r.status_code == 202
+    finally:
+        app.dependency_overrides.pop(get_email_provider, None)
+
+
 def test_reset_password_flow_end_to_end(client, make_user, db):
     """Generate a token via the service helper, persist it, then call the
     /reset-password route with the raw token. Confirms hash matching."""

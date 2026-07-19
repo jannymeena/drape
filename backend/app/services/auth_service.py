@@ -256,11 +256,18 @@ async def forgot_password(
     db.commit()
 
     reset_url = settings.password_reset_url_template.format(token=raw)
-    await email_provider.send(
-        to=email,
-        subject="Zoura — reset your password",
-        body=f"Reset your password with this link (valid 30 minutes): {reset_url}",
-    )
+    try:
+        await email_provider.send(
+            to=email,
+            subject="Zoura — reset your password",
+            body=f"Reset your password with this link (valid 30 minutes): {reset_url}",
+        )
+    except Exception:
+        # The 202 contract holds even when the mail provider fails: the token
+        # is already committed, so a retry after the outage still works, and
+        # surfacing the failure would leak which emails exist.
+        _log.exception("auth.forgot_password.email_failed", user_id=str(user.id))
+        return
     _log.info("auth.forgot_password.sent", user_id=str(user.id))
 
 
