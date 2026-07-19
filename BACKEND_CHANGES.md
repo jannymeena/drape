@@ -73,7 +73,7 @@ migrations once prd has real users.
 - [x] Config default, dev `.env`, `.env.example`, and the App Runner yaml all carry
       `zoura://zoura.style/auth/reset-password?token={token}`, matching the mobile intent
       filter (verified end-to-end via the logged dev reset email). Swap to the real https
-      App/Universal Link template at deploy time (Tier 3.2 step 7).
+      App/Universal Link template at prd deploy time (§3.2B step 7; tbd keeps `zoura://`).
 
 ## Tier 2 — Blocked on keys/accounts — by build complexity
 
@@ -99,9 +99,16 @@ Each item is blocked on something only you can provide; listed smallest build fi
 
 ## Tier 3 — Production hardening & AWS deploy *(items 10a/10b/11b)*
 
-**Nothing in this tier is built** — no Dockerfile, task definitions, IaC, or CI exist in the
-repo yet; this is the target runbook. All resources in **`ca-central-1`** (PIPEDA); `tbd` and
-`prd` fully isolated (separate VPC / RDS / KMS / ECS services), same image, different env vars.
+All resources in **`ca-central-1`** (PIPEDA); `tbd` and `prd` fully isolated (separate
+VPC / RDS / KMS / compute), same image, different env vars.
+
+**Two separate AWS setups (decided 2026-07-19):** tbd and prd share *nothing* but the
+account, region, and application code. **§3.2A = tbd** (one EC2, native install, Ansible,
+~$13.75/mo — settled, build now). **§3.2B = prd** (ECS Fargate + ALB + RDS multi-AZ —
+target runbook, build at go-live; nothing from the tbd EC2 is reused or migrated).
+App Runner **closed to new customers 2026-04-30** (service in maintenance; AWS successor
+is ECS Express Mode), so `infra/drape-test-apprunner.yaml` and
+`infra/README-test-deploy.md` are legacy/undeployable — superseded by §3.2A.
 
 ### 3.1 Pre-deploy hardening *(item 10a)*
 - [ ] Sanitize Pydantic `Settings` validation errors — they echo the input dict incl. secrets
@@ -116,7 +123,54 @@ repo yet; this is the target runbook. All resources in **`ca-central-1`** (PIPED
 - [ ] RDS automated backups + a periodic manual snapshot; PITR in prd.
 - [ ] SES domain out of sandbox before prd (tbd may stay sandboxed).
 
-### 3.2 AWS infrastructure *(item 10b)* — first-time `tbd` setup, in order
+### 3.2A — tbd stack: one EC2, native install (no Docker), full app — **DEPLOYED 2026-07-19**
+
+**Live.** `{"status":"ok"}` on the box; providers.built shows the full tbd set (SES, KMS
+envelope, S3 images, real Google OAuth, Stripe, FCM, mock affiliate); alembic migrated;
+JSON logs. All IDs/ARNs + day-2 runbook: **`infra/README-tbd.md`**. Stack `zoura-tbd`
+(`infra/zoura-tbd.yaml`), Ansible in `infra/ansible/`. Remaining (user): Namecheap A +
+3 DKIM CNAMEs, gmail SES verification click; then Stripe tbd webhook + mobile smoke run.
+
+Runs `ENVIRONMENT=tbd` — the full application (SES, KMS, S3, Stripe sandbox, Google login,
+FCM push, Anthropic; `DISABLED_FEATURES=apple_login,affiliate`). **~$13.75/mo running 24/7**
+(decisions 2026-07-19: no stop/start, real IPv4, **no Cloudflare** — $3.65 of the bill is
+the IPv4 fee; $10 on-demand is not reachable under these constraints). New-account free
+credits ($100–200) likely cover 7–14 months — check first; 1-yr Compute Savings Plan
+(~30% off instance → ~$11.75) only once tbd proves long-lived. All resources `zoura-tbd-*`;
+DB `zoura_tbd`; keys reused from dev `.env` except DATABASE_URL / KMS_KEY_ID /
+IMAGE_BUCKET / STRIPE_WEBHOOK_SECRET / SES_* (new).
+
+- Compute: 1× **EC2 t4g.micro — confirmed 2026-07-19** (2 vCPU / 1 GB, arm64 Graviton;
+  whole Python dep set ships arm64 wheels; x86 escape hatch t3.micro +$1.75/mo), Ubuntu 24.04,
+  public subnet, outbound via IGW — **no NAT, no RDS, no Docker/ECR** (dockerd/containerd
+  eat ~100–150 MB RAM — meaningful at 1 GB). 2 GB swapfile. Upgrade: stop → t4g.small →
+  start (+$6.7).
+- **Provisioning/deploys = Ansible** (decided 2026-07-19), CloudFormation/CLI only for
+  cloud resources (VPC/SG, EC2+EIP, EBS×2, S3, KMS, SES, IAM role, SSM params). Ansible
+  `infra/ansible/provision.yml` (packages, PGDG Postgres16+pgvector, /data mount, venv +
+  systemd, Caddy, swap) + `deploy.yml` (sync backend/, pip install, `alembic upgrade head`,
+  restart). Connection: SSH, port 22 SG-restricted to home IP (SSM plugin = fallback).
+- Native services (systemd): **PostgreSQL 16 + pgvector** (PGDG apt) · **app** venv at
+  `/opt/zoura`, single uvicorn worker · **Caddy** (apt, auto Let's Encrypt for
+  `api-tbd.zoura.style`).
+- **Storage split:** root EBS 10 GB (OS+code, never grows) · **data EBS 10 GB gp3 at
+  `/data`** — Postgres only (`/data/postgres`); grows online, zero-downtime
+  (`modify-volume` + `resize2fs`, grow-only, once/6 h, up to 16 TB). Nightly `pg_dump` → S3.
+  **Photos stay on S3**, not EBS: ~4× cheaper/GB ($0.025 vs $0.092), auto-scales, 11-nines
+  durable, and tbd then exercises the real prd `S3ImageStorage` path.
+- **DNS/IPv4 (decision 2026-07-19): no Cloudflare.** Namecheap **A record →
+  Elastic IP**, pay the $3.65/mo IPv4 fee (charged for holding ANY public IPv4 —
+  CNAMEing to the EC2 public DNS name doesn't avoid it). No Route53 needed.
+- Config: **SSM Parameter Store** (free) instead of Secrets Manager; instance role reads
+  params and materializes `.env` at deploy. Role also scoped to KMS CMK + SES + S3 + CW.
+- Deploy: rsync/upload `backend/` → SSM Run Command: venv pip install, `alembic upgrade
+  head`, `systemctl restart zoura` (no SSH keys). Dockerfile kept for prd/ECS only.
+- Trade-offs accepted: no auto-healing/scaling, brief redeploy blip, self-managed Postgres
+  (data EBS + pg_dump; move to RDS later = DATABASE_URL change + dump/restore).
+- Code prereqs: `KmsEnvelopeEncryptor` implementation (§3.4) — `affiliate` switch shipped
+  2026-07-19.
+
+### 3.2B — prd stack: ECS Fargate + ALB + RDS *(item 10b — target runbook, build at go-live)*
 
 | Component | Service |
 |---|---|
@@ -126,13 +180,15 @@ repo yet; this is the target runbook. All resources in **`ca-central-1`** (PIPED
 | Email / storage / logs | SES · S3+CloudFront (images) · CloudWatch Logs (structlog JSON with `request_id`) |
 
 1. [ ] Account prep: MFA on root, IAM admin role, CLI profile; default region `ca-central-1`
-       everywhere — spot-check before every console action (wrong region = accidental PIPEDA violation).
-2. [ ] VPC: 2 private subnets (RDS) + 2 public (ALB) across 2 AZs; NAT gateway so tasks reach
-       Anthropic / SES / Apple JWKS; SGs: ALB → task:8000, task → RDS:5432.
-3. [ ] RDS PG16, DB `drape_tbd` (`db.t4g.medium` fine); master creds auto-created in Secrets Manager;
-       then connect once (bastion/SSM) and `CREATE EXTENSION IF NOT EXISTS vector;`.
-4. [ ] KMS CMK `alias/drape-tbd-measurements`; key policy: task role gets
-       `kms:Encrypt/Decrypt/GenerateDataKey` only. Key ARN → `KMS_KEY_ID`.
+       everywhere — spot-check before every console action (wrong region = accidental PIPEDA
+       violation). *(Largely done during tbd setup — verify, don't redo.)*
+2. [ ] **prd VPC** (separate from tbd's): 2 private subnets (RDS) + 2 public (ALB) across 2 AZs;
+       NAT gateway so tasks reach Anthropic / SES / Apple JWKS; SGs: ALB → task:8000,
+       task → RDS:5432.
+3. [ ] RDS PG16, DB `zoura_prd` (`db.t4g.medium`, **multi-AZ**); master creds auto-created in
+       Secrets Manager; then connect once (bastion/SSM) and `CREATE EXTENSION IF NOT EXISTS vector;`.
+4. [ ] KMS CMK `alias/zoura-prd-measurements` (separate from tbd's key); key policy: task role
+       gets `kms:Encrypt/Decrypt/GenerateDataKey` only. Key ARN → `KMS_KEY_ID`.
 5. [ ] SES: verify sending domain + `no-reply@` from-address → `SES_REGION`, `SES_FROM_ADDRESS`.
 6. [ ] OAuth creds: Apple — native-app flow audience is the bundle ID `style.zoura.mobile`
        (a Service ID is only needed if a web flow is added) + `.p8` private key (record Team/Key
@@ -146,33 +202,37 @@ repo yet; this is the target runbook. All resources in **`ca-central-1`** (PIPED
         in-app soft-cancel owns cancellation; done via API in sandbox 2026-07-18), statement
         descriptor (`ZOURA.STYLE`), and customer emails (receipts + failed payments) under
         Settings → Customer emails / Billing → Subscriptions and emails.
-7. [ ] Secrets Manager: one JSON secret per env (e.g. `drape/tbd/app`) holding the full `.env`
-       envelope — `JWT_SECRET` (64-byte urlsafe), `DATABASE_URL`, `ANTHROPIC_API_KEY`, Apple/Google
-       IDs, `SES_*`, `KMS_KEY_ID`, `AWS_REGION`, `PASSWORD_RESET_URL_TEMPLATE` (https App/Universal
-       Link in prod). `backend/.env.example` is the canonical key list — everything in it must be
-       present in the secret.
-8. [ ] ECR repo `drape` + lifecycle policy (keep last N tagged, expire untagged after 7 days).
+7. [ ] Secrets Manager: one JSON secret `zoura/prd/app` holding the full `.env` envelope —
+       **fresh** `JWT_SECRET` (64-byte urlsafe; prd never shares dev/tbd keys), `DATABASE_URL`,
+       `ANTHROPIC_API_KEY`, Apple/Google IDs, `SES_*`, `KMS_KEY_ID`, `AWS_REGION`,
+       `PASSWORD_RESET_URL_TEMPLATE` (https App/Universal Link). `backend/.env.example` is the
+       canonical key list — everything in it must be present in the secret. (tbd uses free SSM
+       Parameter Store instead — §3.2A.)
+8. [ ] ECR repo `zoura-backend` + lifecycle policy (keep last N tagged, expire untagged after
+       7 days). *(ECR is prd-only; tbd deploys code via Ansible, no images.)*
 9. [ ] `backend/Dockerfile` — `python:3.11-slim` + `build-essential libpq-dev`, copy
        `app/ alembic/ alembic.ini scripts/`, `EXPOSE 8000`, `ENTRYPOINT scripts/entrypoint.sh`
        which materializes `.env` from Secrets Manager (`get-secret-value` → JSON → `.env` lines)
        before exec-ing `uvicorn app.main:app --host 0.0.0.0 --port 8000` — per the .env policy
        (the image never ships secrets).
-10. [ ] Two task definitions per env, same image: **`drape-tbd-app`** (long-running, CPU 512 /
-        mem 1024; task role: `secretsmanager:GetSecretValue` on `drape/tbd/*` + KMS on the CMK +
+10. [ ] Two task definitions, same image: **`zoura-prd-app`** (long-running, CPU 512 /
+        mem 1024; task role: `secretsmanager:GetSecretValue` on `zoura/prd/*` + KMS on the CMK +
         `ses:SendEmail`; container health check `curl -f localhost:8000/api/v1/health`) and
-        **`drape-tbd-migrate`** (one-shot, CMD `alembic upgrade head`).
-11. [ ] First migration via `aws ecs run-task --task-definition drape-tbd-migrate` — wait for exit 0
+        **`zoura-prd-migrate`** (one-shot, CMD `alembic upgrade head`).
+11. [ ] First migration via `aws ecs run-task --task-definition zoura-prd-migrate` — wait for exit 0
         (alembic output in CloudWatch). Then create the service: 2 desired tasks, ALB target group,
         deployment circuit breaker on, rolling min/max 100/200%.
-12. [ ] Smoke test: `/api/v1/health` 200 · OAuth route returns **401 not 404** (mounted in tbd,
-        unlike dev) · `forgot-password` → 202 / SES delivery · CloudWatch shows JSON logs with
-        `request_id` (pretty colored logs ⇒ `ENVIRONMENT` isn't `tbd`; fix before anything else).
-13. [ ] DNS: Route53 alias `api-tbd.zoura.style` → ALB; ACM cert `*.zoura.style` on the listener.
+12. [ ] Smoke test: `/api/v1/health` 200 · OAuth route returns **401 not 404** (mounted, unlike
+        dev) · `forgot-password` → 202 / SES delivery · CloudWatch shows JSON logs with
+        `request_id` (pretty colored logs ⇒ `ENVIRONMENT` isn't `prd`; fix before anything else).
+13. [ ] DNS: `api.zoura.style` → ALB (Route53 alias if the zone moves there, else Namecheap
+        CNAME); ACM cert `*.zoura.style` on the listener.
 14. [ ] Record every provisioned ARN (RDS, KMS, ECR, ECS service, secret) in `infra/`.
 
-### 3.3 CI + release flow *(lands with 3.2)*
+### 3.3 CI + release flow *(tbd: Ansible; prd: lands with 3.2B)*
 - [ ] CI on merge to master: `pytest` + `alembic upgrade head` against a throwaway Postgres →
-      build/push `drape:tbd-<git-sha>` to ECR → update both task definitions.
+      **tbd**: run `infra/ansible/deploy.yml` against the EC2 box. **prd** (once built):
+      build/push `zoura-backend:prd-<git-sha>` to ECR → update both task definitions.
 - Release order, always: **run the migrate task first** (wait exit 0; if it fails, do NOT roll the
   service forward — forward-fix, push, retry), then
   `aws ecs update-service --force-new-deployment` (rolling; circuit breaker auto-rolls back on
@@ -183,13 +243,20 @@ repo yet; this is the target runbook. All resources in **`ca-central-1`** (PIPED
   **forward-fix, never `alembic downgrade`** in tbd/prd; compromised `JWT_SECRET` → rotate secret +
   `--force-new-deployment` + `UPDATE refresh_tokens SET revoked_at = now()`; compromised CMK →
   rotate (old ciphertexts decrypt via the old key version transparently).
-- Day-2 ops: `aws logs tail /ecs/drape-tbd --follow` · Logs Insights `filter request_id = "..."` ·
-  one-off SQL via SSM bastion only (never open RDS to the internet) · restart / pick up new secrets:
-  `update-service --force-new-deployment` with no task-def change.
+- Day-2 ops: prd `aws logs tail /ecs/zoura-prd --follow`; tbd `journalctl -u zoura` on the box /
+  CloudWatch agent group · Logs Insights `filter request_id = "..."` · one-off SQL: tbd `psql` on
+  the box, prd via SSM bastion only (never open RDS to the internet) · prd restart / new secrets:
+  `update-service --force-new-deployment`; tbd: `systemctl restart zoura` via Ansible/SSM.
 
-### 3.4 KMS envelope encryption *(item 11b)* — after 3.2
-- [ ] Real `KmsEnvelopeEncryptor` + measurement DEK rotation (stub raises `NotImplementedError`;
-      dev uses `LocalAesEncryptor` with `MEASUREMENT_DEK_DEV`).
+### 3.4 KMS envelope encryption *(item 11b)* — **required BEFORE the tbd deploy (§3.2A prereq)**
+- [x] Real `KmsEnvelopeEncryptor` shipped 2026-07-19 (was `NotImplementedError`; dev keeps
+      `LocalAesEncryptor`). Fresh KMS data key per encrypt (`GenerateDataKey` → AES-256-GCM);
+      versioned blob `0x01 | len | wrapped-DEK | nonce | ct`; user id bound in both the KMS
+      `EncryptionContext` and the GCM associated data (cross-user decrypt fails at either
+      layer). DEK "rotation" = every re-submit wraps a new key; CMK rotation is KMS-native
+      (old blobs decrypt via the old key version). 6 tests
+      (`test_kms_envelope_encryptor.py`) with a fake KMS that really wraps/unwraps +
+      enforces context; suite 344 green.
 
 ## Optional / last
 

@@ -132,6 +132,13 @@ straight to step 1.
       tokenization (`flutter_stripe` PaymentSheet or equivalent) before live mode;
       sandbox testing meanwhile attaches Stripe test payment methods
       (`pm_card_visa`) via the API. Related open call: Stripe vs Apple IAP for iOS.
+- [x] On-device image caching — **done 2026-07-19** *(pairs with the tbd S3 deploy)*:
+      `cached_network_image` ^3.4.1 added; all 10 `Image.network` call sites swapped to
+      `CachedNetworkImage` (wardrobe item card/detail, AI-reasoning detail, outfit history,
+      mix & match, outfit grid, shop product card, edit profile, profile complete, avatar
+      reveal) — `errorBuilder` → `errorWidget`, behavior otherwise identical. Images now
+      persist in the phone's per-app disk cache (download once, load from device storage,
+      works offline; OS evicts only under storage pressure). analyze clean; 140 tests green.
 - [ ] Per-screen visual diff pass on iOS + Android.
 - [ ] TestFlight + Play Console upload, store listings, version pinning.
 - [ ] Privacy policy + PIPEDA disclosures (add the derived-measurements line when BE 1.1

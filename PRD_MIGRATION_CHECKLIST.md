@@ -8,16 +8,29 @@ targets AWS `ca-central-1` (PIPEDA).
 
 ---
 
+## Infra (prd is a separate stack — nothing reused from the tbd EC2)
+
+- [ ] Build the full §3.2B stack (BACKEND_CHANGES): separate VPC + NAT, ECS Fargate + ALB,
+      RDS PG16 multi-AZ (`zoura_prd`), prd KMS CMK (`alias/zoura-prd-measurements`), Secrets
+      Manager `zoura/prd/app` (tbd uses SSM Parameter Store), ECR `zoura-backend`. The tbd
+      box (single EC2, native Postgres, Ansible) is never promoted or migrated — prd starts
+      from an empty DB.
+- [ ] prd images: S3 bucket **private** behind CloudFront + `IMAGE_CDN_BASE_URL`
+      (tbd serves public-read S3 URLs with no CDN — do not carry that to prd).
+
 ## Domain & DNS (zoura.style)
 
-- [ ] Route53: `api.zoura.style` (or `api-prd`) alias → prd ALB; ACM cert `*.zoura.style` on the listener.
+- [ ] Zone hosting decision: domain registered at **Namecheap** (tbd uses a Namecheap A record
+      `api-tbd.zoura.style` → Elastic IP). For prd either move the zone to Route53 (needed for
+      apex aliases) or CNAME `api.zoura.style` → the ALB DNS name from Namecheap.
+- [ ] `api.zoura.style` (or `api-prd`) → prd ALB; ACM cert `*.zoura.style` on the listener.
 - [ ] Host `https://zoura.style/privacy` and `/terms` — linked from the app (privacy screen), the Stripe portal config, and App Store review requires them live.
 - [ ] `.well-known/apple-app-site-association` + `.well-known/assetlinks.json` on `zoura.style` when switching reset links from the `zoura://` custom scheme to https App/Universal Links.
 - [ ] Mailboxes actually receiving: `privacy@zoura.style` (shown in-app as the privacy contact), `concierge@zoura.style` (Contact Us screen), `no-reply@` as sender. SES receiving or forwarding — decide and set up.
 
 ## Backend env (prd secret)
 
-- [ ] Secrets Manager secret `drape/prd/app` materialized with every key in `backend/.env.example` — fresh `JWT_SECRET` (64-byte urlsafe), prd `DATABASE_URL`, `ANTHROPIC_API_KEY`, `KMS_KEY_ID`, `IMAGE_BUCKET`/`IMAGE_CDN_BASE_URL`, `SES_*`, live Stripe keys (below), `FCM_CREDENTIALS_JSON`, `APPLE_*`, `GOOGLE_CLIENT_ID`.
+- [ ] Secrets Manager secret `zoura/prd/app` materialized with every key in `backend/.env.example` — fresh `JWT_SECRET` (64-byte urlsafe), prd `DATABASE_URL`, `ANTHROPIC_API_KEY`, `KMS_KEY_ID`, `IMAGE_BUCKET`/`IMAGE_CDN_BASE_URL`, `SES_*`, live Stripe keys (below), `FCM_CREDENTIALS_JSON`, `APPLE_*`, `GOOGLE_CLIENT_ID`.
 - [ ] `PASSWORD_RESET_URL_TEMPLATE` → https App/Universal Link form (not `zoura://`) once assetlinks/AASA are hosted.
 - [ ] `STRIPE_PORTAL_RETURN_URL` → prd deep link / universal link.
 - [ ] Sanitize pydantic `Settings` validation errors before prd — startup errors currently echo the input dict (Phase 7 hardening item).

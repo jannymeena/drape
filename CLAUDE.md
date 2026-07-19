@@ -17,6 +17,14 @@ New tasks/plans go into the two `*_CHANGES.md` docs. Product/design specs live i
 (authoritative — implement them, don't improvise). Folder-local readmes under `backend/` and
 `infra/` are left as-is.
 
+## AWS
+
+Account `026481484029`, region `ca-central-1` (PIPEDA). **Always use the CLI profile
+`zoura`** (`--profile zoura` / `AWS_PROFILE=zoura`) — the default profile belongs to an
+unrelated setup and must never be used or modified. tbd runs on the `zoura-tbd`
+CloudFormation stack + Ansible (`infra/zoura-tbd.yaml`, `infra/ansible/`); deployed state
+and day-2 runbook in `infra/README-tbd.md`.
+
 ## Commands
 
 ```bash
@@ -55,8 +63,11 @@ Mobile:
 
 ## Commit policy
 
-**Only ever commit files under `mobile/` or `backend/`. Nothing else.**
+**Only ever commit files under `mobile/`, `backend/`, or `infra/`. Nothing else.**
+(`infra/` added 2026-07-20 — IaC/playbooks/runbooks are versioned; never commit secrets
+there: config belongs in SSM Parameter Store, keys outside the repo.)
 
-Root-level docs (`*_CHANGES.md`, `README.md`, `CLAUDE.md`), `handoff/`, `infra/`, dotfiles, and
-anything outside those two folders stay uncommitted unless the user explicitly says otherwise.
-Stage by explicit path (`git add mobile/... backend/...`) — never `git add -A` / `git add .`.
+Root-level docs (`*_CHANGES.md`, `README.md`, `PLAN.md`, `CLAUDE.md`), `handoff/`, dotfiles,
+and anything outside those three folders stay uncommitted unless the user explicitly says
+otherwise. Stage by explicit path (`git add mobile/... backend/... infra/...`) — never
+`git add -A` / `git add .`.
