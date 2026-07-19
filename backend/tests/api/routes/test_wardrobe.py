@@ -228,6 +228,26 @@ def test_scan_item_returns_canned_detection(authed_client):
     assert body["suggest_manual_entry"] is False
 
 
+def test_scan_item_not_a_garment_returns_typed_400(authed_client, canned_ai):
+    """Non-garment photos are a typed 400, not a 502 — the AI's escape-hatch
+    payload (found live on tbd: a flower photo produced a schema-invalid guess
+    before the hatch existed)."""
+
+    async def _not_a_garment(image_bytes, prompt, *, media_type="image/jpeg",
+                             model=None, max_tokens=1024):
+        return '{"not_a_garment": true, "reason": "a field of flowers"}'
+
+    canned_ai.analyze_image = _not_a_garment
+    r = authed_client.post(
+        "/api/v1/wardrobe/scan-item",
+        files={"file": ("flowers.png", _TINY_PNG, "image/png")},
+    )
+    assert r.status_code == 400, r.text
+    detail = r.json()["detail"]
+    assert detail["error"] == "not_a_garment"
+    assert "flowers" in detail["message"]
+
+
 def test_scan_item_rejects_unsupported_content_type(authed_client):
     r = authed_client.post(
         "/api/v1/wardrobe/scan-item",

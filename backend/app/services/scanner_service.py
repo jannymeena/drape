@@ -9,6 +9,8 @@ Error model:
   * `ScannerError("ai_call_failed", ...)`  -> upstream AIProvider raised.
   * `ScannerError("parse_failed", ...)`    -> AI text wasn't JSON / didn't match schema.
   * `ScannerError("low_confidence", ...)`  -> confidence < LOW_CONFIDENCE_THRESHOLD.
+  * `ScannerError("not_a_garment", ...)`   -> AI says the image has no clothing item
+                                              (routes translate to 400, not 502).
 
 `scan_batch` never raises per-item — it folds each failure into a
 `BatchUploadItem` so the client can render mixed results in one pass.
@@ -57,9 +59,12 @@ _SCANNER_PROMPT = (
     f'  "formality": one of {_FORMALITIES},\n'
     '  "confidence": integer 0-100 — how confident you are in the identification\n'
     "}\n"
-    "If the image does not clearly contain a single clothing item, return your "
-    "best guess for category/color/pattern/formality and set confidence to a "
-    "low value (under 50)."
+    "If the image does not contain a clothing/fashion item at all (e.g. scenery, "
+    "food, an object), do NOT guess — respond instead with exactly:\n"
+    '{"not_a_garment": true, "reason": "<short description of what the image shows>"}\n'
+    "If the image likely contains a clothing item but it is unclear or partial, "
+    "return your best guess for category/color/pattern/formality and set "
+    "confidence to a low value (under 50)."
 )
 
 # LLMs sometimes wrap JSON in prose ("Here is the analysis: {...}"). This grabs
@@ -68,8 +73,8 @@ _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 
 
 class ScannerError(Exception):
-    """Domain-level scanner failure. Routes translate `low_confidence` to 400,
-    `parse_failed` / `ai_call_failed` to 502."""
+    """Domain-level scanner failure. Routes translate `low_confidence` and
+    `not_a_garment` to 400, `parse_failed` / `ai_call_failed` to 502."""
 
     def __init__(
         self,
@@ -101,6 +106,10 @@ def _parse_detection(text: str) -> ScanDetection:
             raise ScannerError(
                 "parse_failed", f"AI response had malformed JSON: {exc}"
             ) from exc
+    if isinstance(payload, dict) and payload.get("not_a_garment"):
+        reason = str(payload.get("reason") or "Image does not contain a clothing item")
+        _log.info("scanner.not_a_garment", reason=reason)
+        raise ScannerError("not_a_garment", reason)
     try:
         return ScanDetection.model_validate(payload)
     except ValidationError as exc:

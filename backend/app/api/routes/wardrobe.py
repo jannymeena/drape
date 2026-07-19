@@ -240,6 +240,13 @@ async def batch_upload(
 
 
 def _translate_scanner_error(err: ScannerError) -> HTTPException:
+    if err.code == "not_a_garment":
+        # The AI affirmatively says there's no clothing item — a client-side
+        # input problem (400), not a downstream failure.
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "not_a_garment", "message": str(err)},
+        )
     if err.code == "low_confidence":
         detail: dict = {
             "error": "low_confidence",
