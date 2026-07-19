@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime
+from typing import Iterator
 from urllib.parse import urlparse
 
 import boto3
@@ -62,6 +64,13 @@ class S3ImageStorage(ImageStorageProvider):
             return None
         self._client.delete_object(Bucket=self._bucket, Key=key)
         _log.info("image.deleted", backend="s3", bucket=self._bucket, key=key)
+
+    def list_all(self) -> Iterator[tuple[str, datetime]]:
+        paginator = self._client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self._bucket):
+            for obj in page.get("Contents", []):
+                # boto3 returns tz-aware UTC LastModified.
+                yield self._public_url(obj["Key"]), obj["LastModified"]
 
     def _public_url(self, key: str) -> str:
         if self._cdn_base_url:

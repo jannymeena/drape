@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.providers import get_email_provider, get_password_hasher
+from app.core.rate_limit import rate_limited
 from app.db.session import get_db
 from app.schemas.auth import ForgotPasswordRequest, ResetPasswordRequest
 from app.services import auth_service
@@ -12,7 +13,11 @@ from app.services.providers.hash.base import PasswordHasher
 router = APIRouter()
 
 
-@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/forgot-password",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(rate_limited("forgot_password"))],
+)
 async def forgot_password(
     payload: ForgotPasswordRequest,
     db: Session = Depends(get_db),
@@ -25,7 +30,11 @@ async def forgot_password(
     return {"status": "ok"}
 
 
-@router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limited("reset_password"))],
+)
 def reset_password(
     payload: ResetPasswordRequest,
     db: Session = Depends(get_db),

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Iterator
 
 
 class ImageStorageProvider(ABC):
@@ -18,3 +20,11 @@ class ImageStorageProvider(ABC):
     @abstractmethod
     def delete(self, *, url: str) -> None:
         """Idempotent — no-op if the URL is unknown."""
+
+    @abstractmethod
+    def list_all(self) -> Iterator[tuple[str, datetime]]:
+        """Yield (url, last_modified_utc) for every stored object.
+
+        Powers the orphaned-image GC (scripts/gc_orphaned_images.py): URLs are
+        compared against DB references, so they must be in exactly the form
+        `upload()` returned them."""

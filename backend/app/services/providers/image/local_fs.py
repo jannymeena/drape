@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Iterator
 
 import structlog
 
@@ -56,3 +58,11 @@ class LocalFsStorage(ImageStorageProvider):
         except FileNotFoundError:
             return None
         _log.info("image.deleted", backend="local_fs", filename=filename)
+
+    def list_all(self) -> Iterator[tuple[str, datetime]]:
+        for path in sorted(self._root.rglob("*")):
+            if not path.is_file():
+                continue
+            mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+            rel = path.relative_to(self._root).as_posix()
+            yield f"{self._base_url}/{rel}", mtime

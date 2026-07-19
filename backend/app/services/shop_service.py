@@ -390,6 +390,9 @@ def wishlist(
             select(WishlistItem)
             .where(WishlistItem.user_id == user.id)
             .order_by(WishlistItem.created_at.desc())
+            # §3.1 pagination cap — each row also costs an affiliate price
+            # lookup below, so an unbounded wishlist is a fan-out risk too.
+            .limit(200)
         ).all()
     )
     out = []

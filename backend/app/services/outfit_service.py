@@ -1119,7 +1119,9 @@ def get_history(
     if window_start is not None:
         cutoff = datetime.combine(window_start, datetime.min.time(), tzinfo=timezone.utc)
         base = base.where(OutfitHistory.logged_at >= cutoff)
-    rows = list(db.execute(base).all())
+    # §3.1 pagination cap — newest year of daily logs; older entries fall off
+    # rather than growing the response forever.
+    rows = list(db.execute(base.limit(365)).all())
     entries: list[HistoryEntry] = []
     for hist, outfit in rows:
         items = payload_to_outfit_items(outfit.items)

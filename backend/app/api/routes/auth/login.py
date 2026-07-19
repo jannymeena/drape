@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.providers import get_oauth_verifier, get_password_hasher
+from app.core.rate_limit import rate_limited
 from app.db.session import get_db
 from app.schemas.auth import AuthResponse, LoginRequest
 from app.services import auth_service
@@ -12,7 +13,11 @@ from app.services.providers.oauth.base import OAuthVerifier
 router = APIRouter()
 
 
-@router.post("/login", response_model=AuthResponse)
+@router.post(
+    "/login",
+    response_model=AuthResponse,
+    dependencies=[Depends(rate_limited("login"))],
+)
 async def login(
     payload: LoginRequest,
     db: Session = Depends(get_db),

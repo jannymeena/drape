@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["dev", "tbd", "prd"]
@@ -20,6 +20,18 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
 
     environment: Environment = "dev"
+
+    # Comma-separated CORS origins. Unset → "*" in dev (browser tools, local
+    # web builds), locked down (no CORS middleware at all) in tbd/prd — the
+    # mobile app is not a browser and needs none. Set explicitly when a web
+    # client appears (e.g. https://zoura.style).
+    cors_allow_origins: str | None = None
+
+    # Per-IP sliding-window limit for the credential-guessing surface
+    # (/auth/login, /auth/forgot-password, /auth/reset-password), per minute
+    # per endpoint. 0 = off; dev/tests default off, tbd/prd force a floor of
+    # 10 (see _validate — disabling outside dev is not supported).
+    auth_rate_limit_per_minute: int = 0
 
     # Comma-separated feature names to turn OFF (see _KNOWN_FEATURES), e.g.
     # DISABLED_FEATURES=apple_login,billing. A disabled feature's config keys
@@ -94,6 +106,14 @@ class Settings(BaseSettings):
     def feature_enabled(self, feature: str) -> bool:
         return feature not in self._disabled_feature_set()
 
+    @property
+    def cors_origin_list(self) -> list[str]:
+        """Resolved CORS origins; empty list means "don't mount CORS at all"."""
+        raw = self.cors_allow_origins
+        if raw is None:
+            raw = "*" if self.environment == "dev" else ""
+        return [o.strip() for o in raw.split(",") if o.strip()]
+
     @model_validator(mode="after")
     def _validate(self) -> "Settings":
         unknown = self._disabled_feature_set() - _KNOWN_FEATURES
@@ -110,6 +130,8 @@ class Settings(BaseSettings):
                     'python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"'
                 )
         if self.environment in ("tbd", "prd"):
+            if self.auth_rate_limit_per_minute <= 0:
+                self.auth_rate_limit_per_minute = 10
             if self.jwt_secret == _DEV_JWT_SECRET:
                 raise ValueError(
                     f"JWT_SECRET must be overridden when ENVIRONMENT={self.environment!r}"
@@ -143,4 +165,27 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()
+def sanitize_settings_error(exc: ValidationError) -> str:
+    """Render a Settings ValidationError WITHOUT echoing input values.
+
+    Pydantic's default rendering includes each field's input — for Settings
+    that means secrets (DATABASE_URL, JWT_SECRET, API keys) land in the boot
+    log/terminal on any bad config. Keep field names and messages only; our
+    own validator messages never embed values.
+    """
+    lines = [
+        f"  {'.'.join(str(p) for p in err['loc']) or '(settings)'}: {err['msg']}"
+        for err in exc.errors(include_url=False, include_input=False)
+    ]
+    return (
+        "Invalid configuration (values withheld — check backend/.env / SSM):\n"
+        + "\n".join(lines)
+    )
+
+
+try:
+    settings = Settings()
+except ValidationError as exc:
+    # `from None` drops the original exception (which carries the raw inputs)
+    # from the traceback chain; SystemExit prints the message with no traceback.
+    raise SystemExit(sanitize_settings_error(exc)) from None

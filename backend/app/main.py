@@ -41,13 +41,20 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS only exists for browser clients; the mobile app never preflights. Dev
+# defaults to "*" (local web tools); tbd/prd default to no CORS middleware at
+# all until CORS_ALLOW_ORIGINS lists a real web origin. Credentials are only
+# allowed when origins are explicit — the "*" + credentials combination is
+# rejected by browsers anyway.
+_cors_origins = settings.cors_origin_list
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials="*" not in _cors_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 app.add_middleware(RequestIdMiddleware)
 
 app.include_router(health.router, prefix=settings.api_v1_prefix)
