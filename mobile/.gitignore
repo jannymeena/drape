@@ -44,6 +44,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Build-time defines (--dart-define-from-file); .env.example is the canonical
-# key list, same convention as backend/.env.
-.env
+# Build-time defines live in env/<env>.env (--dart-define-from-file) and are
+# COMMITTED: dart-defines ship inside the binary, so they are client-side
+# public values by definition — never put a real secret in one. (The gitignored
+# .env convention is backend-only.) The negation overrides the root
+# .gitignore's Python-virtualenv `env/` pattern, which would otherwise ignore
+# this directory.
+!/env/

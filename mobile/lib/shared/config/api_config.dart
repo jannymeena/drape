@@ -10,8 +10,10 @@ import 'package:flutter/foundation.dart';
 /// - A physical device needs the Mac's LAN IP (and uvicorn `--host 0.0.0.0`);
 ///   pass it at build time with `--dart-define=API_BASE_URL=http://<ip>:8000/api/v1`.
 ///
-/// The `API_BASE_URL` dart-define overrides everything, which is also how the
-/// tbd/prd ALB/CloudFront URL gets injected post Phase 10b.
+/// The `API_BASE_URL` dart-define overrides everything. Deployed backends are
+/// targeted via the committed per-env define files (`env/tbd.env`, later
+/// `env/prd.env`) passed with `--dart-define-from-file`; see `env/dev.env`
+/// for the key documentation.
 class ApiConfig {
   ApiConfig._();
 
