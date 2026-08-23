@@ -63,11 +63,13 @@ Mobile:
 
 ## Commit policy
 
-**Only ever commit files under `mobile/`, `backend/`, or `infra/`. Nothing else.**
+**Only ever commit files under `mobile/`, `backend/`, `infra/`, or `web/`. Nothing else.**
 (`infra/` added 2026-07-20 — IaC/playbooks/runbooks are versioned; never commit secrets
-there: config belongs in SSM Parameter Store, keys outside the repo.)
+there: config belongs in SSM Parameter Store, keys outside the repo. `web/` added
+2026-08-23 — the marketing site; `web/node_modules/` and the `web/dist/` build output are
+gitignored, so commit sources only.)
 
 Root-level docs (`*_CHANGES.md`, `README.md`, `PLAN.md`, `CLAUDE.md`), `handoff/`, dotfiles,
-and anything outside those three folders stay uncommitted unless the user explicitly says
-otherwise. Stage by explicit path (`git add mobile/... backend/... infra/...`) — never
-`git add -A` / `git add .`.
+and anything outside those four folders stay uncommitted unless the user explicitly says
+otherwise. Stage by explicit path (`git add mobile/... backend/... infra/... web/...`) —
+never `git add -A` / `git add .`.
