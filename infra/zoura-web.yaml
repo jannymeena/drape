@@ -1,0 +1,222 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ZOURA marketing site — private S3 origin behind CloudFront. Deploy to
+  ca-central-1. The ACM certificate comes from the separate zoura-web-cert
+  stack in us-east-1 (CloudFront reads certificates from that region only).
+
+Parameters:
+  Env:
+    Type: String
+    Default: prd
+    AllowedValues: [dev, tbd, prd]
+  DomainName:
+    Type: String
+    Default: zoura.style
+    Description: >
+      Apex domain. www is added as a second alias serving the same content;
+      the canonical tags in the pages point at the apex, so search engines
+      index one of them.
+  RedirectDomain:
+    Type: String
+    Default: getzoura.com
+    Description: Secondary domain; every request to it 301s to RedirectTarget.
+  RedirectTarget:
+    Type: String
+    Default: https://zoura.style/download
+    Description: Absolute URL that RedirectDomain sends visitors to.
+  CertificateArn:
+    Type: String
+    Description: >
+      CertificateArn output of the zoura-web-cert stack in us-east-1. The
+      certificate must already be ISSUED or the distribution fails to create.
+  PriceClass:
+    Type: String
+    Default: PriceClass_100
+    AllowedValues: [PriceClass_100, PriceClass_200, PriceClass_All]
+    Description: PriceClass_100 is North America + Europe and is the cheapest.
+
+Resources:
+  # --------------------------------------------------------------------------
+  # Origin — private bucket, reachable only through CloudFront
+  # --------------------------------------------------------------------------
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    # The bucket holds only build output, so it is safe to delete with the
+    # stack; nothing here is a source of truth.
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub 'zoura-${Env}-web-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Project
+          Value: zoura
+        - Key: Component
+          Value: web
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Only this distribution may read the bucket — no public access, no
+          # pre-signed URLs, no other distribution in the account.
+          - Sid: AllowCloudFrontServicePrincipalReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${SiteBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub 'zoura-${Env}-web-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # --------------------------------------------------------------------------
+  # Pretty URLs — /download -> /download.html, /foo/ -> /foo/index.html
+  # --------------------------------------------------------------------------
+  RewriteFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub 'zoura-${Env}-web-rewrite'
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Redirect the secondary domain, then map extensionless paths to .html.
+        Runtime: cloudfront-js-2.0
+      FunctionCode: !Sub |
+        function handler(event) {
+          var request = event.request;
+          var uri = request.uri;
+          var host = request.headers.host ? request.headers.host.value : '';
+
+          // The secondary domain is an alias on this same distribution, so it
+          // is caught here and answered at the edge — the origin is never hit
+          // and no second distribution is needed. Every path redirects.
+          if (host === '${RedirectDomain}' || host === 'www.${RedirectDomain}') {
+            return {
+              statusCode: 301,
+              statusDescription: 'Moved Permanently',
+              headers: {
+                'location': { value: '${RedirectTarget}' },
+                'cache-control': { value: 'max-age=3600' }
+              }
+            };
+          }
+
+          // Apple and Android expect these served verbatim, and neither has a
+          // file extension — never rewrite them.
+          if (uri.indexOf('/.well-known/') === 0) {
+            return request;
+          }
+
+          if (uri.charAt(uri.length - 1) === '/') {
+            request.uri = uri + 'index.html';
+            return request;
+          }
+
+          // Only the last segment decides: '/.well-known' is already handled
+          // above, so a dotless tail here means an extensionless page.
+          var tail = uri.substring(uri.lastIndexOf('/') + 1);
+          if (tail.indexOf('.') === -1) {
+            request.uri = uri + '.html';
+          }
+
+          return request;
+        }
+
+  # --------------------------------------------------------------------------
+  # Distribution
+  # --------------------------------------------------------------------------
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub 'ZOURA marketing site (${Env})'
+        Aliases:
+          - !Ref DomainName
+          - !Sub 'www.${DomainName}'
+          - !Ref RedirectDomain
+          - !Sub 'www.${RedirectDomain}'
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        PriceClass: !Ref PriceClass
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        Origins:
+          - Id: s3-origin
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          TargetOriginId: s3-origin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          # Managed-CachingOptimized: respects the Cache-Control headers the
+          # deploy sets per file type, so HTML can stay short-lived while
+          # images cache for a week.
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          # Managed-SecurityHeadersPolicy: HSTS, X-Content-Type-Options,
+          # Referrer-Policy, X-Frame-Options.
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt RewriteFunction.FunctionMetadata.FunctionARN
+        CustomErrorResponses:
+          # A private bucket answers 403 for a missing key, so both map to the
+          # 404 page — and it is returned with a real 404 so crawlers agree.
+          - ErrorCode: 403
+            ResponseCode: 404
+            ResponsePagePath: /404.html
+            ErrorCachingMinTTL: 60
+          - ErrorCode: 404
+            ResponseCode: 404
+            ResponsePagePath: /404.html
+            ErrorCachingMinTTL: 60
+      Tags:
+        - Key: Project
+          Value: zoura
+        - Key: Component
+          Value: web
+
+Outputs:
+  BucketName:
+    Description: 'Deploy target for: aws s3 sync web/dist/ s3://<bucket>/'
+    Value: !Ref SiteBucket
+  DistributionId:
+    Description: Invalidate this after each sync.
+    Value: !Ref Distribution
+  DistributionDomainName:
+    Description: >
+      Point DNS here — CNAME www at this name, and ALIAS/ANAME the apex at it
+      (Namecheap Advanced DNS). See infra/README-web.md.
+    Value: !GetAtt Distribution.DomainName
+  SiteUrl:
+    Value: !Sub 'https://${DomainName}'
+  DnsRecordsToCreate:
+    Description: Every Namecheap record needed, across both zones.
+    Value: !Sub
+      - 'zoura.style: ALIAS @ -> ${D} | CNAME www -> ${D} || getzoura.com: ALIAS @ -> ${D} | CNAME www -> ${D}'
+      - D: !GetAtt Distribution.DomainName

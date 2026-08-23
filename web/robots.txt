@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://zoura.app/sitemap.xml
+Sitemap: https://zoura.style/sitemap.xml

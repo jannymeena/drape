@@ -74,6 +74,19 @@ over the same ~620 ms instead, and `prefers-reduced-motion` turns it into a plai
   the real App Store and Play Store URLs.
 - `assets/img/cta-qr-code.jpg` is a placeholder QR; regenerate it against the live
   download URL.
-- `https://zoura.app` is hardcoded in the canonical tags, Open Graph URLs,
-  `robots.txt` and `sitemap.xml` — update if the domain differs.
 - Privacy policy, terms and contact links in both footers still point at `#`.
+  `PRD_MIGRATION_CHECKLIST.md` needs `/privacy` and `/terms` live for App Store review,
+  plus `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json`
+  for App/Universal Links. None of those exist yet.
+
+## Deploying
+
+S3 + CloudFront in AWS account `026481484029`. Once the stack exists:
+
+```bash
+cd infra/ansible && ansible-playbook deploy-web.yml
+```
+
+That builds `dist/`, syncs it to S3 with per-type cache headers and invalidates
+CloudFront. First-time stack creation and the Namecheap DNS steps are in
+`infra/README-web.md`.

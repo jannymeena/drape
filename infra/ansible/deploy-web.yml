@@ -1,0 +1,112 @@
+# Build and publish the marketing site to S3 + CloudFront.
+#
+# Runs locally (no SSH) — unlike deploy.yml, the target is AWS APIs, not the
+# tbd box. Reads the bucket and distribution straight out of the CloudFormation
+# stack, so nothing here goes stale if the stack is rebuilt.
+#
+# Usage:  ansible-playbook deploy-web.yml
+#         ansible-playbook deploy-web.yml -e env=tbd
+#         ansible-playbook deploy-web.yml -e skip_build=true    # reuse dist/
+---
+- hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    env: prd
+    aws_profile: zoura
+    aws_region: ca-central-1
+    stack_name: "zoura-{{ env }}-web"
+    web_dir: "{{ playbook_dir }}/../../web"
+    skip_build: false
+
+    # Filenames are not content-hashed, so nothing gets a long TTL it could get
+    # stuck on. Every deploy invalidates anyway; these just cut repeat traffic.
+    cache_html: "no-cache"
+    cache_code: "public, max-age=3600"
+    cache_media: "public, max-age=604800"
+
+  tasks:
+    - name: Read stack outputs
+      command: >
+        aws cloudformation describe-stacks
+        --profile {{ aws_profile }} --region {{ aws_region }}
+        --stack-name {{ stack_name }}
+        --query "Stacks[0].Outputs" --output json
+      register: stack_outputs
+      changed_when: false
+      failed_when: stack_outputs.rc != 0
+
+    - name: Pick out bucket and distribution
+      set_fact:
+        bucket: "{{ outputs | selectattr('OutputKey', 'eq', 'BucketName') | map(attribute='OutputValue') | first }}"
+        distribution_id: "{{ outputs | selectattr('OutputKey', 'eq', 'DistributionId') | map(attribute='OutputValue') | first }}"
+        site_url: "{{ outputs | selectattr('OutputKey', 'eq', 'SiteUrl') | map(attribute='OutputValue') | first }}"
+      vars:
+        outputs: "{{ stack_outputs.stdout | from_json }}"
+
+    - name: Install node dependencies
+      command: npm ci
+      args: { chdir: "{{ web_dir }}" }
+      when: not skip_build | bool
+      changed_when: true
+
+    - name: Build dist/
+      command: npm run build
+      args: { chdir: "{{ web_dir }}" }
+      when: not skip_build | bool
+      changed_when: true
+
+    - name: Fail early if dist/ is missing
+      stat:
+        path: "{{ web_dir }}/dist/index.html"
+      register: dist_index
+      failed_when: not dist_index.stat.exists
+
+    # Three passes so each content type gets its own Cache-Control. Media goes
+    # first and HTML last, so a page is never live before the assets it needs.
+    - name: Sync images and fonts
+      command: >
+        aws s3 sync {{ web_dir }}/dist/ s3://{{ bucket }}/
+        --profile {{ aws_profile }} --region {{ aws_region }}
+        --exclude "*" --include "*.jpg" --include "*.png" --include "*.svg"
+        --include "*.webp" --include "*.woff2"
+        --cache-control "{{ cache_media }}"
+      register: sync_media
+      changed_when: sync_media.stdout | length > 0
+
+    - name: Sync css and js
+      command: >
+        aws s3 sync {{ web_dir }}/dist/ s3://{{ bucket }}/
+        --profile {{ aws_profile }} --region {{ aws_region }}
+        --exclude "*" --include "*.css" --include "*.js"
+        --cache-control "{{ cache_code }}"
+      register: sync_code
+      changed_when: sync_code.stdout | length > 0
+
+    - name: Sync html and the rest, deleting anything no longer built
+      command: >
+        aws s3 sync {{ web_dir }}/dist/ s3://{{ bucket }}/
+        --profile {{ aws_profile }} --region {{ aws_region }}
+        --delete
+        --cache-control "{{ cache_html }}"
+      register: sync_html
+      changed_when: sync_html.stdout | length > 0
+
+    - name: Invalidate CloudFront
+      command: >
+        aws cloudfront create-invalidation
+        --profile {{ aws_profile }}
+        --distribution-id {{ distribution_id }}
+        --paths "/*"
+        --query "Invalidation.Id" --output text
+      register: invalidation
+      changed_when: true
+
+    - name: Summary
+      debug:
+        msg:
+          - "bucket        {{ bucket }}"
+          - "distribution  {{ distribution_id }}"
+          - "invalidation  {{ invalidation.stdout }}  (a minute or so to complete)"
+          - "live at       {{ site_url }}"

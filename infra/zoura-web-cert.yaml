@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ACM certificate for the ZOURA marketing site. MUST be deployed to us-east-1 —
+  CloudFront only reads certificates from that region, even though the rest of
+  the ZOURA estate lives in ca-central-1. Everything else is in zoura-web.yaml.
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: zoura.style
+    Description: Primary apex domain. www is added as a SAN automatically.
+  RedirectDomain:
+    Type: String
+    Default: getzoura.com
+    Description: >
+      Secondary domain that 301s to RedirectTarget. Served by the same
+      distribution, so it needs to be on the same certificate.
+
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub 'www.${DomainName}'
+        - !Ref RedirectDomain
+        - !Sub 'www.${RedirectDomain}'
+      # DNS validation: ACM publishes a CNAME per name to create at Namecheap
+      # (across both zones). The stack sits in CREATE_IN_PROGRESS until they
+      # all resolve.
+      ValidationMethod: DNS
+      Tags:
+        - Key: Project
+          Value: zoura
+        - Key: Component
+          Value: web
+
+Outputs:
+  CertificateArn:
+    Description: Pass this to zoura-web.yaml as the CertificateArn parameter.
+    Value: !Ref Certificate
+    Export:
+      Name: zoura-web-certificate-arn
