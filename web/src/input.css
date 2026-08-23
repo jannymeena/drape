@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Base
+   --------------------------------------------------------------------------- */
+@layer base {
+  html {
+    /* Keep anchored sections clear of the fixed header. */
+    scroll-padding-top: 88px;
+  }
+
+  /* No native `scroll-behavior: smooth` here on purpose: the browser scales its
+     duration with distance, so a nav jump across this page crawls for seconds.
+     assets/js/main.js animates anchor clicks over a fixed duration instead, and
+     without JS the jump is simply instant. */
+
+  body {
+    @apply bg-ivory text-dark-text font-sans antialiased;
+  }
+
+  h1, h2, h3 {
+    @apply font-serif;
+  }
+
+  /* Respect users who ask for less motion: no smooth scroll, no reveals. */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Components
+   --------------------------------------------------------------------------- */
+@layer components {
+  .shell {
+    @apply mx-auto w-full max-w-shell px-container-padding-mobile md:px-container-padding-desktop;
+  }
+
+  .btn {
+    @apply inline-flex h-12 items-center justify-center gap-2 rounded-12 px-8
+           text-label-btn font-semibold uppercase tracking-wider
+           transition-all duration-200 active:scale-[0.98]
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-container
+           focus-visible:ring-offset-2 focus-visible:ring-offset-ivory;
+  }
+  .btn-primary {
+    @apply btn bg-primary-container text-white shadow-zoura hover:bg-primary hover:shadow-zoura-hover;
+  }
+  .btn-secondary {
+    @apply btn border border-primary-container bg-surface text-primary-container hover:bg-surface-container-low;
+  }
+  .btn-sm {
+    @apply h-10 px-6;
+  }
+
+  .card {
+    @apply rounded-xl border border-light-border bg-surface shadow-zoura;
+  }
+
+  .nav-link {
+    @apply relative py-1 text-body-sm text-muted-gray transition-colors duration-200
+           hover:text-primary focus-visible:outline-none focus-visible:text-primary;
+  }
+  /* Underline grows from the centre; `aria-current` marks the section in view. */
+  .nav-link::after {
+    content: '';
+    @apply absolute inset-x-0 -bottom-0.5 mx-auto h-0.5 w-0 bg-primary transition-all duration-300;
+  }
+  .nav-link:hover::after,
+  .nav-link[aria-current='true']::after {
+    @apply w-full;
+  }
+  .nav-link[aria-current='true'] {
+    @apply font-semibold text-primary;
+  }
+
+  .eyebrow {
+    @apply text-label-btn font-semibold uppercase tracking-[0.18em] text-gold;
+  }
+
+  .section-title {
+    @apply font-serif text-headline-lg-mobile text-dark-text md:text-headline-lg;
+  }
+
+  .section-lede {
+    @apply text-body-base text-muted-gray md:text-body-lg;
+  }
+
+  /* Thin gold rule under section headers. */
+  .rule-gold {
+    @apply mx-auto mt-6 h-px w-16 bg-gold;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Utilities
+   --------------------------------------------------------------------------- */
+@layer utilities {
+  /* Scroll-triggered reveal. JS adds `.is-visible`; without JS the
+     `no-js` class on <html> keeps everything painted. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  }
+  .reveal.is-visible,
+  .no-js .reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  .reveal-d1 { transition-delay: 0.08s; }
+  .reveal-d2 { transition-delay: 0.16s; }
+  .reveal-d3 { transition-delay: 0.24s; }
+  .reveal-d4 { transition-delay: 0.32s; }
+  .reveal-d5 { transition-delay: 0.40s; }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Phone chrome shared by every device mockup on the page. */
+  .phone-frame {
+    background: #1f1b19;
+    border-radius: 44px;
+    padding: 10px;
+    box-shadow: 0 24px 48px -12px rgba(42, 24, 16, 0.24);
+  }
+  .phone-screen {
+    @apply relative overflow-hidden bg-background;
+    border-radius: 34px;
+  }
+  .phone-notch {
+    @apply absolute left-1/2 top-2 z-30 h-[26px] w-[110px] -translate-x-1/2 rounded-full bg-[#1f1b19];
+  }
+
+  .float-slow { animation: zoura-float 6s ease-in-out infinite; }
+  .float-slow-delayed { animation: zoura-float 7s ease-in-out infinite 1s; }
+
+  @keyframes zoura-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-10px); }
+  }
+}

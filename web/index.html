@@ -1,0 +1,1110 @@
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>ZOURA — AI Personal Stylist for the Wardrobe You Already Own</title>
+    <meta
+      name="description"
+      content="ZOURA is an AI personal stylist that builds your outfit in 10 seconds from clothes you already own. Body-aware recommendations, wardrobe gap analysis and smarter shopping."
+    />
+    <link rel="canonical" href="https://zoura.app/" />
+    <meta name="theme-color" content="#FBF7F2" />
+
+    <!-- Open Graph / social -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ZOURA" />
+    <meta property="og:title" content="ZOURA — AI Personal Stylist" />
+    <meta
+      property="og:description"
+      content="Your perfect outfit in 10 seconds, from the clothes already hanging in your closet."
+    />
+    <meta property="og:url" content="https://zoura.app/" />
+    <meta property="og:image" content="https://zoura.app/assets/img/hero-outfit-flatlay.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
+    />
+
+    <!-- tw:dev -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/tailwind.theme.js"></script>
+    <script src="/assets/js/tailwind-dev.js"></script>
+    <!-- /tw:dev -->
+
+    <script>
+      // Flip off the no-JS fallback before first paint so reveals can animate.
+      document.documentElement.classList.remove('no-js');
+    </script>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "ZOURA",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "iOS, Android",
+        "description": "AI personal stylist that generates outfits from the clothes you already own.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "ratingCount": "50000" }
+      }
+    </script>
+  </head>
+
+  <body class="bg-ivory font-sans text-dark-text antialiased">
+    <a
+      href="#hero"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-white"
+      >Skip to content</a
+    >
+
+    <!-- ===================================================================
+         Header — links scroll to the matching section, and the section in
+         view is marked with aria-current by assets/js/main.js
+         =================================================================== -->
+    <header
+      id="site-header"
+      class="fixed inset-x-0 top-0 z-50 border-b border-transparent transition-all duration-300"
+      data-header
+    >
+      <div class="shell flex h-[72px] items-center justify-between gap-4">
+        <a href="#hero" class="flex items-center gap-2" aria-label="ZOURA home">
+          <svg viewBox="0 0 32 32" class="h-7 w-7 shrink-0" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7" fill="#6b4530" /><text x="16" y="23" font-family="Cormorant Garamond, Georgia, serif" font-size="20" font-weight="600" fill="#FBF7F2" text-anchor="middle">Z</text></svg>
+          <span class="font-serif text-headline-md font-bold tracking-tight text-primary">ZOURA</span>
+        </a>
+
+        <nav class="hidden items-center gap-7 lg:flex" aria-label="Sections">
+          <a href="#problem" class="nav-link" data-nav>Problem</a>
+          <a href="#solution" class="nav-link" data-nav>Product</a>
+          <a href="#how-it-works" class="nav-link" data-nav>How it works</a>
+          <a href="#features" class="nav-link" data-nav>Features</a>
+          <a href="#pricing" class="nav-link" data-nav>Pricing</a>
+          <a href="#testimonials" class="nav-link" data-nav>Testimonials</a>
+          <a href="#faq" class="nav-link" data-nav>FAQ</a>
+        </nav>
+
+        <div class="flex items-center gap-2">
+          <a href="/download" class="btn-primary btn-sm hidden sm:inline-flex">Download app</a>
+          <button
+            type="button"
+            class="grid h-11 w-11 place-items-center rounded-lg text-primary transition-colors hover:bg-surface-container lg:hidden"
+            data-menu-toggle
+            aria-expanded="false"
+            aria-controls="mobile-menu"
+            aria-label="Open menu"
+          >
+            <span class="material-symbols-outlined" data-menu-icon>menu</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile drawer -->
+      <div
+        id="mobile-menu"
+        class="hidden border-t border-light-border bg-surface lg:hidden"
+        data-menu
+      >
+        <nav class="shell flex flex-col py-2" aria-label="Sections">
+          <a href="#problem" class="border-b border-light-border/60 py-3 text-body-base text-muted-gray" data-nav data-menu-link>Problem</a>
+          <a href="#solution" class="border-b border-light-border/60 py-3 text-body-base text-muted-gray" data-nav data-menu-link>Product</a>
+          <a href="#how-it-works" class="border-b border-light-border/60 py-3 text-body-base text-muted-gray" data-nav data-menu-link>How it works</a>
+          <a href="#features" class="border-b border-light-border/60 py-3 text-body-base text-muted-gray" data-nav data-menu-link>Features</a>
+          <a href="#pricing" class="border-b border-light-border/60 py-3 text-body-base text-muted-gray" data-nav data-menu-link>Pricing</a>
+          <a href="#testimonials" class="border-b border-light-border/60 py-3 text-body-base text-muted-gray" data-nav data-menu-link>Testimonials</a>
+          <a href="#faq" class="py-3 text-body-base text-muted-gray" data-nav data-menu-link>FAQ</a>
+          <a href="/download" class="btn-primary my-4">Download app</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <!-- ===============================================================
+           Hero
+           =============================================================== -->
+      <section id="hero" class="relative overflow-hidden bg-gradient-to-br from-[#FBF7F2] to-[#F5E8D8] pt-[112px] pb-20 md:pt-[152px] md:pb-28">
+        <div class="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-primary-container opacity-[0.04] blur-3xl"></div>
+        <div class="pointer-events-none absolute right-20 top-40 h-72 w-72 rounded-full bg-secondary opacity-[0.05] blur-3xl"></div>
+
+        <div class="shell relative grid items-center gap-16 lg:grid-cols-2">
+          <div class="max-w-xl">
+            <p class="eyebrow mb-4">AI personal stylist</p>
+            <h1 class="mb-6 font-serif text-headline-xl-mobile font-semibold leading-[1.1] text-dark-text md:text-headline-xl">
+              AI Stylist.<br />Personal Assistant.<br />Every Morning.
+            </h1>
+            <p class="mb-10 text-body-lg text-muted-gray">
+              ZOURA finds your perfect outfit in 10 seconds. Using your measurements and style, AI
+              generates outfits you'd never think of — from clothes you already own.
+            </p>
+
+            <ul class="mb-10 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <li class="flex items-center gap-2 text-body-sm font-medium text-primary-container">
+                <span class="material-symbols-outlined text-[20px]" aria-hidden="true">group</span>50K+ users
+              </li>
+              <li class="hidden h-1 w-1 rounded-full bg-light-border sm:block" aria-hidden="true"></li>
+              <li class="flex items-center gap-2 text-body-sm font-medium text-primary-container">
+                <span class="material-symbols-outlined text-[20px]" aria-hidden="true">auto_awesome</span>500K+ outfits
+              </li>
+              <li class="hidden h-1 w-1 rounded-full bg-light-border sm:block" aria-hidden="true"></li>
+              <li class="flex items-center gap-2 text-body-sm font-medium text-primary-container">
+                <span class="material-symbols-outlined text-[20px] text-gold" style="font-variation-settings: 'FILL' 1" aria-hidden="true">star</span>4.8 rating
+              </li>
+            </ul>
+
+            <div class="flex flex-col gap-4 sm:flex-row">
+              <a href="/download" class="btn-primary">Download free</a>
+              <a href="#showcase" class="btn-secondary">See it in action</a>
+            </div>
+          </div>
+
+          <!-- Phone mockup -->
+          <div class="relative mx-auto w-full max-w-[320px] lg:ml-auto lg:mr-0">
+            <div class="phone-frame">
+              <div class="phone-screen aspect-[9/19.5]">
+                <div class="phone-notch"></div>
+
+                <div class="flex items-center justify-between border-b border-light-border bg-surface/80 px-5 pb-3 pt-12 backdrop-blur-md">
+                  <span class="font-serif text-[17px] font-bold text-primary">ZOURA</span>
+                  <img
+                    src="/assets/img/hero-avatar.jpg"
+                    alt="Sarah's profile photo"
+                    class="h-9 w-9 rounded-full border border-light-border object-cover"
+                    width="36" height="36" loading="lazy"
+                  />
+                </div>
+
+                <div class="p-5">
+                  <h2 class="mb-1 font-serif text-headline-sm text-dark-text">Good morning, Sarah.</h2>
+                  <p class="mb-5 text-body-sm text-muted-gray">Your curated look for today's crisp weather.</p>
+
+                  <div class="card relative overflow-hidden p-3">
+                    <span class="absolute right-5 top-5 z-10 rounded-full bg-primary-container px-2.5 py-1 text-[11px] font-semibold text-white">Match 98%</span>
+                    <img
+                      src="/assets/img/hero-outfit-flatlay.jpg"
+                      alt="Flat lay of a camel wool coat, white shirt, dark denim and brown leather boots"
+                      class="mb-3 aspect-square w-full rounded-lg object-cover"
+                      width="196" height="196" loading="lazy"
+                    />
+                    <h3 class="mb-0.5 font-sans text-[15px] font-semibold text-dark-text">Autumn Commute</h3>
+                    <p class="mb-3 text-[13px] text-muted-gray">Camel coat + crisp white shirt</p>
+                    <span class="flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary-container text-[12px] font-semibold uppercase tracking-wider text-white">
+                      <span class="material-symbols-outlined text-[16px]" aria-hidden="true">checkroom</span>Wear this today
+                    </span>
+                  </div>
+                </div>
+
+                <div class="absolute inset-x-0 bottom-0 flex items-center justify-between border-t border-light-border bg-surface/90 px-8 pb-7 pt-3 backdrop-blur-md">
+                  <span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1" aria-hidden="true">home</span>
+                  <span class="material-symbols-outlined text-outline" aria-hidden="true">favorite</span>
+                  <span class="material-symbols-outlined text-outline" aria-hidden="true">add_box</span>
+                  <span class="material-symbols-outlined text-outline" aria-hidden="true">person</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===============================================================
+           Problem
+           =============================================================== -->
+      <section id="problem" class="bg-ivory py-section-gap md:py-24">
+        <div class="shell flex flex-col items-center text-center">
+          <h2 class="section-title reveal mb-4">The Morning Style Crisis</h2>
+          <p class="section-lede reveal reveal-d1 mb-12 max-w-[600px]">
+            Most people spend 20–40 minutes every morning deciding what to wear — and still don't
+            feel confident.
+          </p>
+
+          <div class="grid w-full gap-6 md:grid-cols-3">
+            <article class="card reveal reveal-d1 flex flex-col items-start p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-zoura-hover">
+              <span class="material-symbols-outlined mb-4 text-[48px] text-primary-container" aria-hidden="true">schedule</span>
+              <h3 class="mb-2 font-sans text-headline-sm text-dark-text">Wasting 30+ minutes</h3>
+              <p class="text-body-base text-muted-gray">
+                Staring at your closet every morning, trying combinations that don't work.
+              </p>
+            </article>
+
+            <article class="card reveal reveal-d2 flex flex-col items-start p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-zoura-hover">
+              <span class="material-symbols-outlined mb-4 text-[48px] text-error" aria-hidden="true">checkroom</span>
+              <h3 class="mb-2 font-sans text-headline-sm text-dark-text">Closet overload</h3>
+              <p class="text-body-base text-muted-gray">
+                80% of your wardrobe sits unworn. You keep buying the same styles.
+              </p>
+            </article>
+
+            <article class="card reveal reveal-d3 flex flex-col items-start p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-zoura-hover">
+              <span class="material-symbols-outlined mb-4 text-[48px] text-error" aria-hidden="true">sentiment_dissatisfied</span>
+              <h3 class="mb-2 font-sans text-headline-sm text-dark-text">No confidence</h3>
+              <p class="text-body-base text-muted-gray">
+                Never sure if outfits actually work on your body. Always second-guessing.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===============================================================
+           Solution — three alternating feature rows
+           =============================================================== -->
+      <section id="solution" class="bg-surface py-section-gap md:py-24">
+        <div class="shell mb-16 text-center">
+          <h2 class="section-title reveal">How ZOURA Changes Your Mornings</h2>
+          <div class="rule-gold reveal reveal-d1"></div>
+        </div>
+
+        <!-- 1 -->
+        <div class="shell mb-20 flex flex-col items-center gap-12 md:mb-24 md:flex-row md:gap-20">
+          <div class="reveal order-2 w-full md:order-1 md:w-[400px] md:flex-shrink-0">
+            <h3 class="mb-4 font-serif text-headline-md text-primary">10-second outfit generation</h3>
+            <p class="mb-6 text-body-base text-on-surface-variant">
+              AI analyses your measurements and style preferences to generate personalised outfit
+              suggestions in seconds.
+            </p>
+            <ul class="mb-8 space-y-3">
+              <li class="flex items-start gap-3 text-body-base text-muted-gray">
+                <span class="material-symbols-outlined mt-0.5 text-[20px] text-gold" aria-hidden="true">check_circle</span>Saves 30 minutes every morning
+              </li>
+              <li class="flex items-start gap-3 text-body-base text-muted-gray">
+                <span class="material-symbols-outlined mt-0.5 text-[20px] text-gold" aria-hidden="true">wb_sunny</span>Weather and occasion aware
+              </li>
+            </ul>
+            <a href="#how-it-works" class="inline-flex items-center gap-2 text-label-btn font-semibold uppercase tracking-wider text-gold underline-offset-4 hover:underline">
+              See how it works
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+            </a>
+          </div>
+
+          <div class="reveal reveal-d1 order-1 flex w-full justify-center md:order-2 md:flex-1">
+            <div class="phone-frame w-[270px]">
+              <div class="phone-screen flex h-[400px] flex-col">
+                <div class="flex items-center justify-between border-b border-light-border bg-surface px-5 pb-3 pt-9">
+                  <span class="material-symbols-outlined text-muted-gray" aria-hidden="true">menu</span>
+                  <span class="font-serif text-[15px] font-bold text-primary">ZOURA</span>
+                  <span class="material-symbols-outlined text-muted-gray" aria-hidden="true">notifications</span>
+                </div>
+                <div class="flex-1 bg-surface-container-low p-4">
+                  <div class="card p-3">
+                    <h4 class="mb-2 text-center font-serif text-[17px] text-primary">Today's Pick</h4>
+                    <img
+                      src="/assets/img/solution-todays-pick.jpg"
+                      alt="Ivory silk blouse paired with tailored brown trousers"
+                      class="mb-3 aspect-[4/3] w-full rounded-lg object-cover"
+                      width="220" height="165" loading="lazy"
+                    />
+                    <div class="flex items-center justify-between">
+                      <span class="text-body-sm text-muted-gray">Corporate Modern</span>
+                      <span class="whitespace-nowrap rounded-full bg-primary-container px-3 py-1.5 text-[11px] font-semibold text-white">Wear this</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2 -->
+        <div class="border-y border-light-border bg-ivory py-16 md:py-20">
+          <div class="shell flex flex-col items-center gap-12 md:flex-row md:gap-20">
+            <div class="reveal flex w-full justify-center md:flex-1">
+              <div class="phone-frame w-[270px]">
+                <div class="phone-screen flex h-[400px] flex-col">
+                  <div class="flex items-center justify-between border-b border-light-border bg-surface px-5 pb-3 pt-9">
+                    <h4 class="font-serif text-[17px] text-primary">My Wardrobe</h4>
+                    <span class="material-symbols-outlined text-muted-gray" aria-hidden="true">filter_list</span>
+                  </div>
+                  <div class="grid flex-1 grid-cols-2 content-start gap-3 bg-surface-container-low p-4">
+                    <img src="/assets/img/wardrobe-cashmere.jpg" alt="Folded ivory cashmere sweater" class="aspect-square w-full rounded-lg border border-light-border object-cover" width="110" height="110" loading="lazy" />
+                    <img src="/assets/img/wardrobe-loafers.jpg" alt="Dark brown leather loafers" class="aspect-square w-full rounded-lg border border-light-border object-cover" width="110" height="110" loading="lazy" />
+                    <img src="/assets/img/wardrobe-trench.jpg" alt="Beige trench coat on a wooden hanger" class="aspect-square w-full rounded-lg border border-light-border object-cover" width="110" height="110" loading="lazy" />
+                    <img src="/assets/img/item-wool-blazer.jpg" alt="Beige structured wool blazer" class="aspect-square w-full rounded-lg border border-light-border object-cover" width="110" height="110" loading="lazy" />
+                    <img src="/assets/img/item-oat-knit.jpg" alt="Oat-coloured chunky knit sweater" class="aspect-square w-full rounded-lg border border-light-border object-cover" width="110" height="110" loading="lazy" />
+                    <div class="grid aspect-square w-full place-items-center rounded-lg border border-dashed border-light-border bg-surface">
+                      <span class="material-symbols-outlined text-3xl text-primary" aria-hidden="true">add</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="reveal reveal-d1 w-full md:w-[400px] md:flex-shrink-0">
+              <h3 class="mb-4 font-serif text-headline-md text-primary">Rediscover your wardrobe</h3>
+              <p class="mb-6 text-body-base text-on-surface-variant">
+                Stop buying clothes you don't need. ZOURA finds fresh combinations from items you
+                already own.
+              </p>
+              <ul class="mb-8 space-y-3">
+                <li class="flex items-start gap-3 text-body-base text-muted-gray">
+                  <span class="material-symbols-outlined mt-0.5 text-[20px] text-gold" aria-hidden="true">inventory_2</span>Use 100% of your wardrobe
+                </li>
+                <li class="flex items-start gap-3 text-body-base text-muted-gray">
+                  <span class="material-symbols-outlined mt-0.5 text-[20px] text-gold" aria-hidden="true">payments</span>Stop wasting money on repeats
+                </li>
+                <li class="flex items-start gap-3 text-body-base text-muted-gray">
+                  <span class="material-symbols-outlined mt-0.5 text-[20px] text-gold" aria-hidden="true">eco</span>Sustainability built in
+                </li>
+              </ul>
+              <a href="#features" class="inline-flex items-center gap-2 text-label-btn font-semibold uppercase tracking-wider text-gold underline-offset-4 hover:underline">
+                Explore features
+                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 -->
+        <div class="shell mt-20 flex flex-col items-center gap-12 md:mt-24 md:flex-row md:gap-20">
+          <div class="reveal order-2 w-full md:order-1 md:w-[400px] md:flex-shrink-0">
+            <h3 class="mb-4 font-serif text-headline-md text-primary">Clothing that actually fits</h3>
+            <p class="mb-6 text-body-base text-on-surface-variant">
+              Custom body measurements mean every outfit suggestion is tailored to your proportions
+              — not a generic guess.
+            </p>
+            <ul class="mb-8 space-y-3">
+              <li class="flex items-start gap-3 text-body-base text-muted-gray">
+                <span class="material-symbols-outlined mt-0.5 text-[20px] text-gold" aria-hidden="true">straighten</span>Personalised to your measurements
+              </li>
+              <li class="flex items-start gap-3 text-body-base text-muted-gray">
+                <span class="material-symbols-outlined mt-0.5 text-[20px] text-gold" aria-hidden="true">mood</span>No more fashion regrets
+              </li>
+            </ul>
+            <a href="/download" class="inline-flex items-center gap-2 text-label-btn font-semibold uppercase tracking-wider text-gold underline-offset-4 hover:underline">
+              Get started free
+              <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span>
+            </a>
+          </div>
+
+          <div class="reveal reveal-d1 order-1 flex w-full justify-center md:order-2 md:flex-1">
+            <div class="phone-frame w-[270px]">
+              <div class="phone-screen relative h-[400px]">
+                <img
+                  src="/assets/img/solution-perfect-fit.jpg"
+                  alt="A woman wearing a precisely tailored beige suit"
+                  class="h-full w-full object-cover"
+                  width="270" height="540" loading="lazy"
+                />
+                <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-5 pt-16 text-white">
+                  <h4 class="mb-1 font-serif text-[22px]">Your perfect fit</h4>
+                  <p class="text-body-sm opacity-90">Tailored for a 5&prime;6&Prime; frame, structured silhouette.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===============================================================
+           How it works — 6-step timeline
+           =============================================================== -->
+      <section id="how-it-works" class="bg-ivory py-section-gap md:py-24">
+        <div class="shell">
+          <header class="mb-16 text-center md:mb-20">
+            <h2 class="section-title reveal mb-4">How ZOURA Works</h2>
+            <p class="section-lede reveal reveal-d1 mx-auto max-w-2xl">
+              Six steps from a closet you avoid to a wardrobe that works for you.
+            </p>
+          </header>
+
+          <ol class="relative mx-auto max-w-5xl list-none">
+            <!-- Spine: full-height track with a scroll-driven fill -->
+            <div class="absolute bottom-0 left-6 top-0 w-0.5 bg-light-border md:left-1/2 md:-translate-x-1/2" aria-hidden="true">
+              <div class="h-0 w-full bg-primary-container transition-[height] duration-300 ease-out" data-timeline></div>
+            </div>
+
+            <li class="reveal relative mb-14 flex flex-col items-center md:mb-20 md:flex-row" data-step>
+              <div class="order-2 w-full pl-16 md:order-1 md:w-1/2 md:pl-0 md:pr-16 md:text-right">
+                <div class="card ml-auto max-w-md p-7">
+                  <div class="mb-3 flex items-center gap-3 md:flex-row-reverse">
+                    <span class="material-symbols-outlined text-[24px] text-primary-container" aria-hidden="true">photo_camera</span>
+                    <h3 class="font-serif text-headline-md text-dark-text">Build wardrobe</h3>
+                  </div>
+                  <p class="text-body-base text-muted-gray">
+                    Add your clothes via photo or camera. ZOURA catalogues and categorises every item
+                    automatically.
+                  </p>
+                </div>
+              </div>
+              <span class="absolute left-6 top-4 z-10 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full border-4 border-ivory bg-gold font-sans text-lg font-semibold text-white md:left-1/2 md:top-1/2 md:h-14 md:w-14 md:-translate-y-1/2 md:text-xl">1</span>
+              <div class="order-1 mb-6 w-full pl-16 md:order-2 md:mb-0 md:w-1/2">
+                <img src="/assets/img/step-build-wardrobe.jpg" alt="Phone photographing neatly arranged neutral-toned clothing" class="aspect-video w-full max-w-md rounded-xl object-cover shadow-zoura md:aspect-square" width="420" height="420" loading="lazy" />
+              </div>
+            </li>
+
+            <li class="reveal relative mb-14 flex flex-col items-center md:mb-20 md:flex-row" data-step>
+              <div class="order-1 mb-6 w-full pl-16 md:order-1 md:mb-0 md:flex md:w-1/2 md:justify-end md:pl-0 md:pr-16">
+                <img src="/assets/img/step-measurements.jpg" alt="Body measurement profile in the ZOURA app" class="aspect-video w-full max-w-md rounded-xl object-cover shadow-zoura md:aspect-square" width="420" height="420" loading="lazy" />
+              </div>
+              <span class="absolute left-6 top-4 z-10 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full border-4 border-ivory bg-gold font-sans text-lg font-semibold text-white md:left-1/2 md:top-1/2 md:h-14 md:w-14 md:-translate-y-1/2 md:text-xl">2</span>
+              <div class="order-2 w-full pl-16 md:order-2 md:w-1/2">
+                <div class="card max-w-md p-7">
+                  <div class="mb-3 flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[24px] text-primary-container" aria-hidden="true">straighten</span>
+                    <h3 class="font-serif text-headline-md text-dark-text">Set measurements</h3>
+                  </div>
+                  <p class="text-body-base text-muted-gray">
+                    We learn your body and your style, so every recommendation fits and flatters.
+                  </p>
+                </div>
+              </div>
+            </li>
+
+            <li class="reveal relative mb-14 flex flex-col items-center md:mb-20 md:flex-row" data-step>
+              <div class="order-2 w-full pl-16 md:order-1 md:w-1/2 md:pl-0 md:pr-16 md:text-right">
+                <div class="card ml-auto max-w-md p-7">
+                  <div class="mb-3 flex items-center gap-3 md:flex-row-reverse">
+                    <span class="material-symbols-outlined text-[24px] text-primary-container" aria-hidden="true">auto_awesome</span>
+                    <h3 class="font-serif text-headline-md text-dark-text">Get outfits</h3>
+                  </div>
+                  <p class="text-body-base text-muted-gray">
+                    Wake up to styled outfits built from your own wardrobe, ready for the day ahead.
+                  </p>
+                </div>
+              </div>
+              <span class="absolute left-6 top-4 z-10 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full border-4 border-ivory bg-gold font-sans text-lg font-semibold text-white md:left-1/2 md:top-1/2 md:h-14 md:w-14 md:-translate-y-1/2 md:text-xl">3</span>
+              <div class="order-1 mb-6 w-full pl-16 md:order-2 md:mb-0 md:w-1/2">
+                <img src="/assets/img/step-get-outfits.jpg" alt="Daily outfit recommendation on a phone screen" class="aspect-video w-full max-w-md rounded-xl object-cover shadow-zoura md:aspect-square" width="420" height="420" loading="lazy" />
+              </div>
+            </li>
+
+            <li class="reveal relative mb-14 flex flex-col items-center md:mb-20 md:flex-row" data-step>
+              <div class="order-1 mb-6 w-full pl-16 md:order-1 md:mb-0 md:flex md:w-1/2 md:justify-end md:pl-0 md:pr-16">
+                <img src="/assets/img/step-shop.jpg" alt="Curated shopping recommendations" class="aspect-video w-full max-w-md rounded-xl object-cover shadow-zoura md:aspect-square" width="420" height="420" loading="lazy" />
+              </div>
+              <span class="absolute left-6 top-4 z-10 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full border-4 border-ivory bg-gold font-sans text-lg font-semibold text-white md:left-1/2 md:top-1/2 md:h-14 md:w-14 md:-translate-y-1/2 md:text-xl">4</span>
+              <div class="order-2 w-full pl-16 md:order-2 md:w-1/2">
+                <div class="card max-w-md p-7">
+                  <div class="mb-3 flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[24px] text-primary-container" aria-hidden="true">shopping_bag</span>
+                    <h3 class="font-serif text-headline-md text-dark-text">Personalised shop</h3>
+                  </div>
+                  <p class="text-body-base text-muted-gray">
+                    Browse items guaranteed to match your existing wardrobe and body type.
+                  </p>
+                </div>
+              </div>
+            </li>
+
+            <li class="reveal relative mb-14 flex flex-col items-center md:mb-20 md:flex-row" data-step>
+              <div class="order-2 w-full pl-16 md:order-1 md:w-1/2 md:pl-0 md:pr-16 md:text-right">
+                <div class="card ml-auto max-w-md p-7">
+                  <div class="mb-3 flex items-center gap-3 md:flex-row-reverse">
+                    <span class="material-symbols-outlined text-[24px] text-primary-container" aria-hidden="true">rule</span>
+                    <h3 class="font-serif text-headline-md text-dark-text">Buy / don't buy</h3>
+                  </div>
+                  <p class="text-body-base text-muted-gray">
+                    Scan a tag or upload a photo for instant feedback on a purchase. Never regret one
+                    again.
+                  </p>
+                </div>
+              </div>
+              <span class="absolute left-6 top-4 z-10 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full border-4 border-ivory bg-gold font-sans text-lg font-semibold text-white md:left-1/2 md:top-1/2 md:h-14 md:w-14 md:-translate-y-1/2 md:text-xl">5</span>
+              <div class="order-1 mb-6 w-full pl-16 md:order-2 md:mb-0 md:w-1/2">
+                <img src="/assets/img/photo-autumn-flatlay.jpg" alt="AI stylist verdict on a new item" class="aspect-video w-full max-w-md rounded-xl object-cover shadow-zoura md:aspect-square" width="420" height="420" loading="lazy" />
+              </div>
+            </li>
+
+            <li class="reveal relative flex flex-col items-center md:flex-row" data-step>
+              <div class="order-1 mb-6 w-full pl-16 md:order-1 md:mb-0 md:flex md:w-1/2 md:justify-end md:pl-0 md:pr-16">
+                <img src="/assets/img/step-gap-analyzer.jpg" alt="Wardrobe gap analysis dashboard" class="aspect-video w-full max-w-md rounded-xl object-cover shadow-zoura md:aspect-square" width="420" height="420" loading="lazy" />
+              </div>
+              <span class="absolute left-6 top-4 z-10 grid h-11 w-11 -translate-x-1/2 place-items-center rounded-full border-4 border-ivory bg-gold font-sans text-lg font-semibold text-white md:left-1/2 md:top-1/2 md:h-14 md:w-14 md:-translate-y-1/2 md:text-xl">6</span>
+              <div class="order-2 w-full pl-16 md:order-2 md:w-1/2">
+                <div class="card max-w-md p-7">
+                  <div class="mb-3 flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[24px] text-primary-container" aria-hidden="true">donut_small</span>
+                    <h3 class="font-serif text-headline-md text-dark-text">Wardrobe gap analyser</h3>
+                  </div>
+                  <p class="text-body-base text-muted-gray">
+                    ZOURA spots the missing essentials in your closet and names the exact items that
+                    complete your signature style.
+                  </p>
+                </div>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- ===============================================================
+           Showcase carousel
+           =============================================================== -->
+      <section id="showcase" class="relative overflow-hidden bg-surface py-section-gap md:py-24">
+        <div class="pointer-events-none absolute -right-16 -top-16 h-[40%] w-[40%] rounded-full bg-surface-container-low opacity-70 blur-3xl"></div>
+        <div class="pointer-events-none absolute -bottom-16 -left-16 h-[40%] w-[30%] rounded-full bg-primary-fixed-dim opacity-20 blur-3xl"></div>
+
+        <div class="shell relative flex flex-col items-center">
+          <header class="mb-12 max-w-2xl text-center">
+            <h2 class="section-title reveal mb-4">Experience ZOURA in Action</h2>
+            <p class="section-lede reveal reveal-d1">
+              Three screens you'll use every day — swipe through them.
+            </p>
+          </header>
+
+          <div class="reveal flex w-full max-w-[800px] items-center justify-center gap-8">
+            <button type="button" class="hidden h-12 w-12 shrink-0 place-items-center rounded-full border border-light-border bg-surface text-primary-container shadow-zoura transition-colors hover:bg-primary-container hover:text-white md:grid" data-carousel-prev aria-label="Previous screen">
+              <span class="material-symbols-outlined" aria-hidden="true">chevron_left</span>
+            </button>
+
+            <div class="phone-frame w-[300px] shrink-0">
+              <div class="phone-screen h-[620px]" data-carousel aria-live="polite">
+                <div class="phone-notch"></div>
+                <div class="flex h-full transition-transform duration-500 ease-out" data-carousel-track>
+                  <!-- Screen 1 -->
+                  <div class="flex h-full w-full shrink-0 flex-col gap-4 overflow-hidden bg-background p-4 pt-11" role="group" aria-label="Screen 1 of 3: today dashboard">
+                    <header class="flex items-start justify-between">
+                      <div>
+                        <h3 class="font-serif text-headline-sm text-dark-text">Good morning, Elle</h3>
+                        <p class="flex items-center gap-1 text-body-sm text-on-surface-variant">
+                          <span class="material-symbols-outlined text-[16px]" aria-hidden="true">partly_cloudy_day</span>68° — crisp autumn day
+                        </p>
+                      </div>
+                      <img src="/assets/img/app-avatar.jpg" alt="" class="h-10 w-10 rounded-full border border-light-border object-cover" width="40" height="40" loading="lazy" />
+                    </header>
+
+                    <div class="card p-4">
+                      <p class="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gold">
+                        <span class="material-symbols-outlined text-[16px]" aria-hidden="true">auto_awesome</span>Style tip
+                      </p>
+                      <p class="text-body-sm text-on-surface">
+                        Layering is key today. Start with a light silk blouse and add a structured
+                        wool blazer for the evening chill.
+                      </p>
+                    </div>
+
+                    <div>
+                      <h4 class="mb-2 font-serif text-[17px] text-dark-text">Today's pick</h4>
+                      <div class="card relative overflow-hidden">
+                        <img src="/assets/img/app-todays-pick.jpg" alt="White silk blouse, camel blazer, charcoal trousers and leather loafers" class="h-44 w-full object-cover" width="270" height="176" loading="lazy" />
+                        <span class="absolute right-3 top-[7.5rem] rounded-lg border border-light-border bg-surface/90 px-2.5 py-1 text-[11px] font-semibold text-primary backdrop-blur-sm">Match: 98%</span>
+                        <div class="flex items-center justify-between p-3">
+                          <span class="text-body-sm font-medium text-dark-text">Office Elegance</span>
+                          <span class="rounded-lg bg-primary-container px-3 py-1.5 text-[11px] font-semibold text-white">Wear this</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Screen 2 -->
+                  <div class="flex h-full w-full shrink-0 flex-col bg-background" role="group" aria-label="Screen 2 of 3: outfit detail">
+                    <div class="relative h-[60%]">
+                      <img src="/assets/img/app-outfit-autumn.jpg" alt="Chunky oat knit sweater with wide-leg espresso trousers" class="h-full w-full object-cover" width="300" height="372" loading="lazy" />
+                      <span class="material-symbols-outlined absolute left-4 top-12 rounded-full border border-light-border bg-surface/80 p-2 text-primary backdrop-blur-md" aria-hidden="true">favorite</span>
+                      <div class="absolute inset-x-4 bottom-4 flex items-end justify-between rounded-xl border border-light-border bg-surface/90 p-4 backdrop-blur-md">
+                        <div>
+                          <h3 class="font-serif text-headline-sm leading-none text-dark-text">Autumn Capsule 01</h3>
+                          <p class="mt-1 text-body-sm text-muted-gray">Smart casual</p>
+                        </div>
+                        <div class="flex flex-col items-end">
+                          <span class="font-serif text-xl text-gold">94%</span>
+                          <span class="text-[10px] uppercase tracking-wider text-muted-gray">AI match</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="relative z-10 -mt-4 flex-1 rounded-t-3xl bg-surface p-4">
+                      <h4 class="mb-3 text-[12px] font-semibold uppercase tracking-wider text-muted-gray">Items in look</h4>
+                      <div class="hide-scrollbar flex gap-4 overflow-x-auto pb-2">
+                        <figure class="w-16 shrink-0 text-center">
+                          <img src="/assets/img/item-oat-knit.jpg" alt="Oat knit sweater" class="mb-1 h-16 w-16 rounded-lg border border-light-border object-cover" width="64" height="64" loading="lazy" />
+                          <figcaption class="block truncate text-[10px] text-on-surface-variant">Oat knit</figcaption>
+                        </figure>
+                        <figure class="w-16 shrink-0 text-center">
+                          <img src="/assets/img/item-wide-trousers.jpg" alt="Wide-leg trousers" class="mb-1 h-16 w-16 rounded-lg border border-light-border object-cover" width="64" height="64" loading="lazy" />
+                          <figcaption class="block truncate text-[10px] text-on-surface-variant">Wide trousers</figcaption>
+                        </figure>
+                        <figure class="w-16 shrink-0 text-center">
+                          <img src="/assets/img/item-leather-boots.jpg" alt="Leather ankle boots" class="mb-1 h-16 w-16 rounded-lg border border-light-border object-cover" width="64" height="64" loading="lazy" />
+                          <figcaption class="block truncate text-[10px] text-on-surface-variant">Leather boots</figcaption>
+                        </figure>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Screen 3 -->
+                  <div class="flex h-full w-full shrink-0 flex-col bg-surface p-4 pt-11" role="group" aria-label="Screen 3 of 3: mix and match canvas">
+                    <header class="mb-4 text-center">
+                      <h3 class="font-serif text-headline-sm text-dark-text">Canvas</h3>
+                      <p class="text-body-sm text-muted-gray">Drag items to style</p>
+                    </header>
+                    <div class="relative mb-4 flex-1 rounded-xl border border-dashed border-light-border bg-background p-4">
+                      <img src="/assets/img/item-white-shirt.jpg" alt="White silk button-down shirt" class="absolute left-1/2 top-[22%] h-24 w-24 -translate-x-1/2 rotate-3 rounded-lg border border-light-border bg-surface object-contain p-2 shadow-zoura" width="96" height="96" loading="lazy" />
+                      <img src="/assets/img/item-denim-jeans.jpg" alt="Dark wash straight leg jeans" class="absolute left-1/2 top-[48%] h-28 w-28 -translate-x-1/2 -rotate-2 rounded-lg border border-light-border bg-surface object-contain p-2 shadow-zoura" width="112" height="112" loading="lazy" />
+                      <div class="absolute bottom-4 right-4 flex items-center gap-2 rounded-full border border-light-border bg-surface/90 px-3 py-2 shadow-zoura backdrop-blur">
+                        <span class="h-2 w-2 rounded-full bg-success"></span>
+                        <span class="text-[11px] font-semibold text-dark-text">Great combo</span>
+                      </div>
+                    </div>
+                    <div class="card flex h-24 shrink-0 gap-2 p-2">
+                      <div class="grid h-full w-16 shrink-0 place-items-center rounded-lg border border-light-border bg-background opacity-60">
+                        <span class="material-symbols-outlined text-muted-gray" aria-hidden="true">add</span>
+                      </div>
+                      <img src="/assets/img/item-wool-blazer.jpg" alt="Beige wool blazer" class="h-full w-16 shrink-0 rounded-lg border border-light-border object-cover" width="64" height="80" loading="lazy" />
+                      <img src="/assets/img/item-brown-loafers.jpg" alt="Brown leather loafers" class="h-full w-16 shrink-0 rounded-lg border border-light-border object-cover" width="64" height="80" loading="lazy" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="button" class="hidden h-12 w-12 shrink-0 place-items-center rounded-full border border-light-border bg-surface text-primary-container shadow-zoura transition-colors hover:bg-primary-container hover:text-white md:grid" data-carousel-next aria-label="Next screen">
+              <span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>
+            </button>
+          </div>
+
+          <!-- Controls -->
+          <div class="mt-8 flex w-full max-w-[320px] flex-col items-center gap-4">
+            <div class="flex w-full items-center justify-between md:hidden">
+              <button type="button" class="grid h-10 w-10 place-items-center rounded-full border border-light-border bg-surface text-primary-container shadow-zoura" data-carousel-prev aria-label="Previous screen">
+                <span class="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_left</span>
+              </button>
+              <span class="text-body-sm tracking-widest text-muted-gray" data-carousel-counter>1 / 3</span>
+              <button type="button" class="grid h-10 w-10 place-items-center rounded-full border border-light-border bg-surface text-primary-container shadow-zoura" data-carousel-next aria-label="Next screen">
+                <span class="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_right</span>
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" class="h-2 w-2 rounded-full bg-light-border transition-all duration-300" data-carousel-dot="0" aria-label="Go to screen 1"></button>
+              <button type="button" class="h-2 w-2 rounded-full bg-light-border transition-all duration-300" data-carousel-dot="1" aria-label="Go to screen 2"></button>
+              <button type="button" class="h-2 w-2 rounded-full bg-light-border transition-all duration-300" data-carousel-dot="2" aria-label="Go to screen 3"></button>
+            </div>
+            <span class="hidden text-[12px] tracking-widest text-muted-gray md:block" data-carousel-counter>1 / 3</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===============================================================
+           Features grid
+           =============================================================== -->
+      <section id="features" class="bg-ivory py-section-gap md:py-24">
+        <div class="shell">
+          <header class="mx-auto mb-14 max-w-2xl text-center">
+            <h2 class="section-title reveal mb-4">Powerful Features Built In</h2>
+            <p class="section-lede reveal reveal-d1">
+              Everything you need for effortless style, all in one app.
+            </p>
+          </header>
+
+          <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <article class="card reveal reveal-d1 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-zoura-hover">
+              <span class="material-symbols-outlined mb-3 text-[48px] text-primary-container" aria-hidden="true">auto_awesome</span>
+              <h3 class="mb-2 font-sans text-[17px] font-semibold text-dark-text">AI outfit generator</h3>
+              <p class="text-body-sm text-muted-gray">Algorithms that understand your body, style and preferences.</p>
+            </article>
+            <article class="card reveal reveal-d2 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-zoura-hover">
+              <span class="material-symbols-outlined mb-3 text-[48px] text-primary-container" aria-hidden="true">straighten</span>
+              <h3 class="mb-2 font-sans text-[17px] font-semibold text-dark-text">Body measurements</h3>
+              <p class="text-body-sm text-muted-gray">Personalised fit profiles for every item in your wardrobe.</p>
+            </article>
+            <article class="card reveal reveal-d3 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-zoura-hover">
+              <span class="material-symbols-outlined mb-3 text-[48px] text-gold" aria-hidden="true">trending_up</span>
+              <h3 class="mb-2 font-sans text-[17px] font-semibold text-dark-text">Cost-per-wear analytics</h3>
+              <p class="text-body-sm text-muted-gray">Discover which items actually give you value.</p>
+            </article>
+            <article class="card reveal reveal-d1 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-zoura-hover">
+              <span class="material-symbols-outlined mb-3 text-[48px] text-primary-container" aria-hidden="true">shopping_bag</span>
+              <h3 class="mb-2 font-sans text-[17px] font-semibold text-dark-text">Smart shopping</h3>
+              <p class="text-body-sm text-muted-gray">Know what to buy before you waste money.</p>
+            </article>
+            <article class="card reveal reveal-d2 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-zoura-hover">
+              <span class="material-symbols-outlined mb-3 text-[48px] text-forest" aria-hidden="true">check_circle</span>
+              <h3 class="mb-2 font-sans text-[17px] font-semibold text-dark-text">Buy / don't buy checker</h3>
+              <p class="text-body-sm text-muted-gray">AI validates purchases against your existing wardrobe.</p>
+            </article>
+            <article class="card reveal reveal-d3 p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-zoura-hover">
+              <span class="material-symbols-outlined mb-3 text-[48px] text-primary-container" aria-hidden="true">lock</span>
+              <h3 class="mb-2 font-sans text-[17px] font-semibold text-dark-text">Privacy first</h3>
+              <p class="text-body-sm text-muted-gray">Your data stays yours, with Canadian data residency.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===============================================================
+           Stats
+           =============================================================== -->
+      <section id="stats" class="relative overflow-hidden bg-surface py-section-gap md:py-24">
+        <div class="shell">
+          <h2 class="section-title reveal mb-12 text-center">Trusted by 50,000+ Users Worldwide</h2>
+
+          <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" data-counters>
+            <div class="card reveal reveal-d1 flex flex-col items-center gap-3 p-6 text-center transition-transform duration-300 hover:scale-[1.02]">
+              <span class="material-symbols-outlined text-[32px] text-primary-container" aria-hidden="true">group</span>
+              <span class="text-[32px] font-bold text-primary-container" data-count-to="50" data-suffix="K">50K</span>
+              <span class="text-body-sm text-muted-gray">Active users</span>
+            </div>
+            <div class="card reveal reveal-d2 flex flex-col items-center gap-3 p-6 text-center transition-transform duration-300 hover:scale-[1.02]">
+              <span class="material-symbols-outlined text-[32px] text-primary-container" aria-hidden="true">checkroom</span>
+              <span class="text-[32px] font-bold text-primary-container" data-count-to="500" data-suffix="K">500K</span>
+              <span class="text-body-sm text-muted-gray">Outfits generated</span>
+            </div>
+            <div class="card reveal reveal-d3 flex flex-col items-center gap-3 p-6 text-center transition-transform duration-300 hover:scale-[1.02]">
+              <span class="material-symbols-outlined text-[32px] text-gold" style="font-variation-settings: 'FILL' 1" aria-hidden="true">star</span>
+              <span class="text-[32px] font-bold text-primary-container" data-count-to="4.8" data-decimals="1" data-suffix="★">4.8★</span>
+              <span class="text-body-sm text-muted-gray">App Store rating</span>
+            </div>
+            <div class="card reveal reveal-d1 flex flex-col items-center gap-3 p-6 text-center transition-transform duration-300 hover:scale-[1.02]">
+              <span class="material-symbols-outlined text-[32px] text-primary-container" aria-hidden="true">public</span>
+              <span class="text-[32px] font-bold text-primary-container" data-count-to="180" data-suffix="+">180+</span>
+              <span class="text-body-sm text-muted-gray">Countries</span>
+            </div>
+            <div class="card reveal reveal-d2 flex flex-col items-center gap-3 p-6 text-center transition-transform duration-300 hover:scale-[1.02]">
+              <span class="material-symbols-outlined text-[32px] text-gold" style="font-variation-settings: 'FILL' 1" aria-hidden="true">trophy</span>
+              <span class="text-[32px] font-bold text-primary-container" data-count-to="1" data-prefix="#">#1</span>
+              <span class="text-body-sm text-muted-gray">Fashion app (Canada)</span>
+            </div>
+            <div class="card reveal reveal-d3 flex flex-col items-center gap-3 p-6 text-center transition-transform duration-300 hover:scale-[1.02]">
+              <span class="material-symbols-outlined text-[32px] text-primary-container" aria-hidden="true">schedule</span>
+              <span class="text-[32px] font-bold text-primary-container" data-count-to="15" data-suffix=" min">15 min</span>
+              <span class="text-body-sm text-muted-gray">Average setup time</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===============================================================
+           Pricing
+           =============================================================== -->
+      <section id="pricing" class="bg-ivory py-section-gap md:py-24">
+        <div class="shell flex flex-col items-center">
+          <header class="mb-10 max-w-2xl text-center">
+            <h2 class="section-title reveal mb-4">Choose Your Style Journey</h2>
+            <p class="section-lede reveal reveal-d1">
+              Unlock the full power of AI styling with a plan that fits your wardrobe.
+            </p>
+          </header>
+
+          <!-- Billing toggle -->
+          <div class="reveal mb-14 flex items-center justify-center gap-4">
+            <span class="text-body-sm font-medium text-primary" data-billing-label="monthly">Monthly</span>
+            <button
+              type="button"
+              class="relative inline-flex h-8 w-14 shrink-0 items-center rounded-full bg-light-border transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-container focus-visible:ring-offset-2"
+              data-billing-toggle
+              role="switch"
+              aria-checked="false"
+              aria-label="Bill yearly"
+            >
+              <span class="ml-1 inline-block h-6 w-6 translate-x-0 rounded-full bg-primary-container transition-transform duration-300" data-billing-knob></span>
+            </button>
+            <span class="text-body-sm font-medium text-muted-gray" data-billing-label="yearly">
+              Yearly <span class="ml-1 text-xs text-success">(save 20%)</span>
+            </span>
+          </div>
+
+          <div class="grid w-full max-w-4xl gap-8 md:grid-cols-2 md:items-start">
+            <!-- Free -->
+            <article class="card reveal flex flex-col rounded-2xl p-8 transition-transform duration-300 hover:-translate-y-1">
+              <header class="mb-8">
+                <h3 class="mb-2 font-sans text-headline-md text-dark-text">Free</h3>
+                <p class="font-serif text-4xl text-primary">$0</p>
+              </header>
+              <ul class="mb-8 flex-grow space-y-4 text-body-base text-muted-gray">
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-primary-container" aria-hidden="true">check_circle</span>50 items in your digital wardrobe</li>
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-primary-container" aria-hidden="true">check_circle</span>3 AI outfit suggestions per day</li>
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-primary-container" aria-hidden="true">check_circle</span>Basic body measurements</li>
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-primary-container" aria-hidden="true">check_circle</span>Community access</li>
+              </ul>
+              <a href="/download" class="btn-secondary w-full">Start for free</a>
+            </article>
+
+            <!-- Pro -->
+            <article class="reveal reveal-d1 relative flex flex-col rounded-2xl border-2 border-gold bg-surface p-8 shadow-[0_8px_30px_rgba(200,160,96,0.18)] md:scale-[1.03]">
+              <span class="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold px-4 py-1 text-xs font-semibold uppercase tracking-wider text-white">Most popular</span>
+              <header class="mb-8 mt-2">
+                <h3 class="mb-2 font-sans text-headline-md text-dark-text">Pro</h3>
+                <p class="flex items-baseline gap-1">
+                  <span class="font-serif text-4xl text-primary" data-price data-monthly="$12.99" data-yearly="$99">$12.99</span>
+                  <span class="text-body-sm text-muted-gray" data-price-period>/month</span>
+                </p>
+              </header>
+              <ul class="mb-8 flex-grow space-y-4 text-body-base text-muted-gray">
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-gold" aria-hidden="true">check_circle</span>Unlimited wardrobe items</li>
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-gold" aria-hidden="true">check_circle</span>Unlimited AI outfit creations</li>
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-gold" aria-hidden="true">check_circle</span>Cost-per-wear analytics</li>
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-gold" aria-hidden="true">check_circle</span>Buy / don't buy checker</li>
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-gold" aria-hidden="true">check_circle</span>Wardrobe gap analyser</li>
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-gold" aria-hidden="true">check_circle</span>Priority AI styling support</li>
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-gold" aria-hidden="true">check_circle</span>Exclusive capsule wardrobe guides</li>
+                <li class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 shrink-0 text-gold" aria-hidden="true">check_circle</span>Early access to new features</li>
+              </ul>
+              <a href="/download" class="btn-primary w-full">Go Pro</a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===============================================================
+           Testimonials
+           =============================================================== -->
+      <section id="testimonials" class="bg-surface py-section-gap md:py-24">
+        <div class="shell flex flex-col items-center">
+          <h2 class="section-title reveal mb-12 text-center">Loved by Style Lovers</h2>
+
+          <div class="grid w-full max-w-4xl gap-6 md:grid-cols-2">
+            <figure class="card reveal reveal-d1 flex flex-col gap-5 p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-zoura-hover">
+              <div class="flex items-center justify-between">
+                <img src="/assets/img/testimonial-sarah.jpg" alt="" class="h-12 w-12 rounded-full border border-light-border object-cover" width="48" height="48" loading="lazy" />
+                <div class="flex text-gold" role="img" aria-label="5 out of 5 stars">
+                  <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span>
+                </div>
+              </div>
+              <blockquote class="flex-grow text-body-base italic text-muted-gray">
+                "ZOURA has completely changed how I look at my closet. I finally feel like I have a
+                personal stylist in my pocket."
+              </blockquote>
+              <figcaption>
+                <span class="block text-[14px] font-bold leading-tight text-dark-text">Sarah Jenkins</span>
+                <span class="mt-1 block text-[12px] text-muted-gray">Fashion blogger, New York</span>
+              </figcaption>
+            </figure>
+
+            <figure class="card reveal reveal-d2 flex flex-col gap-5 p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-zoura-hover">
+              <div class="flex items-center justify-between">
+                <img src="/assets/img/testimonial-marcus.jpg" alt="" class="h-12 w-12 rounded-full border border-light-border object-cover" width="48" height="48" loading="lazy" />
+                <div class="flex text-gold" role="img" aria-label="5 out of 5 stars">
+                  <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span>
+                </div>
+              </div>
+              <blockquote class="flex-grow text-body-base italic text-muted-gray">
+                "The recommendations are spot on. It's like it knows my taste better than I do.
+                Truly a premium experience."
+              </blockquote>
+              <figcaption>
+                <span class="block text-[14px] font-bold leading-tight text-dark-text">Marcus Lin</span>
+                <span class="mt-1 block text-[12px] text-muted-gray">Creative director, Los Angeles</span>
+              </figcaption>
+            </figure>
+
+            <figure class="card reveal reveal-d3 flex flex-col gap-5 p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-zoura-hover">
+              <div class="flex items-center justify-between">
+                <img src="/assets/img/testimonial-elena.jpg" alt="" class="h-12 w-12 rounded-full border border-light-border object-cover" width="48" height="48" loading="lazy" />
+                <div class="flex text-gold" role="img" aria-label="5 out of 5 stars">
+                  <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span>
+                </div>
+              </div>
+              <blockquote class="flex-grow text-body-base italic text-muted-gray">
+                "I've saved so much time getting ready in the mornings. The curated looks give me
+                confidence every day."
+              </blockquote>
+              <figcaption>
+                <span class="block text-[14px] font-bold leading-tight text-dark-text">Elena Rossi</span>
+                <span class="mt-1 block text-[12px] text-muted-gray">Architect, Milan</span>
+              </figcaption>
+            </figure>
+
+            <figure class="card reveal reveal-d4 flex flex-col gap-5 p-8 transition-all duration-300 hover:scale-[1.02] hover:shadow-zoura-hover">
+              <div class="flex items-center justify-between">
+                <img src="/assets/img/testimonial-jordan.jpg" alt="" class="h-12 w-12 rounded-full border border-light-border object-cover" width="48" height="48" loading="lazy" />
+                <div class="flex text-gold" role="img" aria-label="5 out of 5 stars">
+                  <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span><span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1">star</span>
+                </div>
+              </div>
+              <blockquote class="flex-grow text-body-base italic text-muted-gray">
+                "Brilliant app design and even better fashion advice. It captures my aesthetic with
+                zero effort."
+              </blockquote>
+              <figcaption>
+                <span class="block text-[14px] font-bold leading-tight text-dark-text">Jordan Smith</span>
+                <span class="mt-1 block text-[12px] text-muted-gray">UX designer, London</span>
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===============================================================
+           FAQ
+           =============================================================== -->
+      <section id="faq" class="bg-ivory py-section-gap md:py-24">
+        <div class="shell max-w-3xl">
+          <header class="mb-12 text-center">
+            <h2 class="section-title reveal mb-4">Common Questions</h2>
+            <p class="section-lede reveal reveal-d1 mx-auto max-w-xl">
+              Everything you need to know about ZOURA, our AI styling and your digital wardrobe.
+            </p>
+          </header>
+
+          <div class="space-y-4" data-accordion>
+            <div class="reveal overflow-hidden rounded-lg border border-light-border bg-surface transition-colors">
+              <h3>
+                <button type="button" class="flex w-full items-center justify-between gap-4 p-6 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" data-accordion-trigger aria-expanded="false" aria-controls="faq-1">
+                  <span class="font-serif text-[19px] font-medium text-primary">How accurate is the AI styling?</span>
+                  <span class="material-symbols-outlined shrink-0 text-primary-container transition-transform duration-200" data-accordion-icon aria-hidden="true">expand_more</span>
+                </button>
+              </h3>
+              <div id="faq-1" class="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out" data-accordion-panel>
+                <div class="overflow-hidden">
+                  <p class="px-6 pb-6 text-body-base text-on-surface-variant">Our algorithms analyse thousands of fashion data points alongside your own measurements, so suggestions land above 95% accuracy — and keep improving as you give feedback.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="reveal overflow-hidden rounded-lg border border-light-border bg-surface transition-colors">
+              <h3>
+                <button type="button" class="flex w-full items-center justify-between gap-4 p-6 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" data-accordion-trigger aria-expanded="false" aria-controls="faq-2">
+                  <span class="font-serif text-[19px] font-medium text-primary">Is my wardrobe data private?</span>
+                  <span class="material-symbols-outlined shrink-0 text-primary-container transition-transform duration-200" data-accordion-icon aria-hidden="true">expand_more</span>
+                </button>
+              </h3>
+              <div id="faq-2" class="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out" data-accordion-panel>
+                <div class="overflow-hidden">
+                  <p class="px-6 pb-6 text-body-base text-on-surface-variant">Yes. Your data is encrypted and stored with Canadian data residency. We never sell your personal information.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="reveal overflow-hidden rounded-lg border border-light-border bg-surface transition-colors">
+              <h3>
+                <button type="button" class="flex w-full items-center justify-between gap-4 p-6 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" data-accordion-trigger aria-expanded="false" aria-controls="faq-3">
+                  <span class="font-serif text-[19px] font-medium text-primary">Can I use ZOURA offline?</span>
+                  <span class="material-symbols-outlined shrink-0 text-primary-container transition-transform duration-200" data-accordion-icon aria-hidden="true">expand_more</span>
+                </button>
+              </h3>
+              <div id="faq-3" class="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out" data-accordion-panel>
+                <div class="overflow-hidden">
+                  <p class="px-6 pb-6 text-body-base text-on-surface-variant">AI styling needs a connection, but your saved outfits and wardrobe grid stay available offline.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="reveal overflow-hidden rounded-lg border border-light-border bg-surface transition-colors">
+              <h3>
+                <button type="button" class="flex w-full items-center justify-between gap-4 p-6 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" data-accordion-trigger aria-expanded="false" aria-controls="faq-4">
+                  <span class="font-serif text-[19px] font-medium text-primary">What if I don't like a suggestion?</span>
+                  <span class="material-symbols-outlined shrink-0 text-primary-container transition-transform duration-200" data-accordion-icon aria-hidden="true">expand_more</span>
+                </button>
+              </h3>
+              <div id="faq-4" class="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out" data-accordion-panel>
+                <div class="overflow-hidden">
+                  <p class="px-6 pb-6 text-body-base text-on-surface-variant">Dismiss it. The AI learns from every piece of feedback and refines its read on your personal style.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="reveal overflow-hidden rounded-lg border border-light-border bg-surface transition-colors">
+              <h3>
+                <button type="button" class="flex w-full items-center justify-between gap-4 p-6 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" data-accordion-trigger aria-expanded="false" aria-controls="faq-5">
+                  <span class="font-serif text-[19px] font-medium text-primary">Can I share outfits with friends?</span>
+                  <span class="material-symbols-outlined shrink-0 text-primary-container transition-transform duration-200" data-accordion-icon aria-hidden="true">expand_more</span>
+                </button>
+              </h3>
+              <div id="faq-5" class="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out" data-accordion-panel>
+                <div class="overflow-hidden">
+                  <p class="px-6 pb-6 text-body-base text-on-surface-variant">Yes — export outfit cards or share links straight to social and messaging apps.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="reveal overflow-hidden rounded-lg border border-light-border bg-surface transition-colors">
+              <h3>
+                <button type="button" class="flex w-full items-center justify-between gap-4 p-6 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" data-accordion-trigger aria-expanded="false" aria-controls="faq-6">
+                  <span class="font-serif text-[19px] font-medium text-primary">Does it work with my existing clothes?</span>
+                  <span class="material-symbols-outlined shrink-0 text-primary-container transition-transform duration-200" data-accordion-icon aria-hidden="true">expand_more</span>
+                </button>
+              </h3>
+              <div id="faq-6" class="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out" data-accordion-panel>
+                <div class="overflow-hidden">
+                  <p class="px-6 pb-6 text-body-base text-on-surface-variant">That's the whole point. ZOURA maximises the wardrobe you already own — just snap photos to build your digital closet.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="reveal overflow-hidden rounded-lg border border-light-border bg-surface transition-colors">
+              <h3>
+                <button type="button" class="flex w-full items-center justify-between gap-4 p-6 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary" data-accordion-trigger aria-expanded="false" aria-controls="faq-7">
+                  <span class="font-serif text-[19px] font-medium text-primary">How do I take body measurements?</span>
+                  <span class="material-symbols-outlined shrink-0 text-primary-container transition-transform duration-200" data-accordion-icon aria-hidden="true">expand_more</span>
+                </button>
+              </h3>
+              <div id="faq-7" class="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-out" data-accordion-panel>
+                <div class="overflow-hidden">
+                  <p class="px-6 pb-6 text-body-base text-on-surface-variant">A guided tool walks you through it with your phone camera — no tape measure required.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===============================================================
+           Closing CTA
+           =============================================================== -->
+      <section id="get-started" class="relative overflow-hidden bg-gradient-to-b from-[#fff8f6] to-[#f6ece8] py-section-gap md:py-28">
+        <div class="pointer-events-none absolute inset-0 grid place-items-center opacity-30">
+          <div class="h-[700px] w-[700px] translate-y-1/4 rounded-full bg-secondary-container/20 blur-[100px]"></div>
+        </div>
+
+        <div class="shell relative flex flex-col items-center justify-center gap-16 lg:flex-row">
+          <div class="float-slow hidden w-1/4 lg:block">
+            <img src="/assets/img/cta-iphone-mockup.jpg" alt="" class="w-full -rotate-6 rounded-[2rem] border border-light-border object-cover shadow-zoura-lg transition-transform duration-500 hover:rotate-0" width="240" height="500" loading="lazy" />
+          </div>
+
+          <div class="flex max-w-2xl flex-1 flex-col items-center text-center">
+            <h2 class="reveal mb-4 font-serif text-headline-xl-mobile text-primary md:text-headline-xl">
+              Ready to Transform Your Mornings?
+            </h2>
+            <p class="reveal reveal-d1 mb-10 max-w-lg text-body-lg text-muted-gray">
+              Download ZOURA free. No credit card required.
+            </p>
+
+            <div class="reveal reveal-d2 flex w-full flex-col items-center gap-8">
+              <div class="flex w-full flex-col gap-4 sm:w-auto sm:flex-row">
+                <a href="/download" class="btn-primary w-full sm:w-auto">
+                  <span class="material-symbols-outlined text-[22px]" aria-hidden="true">ios_share</span>App Store
+                </a>
+                <a href="/download" class="btn-primary w-full sm:w-auto">
+                  <span class="material-symbols-outlined text-[22px]" aria-hidden="true">shop</span>Google Play
+                </a>
+              </div>
+
+              <div class="hidden w-full max-w-xs items-center gap-4 md:flex">
+                <span class="h-px flex-1 bg-outline-variant"></span>
+                <span class="text-body-sm text-outline">or scan to download</span>
+                <span class="h-px flex-1 bg-outline-variant"></span>
+              </div>
+
+              <figure class="hidden flex-col items-center gap-3 md:flex">
+                <img src="/assets/img/cta-qr-code.jpg" alt="QR code linking to the ZOURA app download page" class="h-32 w-32 rounded-xl border border-light-border bg-surface p-3 shadow-zoura" width="128" height="128" loading="lazy" />
+                <figcaption class="text-body-sm text-muted-gray">Scan with your phone camera</figcaption>
+              </figure>
+            </div>
+          </div>
+
+          <div class="float-slow-delayed hidden w-1/4 lg:block">
+            <img src="/assets/img/cta-android-mockup.jpg" alt="" class="w-full rotate-6 rounded-[2rem] border border-light-border object-cover shadow-zoura-lg transition-transform duration-500 hover:rotate-0" width="240" height="500" loading="lazy" />
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ===================================================================
+         Footer
+         =================================================================== -->
+    <footer class="border-t border-light-border bg-surface-container">
+      <div class="shell flex flex-col items-center justify-between gap-6 py-xxl md:flex-row md:gap-0">
+        <a href="#hero" class="flex items-center gap-2">
+          <svg viewBox="0 0 32 32" class="h-6 w-6 shrink-0" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7" fill="#6b4530" /><text x="16" y="23" font-family="Cormorant Garamond, Georgia, serif" font-size="20" font-weight="600" fill="#FBF7F2" text-anchor="middle">Z</text></svg>
+          <span class="font-serif text-headline-md text-primary">ZOURA</span>
+        </a>
+        <nav class="flex flex-wrap justify-center gap-6 text-body-sm" aria-label="Legal">
+          <a href="/download" class="text-on-surface-variant transition-colors hover:text-primary">Download</a>
+          <a href="#" class="text-on-surface-variant transition-colors hover:text-primary">Privacy policy</a>
+          <a href="#" class="text-on-surface-variant transition-colors hover:text-primary">Terms of service</a>
+          <a href="#" class="text-on-surface-variant transition-colors hover:text-primary">Contact us</a>
+        </nav>
+        <p class="text-body-sm text-on-surface-variant">© 2026 DRAPE AI Styling. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script src="/assets/js/main.js" defer></script>
+  </body>
+</html>

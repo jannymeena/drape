@@ -1,0 +1,15 @@
+{
+  "name": "zoura-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ZOURA marketing site — plain HTML/CSS/JS with Tailwind.",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "build": "node scripts/build.js",
+    "build:css": "tailwindcss -i ./src/input.css -o ./dist/assets/css/app.css --minify",
+    "preview": "node scripts/dev.js --dist"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}
