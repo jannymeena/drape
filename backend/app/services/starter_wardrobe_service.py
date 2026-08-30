@@ -33,9 +33,15 @@ from app.db.models import (
 _log = structlog.get_logger("starter_wardrobe")
 
 
-# Threshold at which a user's starter wardrobe auto-deactivates. CTO doc 3
-# specifies 15 — past this point the user's real wardrobe carries outfit gen.
-AUTO_DEACTIVATE_REAL_ITEMS = 15
+# Threshold at which a user's starter wardrobe auto-deactivates.
+#
+# 10, not 15. The handoff docs disagree — CTO doc 2 (Today tab) says 15, doc 3
+# (Wardrobe tab) says 10 — and 10 is the number every other part of the system
+# already uses: the client banner counts down to it ("n/10 ITEMS TO UNLOCK REAL
+# WARDROBE MODE"), doc 3's banner logic hides at `real_items >= 10`, and
+# `outfit_service._blend_pool` switches to real-only at 10. Deactivating at 15
+# meant the app promised a threshold it then refused to honour.
+AUTO_DEACTIVATE_REAL_ITEMS = 10
 
 
 class StarterWardrobeError(Exception):

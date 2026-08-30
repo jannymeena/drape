@@ -89,6 +89,30 @@ question screens plus a reveal. Changes:
 - `onboarding-status` gained a `style_profile` object so a resumed flow prefills.
 - `api_tests/02_profile.sh` walks the new eight-call sequence.
 
+**Updated:** 2026-08-30 (starter wardrobe retirement) · Two fixes, from a user
+report that uploading 10 items didn't retire the starter kit:
+
+- **`AUTO_DEACTIVATE_REAL_ITEMS` 15 → 10.** The handoff docs disagree — doc 2
+  (Today tab) says 15, doc 3 (Wardrobe tab) says 10 — and 10 is what everything
+  else already used: the client banner literally counts down to it
+  ("n/10 ITEMS TO UNLOCK REAL WARDROBE MODE"), doc 3's banner logic hides at
+  `real_items >= 10`, and `outfit_service._blend_pool` switches to real-only at
+  10. The app was promising a threshold the backend then refused to honour.
+  **Doc 2's 15 is now the stale number** — worth correcting there.
+- **A retired starter wardrobe now drops out of the wardrobe listing.** Doc 3
+  §Banner States 3 is "user now sees 100% real wardrobe", but deactivation only
+  flipped `is_active` and the items kept listing. `wardrobe_service.list_for_user`
+  now excludes them once the assignment is inactive. The rows are **kept, not
+  deleted**, so the transition counts stay auditable, already-generated outfits
+  that reference them still resolve, and an explicit `is_starter_wardrobe=true`
+  filter still returns them.
+
+**Not changed — needs a product call:** outfits already generated today are
+persisted, so they keep showing starter items until they're regenerated (the
+per-card regenerate produces real-only immediately; verified). Auto-regenerating
+on retirement would burn 3 generations from the user's weekly quota without them
+asking, so it's left alone.
+
 Schema convention (pre-prod): fold all new tables into the **single init migration**
 (wipe local DB + regenerate), per the squash-don't-ALTER rule. Revert to additive
 migrations once prd has real users.

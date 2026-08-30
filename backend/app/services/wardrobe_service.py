@@ -74,6 +74,17 @@ def list_for_user(
     db: Session, *, user: User, query: WardrobeListQuery
 ) -> tuple[list[WardrobeItem], int]:
     base = select(WardrobeItem).where(WardrobeItem.user_id == user.id)
+    # Once the starter wardrobe has been retired — auto at
+    # AUTO_DEACTIVATE_REAL_ITEMS real items, or manually — its items drop out
+    # of the wardrobe: doc 3 §Banner States 3 is "user now sees 100% real
+    # wardrobe". The rows are kept rather than deleted so the transition
+    # counts stay auditable and a re-assign can revive them; this is the one
+    # place that decides whether they're visible.
+    #
+    # An explicit `is_starter_wardrobe` filter still wins, so a caller that
+    # asks for starter items (the transition screens) still gets them.
+    if query.is_starter_wardrobe is None and _starter_retired(db, user=user):
+        base = base.where(WardrobeItem.is_starter_wardrobe.is_(False))
     if query.category is not None:
         base = base.where(WardrobeItem.category == query.category)
     if query.is_favorite is not None:
@@ -94,6 +105,16 @@ def list_for_user(
         .all()
     )
     return list(rows), int(total)
+
+
+def _starter_retired(db: Session, *, user: User) -> bool:
+    """True when the user was assigned a starter wardrobe and it's no longer
+    active. Imported locally — starter_wardrobe_service calls back into this
+    module on wardrobe changes."""
+    from app.services import starter_wardrobe_service
+
+    assignment = starter_wardrobe_service.get_assignment(db, user_id=user.id)
+    return assignment is not None and not assignment.is_active
 
 
 def _real_item_count(db: Session, *, user_id: UUID) -> int:

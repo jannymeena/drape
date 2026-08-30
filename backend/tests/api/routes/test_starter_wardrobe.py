@@ -1,10 +1,12 @@
 """Starter wardrobe route tests — template listing, assignment idempotency,
-manual deactivation, auto-deactivation at 15 real items."""
+manual deactivation, and auto-deactivation at the threshold the client
+counts down to."""
 from __future__ import annotations
 
 from sqlalchemy import select
 
 from app.db.models import UserStarterWardrobe, WardrobeItem
+from app.services import starter_wardrobe_service
 from tests.factories import make_wardrobe_item
 
 
@@ -82,25 +84,76 @@ def test_deactivate_without_assignment_returns_404(authed_client):
     assert r.status_code == 404
 
 
-def test_auto_deactivate_when_user_reaches_15_real_items(authed_client, db):
+def test_auto_deactivate_at_the_threshold_the_app_promises(authed_client, db):
     """recompute_transition (called by `wardrobe_service.create_item`) flips
-    is_active=false once real items ≥ 15. Going through the API exercises the
-    full hook chain; using `make_wardrobe_item` directly would bypass it."""
-    authed_client.post("/api/v1/starter-wardrobe/assign", json={})
+    is_active=false once real items reach AUTO_DEACTIVATE_REAL_ITEMS. Going
+    through the API exercises the full hook chain; using `make_wardrobe_item`
+    directly would bypass it.
 
-    # Add 15 real items via the API so each create fires recompute_transition.
-    for i in range(15):
+    Regression: this used to be 15 while the client banner counted down to 10
+    ("n/10 ITEMS TO UNLOCK REAL WARDROBE MODE") and `_blend_pool` switched to
+    real-only at 10 — so a user who hit the number the UI asked for kept their
+    starter wardrobe anyway.
+    """
+    assert starter_wardrobe_service.AUTO_DEACTIVATE_REAL_ITEMS == 10
+
+    authed_client.post("/api/v1/starter-wardrobe/assign", json={})
+    user = authed_client.test_user
+
+    def assignment():
+        row = db.scalar(
+            select(UserStarterWardrobe).where(UserStarterWardrobe.user_id == user.id)
+        )
+        db.refresh(row)
+        return row
+
+    for i in range(starter_wardrobe_service.AUTO_DEACTIVATE_REAL_ITEMS - 1):
         r = authed_client.post(
             "/api/v1/wardrobe/items",
             json={"name": f"Real {i}", "category": "tops"},
         )
         assert r.status_code == 201, r.text
+    # One short: still active, so the banner still has something to count.
+    assert assignment().is_active is True
 
-    user = authed_client.test_user
-    assignment = db.scalar(
-        select(UserStarterWardrobe).where(UserStarterWardrobe.user_id == user.id)
+    r = authed_client.post(
+        "/api/v1/wardrobe/items", json={"name": "Real last", "category": "tops"}
     )
-    assert assignment is not None
-    db.refresh(assignment)
-    assert assignment.is_active is False
-    assert assignment.deactivation_reason == "user_has_enough_items"
+    assert r.status_code == 201, r.text
+
+    assert assignment().is_active is False
+    assert assignment().deactivation_reason == "user_has_enough_items"
+
+
+def test_retired_starter_items_drop_out_of_the_wardrobe(authed_client):
+    """Doc 3 §Banner States 3: once the starter wardrobe retires the user
+    "sees 100% real wardrobe". The rows are kept, but the default listing
+    stops returning them."""
+    authed_client.post("/api/v1/starter-wardrobe/assign", json={})
+
+    listed = authed_client.get("/api/v1/wardrobe?limit=100").json()
+    assert any(i["is_starter_wardrobe"] for i in listed["items"]), (
+        "precondition: starter items are visible while the kit is active"
+    )
+
+    authed_client.post("/api/v1/starter-wardrobe/deactivate", json={})
+
+    listed = authed_client.get("/api/v1/wardrobe?limit=100").json()
+    assert listed["items"] == [] or not any(
+        i["is_starter_wardrobe"] for i in listed["items"]
+    )
+    # The count has to agree with the page, or pagination reports phantoms.
+    assert listed["total"] == len(listed["items"])
+
+
+def test_retired_starter_items_are_still_reachable_when_asked_for(authed_client):
+    """Hidden by default, not deleted — an explicit filter still returns them,
+    so the transition screens and any audit path keep working."""
+    authed_client.post("/api/v1/starter-wardrobe/assign", json={})
+    authed_client.post("/api/v1/starter-wardrobe/deactivate", json={})
+
+    listed = authed_client.get(
+        "/api/v1/wardrobe?limit=100&is_starter_wardrobe=true"
+    ).json()
+    assert listed["total"] > 0
+    assert all(i["is_starter_wardrobe"] for i in listed["items"])
