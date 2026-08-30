@@ -2,6 +2,16 @@
 /// `/payment-methods`). Mirrors backend `schemas/billing.py`.
 library;
 
+/// Prices to show before `GET /subscription` has answered.
+///
+/// These MUST match backend `billing_service.PLANS` (999 / 7999 cents, CAD).
+/// They used to be inlined per screen, which is how the paywall ended up
+/// quoting $14.99 next to $9.99 for the same plan — never hardcode a price at
+/// a call site, use these.
+const String kProMonthlyPriceFallback = r'$9.99';
+const String kProYearlyPriceFallback = r'$79.99';
+
+
 class PlanSummary {
   const PlanSummary({
     required this.plan,

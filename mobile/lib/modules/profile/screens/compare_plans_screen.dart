@@ -191,7 +191,10 @@ class _ComparePlansScreenState extends ConsumerState<ComparePlansScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  _ProTrialCta(onUpgrade: _purchasing ? null : _upgrade),
+                  _ProTrialCta(
+                    monthlyPrice: _monthlyPrice(ref),
+                    onUpgrade: _purchasing ? null : _upgrade,
+                  ),
                 ],
               ),
             ),
@@ -315,6 +318,18 @@ class _ToggleChoice extends StatelessWidget {
   }
 }
 
+/// The monthly Pro price: live from `/subscription` when it has loaded, else
+/// the shared fallback. Every place on this screen that names a price goes
+/// through here so they can't drift apart.
+String _monthlyPrice(WidgetRef ref) {
+  final plans = ref.watch(subscriptionProvider).valueOrNull?.plans;
+  for (final p in plans ?? const <PlanSummary>[]) {
+    if (!p.isYearly) return p.priceLabel;
+  }
+  return kProMonthlyPriceFallback;
+}
+
+
 class _PlanColumns extends StatelessWidget {
   final _Cadence cadence;
   final SubscriptionInfo? subscription;
@@ -334,7 +349,10 @@ class _PlanColumns extends StatelessWidget {
   }
 
   String get _proPrice =>
-      _plan?.priceLabel ?? (cadence == _Cadence.monthly ? r'$9.99' : r'$79.99');
+      _plan?.priceLabel ??
+      (cadence == _Cadence.monthly
+          ? kProMonthlyPriceFallback
+          : kProYearlyPriceFallback);
   String get _proCadence =>
       cadence == _Cadence.monthly ? '/month' : '/year';
   bool get _isPro => subscription?.isPro ?? false;
@@ -589,8 +607,9 @@ class _FeatureRowWidget extends StatelessWidget {
 }
 
 class _ProTrialCta extends StatelessWidget {
+  final String monthlyPrice;
   final VoidCallback? onUpgrade;
-  const _ProTrialCta({required this.onUpgrade});
+  const _ProTrialCta({required this.monthlyPrice, required this.onUpgrade});
 
   @override
   Widget build(BuildContext context) {
@@ -630,7 +649,7 @@ class _ProTrialCta extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            r'Cancel anytime. $14.99/month after trial.',
+            'Cancel anytime. $monthlyPrice/month after trial.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

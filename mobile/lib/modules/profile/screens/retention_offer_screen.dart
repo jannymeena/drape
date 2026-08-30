@@ -149,9 +149,10 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _OfferCard extends StatelessWidget {
+class _OfferCard extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final offer = _discountedPrice(ref);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -183,7 +184,9 @@ class _OfferCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            r'Just $7.50/month',
+            offer == null
+                ? 'Half price for your next period'
+                : 'Just ${offer.price}/${offer.unit}',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontStyle: FontStyle.italic,
                 ),
@@ -224,13 +227,24 @@ class _Bullet extends StatelessWidget {
   }
 }
 
-/// "ACCEPT OFFER - $5.00/MONTH" — 50% off the current plan for one period
-/// (mirrors backend RETENTION_DISCOUNT_PCT). Falls back to a generic label
-/// while the subscription is loading.
-String _offerLabel(WidgetRef ref) {
+/// The discounted price and its period, e.g. `('\$5.00', 'month')` — 50% off
+/// the current plan (mirrors backend RETENTION_DISCOUNT_PCT). Null while the
+/// subscription is still loading, so callers can show a generic label rather
+/// than a made-up number.
+({String price, String unit})? _discountedPrice(WidgetRef ref) {
   final sub = ref.watch(subscriptionProvider).valueOrNull;
   final cents = sub?.priceCents;
-  if (cents == null) return 'ACCEPT OFFER - 50% OFF';
-  final unit = sub!.plan == 'pro_yearly' ? 'YEAR' : 'MONTH';
-  return 'ACCEPT OFFER - \$${(cents / 2 / 100).toStringAsFixed(2)}/$unit';
+  if (cents == null) return null;
+  return (
+    price: '\$${(cents / 2 / 100).toStringAsFixed(2)}',
+    unit: sub!.plan == 'pro_yearly' ? 'year' : 'month',
+  );
+}
+
+/// "ACCEPT OFFER - $5.00/MONTH". Falls back to a generic label while the
+/// subscription is loading.
+String _offerLabel(WidgetRef ref) {
+  final offer = _discountedPrice(ref);
+  if (offer == null) return 'ACCEPT OFFER - 50% OFF';
+  return 'ACCEPT OFFER - ${offer.price}/${offer.unit.toUpperCase()}';
 }

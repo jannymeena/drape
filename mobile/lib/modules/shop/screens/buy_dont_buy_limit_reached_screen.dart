@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../profile/models/billing.dart';
 import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/providers/analytics_provider.dart';
 import '../../../shared/services/analytics/analytics_events.dart';
@@ -140,7 +141,8 @@ class BuyDontBuyLimitReachedScreen extends ConsumerWidget {
                         style: Theme.of(context).textTheme.bodySmall),
                   ),
                   Center(
-                    child: Text(r'Starting at $14.99/month',
+                    child: Text(
+                        'Starting at $kProMonthlyPriceFallback/month',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.taupe,
                             )),
