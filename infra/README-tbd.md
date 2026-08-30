@@ -44,6 +44,15 @@ cd infra/ansible && ansible-playbook deploy.yml
 # Re-run server provisioning (idempotent)
 ansible-playbook provision.yml
 
+# Rebuild the DB from the current migrations — DESTROYS ALL DATA in zoura_tbd.
+# Needed after a migration squash (CLAUDE.md folds schema changes into the
+# single init migration, so `alembic upgrade head` no-ops against a DB already
+# reporting that revision and the new columns never appear). Dumps to the
+# backups bucket first. Deploy the new code first, then reset.
+# Prefer a plain ALTER TABLE when the delta is a nullable column or two.
+ansible-playbook deploy.yml
+ansible-playbook reset-db.yml -e confirm=zoura_tbd
+
 # Logs / status / SQL
 ssh -i ~/.ssh/zoura-tbd.pem ubuntu@15.223.99.152
   sudo journalctl -u zoura -f

@@ -1,0 +1,111 @@
+# Drop and rebuild the tbd database from the current migrations.
+#
+# For the pre-prod "squash, don't ALTER" convention (CLAUDE.md): schema changes
+# are folded into the single init migration rather than added as a new revision,
+# so `alembic upgrade head` is a no-op against a database that already reports
+# that revision — the new columns never appear and every query touching the
+# changed table fails. Wiping and re-migrating is the sanctioned way to pick
+# those changes up.
+#
+# THIS DESTROYS ALL DATA IN zoura_tbd: accounts, wardrobes, outfits, billing
+# rows. It takes a pg_dump to the backups bucket first, but restoring is manual.
+#
+# Usage:
+#   ansible-playbook deploy.yml                       # get the new code on the box first
+#   ansible-playbook reset-db.yml -e confirm=zoura_tbd
+#
+# The confirm value must equal the database name; without it the play stops
+# before touching anything.
+#
+# Prefer an additive `ALTER TABLE` when the delta is a nullable column or two —
+# same end state, no data loss. Reach for this when the schema has moved enough
+# that patching by hand stops being obvious.
+---
+- hosts: tbd
+  become: true
+
+  vars:
+    db_name: zoura_tbd
+    db_owner: zoura
+    app_service: zoura
+    app_dir: /opt/zoura/app
+    venv: /opt/zoura/venv
+
+  tasks:
+    - name: Refuse to run without an explicit confirmation
+      assert:
+        that: confirm is defined and confirm == db_name
+        fail_msg: >-
+          This drops the {{ db_name }} database and everything in it.
+          Re-run with: ansible-playbook reset-db.yml -e confirm={{ db_name }}
+        success_msg: "Confirmed — resetting {{ db_name }}."
+
+    # A dump is cheap and this is the only undo. It goes to the same bucket and
+    # prefix as the nightly cron, so the 30-day lifecycle rule covers it.
+    - name: Back up the current database to S3
+      become_user: "{{ db_owner }}"
+      command: "{{ venv }}/bin/python /opt/zoura/bin/backup_db.py"
+      register: backup
+      changed_when: true
+
+    - name: Show where the backup landed
+      debug: { var: backup.stdout }
+
+    - name: Stop the app so it releases its connections
+      systemd: { name: "{{ app_service }}", state: stopped }
+
+    # --force terminates any sessions still attached (psql left open over SSH,
+    # a stuck worker); without it the drop fails on a single stray connection.
+    - name: Drop the database
+      become_user: postgres
+      command: "dropdb --force --if-exists {{ db_name }}"
+
+    - name: Recreate the database, owned by the app role
+      become_user: postgres
+      command: "createdb -O {{ db_owner }} {{ db_name }}"
+
+    - name: Recreate the pgvector extension
+      become_user: postgres
+      command: >-
+        psql -d {{ db_name }} -c "CREATE EXTENSION IF NOT EXISTS vector"
+
+    # Builds the full schema from the (squashed) init migration and runs its
+    # data seeds — starter_wardrobe_templates among them.
+    - name: Run migrations onto the empty database
+      become_user: "{{ db_owner }}"
+      command: "{{ venv }}/bin/alembic upgrade head"
+      args: { chdir: "{{ app_dir }}" }
+      register: alembic
+
+    - name: Show the migration output
+      debug: { var: alembic.stdout_lines }
+
+    - name: Start the app
+      systemd: { name: "{{ app_service }}", state: started }
+
+    - name: Wait for the health endpoint
+      uri: { url: "http://127.0.0.1:8000/api/v1/health", status_code: 200 }
+      register: health
+      until: health.status == 200
+      retries: 15
+      delay: 2
+
+    # Health only proves the process is up — it never touches the tables that
+    # just got rebuilt. Count the seeded templates so a migration that ran but
+    # seeded nothing doesn't pass as a clean reset.
+    - name: Check the schema is actually usable
+      become_user: postgres
+      command: >-
+        psql -d {{ db_name }} -tAc
+        "SELECT count(*) FROM starter_wardrobe_templates"
+      register: templates
+      changed_when: false
+      failed_when: templates.stdout | trim | int == 0
+
+    - name: Done
+      debug:
+        msg: >-
+          {{ db_name }} rebuilt at revision head;
+          {{ templates.stdout | trim }} starter-wardrobe templates seeded;
+          health {{ health.status }}. All previous data is gone —
+          the pre-drop dump is in the backups bucket.
