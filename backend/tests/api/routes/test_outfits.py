@@ -12,9 +12,11 @@ Test groups:
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from app.core.localtime import user_today
+from app.db.models import Outfit
+from app.services import outfit_service
 
 
 def _app_today(user) -> date:
@@ -573,3 +575,50 @@ def test_starter_banner_false_without_assignment(authed_client, db):
 def test_dismiss_unknown_banner_422(authed_client):
     r = authed_client.post("/api/v1/today/banners/nonsense/dismiss")
     assert r.status_code == 422
+
+
+def test_regenerating_supersedes_its_own_card_not_another_occasion(
+    authed_client, db
+):
+    """Regression: `regenerate` appends a row rather than replacing the prior
+    one, and the dashboard used to slice the newest N of the day. A single
+    regenerate therefore showed its occasion twice and pushed a different
+    occasion off the dashboard entirely.
+
+    The dashboard now shows the newest generation per occasion.
+    """
+    user = authed_client.test_user
+    now = datetime.now(timezone.utc)
+
+    # Three occasions generated this morning...
+    for i, occasion in enumerate(["work", "casual", "date_night"]):
+        db.add(
+            Outfit(
+                user_id=user.id,
+                occasion=occasion,
+                items=[],
+                generation_method="ai",
+                created_at=now - timedelta(minutes=30 - i),
+            )
+        )
+    # ...then "casual" regenerated, which appends rather than replaces.
+    db.add(
+        Outfit(
+            user_id=user.id,
+            occasion="casual",
+            items=[],
+            generation_method="ai",
+            created_at=now,
+        )
+    )
+    db.commit()
+
+    shown = outfit_service.todays_outfits(db, user=user)
+
+    assert sorted(o.occasion for o in shown) == ["casual", "date_night", "work"], (
+        "every occasion keeps its card"
+    )
+    # The card shown for the regenerated occasion is the newer generation.
+    casual = next(o for o in shown if o.occasion == "casual")
+    others = [o for o in shown if o.occasion != "casual"]
+    assert all(casual.created_at > o.created_at for o in others)

@@ -130,7 +130,7 @@ async def dashboard(
     # occasions still pending. Generation happens out-of-band via
     # POST /today/outfits, so the client paints the shell instantly and fills
     # each card as its AI call returns. No AI provider needed here.
-    outfits = outfit_service._today_outfits(db, user=user)[:DAILY_OUTFIT_TARGET]
+    outfits = outfit_service.todays_outfits(db, user=user)
     ready = outfit_service.wardrobe_ready(db, user_id=user.id)
     pending = outfit_service.pending_occasions(db, user=user) if ready else []
 

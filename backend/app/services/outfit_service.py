@@ -689,6 +689,36 @@ def _today_outfits(db: Session, *, user: User) -> list[Outfit]:
     )
 
 
+def _latest_per_occasion(outfits: list[Outfit]) -> list[Outfit]:
+    """The newest outfit for each occasion, in canonical occasion order.
+
+    `_today_outfits` is newest-first and can hold more than one generation for
+    the same occasion, because `regenerate` adds a row rather than replacing
+    one (the prior generation stays addressable in history). Slicing that list
+    directly would show the same occasion twice and push a different occasion
+    off the dashboard entirely.
+    """
+    newest: dict[str, Outfit] = {}
+    for outfit in outfits:  # newest first
+        newest.setdefault(outfit.occasion, outfit)
+    order = {occ: i for i, occ in enumerate(DEFAULT_OCCASIONS)}
+    return sorted(
+        newest.values(),
+        key=lambda o: order.get(o.occasion, len(order)),
+    )
+
+
+def todays_outfits(db: Session, *, user: User) -> list[Outfit]:
+    """The outfits the dashboard should show today: the newest generation for
+    each occasion, in canonical order, capped at the daily target.
+
+    The dedupe matters — `regenerate` appends a new row rather than replacing
+    the old one, so a regenerated occasion would otherwise appear twice and
+    push a different occasion off the dashboard.
+    """
+    return _latest_per_occasion(_today_outfits(db, user=user))[:DAILY_OUTFIT_TARGET]
+
+
 def wardrobe_ready(db: Session, *, user_id: UUID) -> bool:
     """True when the user has enough items to form an outfit (>= the proposal
     minimum). The dashboard uses this to choose between the 'add items' empty
@@ -748,9 +778,9 @@ async def load_dashboard_outfits(
     request: Optional[GenerateOutfitsRequest] = None,
 ) -> tuple[list[Outfit], bool]:
     """Returns (outfits, were_just_generated)."""
-    existing = _today_outfits(db, user=user)
+    # One card per occasion: older same-day generations sit silent in history.
+    existing = _latest_per_occasion(_today_outfits(db, user=user))
     if len(existing) >= DAILY_OUTFIT_TARGET:
-        # Newest 3 — older same-day generations sit silent in history.
         return existing[:DAILY_OUTFIT_TARGET], False
 
     # An outfit needs at least _MIN_ITEMS_PER_OUTFIT pieces. With fewer, there's

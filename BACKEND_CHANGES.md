@@ -113,6 +113,19 @@ per-card regenerate produces real-only immediately; verified). Auto-regenerating
 on retirement would burn 3 generations from the user's weekly quota without them
 asking, so it's left alone.
 
+**Updated:** 2026-08-30 (duplicate outfit cards) · The dashboard could show one
+occasion twice and drop another entirely. `regenerate` **appends** a new outfit
+row rather than replacing the prior one — despite its docstring saying
+"replaces the existing outfit row" — and `GET /today/dashboard` sliced the
+newest 3 of the day. One regenerate therefore produced
+`casual(new), casual(old), date_night` and pushed `work` off the dashboard.
+
+`outfit_service.todays_outfits` is the fix: newest generation **per occasion**,
+in canonical order, capped at the daily target. The superseded generation stays
+in history, as the original comment intended. The route was also reaching into
+the private `_today_outfits` and applying the cap itself — that rule now lives
+in the service, per the routes→services tier rule.
+
 Schema convention (pre-prod): fold all new tables into the **single init migration**
 (wipe local DB + regenerate), per the squash-don't-ALTER rule. Revert to additive
 migrations once prd has real users.
