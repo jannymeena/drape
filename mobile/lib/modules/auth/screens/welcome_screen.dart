@@ -30,9 +30,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   }
 
   void _trackSlide(int index) {
-    ref
-        .read(analyticsProvider)
-        .capture(AnalyticsEvents.welcomeSlideViewed, {'slide_number': index + 1});
+    ref.read(analyticsProvider).capture(AnalyticsEvents.welcomeSlideViewed, {
+      'slide_number': index + 1,
+    });
   }
 
   static const _slides = [
@@ -48,26 +48,33 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       heroKind: _HeroKind.scanning,
       backdrop: Color(0xFFFDF2E8), // warm peach scan backdrop from the handoff
       title: 'Scan. Tag. Done.',
-      subtitle: "Point at any item and we'll handle the rest. No typing, no tagging.",
+      subtitle:
+          "Point at any item and we'll handle the rest. No typing, no tagging.",
       cta: 'Next',
     ),
     _Slide(
       heroKind: _HeroKind.outfitCard,
       backdrop: Color(0xFFFDF2E8), // warm peach backdrop from the handoff
-      title: 'Every morning. 10\nseconds. Done.',
+      // One sentence per line — the redesign breaks on the full stops, not
+      // wherever the width happens to run out.
+      title: 'Every morning.\n10 seconds.\nDone.',
       subtitle: 'Your AI stylist, powered by your actual wardrobe.',
-      cta: 'Sign In',
+      cta: 'Create My Account',
     ),
   ];
 
   bool get _isLast => _index == _slides.length - 1;
 
-  // Login-first flow: the primary path lands on Sign In (returning users are
-  // the common case, and OAuth is get-or-create server-side so new OAuth
-  // users are served there too); Create Account is the reserved footer link.
+  // Signup-first flow (redesign, 2026-08-30): the last slide's primary CTA is
+  // Create Account and Sign In is the footer link. This reverses the earlier
+  // login-first ordering — OAuth is get-or-create server-side, so a returning
+  // user who taps Create Account still lands correctly.
   void _onPrimary() {
     if (_isLast) {
-      context.goNamed(LoginScreen.name);
+      // Pushed, not `go`: the auth screens show a back arrow, which needs the
+      // carousel still on the stack. Post-auth navigation uses `go`, which
+      // clears these routes so the app can't be backed into auth.
+      context.pushNamed(SignUpScreen.name);
     } else {
       _controller.nextPage(
         duration: const Duration(milliseconds: 280),
@@ -77,13 +84,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   }
 
   void _onSkip() {
-    ref
-        .read(analyticsProvider)
-        .capture(AnalyticsEvents.welcomeSkipped, {'slide_number': _index + 1});
-    context.goNamed(LoginScreen.name);
+    ref.read(analyticsProvider).capture(AnalyticsEvents.welcomeSkipped, {
+      'slide_number': _index + 1,
+    });
+    context.pushNamed(LoginScreen.name);
   }
 
-  void _onCreateAccount() => context.goNamed(SignUpScreen.name);
+  void _onSignIn() => context.pushNamed(LoginScreen.name);
 
   @override
   void dispose() {
@@ -106,10 +113,10 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                   Text(
                     'ZOURA',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 3,
-                          color: AppColors.espressoDark,
-                        ),
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 3,
+                      color: AppColors.espressoDark,
+                    ),
                   ),
                   // Always laid out (hidden on the last slide) so the top bar
                   // height — and everything below it — stays put across slides.
@@ -125,9 +132,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                       ),
                       child: Text(
                         'SKIP',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              letterSpacing: 1.2,
-                            ),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelMedium?.copyWith(letterSpacing: 1.2),
                       ),
                     ),
                   ),
@@ -155,7 +162,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
             // without nudging the CTA, and the Create-Account row is always
             // reserved.
             SizedBox(
-              height: 340,
+              // Tall enough for the tallest title (slide 3's three lines).
+              height: 372,
               child: Column(
                 children: [
                   // Dots
@@ -171,7 +179,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           width: i == _index ? 10 : 8,
                           height: i == _index ? 10 : 8,
                           decoration: BoxDecoration(
-                            color: i == _index ? AppColors.espresso : AppColors.taupeSoft,
+                            color: i == _index
+                                ? AppColors.espresso
+                                : AppColors.taupeSoft,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -179,33 +189,45 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                     ),
                   ),
 
-                  // Title + subtitle (top-aligned; grows into the Spacer below)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      children: [
-                        Text(
-                          _slides[_index].title,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                height: 1.1,
-                                letterSpacing: -0.5,
-                                color: AppColors.ink,
-                              ),
-                          textAlign: TextAlign.center,
+                  // Title + subtitle (top-aligned; grows into the Spacer
+                  // below). Flexible + scaleDown so a large system text scale
+                  // shrinks the copy to fit rather than overflowing the
+                  // fixed-height zone, which is what keeps the dots, title and
+                  // CTA in the same place on every slide.
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _slides[_index].title,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.1,
+                                    letterSpacing: -0.5,
+                                    color: AppColors.ink,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _slides[_index].subtitle,
+                              style: Theme.of(context).textTheme.bodyLarge
+                                  ?.copyWith(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.inkSoft,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _slides[_index].subtitle,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.inkSoft,
-                              ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
 
@@ -221,15 +243,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           onPressed: _onPrimary,
                           pill: true,
                           elevation: 6,
-                          labelStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          labelStyle: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                               ),
-                          trailing: const Icon(
-                            Icons.arrow_forward,
-                            color: AppColors.white,
-                            size: 20,
-                          ),
                         ),
                         const SizedBox(height: 12),
                         // Always laid out (only shown on the last slide) so the
@@ -240,14 +258,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                           maintainAnimation: true,
                           maintainState: true,
                           child: TextButton(
-                            onPressed: _onCreateAccount,
+                            onPressed: _onSignIn,
                             child: Text.rich(
                               TextSpan(
                                 style: Theme.of(context).textTheme.bodyMedium,
                                 children: const [
-                                  TextSpan(text: 'New to Zoura? '),
+                                  TextSpan(text: 'Already have an account? '),
                                   TextSpan(
-                                    text: 'Create Account',
+                                    text: 'Sign In',
                                     style: TextStyle(
                                       color: AppColors.ink,
                                       decoration: TextDecoration.underline,
@@ -369,7 +387,11 @@ class _ScanningMock extends StatelessWidget {
             borderRadius: BorderRadius.circular(40),
             border: Border.all(color: _bezel, width: 6),
             boxShadow: const [
-              BoxShadow(color: Color(0x40000000), blurRadius: 24, offset: Offset(0, 12)),
+              BoxShadow(
+                color: Color(0x40000000),
+                blurRadius: 24,
+                offset: Offset(0, 12),
+              ),
             ],
           ),
           child: ClipRRect(
@@ -378,7 +400,9 @@ class _ScanningMock extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 // Viewfinder: the scanned shirt over an ivory ground.
-                const Positioned.fill(child: ColoredBox(color: AppColors.ivory)),
+                const Positioned.fill(
+                  child: ColoredBox(color: AppColors.ivory),
+                ),
                 Positioned.fill(
                   child: Opacity(
                     opacity: 0.8,
@@ -392,26 +416,42 @@ class _ScanningMock extends StatelessWidget {
                 const _ScanReticle(),
                 // AI classification badge.
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.white,
                     borderRadius: BorderRadius.circular(999),
                     boxShadow: const [
-                      BoxShadow(color: Color(0x1A000000), blurRadius: 8, offset: Offset(0, 2)),
+                      BoxShadow(
+                        color: Color(0x1A000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
+                      ),
                     ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.check_circle, color: AppColors.sage, size: 13),
+                      const Icon(
+                        Icons.check_circle,
+                        color: AppColors.sage,
+                        size: 13,
+                      ),
                       const SizedBox(width: 5),
-                      Text(
-                        'Oxford Shirt · Casual',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.espressoDark,
-                            ),
+                      Flexible(
+                        child: Text(
+                          'Oxford Shirt · Casual',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.espressoDark,
+                              ),
+                        ),
                       ),
                     ],
                   ),
@@ -432,8 +472,11 @@ class _ScanReticle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const bracket = BorderSide(color: AppColors.white, width: 2);
-    Widget corner(Border border) =>
-        Container(width: 16, height: 16, decoration: BoxDecoration(border: border));
+    Widget corner(Border border) => Container(
+      width: 16,
+      height: 16,
+      decoration: BoxDecoration(border: border),
+    );
 
     return SizedBox(
       width: 120,
@@ -448,10 +491,26 @@ class _ScanReticle extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(top: -1, left: -1, child: corner(const Border(top: bracket, left: bracket))),
-          Positioned(top: -1, right: -1, child: corner(const Border(top: bracket, right: bracket))),
-          Positioned(bottom: -1, left: -1, child: corner(const Border(bottom: bracket, left: bracket))),
-          Positioned(bottom: -1, right: -1, child: corner(const Border(bottom: bracket, right: bracket))),
+          Positioned(
+            top: -1,
+            left: -1,
+            child: corner(const Border(top: bracket, left: bracket)),
+          ),
+          Positioned(
+            top: -1,
+            right: -1,
+            child: corner(const Border(top: bracket, right: bracket)),
+          ),
+          Positioned(
+            bottom: -1,
+            left: -1,
+            child: corner(const Border(bottom: bracket, left: bracket)),
+          ),
+          Positioned(
+            bottom: -1,
+            right: -1,
+            child: corner(const Border(bottom: bracket, right: bracket)),
+          ),
         ],
       ),
     );
@@ -479,7 +538,11 @@ class _OutfitCardMock extends StatelessWidget {
               color: AppColors.white,
               borderRadius: BorderRadius.circular(20),
               boxShadow: const [
-                BoxShadow(color: Color(0x142A1810), blurRadius: 48, offset: Offset(0, 24)),
+                BoxShadow(
+                  color: Color(0x142A1810),
+                  blurRadius: 48,
+                  offset: Offset(0, 24),
+                ),
               ],
             ),
             child: Column(
@@ -498,18 +561,9 @@ class _OutfitCardMock extends StatelessWidget {
                   aspectRatio: 1,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: ColoredBox(
-                      color: AppColors.ivory,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Opacity(
-                          opacity: 0.9,
-                          child: Image.asset(
-                            'assets/onboarding/welcome_outfit.png',
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
+                    child: Image.asset(
+                      'assets/onboarding/welcome_outfit.jpg',
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
@@ -519,10 +573,10 @@ class _OutfitCardMock extends StatelessWidget {
                   "you haven't worn the blazer in 2 weeks.",
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: _captionColor,
-                        fontStyle: FontStyle.italic,
-                        height: 1.4,
-                      ),
+                    color: _captionColor,
+                    fontStyle: FontStyle.italic,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),

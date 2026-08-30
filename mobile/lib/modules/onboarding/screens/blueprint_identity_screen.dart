@@ -94,7 +94,7 @@ class _BlueprintIdentityScreenState
         const BlueprintQuestion(
           title: 'What style do you shop for?',
           subtitle:
-              'This helps DRAPE suggest the right products and outfit ideas for you.',
+              'This helps ZOURA suggest the right products and outfit ideas for you.',
         ),
         const SizedBox(height: 16),
         for (final (value, label, icon) in _styles) ...[

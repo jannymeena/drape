@@ -99,8 +99,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     });
 
     try {
-      final idToken =
-          await ref.read(oauthSignInServiceProvider).idTokenFor(provider);
+      final idToken = await ref
+          .read(oauthSignInServiceProvider)
+          .idTokenFor(provider);
       // Null means the user backed out of the native sheet — not an error.
       if (idToken == null) return;
       await ref
@@ -147,8 +148,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const DrapeAppBar(title: 'Create Account'),
-      // Content is centered vertically when there's spare room, and becomes
-      // scrollable once the keyboard reduces the available height.
+      // Top-aligned: the form starts directly under the title bar and runs
+      // down the page, and scrolls once the keyboard reduces the height.
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -157,9 +158,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    const SizedBox(height: 8),
                     OAuthButtons(
                       onApple: _busy
                           ? null
@@ -182,29 +183,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       onChanged: (_) => _clearError(),
                     ),
                     const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.lock_outline,
-                          size: 16,
-                          color: AppColors.inkSoft,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text.rich(
-                            TextSpan(
-                              style: Theme.of(context).textTheme.bodySmall,
-                              children: const [
-                                TextSpan(
-                                  text:
-                                      'Your data is stored securely in Canada. ',
-                                ),
-                                TextSpan(text: '🇨🇦'),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'Your data is stored securely in Canada. 🇨🇦',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 8),
                     Text.rich(
@@ -242,7 +223,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     const SizedBox(height: 16),
                     Center(
                       child: TextButton(
-                        onPressed: () => context.goNamed(LoginScreen.name),
+                        onPressed: () =>
+                            context.pushReplacementNamed(LoginScreen.name),
                         child: Text.rich(
                           TextSpan(
                             style: Theme.of(context).textTheme.bodyMedium,

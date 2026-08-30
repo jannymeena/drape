@@ -84,8 +84,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      final idToken =
-          await ref.read(oauthSignInServiceProvider).idTokenFor(provider);
+      final idToken = await ref
+          .read(oauthSignInServiceProvider)
+          .idTokenFor(provider);
       // Null means the user backed out of the native sheet — not an error.
       if (idToken == null) return;
       await ref
@@ -132,8 +133,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const DrapeAppBar(),
-      // Content is centered vertically when there's spare room, and becomes
-      // scrollable once the keyboard reduces the available height.
+      // Top-aligned editorial layout: the title anchors the top, and the
+      // "No account?" line is pushed to the bottom of the viewport by the
+      // Spacer (IntrinsicHeight gives it a height to work against inside the
+      // scroll view). Once the keyboard shrinks the viewport the whole thing
+      // scrolls instead of squeezing.
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -141,96 +145,101 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Welcome back',
-                      style: Theme.of(context).textTheme.headlineLarge,
-                    ),
-                    const SizedBox(height: 28),
-                    OAuthButtons(
-                      onApple: _busy
-                          ? null
-                          : () => _onOAuth(OAuthProvider.apple),
-                      onGoogle: _busy
-                          ? null
-                          : () => _onOAuth(OAuthProvider.google),
-                    ),
-                    DrapeTextField(
-                      label: 'Email address',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      onChanged: (_) {
-                        if (_errorText != null) {
-                          setState(() => _errorText = null);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    DrapeTextField(
-                      label: 'Password',
-                      controller: _passwordController,
-                      obscureText: true,
-                      textInputAction: TextInputAction.done,
-                      errorText: _errorText,
-                      onChanged: (_) {
-                        if (_errorText != null) {
-                          setState(() => _errorText = null);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () =>
-                            context.goNamed(ForgotPasswordScreen.name),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(0, 0),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Forgot password?',
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: AppColors.espresso,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 24),
+                      Text(
+                        'Welcome back',
+                        style: Theme.of(context).textTheme.headlineLarge,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    DrapeButton(
-                      label: 'Sign In',
-                      loading: _submitting,
-                      onPressed: _onSignIn,
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: TextButton(
-                        onPressed: () => context.goNamed(SignUpScreen.name),
-                        child: Text.rich(
-                          TextSpan(
-                            style: Theme.of(context).textTheme.bodyMedium,
-                            children: const [
-                              TextSpan(text: 'No account?  '),
-                              TextSpan(
-                                text: 'Create one free',
-                                style: TextStyle(
-                                  color: AppColors.ink,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: TextDecoration.underline,
+                      const SizedBox(height: 36),
+                      OAuthButtons(
+                        onApple: _busy
+                            ? null
+                            : () => _onOAuth(OAuthProvider.apple),
+                        onGoogle: _busy
+                            ? null
+                            : () => _onOAuth(OAuthProvider.google),
+                      ),
+                      DrapeTextField(
+                        label: 'Email address',
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) {
+                          if (_errorText != null) {
+                            setState(() => _errorText = null);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      DrapeTextField(
+                        label: 'Password',
+                        controller: _passwordController,
+                        obscureText: true,
+                        textInputAction: TextInputAction.done,
+                        errorText: _errorText,
+                        onChanged: (_) {
+                          if (_errorText != null) {
+                            setState(() => _errorText = null);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () =>
+                              context.goNamed(ForgotPasswordScreen.name),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 0),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            'Forgot password?',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  color: AppColors.espresso,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                              ),
-                            ],
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      DrapeButton(
+                        label: 'Sign In',
+                        loading: _submitting,
+                        onPressed: _onSignIn,
+                      ),
+                      const Spacer(),
+                      Center(
+                        child: TextButton(
+                          onPressed: () =>
+                              context.pushReplacementNamed(SignUpScreen.name),
+                          child: Text.rich(
+                            TextSpan(
+                              style: Theme.of(context).textTheme.bodyMedium,
+                              children: const [
+                                TextSpan(text: 'No account?  '),
+                                TextSpan(
+                                  text: 'Create one free',
+                                  style: TextStyle(
+                                    color: AppColors.ink,
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
               ),
             );

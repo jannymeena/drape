@@ -113,7 +113,7 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
         const SizedBox(height: 16),
         const BlueprintQuestion(
           title: 'What matters most to you right now?',
-          subtitle: 'Pick as many as you like — this shapes how DRAPE styles you.',
+          subtitle: 'Pick as many as you like — this shapes how ZOURA styles you.',
         ),
         const SizedBox(height: 16),
         for (final (value, label, icon) in _goals) ...[
