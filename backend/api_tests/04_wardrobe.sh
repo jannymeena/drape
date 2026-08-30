@@ -47,7 +47,7 @@ call POST "/wardrobe/items/$ITEM_ID/log-worn" '{}'
 expect_status "POST /wardrobe/items/{id}/log-worn (first)" 200
 expect_body_field "  → worn_count=1" '.worn_count' "1"
 expect_body_field "  → already_logged_today=false" '.already_logged_today' "false"
-expect_body_field "  → cost_per_wear=$120/1=120" '.cost_per_wear' "120"
+expect_body_field "  → cost_per_wear=\$120/1=120" '.cost_per_wear' "120"
 
 # --- 5) log-worn (same day, idempotent) -------------------------------------
 

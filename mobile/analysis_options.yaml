@@ -14,6 +14,12 @@ analyzer:
     # SwiftPM checks pub package sources out under build/ (SourcePackages);
     # without this the analyzer lints third-party package examples/tests.
     - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   # The lint rules applied to this project can be customized in the
