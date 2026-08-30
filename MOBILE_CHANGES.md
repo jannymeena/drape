@@ -9,6 +9,115 @@ Companion doc: `BACKEND_CHANGES.md` (referenced below as "BE …").
 Conventions: module-wise folders (`modules/<feature>/` + `shared/`), all routes in
 `shared/providers/router_provider.dart`, one-by-one AI calls with per-success state updates.
 
+**Updated:** 2026-08-30 · **Onboarding rebuilt as the 7-step Style Blueprint**
+(designs: `handoff/Style_Blueprint_7_Step/style_blueprint_*_of_7_*`; backend contract in
+BACKEND_CHANGES 2026-08-30). 15 screens → 7 + a reveal:
+
+| Step | Screen | Questions |
+|---|---|---|
+| 1 | `blueprint_identity_screen.dart` | shop-for + age range (was 2 screens) |
+| 2 | `blueprint_fit_screen.dart` | body shape + tops/bottoms fit sliders |
+| 3 | `blueprint_aesthetics_screen.dart` | style card grid (gendered art) |
+| 4 | `blueprint_color_screen.dart` | undertone + colour palettes |
+| 5 | `blueprint_lifestyle_screen.dart` | occupation + dress code + impression goal |
+| 6 | `blueprint_habits_screen.dart` | shopping feeling + accessories + brand tier |
+| 7 | `blueprint_goals_screen.dart` | three-month aspiration + style goals |
+| — | `blueprint_reveal_screen.dart` | plays the answers back → "Build My Wardrobe" |
+
+- **One type scale.** `widgets/blueprint_scaffold.dart` owns the step chrome (back button,
+  "Step n of 7" pill, progress line, sticky Continue) **and** `BlueprintText`
+  (question 22sp / subtitle 13sp / option 15sp / caption 12sp). Onboarding headings used to
+  mix `headlineLarge` 32, `headlineMedium` 28 and `headlineSmall` 24, so the size jumped
+  screen to screen; every onboarding heading now goes through `BlueprintText.question`.
+  Don't reach into `textTheme` directly from an onboarding screen. The reveal's hero
+  headline stays larger on purpose — it's a payoff screen, not a step (the blueprints do the
+  same).
+- **Step 3 art** is sliced from the two supplied sprite sheets into
+  `assets/onboarding/styles/{male,female}/*.jpg` (6 each, ~20KB). Men see Rugged + Smart
+  Casual, women see Bohemian + Romantic; `both` / `prefer_not_to_say` get the women's set.
+- **Removed:** `shopping_style_screen`, `age_range_screen`, `style_goals_screen`,
+  `lifestyle_occasions_screen`, `onboarding_flow.dart`, `widgets/save_progress_sheet.dart`.
+- **Measurements are no longer onboarding.** The 8 guided measurement screens,
+  `pre_measurement_screen` and `manual_entry_screen` are kept and still routed — they're the
+  guided alternative to the Profile tab's `EditMeasurementsScreen`, reachable from the Shop
+  tab's fit prompts. Their terminus changed: completing or skipping now lands on
+  `EditMeasurementsScreen` / pops out, instead of diverting into onboarding's wardrobe setup.
+- **Avatar reveal** no longer calls `saveProgress('avatar_reveal')` — that literal is a
+  legacy step, and writing it would rewind a finished user to blueprint step 1.
+- **Paywall price fixed.** The Buy/Don't Buy limit screen and the compare-plans trial
+  footnote hardcoded `$14.99/month` while the plan columns showed `$9.99`; the retention card
+  hardcoded `$7.50/month` next to its own button's computed `$5.00`. All of them now read
+  live `/subscription` data, falling back to `kProMonthlyPriceFallback` /
+  `kProYearlyPriceFallback` in `modules/profile/models/billing.dart` — pinned by a test to
+  backend `billing_service.PLANS` (999 / 7999 cents). **Never hardcode a price at a call
+  site.**
+- Tests: `blueprint_scaffold_test.dart` (step chrome, gating, one heading size across all 7),
+  `blueprint_flow_test.dart` (all 8 screens render, step-1 gating + optional age, gendered
+  card sets, reveal playback), updated `resume_route_map_test.dart`, price pin in
+  `billing_model_test.dart`.
+
+**Updated:** 2026-08-30 (later) · **Welcome / login / sign-up redesign**
+(designs: `handoff/Stitch_Auth/{welcome_slide_3,login,sign_up}`).
+
+- **Welcome slide 3** now leads with **Create My Account**, with "Already have an account?
+  Sign In" as the footer link — this **reverses the earlier login-first ordering** (the old
+  comment argued returning users are the common case). OAuth is get-or-create server-side,
+  so a returning user who taps Create Account still lands correctly. The headline breaks one
+  sentence per line, the CTA lost its trailing arrow, and the card art is the supplied
+  editorial photo (`assets/onboarding/welcome_outfit.jpg`, centre-cropped square, replacing
+  the old `welcome_outfit.png`) filling the slot with `BoxFit.cover`.
+- **Login** is top-aligned with the "No account?" line pushed to the bottom of the viewport,
+  matching the design's `footer mt-auto`.
+- **Sign-up** is top-aligned; the PIPEDA line is plain copy (the design drops the lock glyph).
+- **The back arrow on both auth screens is now real.** The carousel reached them with `go`,
+  which replaces the stack, so `DrapeAppBar` correctly hid the arrow as a dead control — but
+  both designs show one. The carousel now pushes, and the login↔sign-up cross-links use
+  `pushReplacement`, so back always returns to the carousel and never ping-pongs. Post-auth
+  navigation still uses `go`, so the app can't be backed into auth.
+- Fixed a **pre-existing** overflow the new tests exposed: the slide-2 scan badge label
+  overflowed its viewfinder under wide font metrics; it now ellipsizes. The slide caption
+  zone also gained a `scaleDown` guard so a large system text scale shrinks the copy rather
+  than overflowing the fixed-height zone that keeps the dots/title/CTA aligned across slides.
+- Brand strings: the two `DRAPE` mentions introduced with the blueprint screens are now
+  `ZOURA`, matching the other 80 user-facing uses.
+- Tests: `auth_screens_test.dart` (all three screens render; the carousel's CTA/footer route
+  where they claim). Verified on the Android emulator end-to-end.
+
+**Updated:** 2026-08-30 (welcome polish) · Two fixes to the carousel:
+
+- **The CTA no longer floats between slides.** The caption zone had the title
+  block in a `Flexible` and a `Spacer` beneath it, each taking half the free
+  space — so a short title left the other half as trailing slack *below* the
+  button and it drifted (measured: 698 / 651 / 690 px across the three slides).
+  The title block is now `Expanded` (absorbs all the slack) with the CTA as a
+  plain trailing child, and the footer line under the button is always laid out
+  — an empty `Text` on slides 1–2, the "Already have an account? Sign In" link
+  on slide 3. Measured on device: the pill's top edge is at y=2415 on all three.
+- **One type scale for the carousel.** The three designs each specified their
+  own values (28/bold/tight + 18px subtitle; 28/bold + 16px; 28/bold/1.2 +
+  16px). `_titleStyle` / `_subtitleStyle` in `welcome_screen.dart` are now the
+  single source — 28/w700/1.2 and 16/1.5 — used by every slide.
+
+The caption's overflow guard was a `FittedBox(scaleDown)`, which turned out to
+be **causing** a type inconsistency: it hands the text unbounded width, so a
+long subtitle lays out on one line and the whole block is scaled to fit,
+rendering the same `TextStyle` visibly smaller on that slide (slide 2). It's
+now a `SingleChildScrollView`, so copy wraps at the real width and only
+scrolls in the pathological large-text-scale case. Both regressions are pinned
+by tests that were confirmed to fail against the old layout.
+
+**Not done — needs an asset:** the login mockup shows a decorative mood image below the
+footer link. It's an empty `<div>` in the supplied HTML with no image behind it, so there's
+nothing to implement against. Supply the asset and it's a few lines.
+
+**Open question:** the login mockup renders the SSO divider as lowercase "or", the sign-up
+one as uppercase "OR". Both screens share `OAuthButtons`, so it's currently lowercase on
+both rather than forking the widget over letter casing.
+
+**Still open:** the copy on the retention card says "50% off your next 3 months" while the
+backend credits **one** period at half price (`RETENTION_DISCOUNT_PCT`) — copy or backend
+needs to give.
+
 Legend: **[blocked: …]** = needs backend work first; everything else is buildable now.
 
 ---

@@ -61,6 +61,34 @@ required, `notify_user` fan-out becomes a logged no-op (device registration keep
 (2.1); blocked on the Firebase project + APNS key upload + mobile client (MOBILE_CHANGES P3).
 Companion doc: `MOBILE_CHANGES.md`.
 
+**Updated:** 2026-08-30 · **Onboarding rebuilt as the 7-step Style Blueprint** (designs:
+`handoff/Style_Blueprint_7_Step/style_blueprint_*_of_7_*`). The old 15-screen chain
+(shopping style → age → goals → 8 measurement steps → avatar reveal) collapses to seven
+question screens plus a reveal. Changes:
+- `users.style_profile` **JSONB** holds the steps 2–7 answers (body shape, tops/bottoms fit,
+  style aesthetics, undertone, colour palettes, occupation, dress code, impression goal,
+  shopping feeling, accessories, brand tier, three-month feeling). One blob rather than 13
+  columns: the answer set is design-driven and still moving, and nothing queries an
+  individual answer. Validated by Literals in `schemas/profile.py`. Squashed into the init
+  migration per the pre-prod convention — **re-init your dev + test DBs**
+  (`psql … -c "DROP DATABASE drape_test"` then `bash tests/init_test_db.sh`).
+- `POST /profile/{shopping-style,age-range,style-goals}` are **replaced** by
+  `POST /profile/style-blueprint/{identity,fit,aesthetics,color,lifestyle,habits,goals}`
+  plus `…/complete` (the reveal's "Build My Wardrobe"). One POST per screen, each returning
+  the next step, as before. `shopping_style` / `age_range` / `style_goals` keep their own
+  columns — starter-wardrobe matching reads them.
+- `OnboardingStep` literals are now `style_blueprint_1…7` → `style_blueprint_reveal` →
+  `today_dashboard`. The pre-redesign ids stay accepted by save-progress (so the standalone
+  measurement screens don't 422) but resolve to step 1 via `_LEGACY_STEPS`; drop that set
+  once no stored `onboarding_last_step` uses them.
+- **Measurements left the onboarding chain.** `measurements_service.submit` no longer writes
+  `onboarding_last_step` (it would rewind a user who has finished the blueprint) and
+  `MeasurementsSubmitResponse` lost its `next_step`. Measurements are now entered from the
+  Shop/Profile tabs. `onboarding-status` still reports `measurement_steps_completed` for the
+  Today resume banner.
+- `onboarding-status` gained a `style_profile` object so a resumed flow prefills.
+- `api_tests/02_profile.sh` walks the new eight-call sequence.
+
 Schema convention (pre-prod): fold all new tables into the **single init migration**
 (wipe local DB + regenerate), per the squash-don't-ALTER rule. Revert to additive
 migrations once prd has real users.
