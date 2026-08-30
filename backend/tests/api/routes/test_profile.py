@@ -30,7 +30,7 @@ _MEAS = {
 
 
 def test_onboarding_status_returns_next_step(client, make_user, auth_headers):
-    """New user with no profile fields should be routed to shopping_style."""
+    """New user with no profile fields starts at blueprint step 1."""
     user = make_user(
         email="onboard@example.com",
         onboarding_completed=False,
@@ -42,7 +42,7 @@ def test_onboarding_status_returns_next_step(client, make_user, auth_headers):
     assert r.status_code == 200
     body = r.json()
     assert body["onboarding_completed"] is False
-    assert body["next_step"] == "shopping_style_selection"
+    assert body["next_step"] == "style_blueprint_1"
     # No measurements yet — resume-banner progress starts at zero.
     assert body["measurement_steps_completed"] == 0
     assert body["next_incomplete_step"] == "measurements_step_1"
@@ -74,33 +74,135 @@ def test_onboarding_status_weight_optional_counts_seven(authed_client):
     assert body["next_incomplete_step"] is None
 
 
-def test_shopping_style_advances_next_step(authed_client):
+# ---------------------------------------------------------------------------
+# Style Blueprint — the 7-step onboarding chain
+# ---------------------------------------------------------------------------
+
+# One valid body per blueprint step, in flow order: (path suffix, payload).
+_BLUEPRINT_STEPS = [
+    ("identity", {"shopping_style": "womens", "age_range": "25-34"}),
+    ("fit", {"body_shape": "hourglass", "fit_tops": "regular", "fit_bottoms": "relaxed"}),
+    ("aesthetics", {"style_aesthetics": ["minimalist", "romantic"]}),
+    ("color", {"undertone": "warm", "color_palettes": ["earth_tones", "neutrals"]}),
+    (
+        "lifestyle",
+        {
+            "occupation": "Marketing",
+            "dress_code": "business_casual",
+            "impression_goal": "both",
+        },
+    ),
+    (
+        "habits",
+        {
+            "shopping_feeling": "confident",
+            "accessories": "minimal",
+            "brand_tier": "premium",
+        },
+    ),
+    (
+        "goals",
+        {
+            "three_month_feeling": "confident_anywhere",
+            "style_goals": ["polished", "maximize_wardrobe"],
+        },
+    ),
+]
+
+
+def _walk_blueprint(client, through: int = 7) -> str:
+    """POST the first [through] blueprint steps in order; returns the last
+    `next_step`."""
+    nxt = ""
+    for suffix, payload in _BLUEPRINT_STEPS[:through]:
+        r = client.post(f"/api/v1/profile/style-blueprint/{suffix}", json=payload)
+        assert r.status_code == 200, f"{suffix}: {r.text}"
+        nxt = r.json()["next_step"]
+    return nxt
+
+
+def test_blueprint_steps_chain_in_order(authed_client):
+    """Each step advances to the next; step 7 hands off to the reveal."""
+    for i, (suffix, payload) in enumerate(_BLUEPRINT_STEPS, start=1):
+        r = authed_client.post(
+            f"/api/v1/profile/style-blueprint/{suffix}", json=payload
+        )
+        assert r.status_code == 200, r.text
+        expected = "style_blueprint_reveal" if i == 7 else f"style_blueprint_{i + 1}"
+        assert r.json()["next_step"] == expected
+
+
+def test_blueprint_complete_lands_on_dashboard(authed_client):
+    _walk_blueprint(authed_client)
+    r = authed_client.post("/api/v1/profile/style-blueprint/complete")
+    assert r.status_code == 200
+    assert r.json()["next_step"] == "today_dashboard"
+
+
+def test_blueprint_answers_accumulate_in_style_profile(authed_client):
+    """Each step merges into the same JSONB blob rather than replacing it."""
+    _walk_blueprint(authed_client)
+
+    body = authed_client.get("/api/v1/profile/onboarding-status").json()
+    profile = body["style_profile"]
+    assert profile["body_shape"] == "hourglass"
+    assert profile["style_aesthetics"] == ["minimalist", "romantic"]
+    assert profile["undertone"] == "warm"
+    assert profile["occupation"] == "Marketing"
+    assert profile["brand_tier"] == "premium"
+    assert profile["three_month_feeling"] == "confident_anywhere"
+    # Step 1 and 7 still write their dedicated columns.
+    assert body["shopping_style"] == "womens"
+    assert body["age_range"] == "25-34"
+    assert body["style_goals"] == ["polished", "maximize_wardrobe"]
+
+
+def test_blueprint_identity_accepts_null_age_skip(authed_client):
+    """Doc 1 says the age question is skippable."""
     r = authed_client.post(
-        "/api/v1/profile/shopping-style", json={"shopping_style": "womens"}
+        "/api/v1/profile/style-blueprint/identity",
+        json={"shopping_style": "mens", "age_range": None},
     )
     assert r.status_code == 200
-    assert r.json()["next_step"] == "age_range"
+    assert r.json()["next_step"] == "style_blueprint_2"
 
 
-def test_age_range_accepts_null_skip(authed_client):
-    """Doc 1 says age-range is skippable."""
-    r = authed_client.post("/api/v1/profile/age-range", json={"age_range": None})
+def test_blueprint_lifestyle_allows_no_dress_code(authed_client):
+    """`dress_code` is skipped automatically when the user isn't working."""
+    r = authed_client.post(
+        "/api/v1/profile/style-blueprint/lifestyle",
+        json={"occupation": None, "dress_code": None, "impression_goal": "content"},
+    )
     assert r.status_code == 200
 
 
-def test_style_goals_requires_at_least_one(authed_client):
+def test_blueprint_goals_requires_at_least_one(authed_client):
     r = authed_client.post(
-        "/api/v1/profile/style-goals", json={"style_goals": []}
+        "/api/v1/profile/style-blueprint/goals",
+        json={"three_month_feeling": "found_my_look", "style_goals": []},
     )
     assert r.status_code == 422
 
 
-def test_style_goals_accepts_valid_list(authed_client):
+def test_blueprint_rejects_unknown_enum_value(authed_client):
     r = authed_client.post(
-        "/api/v1/profile/style-goals",
-        json={"style_goals": ["polished", "maximize_wardrobe"]},
+        "/api/v1/profile/style-blueprint/fit",
+        json={"body_shape": "pyramid", "fit_tops": "regular", "fit_bottoms": "relaxed"},
+    )
+    assert r.status_code == 422
+
+
+def test_legacy_step_pointer_restarts_the_blueprint(client, make_user, auth_headers):
+    """A session paused mid-way through the old 15-screen flow resumes at
+    step 1 rather than stranding on a screen that no longer chains."""
+    user = make_user(email="legacy@example.com", onboarding_completed=False)
+    r = client.post(
+        "/api/v1/profile/save-progress",
+        json={"last_completed_step": "measurements_step_4"},
+        headers=auth_headers(user),
     )
     assert r.status_code == 200
+    assert r.json()["next_step"] == "style_blueprint_1"
 
 
 # ---------------------------------------------------------------------------

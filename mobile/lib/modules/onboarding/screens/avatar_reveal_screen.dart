@@ -10,7 +10,7 @@ import '../../../shared/widgets/drape_button.dart';
 import '../../auth/auth_controller.dart';
 import '../../profile/profile_service.dart';
 import '../../wardrobe/image_pick.dart';
-import '../onboarding_controller.dart';
+import '../widgets/blueprint_scaffold.dart';
 import 'profile_complete_screen.dart';
 
 /// Avatar step. The avatar is the user's own photo (uploaded via
@@ -47,18 +47,10 @@ class _AvatarRevealScreenState extends ConsumerState<AvatarRevealScreen> {
     }
   }
 
-  /// Records the avatar step before moving on so a later relaunch resumes to
-  /// Today rather than back here.
-  Future<void> _onContinue() async {
-    try {
-      await ref
-          .read(onboardingControllerProvider.notifier)
-          .saveProgress('avatar_reveal');
-    } on ApiException {
-      // Best-effort: don't block finishing onboarding on a failed save.
-    }
-    if (mounted) context.pushNamed(ProfileCompleteScreen.name);
-  }
+  /// The blueprint reveal already advanced the step pointer past the last
+  /// numbered step, so a relaunch from here resumes to Today — nothing to
+  /// record on the way out.
+  void _onContinue() => context.pushNamed(ProfileCompleteScreen.name);
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +67,7 @@ class _AvatarRevealScreenState extends ConsumerState<AvatarRevealScreen> {
               const SizedBox(height: 16),
               Text(
                 hasAvatar ? 'Looking good' : 'Create your style avatar',
-                style: Theme.of(context).textTheme.headlineLarge,
+                style: BlueprintText.question(context),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),

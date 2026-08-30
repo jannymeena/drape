@@ -8,7 +8,8 @@ import '../../../shared/widgets/analytics_screen_view.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
-import 'wardrobe_setup_screen.dart';
+import '../../profile/screens/edit_measurements_screen.dart';
+import '../widgets/blueprint_scaffold.dart';
 
 class ManualEntryScreen extends ConsumerWidget {
   static const path = '/onboarding/manual-entry';
@@ -29,7 +30,7 @@ class ManualEntryScreen extends ConsumerWidget {
           children: [
             Text(
               'All at once',
-              style: Theme.of(context).textTheme.headlineMedium,
+              style: BlueprintText.question(context),
             ),
             const SizedBox(height: 8),
             Text(
@@ -58,7 +59,7 @@ class ManualEntryScreen extends ConsumerWidget {
                   AnalyticsEvents.manualEntrySubmitted,
                   {'source': 'onboarding'},
                 );
-                context.goNamed(WardrobeSetupScreen.name);
+                context.goNamed(EditMeasurementsScreen.name);
               },
             ),
             const SizedBox(height: 12),

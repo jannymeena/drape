@@ -6,6 +6,7 @@ import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
+import 'blueprint_scaffold.dart';
 import 'measurement_guide.dart';
 
 /// Shared chrome for the 8 avatar-measurement steps so they read as one flow:
@@ -99,10 +100,9 @@ class MeasurementStepScaffold extends ConsumerWidget {
                 children: [
                   MeasurementGuide(bodyPart: bodyPart),
                   const SizedBox(height: 24),
-                  Text(title, style: Theme.of(context).textTheme.headlineMedium),
+                  Text(title, style: BlueprintText.question(context)),
                   const SizedBox(height: 8),
-                  Text(description,
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  Text(description, style: BlueprintText.subtitle(context)),
                   const SizedBox(height: 28),
                   input,
                 ],

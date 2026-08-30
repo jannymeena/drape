@@ -78,6 +78,7 @@ def upgrade() -> None:
     sa.Column('shopping_style', sa.String(length=30), nullable=True),
     sa.Column('age_range', sa.String(length=20), nullable=True),
     sa.Column('style_goals', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('style_profile', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('timezone', sa.String(length=64), nullable=True),
     sa.Column('location', sa.String(length=120), nullable=True),
     sa.Column('gender', sa.String(length=30), nullable=True),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
+import 'blueprint_scaffold.dart';
 
 Future<void> showPrivacySheet(BuildContext context) {
   return showModalBottomSheet<void>(
@@ -52,7 +53,7 @@ class _PrivacySheet extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'How ZOURA Protects Your Profile',
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: BlueprintText.question(context),
             ),
             const Divider(height: 32, color: AppColors.taupeSoft),
             Text(

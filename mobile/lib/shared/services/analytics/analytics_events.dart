@@ -18,6 +18,8 @@ abstract final class AnalyticsEvents {
   static const shoppingStyleSelected = 'shopping_style_selected';
   static const ageRangeSelected = 'age_range_selected';
   static const styleGoalsSelected = 'style_goals_selected';
+  static const styleAestheticsSelected = 'style_aesthetics_selected';
+  static const styleBlueprintCompleted = 'style_blueprint_completed';
   static const preMeasurementViewed = 'pre_measurement_viewed';
   static const measurementsStarted = 'measurements_started';
   static const measurementStepCompleted = 'measurement_step_completed';

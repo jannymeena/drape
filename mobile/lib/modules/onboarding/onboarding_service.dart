@@ -13,27 +13,103 @@ import 'models/starter_wardrobe.dart';
 ///
 /// Each profile-setup mutation returns the backend's `next_step` literal (from
 /// `ProfileStepResponse`); the caller persists it for resume-on-launch.
-/// Measurements + starter-wardrobe methods are added in later sub-phases.
+///
+/// The seven `setBlueprint*` methods are the Style Blueprint steps, in flow
+/// order. Measurements are no longer part of that chain — [submitMeasurements]
+/// is called from the Shop/Profile tabs and doesn't advance onboarding.
 class OnboardingService {
   OnboardingService(this._dio);
 
   final Dio _dio;
 
-  /// `POST /profile/shopping-style`. Returns the backend's `next_step`.
-  Future<String> setShoppingStyle(String shoppingStyle) async {
-    return _postStep('/profile/shopping-style', {'shopping_style': shoppingStyle});
+  /// Step 1 — `POST /profile/style-blueprint/identity`. [ageRange] is null when
+  /// the user skips that (optional) question; the backend records the skip.
+  Future<String> setBlueprintIdentity({
+    required String shoppingStyle,
+    required String? ageRange,
+  }) async {
+    return _postStep('/profile/style-blueprint/identity', {
+      'shopping_style': shoppingStyle,
+      'age_range': ageRange,
+    });
   }
 
-  /// `POST /profile/age-range`. [ageRange] is null when the user skips this
-  /// (optional) step — the backend accepts null to record the skip explicitly.
-  Future<String> setAgeRange(String? ageRange) async {
-    return _postStep('/profile/age-range', {'age_range': ageRange});
+  /// Step 2 — `POST /profile/style-blueprint/fit`.
+  Future<String> setBlueprintFit({
+    required String bodyShape,
+    required String fitTops,
+    required String fitBottoms,
+  }) async {
+    return _postStep('/profile/style-blueprint/fit', {
+      'body_shape': bodyShape,
+      'fit_tops': fitTops,
+      'fit_bottoms': fitBottoms,
+    });
   }
 
-  /// `POST /profile/style-goals`. [goals] must be non-empty (backend rejects
-  /// an empty list with 422).
-  Future<String> setStyleGoals(List<String> goals) async {
-    return _postStep('/profile/style-goals', {'style_goals': goals});
+  /// Step 3 — `POST /profile/style-blueprint/aesthetics`. [aesthetics] must be
+  /// non-empty (the backend rejects an empty list with 422).
+  Future<String> setBlueprintAesthetics(List<String> aesthetics) async {
+    return _postStep('/profile/style-blueprint/aesthetics', {
+      'style_aesthetics': aesthetics,
+    });
+  }
+
+  /// Step 4 — `POST /profile/style-blueprint/color`. [palettes] must be
+  /// non-empty.
+  Future<String> setBlueprintColor({
+    required String undertone,
+    required List<String> palettes,
+  }) async {
+    return _postStep('/profile/style-blueprint/color', {
+      'undertone': undertone,
+      'color_palettes': palettes,
+    });
+  }
+
+  /// Step 5 — `POST /profile/style-blueprint/lifestyle`. [occupation] and
+  /// [dressCode] are both null-able: the dress-code question is skipped for
+  /// users who aren't currently working.
+  Future<String> setBlueprintLifestyle({
+    required String? occupation,
+    required String? dressCode,
+    required String impressionGoal,
+  }) async {
+    return _postStep('/profile/style-blueprint/lifestyle', {
+      'occupation': occupation,
+      'dress_code': dressCode,
+      'impression_goal': impressionGoal,
+    });
+  }
+
+  /// Step 6 — `POST /profile/style-blueprint/habits`.
+  Future<String> setBlueprintHabits({
+    required String shoppingFeeling,
+    required String accessories,
+    required String brandTier,
+  }) async {
+    return _postStep('/profile/style-blueprint/habits', {
+      'shopping_feeling': shoppingFeeling,
+      'accessories': accessories,
+      'brand_tier': brandTier,
+    });
+  }
+
+  /// Step 7 — `POST /profile/style-blueprint/goals`. [goals] must be non-empty.
+  Future<String> setBlueprintGoals({
+    required String threeMonthFeeling,
+    required List<String> goals,
+  }) async {
+    return _postStep('/profile/style-blueprint/goals', {
+      'three_month_feeling': threeMonthFeeling,
+      'style_goals': goals,
+    });
+  }
+
+  /// `POST /profile/style-blueprint/complete` — the reveal screen's
+  /// "Build My Wardrobe", which closes out the blueprint.
+  Future<String> completeBlueprint() async {
+    return _postStep('/profile/style-blueprint/complete', const {});
   }
 
   /// `POST /profile/save-progress` — records where the user paused so the next
@@ -44,12 +120,20 @@ class OnboardingService {
     });
   }
 
-  /// `POST /profile/measurements` — bulk submit of all measurements at once
-  /// (the backend encrypts them, marks measurements complete, and advances
-  /// onboarding to `avatar_reveal`, which it returns as `next_step`). A missing
-  /// required field or an out-of-range value surfaces as a 422 [ApiException].
-  Future<String> submitMeasurements(MeasurementsDraft draft) async {
-    return _postStep('/profile/measurements', draft.toJson());
+  /// `POST /profile/measurements` — bulk submit of all measurements at once;
+  /// the backend encrypts them and marks measurements complete. Measurements
+  /// sit outside onboarding, so this deliberately returns nothing and does not
+  /// move the step pointer. A missing required field or an out-of-range value
+  /// surfaces as a 422 [ApiException].
+  Future<void> submitMeasurements(MeasurementsDraft draft) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/profile/measurements',
+        data: draft.toJson(),
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
   }
 
   /// `GET /profile/onboarding-status` — completion flag + resume target.

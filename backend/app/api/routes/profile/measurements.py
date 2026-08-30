@@ -1,7 +1,9 @@
 """Phase 5b — measurements routes.
 
-POST = bulk submit (all 8 measurements). The service encrypts before persisting,
-advances onboarding to avatar_reveal, and returns the just-submitted values.
+POST = bulk submit (all 8 measurements). The service encrypts before persisting
+and returns the just-submitted values. Measurements sit outside onboarding
+since the 7-step Style Blueprint redesign — they're entered from the Shop and
+Profile tabs — so submitting does not advance the onboarding step machine.
 GET = decrypt-and-return (404 if the user hasn't submitted).
 """
 from __future__ import annotations
@@ -33,9 +35,7 @@ def submit_measurements(
     encryptor: Encryptor = Depends(get_encryptor),
 ) -> MeasurementsSubmitResponse:
     measurements_service.submit(db, encryptor=encryptor, user=user, payload=payload)
-    return MeasurementsSubmitResponse(
-        measurements_completed=True, next_step="avatar_reveal"
-    )
+    return MeasurementsSubmitResponse(measurements_completed=True)
 
 
 @router.get("/measurements", response_model=MeasurementsResponse)

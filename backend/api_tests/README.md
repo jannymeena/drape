@@ -32,7 +32,7 @@ Each script prints `[PASS]` / `[FAIL]` lines and exits non-zero on failure.
 | `_common.sh` | shared helpers (sourced, not run) | — |
 | `reset.sh` | wraps `scripts/reset_dev_db.py` + clears token cache | wipes all rows |
 | `01_auth.sh` | signup, login, refresh, logout, /users/me, wrong-password 401, duplicate-email 409 | creates a throwaway secondary user |
-| `02_profile.sh` | shopping-style → age → goals → measurements; PATCH /users/{id} for tz+location | advances dev user's onboarding |
+| `02_profile.sh` | the 7-step Style Blueprint (identity → fit → aesthetics → color → lifestyle → habits → goals → complete), then measurements; PATCH /users/{id} for tz+location | advances dev user's onboarding |
 | `03_starter_wardrobe.sh` | list templates, assign (auto), idempotency check, deactivate | materializes ~9 starter items |
 | `04_wardrobe.sh` | manual CRUD, log-worn idempotency, favorites, scanner (mock), cross-user IDOR → 404 | creates + deletes test items |
 | `05_today.sh` | dashboard (3 outfits), generate-outfits force, weather + banners | generates outfits today |

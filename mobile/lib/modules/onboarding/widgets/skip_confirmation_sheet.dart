@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
+import 'blueprint_scaffold.dart';
 
 /// Returns true if the user confirmed skipping; false if they chose to continue.
 Future<bool> showSkipConfirmationSheet(BuildContext context) async {
@@ -39,7 +40,7 @@ class _SkipConfirmationSheet extends StatelessWidget {
             ),
             Text(
               "You can skip — but here's what you'll miss",
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: BlueprintText.question(context),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),

@@ -73,6 +73,13 @@ class User(Base, TimestampMixin):
     shopping_style: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     age_range: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     style_goals: Mapped[Optional[list[str]]] = mapped_column(JSONB, nullable=True)
+    # Steps 2-7 of the 7-step Style Blueprint onboarding (body shape, fit,
+    # aesthetics, undertone, palettes, work context, shopping habits, brand
+    # tier, 3-month aspiration). One JSONB blob rather than 13 columns: the
+    # answer set is design-driven and still moving, and nothing queries an
+    # individual answer — it's read whole to personalize styling. Validated on
+    # the way in by the Literals in app/schemas/profile.py.
+    style_profile: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     location: Mapped[Optional[str]] = mapped_column(String(120), nullable=True)
     # Editable profile-tab fields (no onboarding step writes these; the Edit

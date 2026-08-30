@@ -3,15 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../profile/screens/edit_measurements_screen.dart';
 import '../models/measurements_draft.dart';
 import '../onboarding_controller.dart';
 import '../widgets/measurement_input.dart';
 import '../widgets/measurement_step_scaffold.dart';
-import 'wardrobe_setup_screen.dart';
 
 /// Final measurement screen (step 8). "Keep Going" stores the shoulders value and
 /// then submits the whole set in one `POST /profile/measurements`; on success
-/// the flow moves on to wardrobe setup.
+/// the flow lands on the Profile tab's measurements screen so the user can see
+/// what was saved. (Measurements sit outside onboarding — this flow is the
+/// guided alternative to that screen's single-page form.)
 class ShouldersScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/measurements/shoulders';
   static const name = 'shoulders';
@@ -42,7 +44,7 @@ class _ShouldersScreenState extends ConsumerState<ShouldersScreen> {
     try {
       await notifier.submitMeasurements();
       if (!mounted) return;
-      context.pushNamed(WardrobeSetupScreen.name);
+      context.goNamed(EditMeasurementsScreen.name);
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)

@@ -8,20 +8,24 @@ import '../../modules/auth/screens/login_screen.dart';
 import '../../modules/auth/screens/reset_password_screen.dart';
 import '../../modules/auth/screens/sign_up_screen.dart';
 import '../../modules/auth/screens/welcome_screen.dart';
-import '../../modules/onboarding/screens/age_range_screen.dart';
 import '../../modules/onboarding/screens/avatar_reveal_screen.dart';
+import '../../modules/onboarding/screens/blueprint_aesthetics_screen.dart';
+import '../../modules/onboarding/screens/blueprint_color_screen.dart';
+import '../../modules/onboarding/screens/blueprint_fit_screen.dart';
+import '../../modules/onboarding/screens/blueprint_goals_screen.dart';
+import '../../modules/onboarding/screens/blueprint_habits_screen.dart';
+import '../../modules/onboarding/screens/blueprint_identity_screen.dart';
+import '../../modules/onboarding/screens/blueprint_lifestyle_screen.dart';
+import '../../modules/onboarding/screens/blueprint_reveal_screen.dart';
 import '../../modules/onboarding/screens/chest_measurement_screen.dart';
 import '../../modules/onboarding/screens/height_input_screen.dart';
 import '../../modules/onboarding/screens/hips_measurement_screen.dart';
 import '../../modules/onboarding/screens/inseam_measurement_screen.dart';
-import '../../modules/onboarding/screens/lifestyle_occasions_screen.dart';
 import '../../modules/onboarding/screens/manual_entry_screen.dart';
 import '../../modules/onboarding/screens/pre_measurement_screen.dart';
 import '../../modules/onboarding/screens/profile_complete_screen.dart';
-import '../../modules/onboarding/screens/shopping_style_screen.dart';
 import '../../modules/onboarding/screens/shoulders_screen.dart';
 import '../../modules/onboarding/screens/splash_screen.dart';
-import '../../modules/onboarding/screens/style_goals_screen.dart';
 import '../../modules/onboarding/screens/thigh_measurement_screen.dart';
 import '../../modules/onboarding/screens/waist_measurement_screen.dart';
 import '../../modules/onboarding/screens/wardrobe_setup_screen.dart';
@@ -148,29 +152,53 @@ final routerProvider = Provider<GoRouter>((ref) {
             ResetPasswordScreen(token: state.uri.queryParameters['token']),
       ),
 
-      // ─── Onboarding: style profile ────────────────────────────
+      // ─── Onboarding: the 7-step Style Blueprint ───────────────
       GoRoute(
-        path: ShoppingStyleScreen.path,
-        name: ShoppingStyleScreen.name,
-        builder: (_, _) => const ShoppingStyleScreen(),
+        path: BlueprintIdentityScreen.path,
+        name: BlueprintIdentityScreen.name,
+        builder: (_, _) => const BlueprintIdentityScreen(),
       ),
       GoRoute(
-        path: AgeRangeScreen.path,
-        name: AgeRangeScreen.name,
-        builder: (_, _) => const AgeRangeScreen(),
+        path: BlueprintFitScreen.path,
+        name: BlueprintFitScreen.name,
+        builder: (_, _) => const BlueprintFitScreen(),
       ),
       GoRoute(
-        path: StyleGoalsScreen.path,
-        name: StyleGoalsScreen.name,
-        builder: (_, _) => const StyleGoalsScreen(),
+        path: BlueprintAestheticsScreen.path,
+        name: BlueprintAestheticsScreen.name,
+        builder: (_, _) => const BlueprintAestheticsScreen(),
       ),
       GoRoute(
-        path: LifestyleOccasionsScreen.path,
-        name: LifestyleOccasionsScreen.name,
-        builder: (_, _) => const LifestyleOccasionsScreen(),
+        path: BlueprintColorScreen.path,
+        name: BlueprintColorScreen.name,
+        builder: (_, _) => const BlueprintColorScreen(),
+      ),
+      GoRoute(
+        path: BlueprintLifestyleScreen.path,
+        name: BlueprintLifestyleScreen.name,
+        builder: (_, _) => const BlueprintLifestyleScreen(),
+      ),
+      GoRoute(
+        path: BlueprintHabitsScreen.path,
+        name: BlueprintHabitsScreen.name,
+        builder: (_, _) => const BlueprintHabitsScreen(),
+      ),
+      GoRoute(
+        path: BlueprintGoalsScreen.path,
+        name: BlueprintGoalsScreen.name,
+        builder: (_, _) => const BlueprintGoalsScreen(),
+      ),
+      GoRoute(
+        path: BlueprintRevealScreen.path,
+        name: BlueprintRevealScreen.name,
+        builder: (_, _) => const BlueprintRevealScreen(),
       ),
 
-      // ─── Onboarding: measurements ─────────────────────────────
+      // ─── Measurements ─────────────────────────────────────────
+      // No longer part of onboarding: these are the guided alternative to the
+      // Profile tab's single-page editor, entered from the Shop tab's fit
+      // prompts. Left registered so those entry points keep working.
+
       GoRoute(
         path: PreMeasurementScreen.path,
         name: PreMeasurementScreen.name,

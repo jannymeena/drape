@@ -11,7 +11,7 @@ import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
 import '../../onboarding/onboarding_controller.dart';
 import '../../onboarding/resume_route_map.dart';
-import '../../onboarding/screens/shopping_style_screen.dart';
+import '../../onboarding/screens/blueprint_identity_screen.dart';
 import '../../today/screens/today_dashboard_screen.dart';
 import '../auth_controller.dart';
 import '../oauth_signin_service.dart';
@@ -77,7 +77,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       context.goNamed(
         result.onboardingCompleted
             ? TodayDashboardScreen.name
-            : ShoppingStyleScreen.name,
+            : BlueprintIdentityScreen.name,
       );
     } on ApiException catch (e) {
       if (!mounted) return;

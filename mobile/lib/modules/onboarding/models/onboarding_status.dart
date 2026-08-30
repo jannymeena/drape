@@ -1,10 +1,12 @@
+import 'style_blueprint_draft.dart';
+
 /// Mirrors the backend `OnboardingStatusResponse` (`GET /profile/onboarding-status`).
 ///
 /// [nextStep] / [onboardingLastStep] are the backend's `OnboardingStep` string
-/// literals (e.g. `age_range`, `measurements_step_3`, `avatar_reveal`); the
-/// client maps [nextStep] to a route when resuming onboarding on launch.
-/// The `shopping_style` / `age_range` / `style_goals` echoes let the resume
-/// flow prefill earlier selections.
+/// literals (e.g. `style_blueprint_3`, `style_blueprint_reveal`); the client
+/// maps [nextStep] to a route when resuming onboarding on launch. The
+/// `shopping_style` / `age_range` / `style_goals` / `style_profile` echoes let
+/// the resume flow prefill earlier selections.
 class OnboardingStatus {
   const OnboardingStatus({
     required this.onboardingCompleted,
@@ -13,6 +15,7 @@ class OnboardingStatus {
     this.shoppingStyle,
     this.ageRange,
     this.styleGoals,
+    this.styleProfile = const StyleBlueprintDraft(),
     this.measurementStepsCompleted = 0,
     this.nextIncompleteStep,
   });
@@ -23,6 +26,9 @@ class OnboardingStatus {
   final String? shoppingStyle;
   final String? ageRange;
   final List<String>? styleGoals;
+
+  /// Steps 2–7 of the Style Blueprint, as already saved.
+  final StyleBlueprintDraft styleProfile;
 
   /// Measurement progress for the Today resume banner: 0–8 fields saved, and
   /// the next incomplete measurement id — null once the 7 required are in
@@ -38,6 +44,9 @@ class OnboardingStatus {
       shoppingStyle: json['shopping_style'] as String?,
       ageRange: json['age_range'] as String?,
       styleGoals: (json['style_goals'] as List<dynamic>?)?.cast<String>(),
+      styleProfile: StyleBlueprintDraft.fromJson(
+        (json['style_profile'] as Map<String, dynamic>?) ?? const {},
+      ),
       measurementStepsCompleted:
           json['measurement_steps_completed'] as int? ?? 0,
       nextIncompleteStep: json['next_incomplete_step'] as String?,

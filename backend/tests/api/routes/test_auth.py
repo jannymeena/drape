@@ -28,7 +28,7 @@ def test_signup_with_email_creates_user_and_returns_tokens(client):
     assert payload["access_token"]
     assert payload["refresh_token"]
     assert payload["onboarding_completed"] is False
-    assert payload["next_step"] == "shopping_style_selection"
+    assert payload["next_step"] == "style_blueprint_1"
 
 
 def test_signup_duplicate_email_rejected(client, make_user):

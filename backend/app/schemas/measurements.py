@@ -52,4 +52,3 @@ class MeasurementsResponse(BaseModel):
 class MeasurementsSubmitResponse(BaseModel):
     success: bool = True
     measurements_completed: bool
-    next_step: Literal["avatar_reveal"]

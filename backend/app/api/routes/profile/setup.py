@@ -1,6 +1,7 @@
-"""Phase 5a — profile setup routes.
+"""Profile setup routes — the 7-step Style Blueprint onboarding.
 
-The CTO doc takes user_id in the request bodies; we ignore that and trust the
+One POST per blueprint screen, each returning the next step to route to. The
+CTO doc takes user_id in the request bodies; we ignore that and trust the
 bearer token instead. Letting the client name a target user invites IDOR.
 """
 from __future__ import annotations
@@ -19,11 +20,15 @@ from app.db.models import User
 from app.db.session import get_db
 from app.schemas.profile import (
     OnboardingStatusResponse,
-    ProfileAgeRangeRequest,
-    ProfileShoppingStyleRequest,
     ProfileStepResponse,
-    ProfileStyleGoalsRequest,
     SaveProgressRequest,
+    StyleBlueprintAestheticsRequest,
+    StyleBlueprintColorRequest,
+    StyleBlueprintFitRequest,
+    StyleBlueprintGoalsRequest,
+    StyleBlueprintHabitsRequest,
+    StyleBlueprintIdentityRequest,
+    StyleBlueprintLifestyleRequest,
 )
 from app.schemas.user import UserResponse
 from app.services import avatar_analysis, profile_service
@@ -39,33 +44,90 @@ _ALLOWED_AVATAR_TYPES = {"image/jpeg", "image/png", "image/webp"}
 _MAX_AVATAR_BYTES = 8 * 1024 * 1024  # 8 MiB, matches the wardrobe image cap.
 
 
-@router.post("/shopping-style", response_model=ProfileStepResponse)
-def set_shopping_style(
-    payload: ProfileShoppingStyleRequest,
+@router.post("/style-blueprint/identity", response_model=ProfileStepResponse)
+def set_blueprint_identity(
+    payload: StyleBlueprintIdentityRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    nxt = profile_service.set_shopping_style(db, user=user, payload=payload)
+    """Step 1 of 7 — what style you shop for + age range."""
+    nxt = profile_service.set_blueprint_identity(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 
 
-@router.post("/age-range", response_model=ProfileStepResponse)
-def set_age_range(
-    payload: ProfileAgeRangeRequest,
+@router.post("/style-blueprint/fit", response_model=ProfileStepResponse)
+def set_blueprint_fit(
+    payload: StyleBlueprintFitRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    nxt = profile_service.set_age_range(db, user=user, payload=payload)
+    """Step 2 of 7 — body shape + fit preferences."""
+    nxt = profile_service.set_blueprint_fit(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 
 
-@router.post("/style-goals", response_model=ProfileStepResponse)
-def set_style_goals(
-    payload: ProfileStyleGoalsRequest,
+@router.post("/style-blueprint/aesthetics", response_model=ProfileStepResponse)
+def set_blueprint_aesthetics(
+    payload: StyleBlueprintAestheticsRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    nxt = profile_service.set_style_goals(db, user=user, payload=payload)
+    """Step 3 of 7 — which styles you like."""
+    nxt = profile_service.set_blueprint_aesthetics(db, user=user, payload=payload)
+    return ProfileStepResponse(next_step=nxt)
+
+
+@router.post("/style-blueprint/color", response_model=ProfileStepResponse)
+def set_blueprint_color(
+    payload: StyleBlueprintColorRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ProfileStepResponse:
+    """Step 4 of 7 — undertone + colour palettes."""
+    nxt = profile_service.set_blueprint_color(db, user=user, payload=payload)
+    return ProfileStepResponse(next_step=nxt)
+
+
+@router.post("/style-blueprint/lifestyle", response_model=ProfileStepResponse)
+def set_blueprint_lifestyle(
+    payload: StyleBlueprintLifestyleRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ProfileStepResponse:
+    """Step 5 of 7 — work, dress code, where you want to impress."""
+    nxt = profile_service.set_blueprint_lifestyle(db, user=user, payload=payload)
+    return ProfileStepResponse(next_step=nxt)
+
+
+@router.post("/style-blueprint/habits", response_model=ProfileStepResponse)
+def set_blueprint_habits(
+    payload: StyleBlueprintHabitsRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ProfileStepResponse:
+    """Step 6 of 7 — shopping attitude, accessories, brand tier."""
+    nxt = profile_service.set_blueprint_habits(db, user=user, payload=payload)
+    return ProfileStepResponse(next_step=nxt)
+
+
+@router.post("/style-blueprint/goals", response_model=ProfileStepResponse)
+def set_blueprint_goals(
+    payload: StyleBlueprintGoalsRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ProfileStepResponse:
+    """Step 7 of 7 — three-month aspiration + style goals."""
+    nxt = profile_service.set_blueprint_goals(db, user=user, payload=payload)
+    return ProfileStepResponse(next_step=nxt)
+
+
+@router.post("/style-blueprint/complete", response_model=ProfileStepResponse)
+def complete_blueprint(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ProfileStepResponse:
+    """The reveal screen's "Build My Wardrobe" — closes out the blueprint."""
+    nxt = profile_service.complete_blueprint(db, user=user)
     return ProfileStepResponse(next_step=nxt)
 
 

@@ -10,8 +10,8 @@ import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../widgets/privacy_sheet.dart';
 import '../widgets/skip_confirmation_sheet.dart';
+import '../widgets/blueprint_scaffold.dart';
 import 'height_input_screen.dart';
-import 'wardrobe_setup_screen.dart';
 
 class PreMeasurementScreen extends ConsumerWidget {
   static const path = '/onboarding/pre-measurement';
@@ -32,7 +32,9 @@ class PreMeasurementScreen extends ConsumerWidget {
       analytics.capture(AnalyticsEvents.measurementsSkipped);
     }
     if (confirmed && context.mounted) {
-      context.goNamed(WardrobeSetupScreen.name);
+      // This is the flow's first screen, so one pop returns the user to
+      // whichever tab launched it.
+      context.pop();
     }
   }
 
@@ -67,7 +69,7 @@ class PreMeasurementScreen extends ConsumerWidget {
             children: [
               Text(
                 'Build Your Personal Avatar',
-                style: Theme.of(context).textTheme.headlineLarge,
+                style: BlueprintText.question(context),
               ),
               const SizedBox(height: 12),
               Text.rich(

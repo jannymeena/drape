@@ -132,6 +132,8 @@ flutter:
 
   assets:
     - assets/onboarding/
+    - assets/onboarding/styles/male/
+    - assets/onboarding/styles/female/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

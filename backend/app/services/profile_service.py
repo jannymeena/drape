@@ -1,11 +1,18 @@
-"""Phase 5a — profile setup service.
+"""Profile setup service — the 7-step Style Blueprint onboarding.
 
 The onboarding step machine lives here. A single source of truth (`_NEXT`)
 maps each step to the one that follows it; routes never hardcode transitions.
 
-Phase 5b will extend `_NEXT` to chain through the 8 measurement steps and
-into avatar generation. Until that lands, `pre_measurement_intro` is the
-last step the user can reach via this service.
+The flow is: seven blueprint screens (each posting one request model from
+`app.schemas.profile`) → the blueprint reveal → the app. Body measurements
+used to sit between style goals and the reveal; the 7-step redesign moved them
+out of onboarding entirely — they're now entered from the Shop/Profile tabs
+via `POST /profile/measurements`, and the measurement services no longer
+participate in this chain.
+
+Steps 2-7 write into the `users.style_profile` JSONB blob one step at a time
+via `_merge_style_profile`; step 1 and step 7 also write the dedicated
+`shopping_style` / `age_range` / `style_goals` columns.
 """
 from __future__ import annotations
 
@@ -19,36 +26,50 @@ from app.services.providers.image.base import ImageStorageProvider
 from app.schemas.profile import (
     OnboardingStatusResponse,
     OnboardingStep,
-    ProfileAgeRangeRequest,
-    ProfileShoppingStyleRequest,
-    ProfileStyleGoalsRequest,
     SaveProgressRequest,
+    StyleBlueprintAestheticsRequest,
+    StyleBlueprintColorRequest,
+    StyleBlueprintFitRequest,
+    StyleBlueprintGoalsRequest,
+    StyleBlueprintHabitsRequest,
+    StyleBlueprintIdentityRequest,
+    StyleBlueprintLifestyleRequest,
+    StyleProfileResponse,
 )
 
 _log = structlog.get_logger("profile")
 
 
-# Linear flow per CTO_Handoff_Onboarding_Flow.md §Cat 3 → §Cat 4 → §Cat 5.
-# Profile setup (5a) → measurements (5b) → avatar (5c). Save-progress reads
-# from this map to compute "where to resume" — bulk submit endpoints overwrite
-# onboarding_last_step directly when they finish.
+# The linear blueprint flow. Save-progress reads from this map to compute
+# "where to resume"; bulk submit endpoints overwrite onboarding_last_step
+# directly when they finish.
 _NEXT: dict[str, OnboardingStep] = {
-    "shopping_style_selection": "age_range",
-    "age_range": "style_goals",
-    "style_goals": "pre_measurement_intro",
-    "pre_measurement_intro": "measurements_step_1",
-    "measurements_step_1": "measurements_step_2",
-    "measurements_step_2": "measurements_step_3",
-    "measurements_step_3": "measurements_step_4",
-    "measurements_step_4": "measurements_step_5",
-    "measurements_step_5": "measurements_step_6",
-    "measurements_step_6": "measurements_step_7",
-    "measurements_step_7": "measurements_step_8",
-    "measurements_step_8": "avatar_reveal",
-    "avatar_reveal": "today_dashboard",
+    "style_blueprint_1": "style_blueprint_2",
+    "style_blueprint_2": "style_blueprint_3",
+    "style_blueprint_3": "style_blueprint_4",
+    "style_blueprint_4": "style_blueprint_5",
+    "style_blueprint_5": "style_blueprint_6",
+    "style_blueprint_6": "style_blueprint_7",
+    "style_blueprint_7": "style_blueprint_reveal",
+    "style_blueprint_reveal": "today_dashboard",
 }
 
-_FIRST_STEP: OnboardingStep = "shopping_style_selection"
+# Pre-redesign step ids. A session that paused mid-way through the old
+# 15-screen flow restarts the blueprint rather than resuming into screens that
+# no longer chain — safe here because the redesign landed pre-prod, with no
+# live users to strand. Remove once no stored `onboarding_last_step` uses them.
+_LEGACY_STEPS: frozenset[str] = frozenset(
+    {
+        "shopping_style_selection",
+        "age_range",
+        "style_goals",
+        "pre_measurement_intro",
+        *(f"measurements_step_{i}" for i in range(1, 9)),
+        "avatar_reveal",
+    }
+)
+
+_FIRST_STEP: OnboardingStep = "style_blueprint_1"
 _DASHBOARD: OnboardingStep = "today_dashboard"
 
 
@@ -65,11 +86,10 @@ def next_step(user: User) -> OnboardingStep:
     if user.onboarding_completed:
         return _DASHBOARD
     last = user.onboarding_last_step
-    if last is None:
+    if last is None or last in _LEGACY_STEPS:
         return _FIRST_STEP
-    # If we've recorded a step name we don't know how to continue from
-    # (e.g. a Phase 5b step before 5b has shipped), fall back to dashboard
-    # rather than 500 — the client can recover.
+    # An unrecognized step name (a rolled-back client, a hand-edited row) falls
+    # back to the dashboard rather than 500 — the client can recover.
     return _NEXT.get(last, _DASHBOARD)
 
 
@@ -78,43 +98,158 @@ def _advance(user: User, completed_step: str) -> OnboardingStep:
     return _NEXT.get(completed_step, _DASHBOARD)
 
 
-def set_shopping_style(
-    db: Session, *, user: User, payload: ProfileShoppingStyleRequest
+def _merge_style_profile(user: User, values: dict) -> None:
+    """Merge one step's answers into `users.style_profile`.
+
+    Rebinds the attribute rather than mutating in place — SQLAlchemy doesn't
+    track in-place edits of a plain JSONB dict, so a mutation would be silently
+    dropped on commit.
+    """
+    merged = dict(user.style_profile or {})
+    merged.update(values)
+    user.style_profile = merged
+
+
+def _dedup(values: list[str]) -> list[str]:
+    """De-dup while preserving order — clients sometimes double-tap a chip."""
+    seen: dict[str, None] = {}
+    for value in values:
+        seen.setdefault(value, None)
+    return list(seen.keys())
+
+
+def set_blueprint_identity(
+    db: Session, *, user: User, payload: StyleBlueprintIdentityRequest
 ) -> OnboardingStep:
+    """Step 1 — shopping style (required) + age range (nullable = skipped)."""
     user.shopping_style = payload.shopping_style
-    nxt = _advance(user, "shopping_style_selection")
-    db.commit()
-    _log.info("profile.shopping_style.set", user_id=str(user.id), value=payload.shopping_style)
-    return nxt
-
-
-def set_age_range(
-    db: Session, *, user: User, payload: ProfileAgeRangeRequest
-) -> OnboardingStep:
-    # age_range is optional — a None payload still advances the step.
     user.age_range = payload.age_range
-    nxt = _advance(user, "age_range")
+    nxt = _advance(user, "style_blueprint_1")
     db.commit()
     _log.info(
-        "profile.age_range.set",
+        "profile.blueprint.identity",
         user_id=str(user.id),
-        value=payload.age_range,
-        skipped=payload.age_range is None,
+        shopping_style=payload.shopping_style,
+        age_skipped=payload.age_range is None,
     )
     return nxt
 
 
-def set_style_goals(
-    db: Session, *, user: User, payload: ProfileStyleGoalsRequest
+def set_blueprint_fit(
+    db: Session, *, user: User, payload: StyleBlueprintFitRequest
 ) -> OnboardingStep:
-    # De-dup while preserving order — clients sometimes double-tap a chip.
-    seen: dict[str, None] = {}
-    for goal in payload.style_goals:
-        seen.setdefault(goal, None)
-    user.style_goals = list(seen.keys())
-    nxt = _advance(user, "style_goals")
+    """Step 2 — body shape + how tops and bottoms should sit."""
+    _merge_style_profile(
+        user,
+        {
+            "body_shape": payload.body_shape,
+            "fit_tops": payload.fit_tops,
+            "fit_bottoms": payload.fit_bottoms,
+        },
+    )
+    nxt = _advance(user, "style_blueprint_2")
     db.commit()
-    _log.info("profile.style_goals.set", user_id=str(user.id), count=len(user.style_goals))
+    _log.info("profile.blueprint.fit", user_id=str(user.id), shape=payload.body_shape)
+    return nxt
+
+
+def set_blueprint_aesthetics(
+    db: Session, *, user: User, payload: StyleBlueprintAestheticsRequest
+) -> OnboardingStep:
+    """Step 3 — the style card grid."""
+    aesthetics = _dedup(payload.style_aesthetics)
+    _merge_style_profile(user, {"style_aesthetics": aesthetics})
+    nxt = _advance(user, "style_blueprint_3")
+    db.commit()
+    _log.info(
+        "profile.blueprint.aesthetics", user_id=str(user.id), count=len(aesthetics)
+    )
+    return nxt
+
+
+def set_blueprint_color(
+    db: Session, *, user: User, payload: StyleBlueprintColorRequest
+) -> OnboardingStep:
+    """Step 4 — undertone + preferred palettes."""
+    palettes = _dedup(payload.color_palettes)
+    _merge_style_profile(
+        user, {"undertone": payload.undertone, "color_palettes": palettes}
+    )
+    nxt = _advance(user, "style_blueprint_4")
+    db.commit()
+    _log.info(
+        "profile.blueprint.color", user_id=str(user.id), undertone=payload.undertone
+    )
+    return nxt
+
+
+def set_blueprint_lifestyle(
+    db: Session, *, user: User, payload: StyleBlueprintLifestyleRequest
+) -> OnboardingStep:
+    """Step 5 — work context. Occupation is free text; blank means "not given"."""
+    occupation = (payload.occupation or "").strip() or None
+    _merge_style_profile(
+        user,
+        {
+            "occupation": occupation,
+            "dress_code": payload.dress_code,
+            "impression_goal": payload.impression_goal,
+        },
+    )
+    nxt = _advance(user, "style_blueprint_5")
+    db.commit()
+    _log.info(
+        "profile.blueprint.lifestyle",
+        user_id=str(user.id),
+        impression_goal=payload.impression_goal,
+    )
+    return nxt
+
+
+def set_blueprint_habits(
+    db: Session, *, user: User, payload: StyleBlueprintHabitsRequest
+) -> OnboardingStep:
+    """Step 6 — shopping attitude, accessories, brand tier."""
+    _merge_style_profile(
+        user,
+        {
+            "shopping_feeling": payload.shopping_feeling,
+            "accessories": payload.accessories,
+            "brand_tier": payload.brand_tier,
+        },
+    )
+    nxt = _advance(user, "style_blueprint_6")
+    db.commit()
+    _log.info(
+        "profile.blueprint.habits", user_id=str(user.id), brand_tier=payload.brand_tier
+    )
+    return nxt
+
+
+def set_blueprint_goals(
+    db: Session, *, user: User, payload: StyleBlueprintGoalsRequest
+) -> OnboardingStep:
+    """Step 7 — the 3-month aspiration plus style goals. Goals keep their own
+    column (they predate the blueprint and are read by starter-wardrobe
+    matching); the aspiration joins the blob."""
+    user.style_goals = _dedup(payload.style_goals)
+    _merge_style_profile(user, {"three_month_feeling": payload.three_month_feeling})
+    nxt = _advance(user, "style_blueprint_7")
+    db.commit()
+    _log.info(
+        "profile.blueprint.goals",
+        user_id=str(user.id),
+        count=len(user.style_goals),
+        feeling=payload.three_month_feeling,
+    )
+    return nxt
+
+
+def complete_blueprint(db: Session, *, user: User) -> OnboardingStep:
+    """The reveal's "Build My Wardrobe" — the last step before the app."""
+    nxt = _advance(user, "style_blueprint_reveal")
+    db.commit()
+    _log.info("profile.blueprint.revealed", user_id=str(user.id))
     return nxt
 
 
@@ -185,6 +320,7 @@ def get_status(
         shopping_style=user.shopping_style,
         age_range=user.age_range,
         style_goals=user.style_goals,
+        style_profile=StyleProfileResponse(**(user.style_profile or {})),
         measurement_steps_completed=steps_done,
         next_incomplete_step=next_incomplete,
     )

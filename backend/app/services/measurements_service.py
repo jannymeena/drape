@@ -55,7 +55,13 @@ def submit(
     user: User,
     payload: MeasurementsRequest,
 ) -> MeasurementsResponse:
-    """Encrypt + upsert the user's measurements; advance onboarding to avatar_reveal."""
+    """Encrypt + upsert the user's measurements.
+
+    Deliberately does not touch `user.onboarding_last_step`: measurements left
+    the onboarding chain in the 7-step Style Blueprint redesign and are now
+    entered from the Shop/Profile tabs, so writing a step pointer here would
+    rewind a user who has already finished the blueprint.
+    """
     plaintext = _serialize(payload)
     ciphertext = encryptor.encrypt(plaintext, user_id=user.id)
     # Derive the coarse fit profile now, while the plaintext is in hand —
@@ -85,7 +91,6 @@ def submit(
         row.completed_at = now
         row.fit_profile = derived
 
-    user.onboarding_last_step = "measurements_step_8"
     db.commit()
     _log.info(
         "measurements.submit",
@@ -110,7 +115,7 @@ _STEP_FIELDS = (
     "hips_cm",  # measurements_step_5
     "inseam_cm",  # measurements_step_6
     "thigh_cm",  # measurements_step_7
-    "shoulders_cm",  # measurements_step_8
+    "shoulders_cm",
 )
 
 
