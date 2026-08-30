@@ -154,6 +154,32 @@ by tests that were confirmed to fail against the old layout.
 chain. Worth making every step's back navigate by name if editing from a resume
 matters.
 
+**Updated:** 2026-08-30 (Today dashboard hang) · The dashboard could sit on
+loading skeletons forever after login. `TodayController.loadFrame` awaits
+`currentDeviceCoords()` **before** requesting the frame, and that call was not
+actually bounded:
+
+- `getCurrentPosition`'s `timeLimit` only bounds the fix, so on a device with no
+  location source the frame request was delayed by the full 8s (measured 8.2s
+  before `GET /today/dashboard` was even sent).
+- `Geolocator.requestPermission()` is unbounded, and its dialog is lost when
+  another permission dialog takes the screen first — which is exactly what
+  happens on first launch, where the push-permission prompt appears at the same
+  moment. Its future then never completes and the dashboard never loads at all.
+
+`currentDeviceCoords` now caps the whole lookup (service check + permission +
+fix) at 3s and tries `getLastKnownPosition` first. Measured on device: 8.2s →
+0.39s with permission granted (still with real coords, from the cached fix), and
+the previously-infinite unanswered-permission case now falls through in 3.2s and
+loads without coords — the backend's default coords cover the weather line.
+
+**Still worth doing:** the push and location permission prompts race on first
+launch. The timeout makes that non-fatal, but sequencing them (or deferring the
+location ask until the user taps the weather row) would be better. Separately,
+each outfit card is a ~12s AI call fired one-by-one, so a fresh dashboard takes
+~35s to fill all three — expected per the one-by-one convention, but it is the
+bulk of the perceived wait now.
+
 **Not done — needs an asset:** the login mockup shows a decorative mood image below the
 footer link. It's an empty `<div>` in the supplied HTML with no image behind it, so there's
 nothing to implement against. Supply the asset and it's a few lines.
