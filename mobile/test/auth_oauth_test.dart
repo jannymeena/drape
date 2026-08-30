@@ -12,9 +12,10 @@ import 'package:mobile/shared/models/api_error.dart';
 /// OAuth sign-in (MOBILE_CHANGES P2): the wire shape of
 /// `AuthService.loginWithOAuth/signupWithOAuth` against the backend contract
 /// (`app/schemas/auth.py`), backend rejections surfacing as typed
-/// [ApiException]s, and the feature-switched [OAuthButtons] collapsing when
-/// nothing is enabled (this test binary builds with no dart-defines, so both
-/// flags are off — the backend-mirrored `DISABLED_FEATURES` default).
+/// [ApiException]s, and the feature-switched [OAuthButtons] rendering a
+/// disabled provider greyed out rather than removing it (this test binary
+/// builds with no dart-defines, so both flags are off — the backend-mirrored
+/// `DISABLED_FEATURES` default).
 void main() {
   final jsonHeaders = {
     Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -79,21 +80,30 @@ void main() {
     );
   });
 
-  testWidgets('OAuthButtons collapses entirely when both flags are off',
+  testWidgets('a switched-off provider is greyed out, not removed',
       (tester) async {
     // Guard the premise: no dart-defines in the test binary, and the test
     // host is not iOS, so both switches resolve off.
     expect(FeatureFlags.appleLogin, isFalse);
     expect(FeatureFlags.googleLogin, isFalse);
 
+    var appleTaps = 0;
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
-        body: OAuthButtons(onApple: () {}, onGoogle: () {}),
+        body: OAuthButtons(onApple: () => appleTaps++, onGoogle: () {}),
       ),
     ));
 
-    expect(find.byType(ElevatedButton), findsNothing);
-    expect(find.text('or'), findsNothing);
+    // Both stay on screen — the set of sign-in options a user sees shouldn't
+    // change shape between builds and platforms.
+    expect(find.text('Continue with Apple'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('or'), findsOneWidget);
+
+    // ...but they're inert, and the handler is never reached.
+    await tester.tap(find.text('Continue with Apple'));
+    await tester.pump();
+    expect(appleTaps, 0);
   });
 }
 

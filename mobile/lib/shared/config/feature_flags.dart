@@ -11,8 +11,13 @@ import 'package:flutter/foundation.dart';
 /// Feature names match the backend's so one runbook covers both sides. A
 /// feature that also needs a config key (Google's server client ID) is off
 /// while the key is absent — the same key-presence selection planned for the
-/// analytics sink (`POSTHOG_API_KEY`). Off means the control is hidden, never
-/// shown dead.
+/// analytics sink (`POSTHOG_API_KEY`).
+///
+/// Off used to mean the control was hidden. As of 2026-08-30 the sign-in
+/// buttons instead render **greyed out and inert** (see [OAuthButtons]), so the
+/// options a user sees don't change shape between builds and platforms. Other
+/// switches may still choose to hide; this is a per-control decision, not a
+/// blanket rule.
 class FeatureFlags {
   FeatureFlags._();
 

@@ -106,6 +106,29 @@ now a `SingleChildScrollView`, so copy wraps at the real width and only
 scrolls in the pathological large-text-scale case. Both regressions are pinned
 by tests that were confirmed to fail against the old layout.
 
+**Updated:** 2026-08-30 (auth polish) · Three changes to login/sign-up:
+
+- **A switched-off SSO provider is now greyed out and inert, not removed.**
+  This **reverses** the `FeatureFlags` rule that "off means the control is
+  hidden, never shown dead" (doc updated there and in `OAuthButtons`), so the
+  sign-in options don't change shape between builds and platforms. Note the two
+  switches mean different things: Google becomes available once its client ID
+  is configured, but **Apple is iOS-only, so on Android its button is
+  permanently inert** — say the word if you'd rather keep hiding that one.
+- **`DrapeButton` gained a disabled visual** (muted fill, taupe label, dimmed
+  leading glyph, no elevation). It previously rendered a null `onPressed`
+  identically to an enabled button, so ~13 call sites that gate on a condition
+  — an unsaved Edit Profile form, in-flight submits, the measurement step
+  gating — were showing live-looking buttons that did nothing. Its label is
+  also `Flexible` now, so a long label or a large text scale ellipsizes rather
+  than overflowing.
+- **One type scale across both screens** — `widgets/auth_text.dart`
+  (`heading` / `subheading` / `button` / `divider` / `legal` / `footer` /
+  `link`). The designs had login as a 32sp serif body heading and sign-up as a
+  24sp sans app-bar title; sign-up's heading moved into the body to match, so
+  the two screens are now pixel-identical down to the form (measured on device:
+  heading and SSO block at the same y on both).
+
 **Not done — needs an asset:** the login mockup shows a decorative mood image below the
 footer link. It's an empty `<div>` in the supplied HTML with no image behind it, so there's
 nothing to implement against. Supply the asset and it's a few lines.

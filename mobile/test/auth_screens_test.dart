@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile/modules/auth/screens/login_screen.dart';
 import 'package:mobile/modules/auth/screens/sign_up_screen.dart';
 import 'package:mobile/modules/auth/screens/welcome_screen.dart';
+import 'package:mobile/shared/widgets/drape_button.dart';
 import 'package:mobile/shared/theme/app_theme.dart';
 
 /// Covers the redesigned welcome / login / sign-up screens: that they build at
@@ -88,6 +89,50 @@ void main() {
     );
     expect(find.textContaining('Terms'), findsOneWidget);
     expect(find.textContaining('Already have an account?'), findsOneWidget);
+  });
+
+  testWidgets('an unavailable SSO provider is shown greyed out, not removed',
+      (tester) async {
+    // Apple is iOS-only and Google needs its client ID, so under test both are
+    // off — and both must still be on screen, inert, rather than vanishing.
+    for (final path in [LoginScreen.path, SignUpScreen.path]) {
+      await tester.pumpWidget(host(path));
+      await tester.pump();
+
+      expect(find.text('Continue with Apple'), findsOneWidget, reason: path);
+      expect(find.text('Continue with Google'), findsOneWidget, reason: path);
+      for (final label in ['Continue with Apple', 'Continue with Google']) {
+        final button = tester.widget<DrapeButton>(
+          find.widgetWithText(DrapeButton, label),
+        );
+        expect(button.onPressed, isNull, reason: '$label on $path');
+      }
+      // The divider only makes sense with something above it.
+      expect(find.text('or'), findsOneWidget, reason: path);
+    }
+  });
+
+  testWidgets('login and sign-up share one type scale', (tester) async {
+    // The two designs specified their headings differently (32sp serif in the
+    // body vs 24sp sans in the app bar), which read as two different screens.
+    TextStyle? styleOf(String text) =>
+        tester.widget<Text>(find.text(text).first).style;
+
+    await tester.pumpWidget(host(LoginScreen.path));
+    await tester.pump();
+    final loginHeading = styleOf('Welcome back');
+    final loginFooter = styleOf('Continue with Apple');
+
+    await tester.pumpWidget(host(SignUpScreen.path));
+    await tester.pump();
+    final signUpHeading = styleOf('Create Account');
+    final signUpFooter = styleOf('Continue with Apple');
+
+    expect(loginHeading?.fontSize, signUpHeading?.fontSize);
+    expect(loginHeading?.fontFamily, signUpHeading?.fontFamily);
+    expect(loginHeading?.fontWeight, signUpHeading?.fontWeight);
+    expect(loginFooter?.fontSize, signUpFooter?.fontSize);
+    expect(loginFooter?.fontFamily, signUpFooter?.fontFamily);
   });
 
   testWidgets('welcome ends on the signup-first slide', (tester) async {

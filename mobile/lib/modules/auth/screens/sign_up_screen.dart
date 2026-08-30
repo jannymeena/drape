@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/providers/analytics_provider.dart';
 import '../../../shared/services/analytics/analytics_events.dart';
-import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_text_field.dart';
@@ -15,6 +14,7 @@ import '../../onboarding/screens/blueprint_identity_screen.dart';
 import '../../today/screens/today_dashboard_screen.dart';
 import '../auth_controller.dart';
 import '../oauth_signin_service.dart';
+import '../widgets/auth_text.dart';
 import '../widgets/oauth_buttons.dart';
 import '../widgets/password_field.dart';
 import 'login_screen.dart';
@@ -147,9 +147,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const DrapeAppBar(title: 'Create Account'),
-      // Top-aligned: the form starts directly under the title bar and runs
-      // down the page, and scrolls once the keyboard reduces the height.
+      appBar: const DrapeAppBar(),
+      // Mirrors LoginScreen exactly: heading at the top, form beneath it, and
+      // the "Already have an account?" line pushed to the bottom of the
+      // viewport by the Spacer (IntrinsicHeight gives it a height to work
+      // against inside the scroll view). Once the keyboard shrinks the
+      // viewport the whole thing scrolls instead of squeezing.
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -157,93 +160,81 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 8),
-                    OAuthButtons(
-                      onApple: _busy
-                          ? null
-                          : () => _onOAuth(OAuthProvider.apple),
-                      onGoogle: _busy
-                          ? null
-                          : () => _onOAuth(OAuthProvider.google),
-                    ),
-                    DrapeTextField(
-                      label: 'Email address',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      onChanged: (_) => _clearError(),
-                    ),
-                    const SizedBox(height: 16),
-                    PasswordField(
-                      controller: _passwordController,
-                      errorText: _errorText,
-                      onChanged: (_) => _clearError(),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Your data is stored securely in Canada. 🇨🇦',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text.rich(
-                      TextSpan(
-                        style: Theme.of(context).textTheme.bodySmall,
-                        children: const [
-                          TextSpan(text: 'By continuing, you agree to our '),
-                          TextSpan(
-                            text: 'Terms',
-                            style: TextStyle(
-                              color: AppColors.ink,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                          TextSpan(text: ' and '),
-                          TextSpan(
-                            text: 'Privacy Policy',
-                            style: TextStyle(
-                              color: AppColors.ink,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                          TextSpan(text: '.'),
-                        ],
+                child: IntrinsicHeight(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 24),
+                      Text('Create Account', style: AuthText.heading(context)),
+                      const SizedBox(height: 36),
+                      OAuthButtons(
+                        onApple: _busy
+                            ? null
+                            : () => _onOAuth(OAuthProvider.apple),
+                        onGoogle: _busy
+                            ? null
+                            : () => _onOAuth(OAuthProvider.google),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    DrapeButton(
-                      label: 'Create Account',
-                      loading: _submitting,
-                      onPressed: _onCreate,
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: TextButton(
-                        onPressed: () =>
-                            context.pushReplacementNamed(LoginScreen.name),
-                        child: Text.rich(
-                          TextSpan(
-                            style: Theme.of(context).textTheme.bodyMedium,
-                            children: const [
-                              TextSpan(text: 'Already have an account?  '),
-                              TextSpan(
-                                text: 'Sign In',
-                                style: TextStyle(
-                                  color: AppColors.ink,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ],
+                      DrapeTextField(
+                        label: 'Email address',
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => _clearError(),
+                      ),
+                      const SizedBox(height: 16),
+                      PasswordField(
+                        controller: _passwordController,
+                        errorText: _errorText,
+                        onChanged: (_) => _clearError(),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Your data is stored securely in Canada. 🇨🇦',
+                        style: AuthText.legal(context),
+                      ),
+                      const SizedBox(height: 8),
+                      Text.rich(
+                        TextSpan(
+                          style: AuthText.legal(context),
+                          children: const [
+                            TextSpan(text: 'By continuing, you agree to our '),
+                            TextSpan(text: 'Terms', style: AuthText.link),
+                            TextSpan(text: ' and '),
+                            TextSpan(
+                              text: 'Privacy Policy',
+                              style: AuthText.link,
+                            ),
+                            TextSpan(text: '.'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      DrapeButton(
+                        label: 'Create Account',
+                        labelStyle: AuthText.button(context),
+                        loading: _submitting,
+                        onPressed: _onCreate,
+                      ),
+                      const Spacer(),
+                      Center(
+                        child: TextButton(
+                          onPressed: () =>
+                              context.pushReplacementNamed(LoginScreen.name),
+                          child: Text.rich(
+                            TextSpan(
+                              style: AuthText.footer(context),
+                              children: const [
+                                TextSpan(text: 'Already have an account?  '),
+                                TextSpan(text: 'Sign In', style: AuthText.link),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
               ),
             );

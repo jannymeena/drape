@@ -3,11 +3,19 @@ import 'package:flutter/material.dart';
 import '../../../shared/config/feature_flags.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
+import 'auth_text.dart';
 
-/// The Apple/Google sign-in block. Each button renders only when its feature
-/// switch is on ([FeatureFlags.appleLogin] / [FeatureFlags.googleLogin]); with
-/// both off the whole block — divider included — collapses, so email-only
-/// builds show no dead controls.
+/// The Apple/Google sign-in block.
+///
+/// A provider whose feature switch is off ([FeatureFlags.appleLogin] /
+/// [FeatureFlags.googleLogin]) renders **greyed out and inert** rather than
+/// being removed, so the sign-in options a user sees don't change shape
+/// between builds and platforms. (This reverses the earlier "off means hidden,
+/// never shown dead" rule — see FeatureFlags — at the product owner's request.)
+///
+/// Note that the two switches mean different things: Google is off until its
+/// client ID is configured, so it becomes available later; Apple is iOS-only,
+/// so on Android its button is permanently inert.
 class OAuthButtons extends StatelessWidget {
   final VoidCallback? onApple;
   final VoidCallback? onGoogle;
@@ -22,20 +30,19 @@ class OAuthButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final buttons = <Widget>[
-      if (FeatureFlags.appleLogin)
-        DrapeButton.apple(label: 'Continue with Apple', onPressed: onApple),
-      if (FeatureFlags.googleLogin)
-        DrapeButton.google(label: 'Continue with Google', onPressed: onGoogle),
-    ];
-    if (buttons.isEmpty) return const SizedBox.shrink();
-
     return Column(
       children: [
-        for (final (i, button) in buttons.indexed) ...[
-          if (i > 0) const SizedBox(height: 12),
-          button,
-        ],
+        DrapeButton.apple(
+          label: 'Continue with Apple',
+          labelStyle: AuthText.button(context),
+          onPressed: FeatureFlags.appleLogin ? onApple : null,
+        ),
+        const SizedBox(height: 12),
+        DrapeButton.google(
+          label: 'Continue with Google',
+          labelStyle: AuthText.button(context),
+          onPressed: FeatureFlags.googleLogin ? onGoogle : null,
+        ),
         if (showDivider) ...[
           const SizedBox(height: 20),
           const _OrDivider(),
@@ -56,12 +63,7 @@ class _OrDivider extends StatelessWidget {
         const Expanded(child: Divider(color: AppColors.taupeSoft, thickness: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            'or',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.taupe,
-                ),
-          ),
+          child: Text('or', style: AuthText.divider(context)),
         ),
         const Expanded(child: Divider(color: AppColors.taupeSoft, thickness: 1)),
       ],

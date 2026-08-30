@@ -12,6 +12,7 @@ import '../../onboarding/resume_route_map.dart';
 import '../../today/screens/today_dashboard_screen.dart';
 import '../auth_controller.dart';
 import '../oauth_signin_service.dart';
+import '../widgets/auth_text.dart';
 import '../widgets/oauth_buttons.dart';
 import 'forgot_password_screen.dart';
 import 'sign_up_screen.dart';
@@ -150,10 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: 24),
-                      Text(
-                        'Welcome back',
-                        style: Theme.of(context).textTheme.headlineLarge,
-                      ),
+                      Text('Welcome back', style: AuthText.heading(context)),
                       const SizedBox(height: 36),
                       OAuthButtons(
                         onApple: _busy
@@ -200,17 +198,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           child: Text(
                             'Forgot password?',
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: AppColors.espresso,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: AuthText.legal(context).copyWith(
+                              color: AppColors.espresso,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 24),
                       DrapeButton(
                         label: 'Sign In',
+                        labelStyle: AuthText.button(context),
                         loading: _submitting,
                         onPressed: _onSignIn,
                       ),
@@ -221,16 +219,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               context.pushReplacementNamed(SignUpScreen.name),
                           child: Text.rich(
                             TextSpan(
-                              style: Theme.of(context).textTheme.bodyMedium,
+                              style: AuthText.footer(context),
                               children: const [
                                 TextSpan(text: 'No account?  '),
                                 TextSpan(
                                   text: 'Create one free',
-                                  style: TextStyle(
-                                    color: AppColors.ink,
-                                    fontWeight: FontWeight.w600,
-                                    decoration: TextDecoration.underline,
-                                  ),
+                                  style: AuthText.link,
                                 ),
                               ],
                             ),
