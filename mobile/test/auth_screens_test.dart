@@ -107,6 +107,90 @@ void main() {
     expect(find.text('Sign In'), findsNothing);
   });
 
+  testWidgets('the CTA sits at the same height on every slide', (tester) async {
+    await tester.pumpWidget(host(WelcomeScreen.path));
+    await tester.pumpAndSettle();
+
+    // Regression: the title block and a Spacer used to split the free space,
+    // so a short title left slack *below* the button and it drifted up and
+    // down as you swiped.
+    final tops = <double>[];
+    for (final label in ['Get Started', 'Next', 'Create My Account']) {
+      tops.add(tester.getTopLeft(find.text(label)).dy);
+      if (label != 'Create My Account') {
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+      }
+    }
+
+    expect(
+      tops.toSet(),
+      hasLength(1),
+      reason: 'the CTA must not move between slides: $tops',
+    );
+  });
+
+  testWidgets('every slide uses the one title and subtitle style',
+      (tester) async {
+    await tester.pumpWidget(host(WelcomeScreen.path));
+    await tester.pumpAndSettle();
+
+    final titles = <TextStyle?>[];
+    final subtitles = <TextStyle?>[];
+    const copy = [
+      ('You already own the\nperfect outfit.', 'ZOURA finds it every morning.'),
+      (
+        'Scan. Tag. Done.',
+        "Point at any item and we'll handle the rest. No typing, no tagging.",
+      ),
+      (
+        'Every morning.\n10 seconds.\nDone.',
+        'Your AI stylist, powered by your actual wardrobe.',
+      ),
+    ];
+    for (final (i, (title, subtitle)) in copy.indexed) {
+      titles.add(tester.widget<Text>(find.text(title)).style);
+      subtitles.add(tester.widget<Text>(find.text(subtitle)).style);
+      if (i < 2) {
+        await tester.tap(find.text(i == 0 ? 'Get Started' : 'Next'));
+        await tester.pumpAndSettle();
+      }
+    }
+
+    for (final styles in [titles, subtitles]) {
+      expect(styles.map((s) => s?.fontSize).toSet(), hasLength(1));
+      expect(styles.map((s) => s?.fontWeight).toSet(), hasLength(1));
+      expect(styles.map((s) => s?.height).toSet(), hasLength(1));
+    }
+  });
+
+  testWidgets('slide copy wraps to the viewport instead of being scaled down',
+      (tester) async {
+    // A FittedBox around the caption hands the text unbounded width, so a long
+    // subtitle lays out on one line and the block is scaled to fit — same
+    // TextStyle, visibly smaller type on that slide. Catch it by checking the
+    // text actually lays out within the screen.
+    await tester.pumpWidget(host(WelcomeScreen.path));
+    await tester.pumpAndSettle();
+
+    final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    for (final label in ['Get Started', 'Next', 'Create My Account']) {
+      for (final text in find.byType(Text).evaluate()) {
+        final size = tester.getSize(find.byWidget(text.widget));
+        expect(
+          size.width,
+          lessThanOrEqualTo(width),
+          reason: 'text laid out wider than the screen on the "$label" slide, '
+              'which means something is scaling it instead of wrapping it',
+        );
+      }
+      if (label != 'Create My Account') {
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+      }
+    }
+  });
+
   testWidgets('the welcome CTA goes to sign-up, the footer link to login',
       (tester) async {
     await tester.pumpWidget(host(WelcomeScreen.path));

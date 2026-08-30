@@ -156,11 +156,16 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
               ),
             ),
 
-            // Caption + CTA zone — fixed height so the dots, title and button
-            // keep the same position on every slide (only the hero above
-            // resizes, per device). The Spacer lets the title grow downward
-            // without nudging the CTA, and the Create-Account row is always
-            // reserved.
+            // Caption + CTA zone — fixed height, and inside it the title
+            // block is Expanded while the CTA cluster is a plain child at the
+            // end. That combination is what pins the button: Expanded absorbs
+            // *all* the slack a short title leaves, so the button sits at the
+            // bottom of this zone on every slide.
+            //
+            // (It used to be Flexible + Spacer, which each took half the free
+            // space — a short title left the other half as trailing slack
+            // below the button, so the button drifted up and down between
+            // slides.)
             SizedBox(
               // Tall enough for the tallest title (slide 3's three lines).
               height: 372,
@@ -189,54 +194,50 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                     ),
                   ),
 
-                  // Title + subtitle (top-aligned; grows into the Spacer
-                  // below). Flexible + scaleDown so a large system text scale
-                  // shrinks the copy to fit rather than overflowing the
-                  // fixed-height zone, which is what keeps the dots, title and
-                  // CTA in the same place on every slide.
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _slides[_index].title,
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w800,
-                                    height: 1.1,
-                                    letterSpacing: -0.5,
-                                    color: AppColors.ink,
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              _slides[_index].subtitle,
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.inkSoft,
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                  // Title + subtitle, vertically centred in whatever space
+                  // the button leaves.
+                  //
+                  // Deliberately NOT a FittedBox: that hands the text
+                  // unbounded width, so a long subtitle lays out on one line
+                  // and the whole block is scaled down to fit — which renders
+                  // the same style at a different size on every slide. The
+                  // scroll view is the overflow guard instead: at a large
+                  // system text scale the copy scrolls rather than shrinking,
+                  // so the type stays identical across slides.
+                  Expanded(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _slides[_index].title,
+                                style: _titleStyle(context),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _slides[_index].subtitle,
+                                style: _subtitleStyle(context),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
 
-                  const Spacer(),
-
-                  // CTA cluster — bottom-pinned
+                  // CTA cluster — button plus a footer line that is always
+                  // laid out, empty on every slide but the last. Reserving the
+                  // line here is the other half of keeping the button still:
+                  // the footer can appear without pushing the button up.
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         DrapeButton(
                           label: _slides[_index].cta,
@@ -249,32 +250,35 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
-                        const SizedBox(height: 12),
-                        // Always laid out (only shown on the last slide) so the
-                        // button keeps the same position across slides.
-                        Visibility(
-                          visible: _isLast,
-                          maintainSize: true,
-                          maintainAnimation: true,
-                          maintainState: true,
-                          child: TextButton(
-                            onPressed: _onSignIn,
-                            child: Text.rich(
-                              TextSpan(
-                                style: Theme.of(context).textTheme.bodyMedium,
-                                children: const [
-                                  TextSpan(text: 'Already have an account? '),
-                                  TextSpan(
-                                    text: 'Sign In',
-                                    style: TextStyle(
-                                      color: AppColors.ink,
-                                      decoration: TextDecoration.underline,
-                                      fontWeight: FontWeight.w600,
+                        SizedBox(
+                          height: _footerHeight,
+                          child: Center(
+                            child: _isLast
+                                ? TextButton(
+                                    onPressed: _onSignIn,
+                                    child: Text.rich(
+                                      TextSpan(
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodyMedium,
+                                        children: const [
+                                          TextSpan(
+                                            text: 'Already have an account? ',
+                                          ),
+                                          TextSpan(
+                                            text: 'Sign In',
+                                            style: TextStyle(
+                                              color: AppColors.ink,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                  )
+                                : const Text(''),
                           ),
                         ),
                       ],
@@ -289,6 +293,31 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     );
   }
 }
+
+/// Height reserved under the CTA for the footer line. Fixed so the slide that
+/// has something to say there (the last one) doesn't push the button up.
+const double _footerHeight = 44;
+
+/// One title style and one subtitle style for the whole carousel.
+///
+/// The three slide designs each specified their own values — 28/bold/tight
+/// with an 18px subtitle on slide 1, 28/bold with a 16px subtitle on slide 2,
+/// 28/bold/1.2 with a 16px subtitle on slide 3 — which reads as three
+/// different typographic treatments as you swipe. These are the one scale all
+/// three now use; change it here, not at a call site.
+TextStyle _titleStyle(BuildContext context) =>
+    Theme.of(context).textTheme.titleLarge!.copyWith(
+      fontSize: 28,
+      fontWeight: FontWeight.w700,
+      height: 1.2,
+      letterSpacing: -0.5,
+      color: AppColors.ink,
+    );
+
+TextStyle _subtitleStyle(BuildContext context) => Theme.of(context)
+    .textTheme
+    .bodyLarge!
+    .copyWith(fontSize: 16, height: 1.5, color: AppColors.inkSoft);
 
 enum _HeroKind { flatLay, scanning, outfitCard }
 
