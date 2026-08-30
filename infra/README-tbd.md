@@ -67,10 +67,24 @@ ssh -i ~/.ssh/zoura-tbd.pem ubuntu@15.223.99.152 'sudo systemctl restart zoura'
 aws ec2 modify-volume --profile zoura --volume-id vol-06f9e1af480ec9b39 --size 20
 ssh ... 'sudo resize2fs /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol06f9e1af480ec9b39'
 
-# If your home IP changes (SSH locked out): redeploy stack with new HomeIpCidr
-aws cloudformation deploy --template-file zoura-tbd.yaml --stack-name zoura-tbd \
-  --capabilities CAPABILITY_NAMED_IAM --profile zoura \
-  --parameter-overrides HomeIpCidr=NEW.IP.HERE.0/32 KeyName=zoura-tbd
+# If your home IP changes (SSH locked out): open the SG rule directly.
+# DO NOT use `cloudformation deploy` for this any more — `UbuntuArmAmi` resolves
+# to the *current* Ubuntu AMI, which has moved since the 2026-07-19 launch, so
+# any stack update now REPLACES THE INSTANCE (verified via change set
+# 2026-08-30: Instance replacement=True, ImageId recreation=Always). That
+# rebuilds the root volume — app, venv, systemd units, Caddy's Let's Encrypt
+# certs — and leaves the retained data volume attached to a bare box needing a
+# full provision.yml.
+SG=$(aws cloudformation describe-stack-resources --stack-name zoura-tbd --profile zoura \
+  --query "StackResources[?ResourceType=='AWS::EC2::SecurityGroup'].PhysicalResourceId" --output text)
+aws ec2 authorize-security-group-ingress --profile zoura --group-id "$SG" \
+  --ip-permissions 'IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=NEW.IP/32,Description="temp"}]'
+# Revoke when done — a dynamic IP gets reassigned to someone else eventually:
+aws ec2 revoke-security-group-ingress --profile zoura --group-id "$SG" \
+  --ip-permissions 'IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=NEW.IP/32}]'
+# This drifts from the template (CFN still records the old HomeIpCidr). To make
+# a stack update safe again, first pin UbuntuArmAmi to the AMI the instance is
+# actually running.
 ```
 
 ## Verified end-to-end 2026-07-19
