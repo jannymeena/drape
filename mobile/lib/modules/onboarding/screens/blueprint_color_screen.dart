@@ -32,32 +32,32 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
     (
       'neutrals',
       'Neutrals',
-      [Color(0xFFE5E5E5), Color(0xFFA3A3A3), Color(0xFF525252)]
+      [Color(0xFFE5E5E5), Color(0xFFA3A3A3), Color(0xFF525252)],
     ),
     (
       'earth_tones',
       'Earth Tones',
-      [Color(0xFF6B4530), Color(0xFF967E67), Color(0xFF53643A)]
+      [Color(0xFF6B4530), Color(0xFF967E67), Color(0xFF53643A)],
     ),
     (
       'jewel_tones',
       'Jewel Tones',
-      [Color(0xFF0047AB), Color(0xFF50C878), Color(0xFF800020)]
+      [Color(0xFF0047AB), Color(0xFF50C878), Color(0xFF800020)],
     ),
     (
       'pastels',
       'Pastels',
-      [Color(0xFFFFD1DC), Color(0xFFE0BBE4), Color(0xFFBFFCC6)]
+      [Color(0xFFFFD1DC), Color(0xFFE0BBE4), Color(0xFFBFFCC6)],
     ),
     (
       'black_white',
       'Black & White',
-      [Color(0xFF000000), Color(0xFFFFFFFF), Color(0xFFA1A1AA)]
+      [Color(0xFF000000), Color(0xFFFFFFFF), Color(0xFFA1A1AA)],
     ),
     (
       'bold_bright',
       'Bold & Bright',
-      [Color(0xFFF97316), Color(0xFFFACC15), Color(0xFFEC4899)]
+      [Color(0xFFF97316), Color(0xFFFACC15), Color(0xFFEC4899)],
     ),
   ];
 
@@ -83,16 +83,16 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
         for (final p in _palettes)
           if (_selectedPalettes.contains(p.$1)) p.$1,
       ];
-      await ref.read(onboardingControllerProvider.notifier).setBlueprintColor(
-            undertone: undertone,
-            palettes: ordered,
-          );
+      await ref
+          .read(onboardingControllerProvider.notifier)
+          .setBlueprintColor(undertone: undertone, palettes: ordered);
       if (!mounted) return;
       context.pushNamed(BlueprintLifestyleScreen.name);
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -119,6 +119,8 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
                 child: _SwatchTile(
                   label: label,
                   height: 96,
+                  // Undertone labels are one short word each.
+                  captionHeight: 18,
                   selected: _undertone == value,
                   onTap: () {
                     if (_submitting) return;
@@ -146,18 +148,23 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
           subtitle: 'Select all that apply.',
         ),
         const SizedBox(height: 16),
-        GridView.count(
+        GridView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 3,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 14,
-          childAspectRatio: 0.82,
+          // Exact cell height rather than an aspect ratio: the tile is only as
+          // tall as its swatch + caption, so a ratio that guessed high left a
+          // dead band under every row.
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 14,
+            mainAxisExtent: _paletteTileHeight,
+          ),
           children: [
             for (final (value, label, colors) in _palettes)
               _SwatchTile(
                 label: label,
-                height: 64,
+                height: _paletteSwatchHeight,
                 selected: _selectedPalettes.contains(value),
                 onTap: () {
                   if (_submitting) return;
@@ -172,9 +179,9 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
                   children: [
                     for (final c in colors)
                       Container(
-                        width: 14,
-                        height: 14,
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: 20,
+                        height: 20,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
                           color: c,
                           shape: BoxShape.circle,
@@ -191,11 +198,23 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
   }
 }
 
+/// Swatch height for the palette tiles, and the total cell height that fits it
+/// plus the gap and a two-line caption. Kept together so a change to one
+/// doesn't silently reintroduce the trailing gap.
+const double _paletteSwatchHeight = 76;
+const double _paletteCaptionHeight = 34;
+const double _paletteTileHeight =
+    _paletteSwatchHeight + 8 + _paletteCaptionHeight;
+
 /// A colour swatch (gradient block or dot row) with a caption underneath and a
 /// check badge when selected.
 class _SwatchTile extends StatelessWidget {
   final String label;
   final double height;
+
+  /// Fixed slot for the caption so tiles in a grid row line up whether their
+  /// label wraps to one line or two.
+  final double captionHeight;
   final bool selected;
   final VoidCallback onTap;
   final Widget child;
@@ -206,6 +225,7 @@ class _SwatchTile extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.child,
+    this.captionHeight = _paletteCaptionHeight,
   });
 
   @override
@@ -217,6 +237,9 @@ class _SwatchTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Stack(
+            // The badge is deliberately offset past the tile's corner; without
+            // this the Stack clips it to a quarter circle.
+            clipBehavior: Clip.none,
             children: [
               Container(
                 height: height,
@@ -245,13 +268,16 @@ class _SwatchTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: BlueprintText.caption(context).copyWith(
-              color: selected ? AppColors.ink : AppColors.inkSoft,
+          SizedBox(
+            height: captionHeight,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: BlueprintText.caption(
+                context,
+              ).copyWith(color: selected ? AppColors.ink : AppColors.inkSoft),
             ),
           ),
         ],

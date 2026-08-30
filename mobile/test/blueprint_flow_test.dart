@@ -40,6 +40,18 @@ class _StubService extends OnboardingService {
     calls['aesthetics'] = {'style_aesthetics': aesthetics};
     return 'style_blueprint_4';
   }
+
+  @override
+  Future<String> setBlueprintGoals({
+    required String threeMonthFeeling,
+    required List<String> goals,
+  }) async {
+    calls['goals'] = {
+      'three_month_feeling': threeMonthFeeling,
+      'style_goals': goals,
+    };
+    return 'style_blueprint_reveal';
+  }
 }
 
 /// Every blueprint screen prefills from the controller's draft, so seeding it
@@ -279,12 +291,21 @@ void main() {
     final notifier = container.read(onboardingControllerProvider.notifier);
     notifier.state = notifier.state.copyWith(
       shoppingStyle: 'womens',
+      ageRange: '25-34',
+      styleGoals: ['time_saving'],
       blueprint: const StyleBlueprintDraft(
         bodyShape: 'hourglass',
         fitTops: 'regular',
+        fitBottoms: 'relaxed',
         styleAesthetics: ['minimalist', 'romantic'],
         undertone: 'warm',
         colorPalettes: ['earth_tones'],
+        occupation: 'Marketing',
+        dressCode: 'business_casual',
+        impressionGoal: 'both',
+        shoppingFeeling: 'confident',
+        accessories: 'minimal',
+        brandTier: 'premium',
         threeMonthFeeling: 'confident_anywhere',
       ),
     );
@@ -292,11 +313,80 @@ void main() {
     await tester.pumpWidget(_host(container, initialLocation: BlueprintRevealScreen.path));
 
     expect(find.textContaining('Minimalist, Romantic'), findsOneWidget);
-    expect(find.text('Minimalist · Romantic'), findsOneWidget);
-    expect(find.text('Hourglass, regular fit'), findsOneWidget);
-    expect(find.text('Warm undertone'), findsOneWidget);
     expect(find.textContaining('confident wherever you go'), findsOneWidget);
     expect(find.text('Build My Wardrobe'), findsOneWidget);
+
+    // Every answer the flow collected is played back, under the heading it was
+    // asked beneath.
+    for (final (label, value) in const [
+      ('Shopping for', 'Women’s fashion'),
+      ('Age', '25–34'),
+      ('Body shape', 'Hourglass'),
+      ('Prefers', 'regular tops · relaxed bottoms'),
+      ('Aesthetics', 'Minimalist · Romantic'),
+      ('Undertone', 'Warm undertone'),
+      ('Colours', 'Earth tones'),
+      ('Work', 'Marketing'),
+      ('Dress code', 'Business casual'),
+      ('Shopping feels', 'Confident and in control'),
+      ('Brands', 'Premium brands'),
+      ('In three months', 'Confident wherever I go'),
+    ]) {
+      expect(find.text(label), findsOneWidget, reason: label);
+      expect(find.text(value), findsOneWidget, reason: value);
+    }
+  });
+
+  testWidgets('the reveal drops questions the user skipped', (tester) async {
+    final container = _container(_StubService());
+    addTearDown(container.dispose);
+
+    final notifier = container.read(onboardingControllerProvider.notifier);
+    notifier.state = notifier.state.copyWith(
+      shoppingStyle: 'mens',
+      blueprint: const StyleBlueprintDraft(bodyShape: 'oval'),
+    );
+
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintRevealScreen.path),
+    );
+
+    // Age, occupation and dress code are all skippable — an unanswered one
+    // must not leave an empty row behind.
+    expect(find.text('Body shape'), findsOneWidget);
+    expect(find.text('Age'), findsNothing);
+    expect(find.text('Work'), findsNothing);
+    expect(find.text('Dress code'), findsNothing);
+  });
+
+  testWidgets('the reveal can go back to step 7 with answers intact',
+      (tester) async {
+    final container = _container(_StubService());
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintGoalsScreen.path),
+    );
+    await tester.pumpAndSettle();
+
+    // Answer step 7 and advance to the reveal.
+    await _tap(tester, 'Confident wherever I go');
+    await _tap(tester, 'Spend less time choosing outfits');
+    await _tap(tester, 'See My Style Blueprint');
+    await tester.pumpAndSettle();
+    expect(find.text('Build My Wardrobe'), findsOneWidget);
+
+    // Back lands on step 7 with the same answers still selected.
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+    expect(find.text('Step 7 of 7'), findsOneWidget);
+    // The CTA only enables once both of step 7's questions are answered, so an
+    // enabled button proves the earlier answers survived the round trip. (The
+    // "n selected" counter is below the fold in this lazy list.)
+    final cta = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'See My Style Blueprint'),
+    );
+    expect(cta.onPressed, isNotNull);
   });
 
   testWidgets('the reveal degrades gracefully with an empty draft',

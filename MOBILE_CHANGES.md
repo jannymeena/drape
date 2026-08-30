@@ -129,6 +129,31 @@ by tests that were confirmed to fail against the old layout.
   the two screens are now pixel-identical down to the form (measured on device:
   heading and SSO block at the same y on both).
 
+**Updated:** 2026-08-30 (blueprint polish) · Step 4 and the reveal:
+
+- **Step 4 check badges were clipped to a quarter circle.** `_SwatchTile` puts
+  the badge just past the tile's corner, and `Stack` clips to its bounds by
+  default — now `Clip.none`.
+- **The palette grid had a dead band under every row.** It was sized by
+  `childAspectRatio`, which guessed taller than the tile (swatch + caption)
+  needed. Now `SliverGridDelegateWithFixedCrossAxisCount(mainAxisExtent: …)`
+  with the swatch and caption heights as named constants, so the cell is exactly
+  as tall as its content. Swatch dots went 14→20px, swatch block 64→76px.
+- **The reveal now plays back every answer**, grouped as it was asked: You,
+  Shape & fit, Style, Day to day, Habits, Goals. A row whose value is null is
+  dropped, so the skippable questions (age, occupation, dress code) don't leave
+  empty rows.
+- **The reveal has a back button.** It pops when there's a stack, and otherwise
+  navigates to step 7 by name — a session resumed straight to the reveal (the
+  splash routes here) would otherwise have no way to change an answer. Every
+  step prefills from the draft, so answers survive the round trip; verified on
+  device.
+
+**Known gap:** in that resumed-session case the back chain stops at step 7
+(nothing below it on the stack). Walking the flow forward gives a full back
+chain. Worth making every step's back navigate by name if editing from a resume
+matters.
+
 **Not done — needs an asset:** the login mockup shows a decorative mood image below the
 footer link. It's an empty `<div>` in the supplied HTML with no image behind it, so there's
 nothing to implement against. Supply the asset and it's a few lines.
