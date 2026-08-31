@@ -204,7 +204,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
         slivers: [
           SliverToBoxAdapter(child: _TopBar()),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
             sliver: SliverList(
               delegate: SliverChildListDelegate.fixed([
                 _Greeting(name: dashboard.user.name),
@@ -285,7 +285,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (_, i) => Padding(
@@ -534,7 +534,7 @@ class _FrameLoading extends StatelessWidget {
       slivers: [
         SliverToBoxAdapter(child: _TopBar()),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
           sliver: SliverList(
             delegate: SliverChildListDelegate.fixed(const [
               // These two bars stand in for the greeting, so their metrics
@@ -696,7 +696,7 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
       child: Row(
         children: [
           Text(
@@ -737,9 +737,7 @@ class _Greeting extends StatelessWidget {
       children: [
         Text(
           '$_prefix, $name',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                color: AppColors.espressoDeep,
-              ),
+          style: Theme.of(context).textTheme.headlineLarge,
         ),
         const SizedBox(height: 4),
         Text(
