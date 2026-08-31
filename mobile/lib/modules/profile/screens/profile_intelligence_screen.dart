@@ -29,8 +29,17 @@ class ProfileIntelligenceScreen extends ConsumerWidget {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _TopBar(onSettings: () => context.goNamed(SettingsScreen.name))),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                child: Text(
+                  'Profile',
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
+              ),
+            ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               sliver: SliverList(
                 delegate: SliverChildListDelegate.fixed([
                   _ProfileHeader(
@@ -76,23 +85,18 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.menu, color: AppColors.espresso),
-            onPressed: () => debugPrint('profile: menu'),
+          Text(
+            'ZOURA',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.espresso,
+                  letterSpacing: 4,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
-          Expanded(
-            child: Text(
-              'Atelier Profile',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.espresso,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
+          const Spacer(),
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: AppColors.espresso),
             onPressed: onSettings,

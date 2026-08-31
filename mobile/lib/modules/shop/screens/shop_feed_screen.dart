@@ -75,8 +75,17 @@ class _ShopFeedScreenState extends ConsumerState<ShopFeedScreen> {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _TopBar()),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                child: Text(
+                  'Shop',
+                  style: Theme.of(context).textTheme.headlineLarge,
+                ),
+              ),
+            ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
               sliver: SliverList(
                 delegate: SliverChildListDelegate.fixed([
                   _AiSearchBar(onTap: () => context.goNamed(AiAdvisorInitialScreen.name)),
@@ -184,10 +193,14 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 16, 0),
       child: Row(
         children: [
-          Text('Shop',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontStyle: FontStyle.italic,
-                  )),
+          Text(
+            'ZOURA',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.espresso,
+                  letterSpacing: 4,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.favorite_border, color: AppColors.espresso),

@@ -537,14 +537,30 @@ class _FrameLoading extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
           sliver: SliverList(
             delegate: SliverChildListDelegate.fixed(const [
-              SizedBox(height: 8),
-              ShimmerSkeleton(
+              // These two bars stand in for the greeting, so their metrics
+              // mirror it exactly — headlineLarge (32 x 1.25 = 40) + 4 +
+              // bodyMedium (14 x 1.43 = 20) — otherwise the heading visibly
+              // jumps when the frame lands. Align is what makes the width
+              // stick: ShimmerSkeleton sizes itself with a Container, and a
+              // Container's width loses to the tight cross-axis constraints a
+              // SliverList child is handed, so the bars would stretch full
+              // bleed and then snap back to the text width.
+              Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
                   width: 220,
-                  height: 28,
-                  borderRadius: BorderRadius.all(Radius.circular(8))),
-              SizedBox(height: 12),
-              ShimmerSkeleton(width: 160, height: 14),
-              SizedBox(height: 24),
+                  child: ShimmerSkeleton(
+                    height: 40,
+                    borderRadius: BorderRadius.all(Radius.circular(8)),
+                  ),
+                ),
+              ),
+              SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(width: 160, child: ShimmerSkeleton(height: 20)),
+              ),
+              SizedBox(height: 20),
               OutfitCardSkeleton(),
               SizedBox(height: 24),
               OutfitCardSkeleton(),
