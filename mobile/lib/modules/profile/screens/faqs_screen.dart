@@ -5,6 +5,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../widgets/faq_accordion.dart';
 import 'contact_us_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Merges the `help_center_faqs` + `frequently_asked_questions` mockups
 /// (same accordion UX) into one screen reachable from both the Help Center
@@ -112,7 +113,7 @@ class _FaqsScreenState extends State<FaqsScreen> {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'FAQs', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -156,37 +157,6 @@ class _FaqsScreenState extends State<FaqsScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'FAQs',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          const Icon(Icons.search, color: AppColors.espresso),
-          const SizedBox(width: 8),
-        ],
       ),
     );
   }

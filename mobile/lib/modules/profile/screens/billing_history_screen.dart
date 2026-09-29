@@ -6,6 +6,7 @@ import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../billing_service.dart';
 import '../models/billing.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// All charges/credits (`GET /billing/history`). Invoice PDF download is a
 /// future enhancement — the backend stores invoice numbers, not documents.
@@ -24,7 +25,7 @@ class BillingHistoryScreen extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Billing History', onBack: () => context.pop()),
             Expanded(
               child: async.when(
                 loading: () => const Center(
@@ -88,36 +89,6 @@ class BillingHistoryScreen extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Billing History',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          const SizedBox(width: 36),
-        ],
       ),
     );
   }

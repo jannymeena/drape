@@ -8,6 +8,7 @@ import '../../../shared/widgets/drape_button.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../billing_service.dart';
 import 'contact_us_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class FinalCancellationConfirmationScreen extends ConsumerWidget {
   static const path = 'final-cancellation';
@@ -189,30 +190,13 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.close, color: AppColors.ink),
-            onPressed: onClose,
-          ),
-          Expanded(
-            child: Text(
-              'THE ATELIER',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontStyle: FontStyle.italic,
-                    letterSpacing: 3,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.ink),
-            onPressed: () => context.goNamed(ContactUsScreen.name),
-          ),
-        ],
+    return NestedHeader(
+      title: 'Cancel Subscription',
+      onBack: onClose,
+      backIcon: Icons.close,
+      action: IconButton(
+        icon: const Icon(Icons.help_outline, color: AppColors.espresso),
+        onPressed: () => context.goNamed(ContactUsScreen.name),
       ),
     );
   }

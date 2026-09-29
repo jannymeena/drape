@@ -34,6 +34,7 @@ import '../widgets/usage_warning_banner.dart';
 import '../widgets/weather_chip.dart';
 import 'ai_reasoning_detail_screen.dart';
 import 'outfit_history_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class TodayDashboardScreen extends ConsumerStatefulWidget {
   static const path = '/today';
@@ -694,26 +695,14 @@ class _FilteredEmptyMessage extends StatelessWidget {
 class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-      child: Row(
-        children: [
-          Text(
-            'ZOURA',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.espresso,
-                  letterSpacing: 4,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined,
-                color: AppColors.espresso),
-            onPressed: () => debugPrint('today: notifications'),
-          ),
-        ],
-      ),
+    return ZouraTopBar(
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined,
+              color: AppColors.espresso),
+          onPressed: () => debugPrint('today: notifications'),
+        ),
+      ],
     );
   }
 }

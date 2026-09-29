@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../profile/screens/edit_measurements_screen.dart';
 import '../../../shared/widgets/drape_button.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Empty state — no mockup; designed consistent with the module. Shown when the
 /// user's style profile is incomplete so the feed can't curate yet.
@@ -21,7 +22,7 @@ class ShopFeedEmptyScreen extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Shop', onBack: () => context.pop()),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -68,29 +69,3 @@ class ShopFeedEmptyScreen extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('Shop',
-                textAlign: TextAlign.left,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-        ],
-      ),
-    );
-  }
-}

@@ -6,6 +6,7 @@ import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../shop_service.dart';
 import 'ai_advisor_conversation_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Past AI advisor conversations. No dedicated mockup — designed consistent
 /// with the module from the "HISTORY" affordances in the initial screen.
@@ -32,7 +33,7 @@ class AiAdvisorHistoryScreen extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Conversation History', onBack: () => context.pop()),
             Expanded(
               child: async.when(
                 loading: () => const Center(
@@ -89,32 +90,6 @@ class _Conversation {
     required this.snippet,
     required this.when,
   });
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('Conversation History',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _ConversationRow extends StatelessWidget {

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import 'buy_dont_buy_verdict_buy_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class ChooseProductImageScreen extends StatefulWidget {
   static const path = 'buy-dont-buy/choose-image';
@@ -33,7 +34,7 @@ class _ChooseProductImageScreenState extends State<ChooseProductImageScreen> {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Choose Product Image', onBack: () => context.pop()),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
               child: Align(
@@ -123,33 +124,6 @@ class _ChooseProductImageScreenState extends State<ChooseProductImageScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('Choose Product Image',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-          const Icon(Icons.help_outline, color: AppColors.espresso),
-        ],
       ),
     );
   }

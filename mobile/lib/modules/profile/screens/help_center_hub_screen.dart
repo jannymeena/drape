@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/theme/app_colors.dart';
 import 'contact_us_screen.dart';
 import 'faqs_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class HelpCenterHubScreen extends StatelessWidget {
   static const path = 'help-center';
@@ -26,7 +27,7 @@ class HelpCenterHubScreen extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Help Center', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -98,37 +99,6 @@ class HelpCenterHubScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Help Center',
-              textAlign: TextAlign.left,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          const Icon(Icons.settings_outlined, color: AppColors.espresso),
-          const SizedBox(width: 8),
-        ],
       ),
     );
   }

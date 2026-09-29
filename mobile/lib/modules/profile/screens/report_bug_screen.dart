@@ -7,6 +7,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../settings_service.dart';
 import 'bug_report_success_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class ReportBugScreen extends ConsumerStatefulWidget {
   static const path = 'report-bug';
@@ -70,7 +71,7 @@ class _ReportBugScreenState extends ConsumerState<ReportBugScreen> {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Report a Bug', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -170,35 +171,6 @@ class _ReportBugScreenState extends ConsumerState<ReportBugScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('Report a Bug',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-          const Icon(Icons.settings_outlined, color: AppColors.espresso),
-          const SizedBox(width: 8),
-        ],
       ),
     );
   }

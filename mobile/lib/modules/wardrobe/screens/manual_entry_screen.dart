@@ -15,6 +15,7 @@ import '../models/wardrobe_item.dart';
 import '../models/wardrobe_mutations.dart';
 import '../wardrobe_controller.dart';
 import '../wardrobe_service.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Wardrobe-side manual entry — distinct from onboarding's manual_entry
 /// (which captures body measurements). Doubles as the edit form: pass [itemId]
@@ -397,25 +398,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 8),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
+    return NestedHeader(title: title, onBack: onBack);
   }
 }
 

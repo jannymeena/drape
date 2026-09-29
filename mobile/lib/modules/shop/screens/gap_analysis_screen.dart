@@ -10,6 +10,7 @@ import '../shop_service.dart';
 import '../widgets/product_card.dart';
 import '../widgets/product_options_sheet.dart';
 import '../widgets/wishlist_toast.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class GapAnalysisScreen extends ConsumerStatefulWidget {
   static const path = 'gap-analysis';
@@ -66,7 +67,7 @@ class _GapAnalysisScreenState extends ConsumerState<GapAnalysisScreen> {
         bottom: false,
         child: CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(child: _Header(onBack: () => context.pop())),
+            SliverToBoxAdapter(child: NestedHeader(title: 'Gap Analysis', onBack: () => context.pop())),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               sliver: SliverList(
@@ -142,38 +143,6 @@ class _GapAnalysisScreenState extends ConsumerState<GapAnalysisScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('Gap Analysis',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.taupe,
-                    )),
-          ),
-          Text('ZOURA',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.espresso,
-                    letterSpacing: 3,
-                    fontWeight: FontWeight.w700,
-                  )),
-        ],
       ),
     );
   }

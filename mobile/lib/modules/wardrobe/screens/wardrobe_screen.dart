@@ -24,6 +24,7 @@ import 'item_detail_screen.dart';
 import 'manual_entry_screen.dart' as wardrobe_manual;
 import 'scanner_screen.dart';
 import 'weekly_recap_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class WardrobeScreen extends ConsumerStatefulWidget {
   static const path = '/wardrobe';
@@ -401,29 +402,17 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-      child: Row(
-        children: [
-          Text(
-            'ZOURA',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.espresso,
-                  letterSpacing: 4,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.insights_outlined, color: AppColors.espresso),
-            onPressed: onInsights,
-          ),
-          IconButton(
-            icon: const Icon(Icons.add, color: AppColors.espresso),
-            onPressed: onAdd,
-          ),
-        ],
-      ),
+    return ZouraTopBar(
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.insights_outlined, color: AppColors.espresso),
+          onPressed: onInsights,
+        ),
+        IconButton(
+          icon: const Icon(Icons.add, color: AppColors.espresso),
+          onPressed: onAdd,
+        ),
+      ],
     );
   }
 }

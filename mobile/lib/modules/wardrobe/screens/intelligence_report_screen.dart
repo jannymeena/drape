@@ -10,6 +10,7 @@ import '../../../shared/services/share_service.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/wardrobe_analytics.dart';
 import '../wardrobe_service.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Shares the headline (free) utilization stat. Falls back to a generic line
 /// when the score isn't loaded yet.
@@ -395,30 +396,12 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'ZOURA REPORT',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.espresso,
-                    letterSpacing: 3,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.share, color: AppColors.gold),
-            onPressed: onShare,
-          ),
-        ],
+    return NestedHeader(
+      title: 'Intelligence Report',
+      onBack: onBack,
+      action: IconButton(
+        icon: const Icon(Icons.share, color: AppColors.gold),
+        onPressed: onShare,
       ),
     );
   }

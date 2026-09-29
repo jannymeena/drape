@@ -12,6 +12,7 @@ import '../models/scan_detection.dart';
 import '../models/wardrobe_mutations.dart';
 import '../wardrobe_controller.dart';
 import '../wardrobe_service.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 enum _ScanStatus { pending, scanning, ok, error }
 
@@ -205,7 +206,7 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Add to Wardrobe', onBack: () => context.pop()),
             _ProgressLabel(
               scanning: _scanning,
               scanned: _scannedCount,
@@ -245,34 +246,6 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
         final slot = _slots[i];
         return _ScanTile(slot: slot, onTap: () => _toggle(slot));
       },
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Add to Wardrobe',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
     );
   }
 }

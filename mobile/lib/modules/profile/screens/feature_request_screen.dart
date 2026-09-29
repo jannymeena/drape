@@ -7,6 +7,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import '../settings_service.dart';
 import 'feature_request_success_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class FeatureRequestScreen extends ConsumerStatefulWidget {
   static const path = 'feature-request';
@@ -86,7 +87,7 @@ class _FeatureRequestScreenState extends ConsumerState<FeatureRequestScreen> {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Feature Requests', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -220,43 +221,6 @@ class _Feature {
     required this.votes,
     required this.quote,
   });
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('Feature Requests',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: AppColors.tanFixed,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.person, color: AppColors.espresso, size: 16),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _FeatureCard extends StatelessWidget {

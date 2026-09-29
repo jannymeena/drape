@@ -8,6 +8,7 @@ import '../../../shared/providers/analytics_provider.dart';
 import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import 'buy_dont_buy_scan_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class BuyDontBuyLimitReachedScreen extends ConsumerWidget {
   static const path = 'buy-dont-buy/limit-reached';
@@ -23,7 +24,7 @@ class BuyDontBuyLimitReachedScreen extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Weekly Limit Reached', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
@@ -167,35 +168,6 @@ class BuyDontBuyLimitReachedScreen extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('Digital Atelier',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontStyle: FontStyle.italic,
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-          const SizedBox(width: 40),
-        ],
       ),
     );
   }

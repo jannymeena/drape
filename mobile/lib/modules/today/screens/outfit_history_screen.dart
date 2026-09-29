@@ -14,6 +14,7 @@ import '../models/outfit_history.dart';
 import '../today_service.dart';
 import '../widgets/streak_pill.dart';
 import 'ai_reasoning_detail_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Shares a summary of the user's logged-outfit history.
 void _shareHistory(OutfitHistory? h) {
@@ -154,29 +155,12 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Outfit History',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppColors.espresso,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.ios_share, color: AppColors.espresso),
-            onPressed: onShare,
-          ),
-        ],
+    return NestedHeader(
+      title: 'Outfit History',
+      onBack: onBack,
+      action: IconButton(
+        icon: const Icon(Icons.ios_share, color: AppColors.espresso),
+        onPressed: onShare,
       ),
     );
   }

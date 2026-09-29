@@ -10,6 +10,7 @@ import '../../../shared/widgets/analytics_screen_view.dart';
 import '../models/wardrobe_analytics.dart';
 import '../wardrobe_service.dart';
 import 'intelligence_report_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Builds and shares a short text summary of the week. Falls back to a generic
 /// line if the report isn't loaded yet.
@@ -154,28 +155,12 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Your Week in Style',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontStyle: FontStyle.italic),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.share, color: AppColors.gold),
-            onPressed: onShare,
-          ),
-        ],
+    return NestedHeader(
+      title: 'Your Week in Style',
+      onBack: onBack,
+      action: IconButton(
+        icon: const Icon(Icons.share, color: AppColors.gold),
+        onPressed: onShare,
       ),
     );
   }

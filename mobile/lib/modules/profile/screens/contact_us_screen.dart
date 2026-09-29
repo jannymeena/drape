@@ -13,6 +13,7 @@ import '../widgets/settings_section.dart';
 import 'feature_request_screen.dart';
 import 'help_center_hub_screen.dart';
 import 'report_bug_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class ContactUsScreen extends ConsumerStatefulWidget {
   static const path = 'contact';
@@ -100,7 +101,7 @@ class _ContactUsScreenState extends ConsumerState<ContactUsScreen> {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Support', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -194,45 +195,6 @@ class _ContactUsScreenState extends ConsumerState<ContactUsScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Support',
-              textAlign: TextAlign.left,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: AppColors.tanFixed,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.person, color: AppColors.espresso, size: 16),
-          ),
-        ],
       ),
     );
   }

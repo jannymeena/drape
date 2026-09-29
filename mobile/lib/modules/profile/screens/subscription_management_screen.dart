@@ -14,6 +14,7 @@ import 'billing_history_screen.dart';
 import 'compare_plans_screen.dart';
 import 'payment_methods_screen.dart';
 import 'retention_offer_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Subscription hub (`GET /subscription`). Cancellation is the backend's
 /// 3-step flow: reason sheet → `POST /subscription/cancel` (soft — Pro runs to
@@ -53,7 +54,7 @@ class SubscriptionManagementScreen extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Subscription', onBack: () => context.pop()),
             Expanded(
               child: async.when(
                 loading: () => const Center(
@@ -149,36 +150,6 @@ class _Body extends ConsumerWidget {
         if (subscription.isPro && !subscription.cancelAtPeriodEnd)
           _CancelBlock(onCancel: onCancel),
       ],
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Subscription',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
     );
   }
 }

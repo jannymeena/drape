@@ -5,6 +5,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_button.dart';
 import 'buy_dont_buy_choose_image_screen.dart';
 import 'buy_dont_buy_verdict_buy_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class ConfirmProductScreen extends StatelessWidget {
   static const path = 'buy-dont-buy/confirm';
@@ -20,7 +21,7 @@ class ConfirmProductScreen extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Confirm Product', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -145,39 +146,3 @@ class ConfirmProductScreen extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('CONFIRM PRODUCT',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      letterSpacing: 2,
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: AppColors.tanFixed,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.person, color: AppColors.espresso, size: 16),
-          ),
-        ],
-      ),
-    );
-  }
-}

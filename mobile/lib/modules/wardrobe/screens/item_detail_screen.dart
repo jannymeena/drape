@@ -16,6 +16,7 @@ import '../wardrobe_controller.dart';
 import '../wardrobe_service.dart';
 import '../widgets/remove_confirmation_modal.dart';
 import 'manual_entry_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Wardrobe item detail (`GET /wardrobe/items/{id}`). SP2 wires the actions:
 /// log-worn, delete, favorite (in the ⋮ menu), and edit. The "appeared in N
@@ -240,17 +241,11 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasMenu =
         onEdit != null || onToggleFavorite != null || onAddPhoto != null;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          const Spacer(),
-          if (hasMenu)
-            PopupMenuButton<String>(
+    return NestedHeader(
+      title: 'Item Details',
+      onBack: onBack,
+      action: hasMenu
+          ? PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert, color: AppColors.espresso),
               onSelected: (value) {
                 if (value == 'edit') onEdit?.call();
@@ -268,10 +263,7 @@ class _TopBar extends StatelessWidget {
                 ),
               ],
             )
-          else
-            const SizedBox(width: 48),
-        ],
-      ),
+          : null,
     );
   }
 }

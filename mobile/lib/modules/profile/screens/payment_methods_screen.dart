@@ -7,6 +7,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../billing_service.dart';
 import '../models/billing.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Stored payment methods (`GET/POST /payment-methods`). "Add card" collects
 /// the number only to derive a token — in dev the mock provider mints a visa
@@ -54,7 +55,7 @@ class _PaymentMethodsScreenState extends ConsumerState<PaymentMethodsScreen> {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Payment Methods', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -170,36 +171,6 @@ Future<String?> _promptCardNumber(BuildContext context) {
       ],
     ),
   );
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Payment Methods',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          const SizedBox(width: 36),
-        ],
-      ),
-    );
-  }
 }
 
 class _CardRow extends StatelessWidget {

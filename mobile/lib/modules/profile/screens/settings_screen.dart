@@ -28,6 +28,7 @@ import 'style_preferences_screen.dart';
 import 'subscription_management_screen.dart';
 import '../widgets/cancellation_reason_sheet.dart';
 import 'retention_offer_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class SettingsScreen extends ConsumerWidget {
   static const path = 'settings';
@@ -43,7 +44,7 @@ class SettingsScreen extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Settings', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -380,33 +381,3 @@ class _UnitOption extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Settings',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppColors.espresso,
-                    fontStyle: FontStyle.italic,
-                  ),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
-  }
-}

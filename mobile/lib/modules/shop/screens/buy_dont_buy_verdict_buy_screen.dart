@@ -5,6 +5,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../models/shop.dart';
 import '../../../shared/widgets/drape_button.dart';
 import 'in_app_browser_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class BuyDontBuyVerdictBuyScreen extends StatelessWidget {
   static const path = 'buy-dont-buy/verdict-buy';
@@ -24,7 +25,7 @@ class BuyDontBuyVerdictBuyScreen extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'The Verdict', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -193,35 +194,6 @@ class BuyDontBuyVerdictBuyScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('The Verdict',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontStyle: FontStyle.italic,
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-          const Icon(Icons.ios_share, color: AppColors.espresso),
-        ],
       ),
     );
   }

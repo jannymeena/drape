@@ -7,6 +7,7 @@ import '../../../shared/widgets/analytics_screen_view.dart';
 import 'ai_advisor_conversation_screen.dart';
 import 'ai_advisor_history_screen.dart';
 import 'wishlist_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class AiAdvisorInitialScreen extends StatelessWidget {
   static const path = 'advisor';
@@ -137,20 +138,12 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
+    return NestedHeader(
+      title: 'AI Advisor',
+      onBack: onBack,
+      action: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('Zoura AI Advisor',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
           IconButton(
             icon: const Icon(Icons.favorite_border, color: AppColors.espresso),
             onPressed: onFavorites,

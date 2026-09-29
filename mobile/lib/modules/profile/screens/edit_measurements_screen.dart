@@ -10,6 +10,7 @@ import '../../onboarding/onboarding_service.dart';
 import '../../../shared/units.dart';
 import '../profile_service.dart';
 import '../settings_service.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Edit the user's body measurements from the Profile tab. Loads the current
 /// values via `GET /profile/measurements` (decrypted server-side) and saves the
@@ -213,34 +214,18 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Body Measurements',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          TextButton(
-            onPressed: onSave,
-            child: Text(
-              'Save',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.espresso,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-        ],
+    return NestedHeader(
+      title: 'Body Measurements',
+      onBack: onBack,
+      action: TextButton(
+        onPressed: onSave,
+        child: Text(
+          'Save',
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.espresso,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
       ),
     );
   }

@@ -10,6 +10,7 @@ import '../../../shared/widgets/drape_toast.dart';
 import '../billing_service.dart';
 import '../models/billing.dart';
 import 'contact_us_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 enum _Cadence { monthly, annual }
 
@@ -105,7 +106,7 @@ class _ComparePlansScreenState extends ConsumerState<ComparePlansScreen> {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Compare Plans', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -218,36 +219,6 @@ class _FeatureRow {
   final String? free;
   final String? pro;
   const _FeatureRow(this.label, this.free, this.pro);
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Compare Plans',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          const SizedBox(width: 48),
-        ],
-      ),
-    );
-  }
 }
 
 class _CadenceToggle extends StatelessWidget {

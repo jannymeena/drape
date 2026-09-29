@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../settings_service.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Export status — combines the "request form" and "history added" mockup
 /// variants into a single screen with state.
@@ -86,7 +87,7 @@ class _ExportMyDataScreenState extends ConsumerState<ExportMyDataScreen> {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Export My Data', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
@@ -175,35 +176,6 @@ class _ExportMyDataScreenState extends ConsumerState<ExportMyDataScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Export My Data',
-              textAlign: TextAlign.left,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontStyle: FontStyle.italic,
-                  ),
-            ),
-          ),
-        ],
       ),
     );
   }

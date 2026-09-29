@@ -16,6 +16,7 @@ import '../widgets/measurement_required_modal.dart';
 import 'buy_dont_buy_limit_reached_screen.dart';
 import 'buy_dont_buy_verdict_buy_screen.dart';
 import 'buy_dont_buy_verdict_dont_buy_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class BuyDontBuyScanScreen extends ConsumerStatefulWidget {
   static const path = 'buy-dont-buy';
@@ -191,35 +192,24 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
+    return NestedHeader(
+      title: 'Style Verdict',
+      onBack: onBack,
+      action: Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.tanFixed,
+            borderRadius: BorderRadius.circular(999),
           ),
-          Expanded(
-            child: Text('Style Verdict',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontStyle: FontStyle.italic,
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.tanFixed,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text('$checksLeft LEFT TODAY',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.espressoDark,
-                      letterSpacing: 1.0,
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-        ],
+          child: Text('$checksLeft LEFT TODAY',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.espressoDark,
+                    letterSpacing: 1.0,
+                    fontWeight: FontWeight.w700,
+                  )),
+        ),
       ),
     );
   }

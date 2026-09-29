@@ -7,6 +7,7 @@ import '../../auth/models/current_user.dart';
 import '../profile_service.dart';
 import 'edit_profile_screen.dart';
 import 'settings_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class ProfileIntelligenceScreen extends ConsumerWidget {
   static const path = '/profile';
@@ -84,25 +85,13 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-      child: Row(
-        children: [
-          Text(
-            'ZOURA',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.espresso,
-                  letterSpacing: 4,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: AppColors.espresso),
-            onPressed: onSettings,
-          ),
-        ],
-      ),
+    return ZouraTopBar(
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.settings_outlined, color: AppColors.espresso),
+          onPressed: onSettings,
+        ),
+      ],
     );
   }
 }

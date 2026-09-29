@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 /// Loading state — no mockup; built with the shared ShimmerSkeleton so the feed
 /// has a graceful placeholder while products fetch in Phase E.
@@ -20,7 +21,7 @@ class ShopFeedLoadingScreen extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Shop', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -73,29 +74,3 @@ class ShopFeedLoadingScreen extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text('Shop',
-                textAlign: TextAlign.left,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-        ],
-      ),
-    );
-  }
-}

@@ -16,6 +16,7 @@ import 'ai_advisor_initial_screen.dart';
 import 'buy_dont_buy_scan_screen.dart';
 import 'gap_analysis_screen.dart';
 import 'wishlist_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class ShopFeedScreen extends ConsumerStatefulWidget {
   static const path = '/shop';
@@ -193,54 +194,42 @@ class _ShopFeedScreenState extends ConsumerState<ShopFeedScreen> {
 class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 16, 0),
-      child: Row(
-        children: [
-          Text(
-            'ZOURA',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.espresso,
-                  letterSpacing: 4,
-                  fontWeight: FontWeight.w700,
-                ),
+    return ZouraTopBar(
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.favorite_border, color: AppColors.espresso),
+          onPressed: () => context.goNamed(WishlistScreen.name),
+        ),
+        const SizedBox(width: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.gold,
+            borderRadius: BorderRadius.circular(999),
           ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.favorite_border, color: AppColors.espresso),
-            onPressed: () => context.goNamed(WishlistScreen.name),
+          child: Text('PRO',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.white,
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
+                  )),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          width: 32,
+          height: 32,
+          decoration: const BoxDecoration(
+            color: AppColors.espresso,
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.gold,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text('PRO',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.white,
-                      letterSpacing: 1.4,
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: AppColors.espresso,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text('AC',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppColors.white,
-                      fontWeight: FontWeight.w700,
-                    )),
-          ),
-        ],
-      ),
+          alignment: Alignment.center,
+          child: Text('AC',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w700,
+                  )),
+        ),
+      ],
     );
   }
 }

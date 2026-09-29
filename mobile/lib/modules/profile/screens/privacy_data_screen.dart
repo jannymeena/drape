@@ -9,6 +9,7 @@ import 'contact_us_screen.dart';
 import 'delete_account_screen.dart';
 import 'export_my_data_screen.dart';
 import 'how_drape_uses_data_screen.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 // Decisions 2026-07-07: the mockup's 2FA switch and Connected Apps (Google
 // Calendar / Instagram revoke) sections are intentionally absent — 2FA is cut
@@ -41,7 +42,7 @@ class PrivacyDataScreen extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Privacy & Security', onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -165,35 +166,6 @@ class PrivacyDataScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Privacy & Security',
-              textAlign: TextAlign.left,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontStyle: FontStyle.italic,
-                  ),
-            ),
-          ),
-        ],
       ),
     );
   }

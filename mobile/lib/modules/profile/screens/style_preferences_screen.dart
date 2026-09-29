@@ -7,6 +7,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/outline_chip.dart';
 import '../models/app_settings.dart';
 import '../settings_service.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class StylePreferencesScreen extends ConsumerStatefulWidget {
   static const path = 'style-preferences';
@@ -310,34 +311,18 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Style Preferences',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          TextButton(
-            onPressed: onSave,
-            child: Text(
-              'Save',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.espresso,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-        ],
+    return NestedHeader(
+      title: 'Style Preferences',
+      onBack: onBack,
+      action: TextButton(
+        onPressed: onSave,
+        child: Text(
+          'Save',
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.espresso,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
       ),
     );
   }

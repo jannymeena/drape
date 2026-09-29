@@ -8,6 +8,7 @@ import '../../../shared/widgets/drape_toast.dart';
 import '../../auth/auth_controller.dart';
 import '../../auth/auth_service.dart';
 import '../profile_service.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 // Decisions 2026-07-07 vs the mockup: the 2FA card is absent (2FA is cut for
 // v1) and so is the "Recent Sign-In Activity" card (the backend keeps no
@@ -132,7 +133,7 @@ class _EmailPasswordSettingsScreenState
         bottom: false,
         child: Column(
           children: [
-            _Header(onBack: () => context.pop()),
+            NestedHeader(title: 'Email & Password', onBack: () => context.pop()),
             Expanded(
               child: userAsync.when(
                 loading: () => const Center(
@@ -227,45 +228,6 @@ class _EmailPasswordSettingsScreenState
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  const _Header({required this.onBack});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Email & Password',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: AppColors.tanFixed,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.person, color: AppColors.espresso, size: 16),
-          ),
-        ],
       ),
     );
   }

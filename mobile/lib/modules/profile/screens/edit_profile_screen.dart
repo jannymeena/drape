@@ -12,6 +12,7 @@ import '../../auth/auth_controller.dart';
 import '../../auth/models/current_user.dart';
 import '../../wardrobe/image_pick.dart';
 import '../profile_service.dart';
+import '../../../shared/widgets/zoura_header.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   static const path = 'edit';
@@ -364,45 +365,29 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 12, 0),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.espresso),
-            onPressed: onBack,
-          ),
-          Expanded(
-            child: Text(
-              'Edit Profile',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+    return NestedHeader(
+      title: 'Edit Profile',
+      onBack: onBack,
+      action: saving
+          ? const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppColors.espresso),
+              ),
+            )
+          : TextButton(
+              onPressed: onSave,
+              child: Text(
+                'Save',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppColors.espresso,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
             ),
-          ),
-          saving
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.espresso),
-                  ),
-                )
-              : TextButton(
-                  onPressed: onSave,
-                  child: Text(
-                    'Save',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.espresso,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-        ],
-      ),
     );
   }
 }
