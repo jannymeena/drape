@@ -34,6 +34,13 @@ class OutfitItem(BaseModel):
     formality: str | None = None
     why_it_works: str | None = None
     is_starter_wardrobe: bool = False
+    # Set when the piece is an AWIN product the user doesn't own (a starter
+    # item or a shop fill) — the client shows a "Buy" pill linking here.
+    product_id: UUID | None = None
+    product_url: str | None = None
+    price_cents: int | None = None
+    currency: str | None = None
+    retailer: str | None = None
 
 
 class WeatherContext(BaseModel):
@@ -62,6 +69,9 @@ class OutfitResponse(BaseModel):
     logged_at: datetime | None
     worn_count: int
     is_favorite: bool = False
+    # True when any piece is a product the user doesn't own: the client swaps
+    # "Wear this" for "Shop the look" (logging such an outfit is refused).
+    shop_the_look: bool = False
     created_at: datetime
     updated_at: datetime
 

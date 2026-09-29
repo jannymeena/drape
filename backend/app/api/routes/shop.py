@@ -1,7 +1,19 @@
 """Shop routes (2.4 — items 7a-7e)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+import hashlib
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
@@ -77,18 +89,23 @@ def _to_bdb(row: BuyDontBuyResult) -> BuyDontBuyResponse:
 
 @router.get("/feed", response_model=ShopFeedResponse)
 def feed(
+    request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    affiliate: AffiliateProvider = Depends(get_affiliate_provider),
-) -> ShopFeedResponse:
-    try:
-        products, complete = shop_service.get_feed(db, user=user, affiliate=affiliate)
-    except ShopError as e:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
-    return ShopFeedResponse(
+) -> Response:
+    """Cache-validated: the ETag is the response body's hash, so a client
+    sending it back in If-None-Match gets an empty 304 until the catalog (or
+    the user's wardrobe ordering) changes."""
+    products, complete = shop_service.get_feed(db, user=user)
+    body = ShopFeedResponse(
         products=[ProductResponse.model_validate(p) for p in products],
         measurements_complete=complete,
-    )
+    ).model_dump_json()
+    etag = f'"{hashlib.sha256(body.encode()).hexdigest()[:32]}"'
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+    return Response(content=body, media_type="application/json", headers=headers)
 
 
 @router.post("/advisor/ask", response_model=AdvisorConversationResponse)
@@ -97,14 +114,12 @@ async def advisor_ask(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     ai: AIProvider = Depends(get_ai_provider),
-    affiliate: AffiliateProvider = Depends(get_affiliate_provider),
 ) -> AdvisorConversationResponse:
     try:
         convo = await shop_service.advisor_ask(
             db,
             user=user,
             ai=ai,
-            affiliate=affiliate,
             question=payload.question,
             conversation_id=payload.conversation_id,
         )

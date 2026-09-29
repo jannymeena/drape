@@ -1,12 +1,11 @@
 """Phase 5d — starter wardrobe routes.
 
-Three endpoints scoped to the bearer-token user:
-  - GET  /starter-wardrobe/templates   browse the catalogue
-  - POST /starter-wardrobe/assign      assign (auto-pick or explicit) +
-                                       materialize items into /wardrobe
+Two endpoints scoped to the bearer-token user:
+  - POST /starter-wardrobe/assign      pick a capsule of AWIN products +
+                                       materialize it into /wardrobe
   - POST /starter-wardrobe/deactivate  manual opt-out
 
-Auto-deactivation when the user reaches 15 real items is handled inside
+Auto-deactivation once the user has enough real items is handled inside
 starter_wardrobe_service.recompute_transition (called from wardrobe_service
 on item create/delete) — no separate endpoint required.
 """
@@ -19,12 +18,9 @@ from app.api.dependencies.auth import get_current_user
 from app.db.models import User
 from app.db.session import get_db
 from app.schemas.starter_wardrobe import (
-    AssignStarterWardrobeRequest,
     AssignStarterWardrobeResponse,
     DeactivateStarterWardrobeRequest,
     DeactivateStarterWardrobeResponse,
-    StarterWardrobeTemplateResponse,
-    TemplatesListResponse,
     TransitionTrackingResponse,
     UserStarterWardrobeResponse,
 )
@@ -35,32 +31,20 @@ router = APIRouter(prefix="/starter-wardrobe", tags=["starter-wardrobe"])
 
 
 def _translate(err: StarterWardrobeError) -> HTTPException:
-    if err.code in ("template_not_found", "not_assigned"):
+    if err.code == "not_assigned":
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+    if err.code == "catalog_not_ready":
+        return HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(err))
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(err))
-
-
-@router.get("/templates", response_model=TemplatesListResponse)
-def list_templates(
-    db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
-) -> TemplatesListResponse:
-    templates = starter_wardrobe_service.list_active_templates(db)
-    return TemplatesListResponse(
-        templates=[StarterWardrobeTemplateResponse.model_validate(t) for t in templates]
-    )
 
 
 @router.post("/assign", response_model=AssignStarterWardrobeResponse)
 def assign(
-    payload: AssignStarterWardrobeRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> AssignStarterWardrobeResponse:
     try:
-        assignment, _template, items, swapped = starter_wardrobe_service.assign(
-            db, user=user, template_id=payload.template_id
-        )
+        assignment, items, swapped = starter_wardrobe_service.assign(db, user=user)
     except StarterWardrobeError as e:
         raise _translate(e)
     transition = starter_wardrobe_service.get_or_create_transition_row(
@@ -68,7 +52,7 @@ def assign(
     )
     return AssignStarterWardrobeResponse(
         assignment=UserStarterWardrobeResponse.model_validate(assignment),
-        template_id=_template.template_id,
+        template_id=starter_wardrobe_service.CAPSULE_ID,
         items_materialized=len(items),
         swapped=swapped,
         transition=TransitionTrackingResponse.model_validate(transition),

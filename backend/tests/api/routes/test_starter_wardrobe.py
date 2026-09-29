@@ -1,27 +1,86 @@
-"""Starter wardrobe route tests — template listing, assignment idempotency,
-manual deactivation, and auto-deactivation at the threshold the client
-counts down to."""
+"""Starter wardrobe route tests — AWIN-product capsule assignment (gender,
+shape, product links), idempotency, manual deactivation, and
+auto-deactivation at the threshold the client counts down to."""
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import select
 
-from app.db.models import UserStarterWardrobe, WardrobeItem
+from app.db.models import Product, UserStarterWardrobe, WardrobeItem
 from app.services import starter_wardrobe_service
-from tests.factories import make_wardrobe_item
+from tests.factories import make_catalog, make_wardrobe_item
 
 
-def test_list_templates_returns_seeded_templates(authed_client):
-    """The squashed init migration seeds 6 templates from JSON. Listing must
-    return at least those 6 — the migration is the source of truth."""
-    r = authed_client.get("/api/v1/starter-wardrobe/templates")
-    assert r.status_code == 200
-    templates = r.json()["templates"]
-    assert len(templates) >= 6
-    # Sanity-check one shape: each template has template_id + name + items.
-    sample = templates[0]
-    assert sample["template_id"]
-    assert sample["name"]
-    assert sample["items"]
+@pytest.fixture(autouse=True)
+def _catalog(db):
+    make_catalog(db)
+
+
+def _set_style(db, user, style):
+    user.shopping_style = style
+    db.add(user)
+    db.commit()
+
+
+def _starter_items(db, user) -> list[WardrobeItem]:
+    return list(
+        db.scalars(
+            select(WardrobeItem).where(
+                WardrobeItem.user_id == user.id, WardrobeItem.is_starter_wardrobe.is_(True)
+            )
+        ).all()
+    )
+
+
+def test_womens_capsule_is_womens_products_in_the_role_mix(authed_client, db):
+    user = authed_client.test_user
+    _set_style(db, user, "womens")
+    r = authed_client.post("/api/v1/starter-wardrobe/assign", json={})
+    assert r.status_code == 200, r.text
+    assert r.json()["template_id"] == "awin_capsule"
+
+    items = _starter_items(db, user)
+    products = {p.id: p for p in db.scalars(select(Product)).all()}
+    assert {products[i.product_id].gender for i in items} == {"women"}
+    cats = [i.category for i in items]
+    assert cats.count("tops") == 3 and cats.count("dresses") == 2 and "shoes" in cats
+    # Starter items carry the product's image, cleaned name and buy link.
+    item = items[0]
+    assert item.primary_image_url == products[item.product_id].image_url
+    assert "|" not in item.name
+    listed = authed_client.get("/api/v1/wardrobe?limit=100").json()["items"]
+    assert all(i["product_url"].startswith("https://www.awin1.com/") for i in listed)
+
+
+def test_mens_capsule_has_no_dresses_or_shoes(authed_client, db):
+    user = authed_client.test_user
+    _set_style(db, user, "mens")
+    assert authed_client.post("/api/v1/starter-wardrobe/assign", json={}).status_code == 200
+    items = _starter_items(db, user)
+    products = {p.id: p for p in db.scalars(select(Product)).all()}
+    assert {products[i.product_id].gender for i in items} == {"men"}
+    cats = {i.category for i in items}
+    assert cats == {"tops", "bottoms", "outerwear", "accessories"}
+
+
+def test_capsule_covers_every_occasion(authed_client, db):
+    _set_style(db, authed_client.test_user, "womens")
+    authed_client.post("/api/v1/starter-wardrobe/assign", json={})
+    products = {p.id: p for p in db.scalars(select(Product)).all()}
+    covered = {
+        occ
+        for i in _starter_items(db, authed_client.test_user)
+        for occ in products[i.product_id].occasions
+    }
+    assert covered == {"work", "casual", "date_night"}
+
+
+def test_assign_503_until_products_are_tagged(authed_client, db):
+    db.query(Product).update({Product.tagged_at: None})
+    db.commit()
+    r = authed_client.post("/api/v1/starter-wardrobe/assign", json={})
+    assert r.status_code == 503
+    assert _starter_items(db, authed_client.test_user) == []
 
 
 def test_assign_materializes_items_into_wardrobe(authed_client, db):

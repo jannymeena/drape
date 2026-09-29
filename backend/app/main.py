@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -31,12 +33,34 @@ configure_logging(settings)
 from app.core import providers as _providers  # noqa: E402,F401  -- import side effect: build & log providers at startup
 
 
+def _start_catalog_worker() -> asyncio.Task | None:
+    if not settings.catalog_worker_enabled:
+        return None
+    from app.core.providers import providers
+    from app.db.session import SessionLocal
+    from app.workers.catalog_worker import CatalogWorker
+
+    worker = CatalogWorker(
+        session_factory=SessionLocal,
+        affiliate=providers.affiliate,
+        ai=providers.ai,
+        tag_model=settings.catalog_tag_model,
+        advertiser_genders=settings.advertiser_genders(),
+    )
+    return asyncio.create_task(worker.run(), name="catalog-worker")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # uvicorn (re)installs its own log handlers between import-time configure_logging()
     # and the app starting; reset them so all logs flow through structlog.
     bridge_uvicorn_logging()
+    catalog_task = _start_catalog_worker()
     yield
+    if catalog_task is not None:
+        catalog_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await catalog_task
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)

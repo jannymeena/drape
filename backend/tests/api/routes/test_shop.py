@@ -5,20 +5,21 @@ from __future__ import annotations
 
 import io
 import json
-from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, update
+import pytest
 
-from app.api.dependencies.providers import get_affiliate_provider, get_ai_provider
-from app.db.models import Product
+from app.api.dependencies.providers import get_ai_provider
 from app.main import app
-from app.services.providers.affiliate.base import (
-    AffiliateProduct,
-    AffiliateProvider,
-    AffiliateProviderError,
-)
+from app.services import catalog_service
+from app.services.providers.affiliate.mock import MockAffiliateProvider
 from app.services.providers.ai.base import AIProvider
-from tests.factories import make_wardrobe_item
+from tests.factories import make_catalog, make_wardrobe_item
+
+
+@pytest.fixture(autouse=True)
+def _synced_mock_catalog(db):
+    """The catalog worker is off in tests; sync the mock catalog up front."""
+    catalog_service.sync_catalog(db, affiliate=MockAffiliateProvider())
 
 
 class _ShopAI(AIProvider):
@@ -51,48 +52,6 @@ def _use_shop_ai(**kwargs):
     app.dependency_overrides[get_ai_provider] = lambda: _ShopAI(**kwargs)
 
 
-class _StubCatalog(AffiliateProvider):
-    """Swappable catalog; `fail` makes every load raise like a down AWIN."""
-
-    def __init__(self, *ids: str) -> None:
-        self.ids = list(ids)
-        self.fail = False
-        self.loads = 0
-
-    def catalog(self) -> list[AffiliateProduct]:
-        self.loads += 1
-        if self.fail:
-            raise AffiliateProviderError("awin_feed_failed", "down")
-        return [
-            AffiliateProduct(
-                external_id=i, name=f"Item {i}", brand="b", category="tops",
-                price_cents=1000, currency="USD", image_url="https://i/x.jpg",
-                product_url="https://p/x", retailer="r",
-            )
-            for i in self.ids
-        ]
-
-    def current_price_cents(self, external_id: str) -> int | None:
-        return None
-
-
-def _use_catalog(stub: _StubCatalog) -> _StubCatalog:
-    app.dependency_overrides[get_affiliate_provider] = lambda: stub
-    return stub
-
-
-def _age_catalog(db, hours: int = 7) -> None:
-    old = datetime.now(timezone.utc) - timedelta(hours=hours)
-    db.execute(update(Product).values(updated_at=old))
-    db.commit()
-
-
-def _feed_ids(client) -> set[str]:
-    r = client.get("/api/v1/shop/feed")
-    assert r.status_code == 200, r.text
-    return {p["name"].removeprefix("Item ") for p in r.json()["products"]}
-
-
 def _png() -> tuple[str, io.BytesIO, str]:
     return ("look.png", io.BytesIO(b"\x89PNG fake image bytes"), "image/png")
 
@@ -118,37 +77,27 @@ def test_feed_orders_thin_categories_first(authed_client, db):
     assert products[0]["category"] != "tops"
 
 
-def test_fresh_catalog_is_not_resynced(authed_client):
-    stub = _use_catalog(_StubCatalog("a"))
-    _feed_ids(authed_client)
-    _feed_ids(authed_client)
-    assert stub.loads == 1
+def test_feed_hides_the_other_genders_products(authed_client, db):
+    make_catalog(db)
+    user = authed_client.test_user
+    user.shopping_style = "mens"
+    db.commit()
+    names = [p["name"] for p in authed_client.get("/api/v1/shop/feed").json()["products"]]
+    assert any(n.startswith("Men ") for n in names)
+    assert not any(n.startswith("Women ") for n in names)
+    assert len([n for n in names if not n.startswith("Men ")]) == 12  # mock: no gender
 
 
-def test_stale_catalog_resyncs_and_deactivates_dropped(authed_client, db):
-    stub = _use_catalog(_StubCatalog("a", "b"))
-    assert _feed_ids(authed_client) == {"a", "b"}
-    stub.ids = ["b", "c"]
-    _age_catalog(db)
-    assert _feed_ids(authed_client) == {"b", "c"}
-    # Dropped products stay in the table (wishlists point at them), inactive.
-    dropped = db.scalar(select(Product).where(Product.external_id == "a"))
-    db.refresh(dropped)
-    assert dropped.is_active is False
-
-
-def test_feed_503_when_catalog_never_loaded(authed_client):
-    _use_catalog(_StubCatalog("a")).fail = True
+def test_feed_etag_revalidates_with_304(authed_client, db):
     r = authed_client.get("/api/v1/shop/feed")
-    assert r.status_code == 503
-
-
-def test_feed_serves_last_sync_when_provider_down(authed_client, db):
-    stub = _use_catalog(_StubCatalog("a"))
-    _feed_ids(authed_client)
-    stub.fail = True
-    _age_catalog(db)
-    assert _feed_ids(authed_client) == {"a"}
+    etag = r.headers["etag"]
+    again = authed_client.get("/api/v1/shop/feed", headers={"If-None-Match": etag})
+    assert again.status_code == 304
+    assert again.content == b""
+    make_catalog(db, genders=("unisex",))  # catalog changed -> new body
+    changed = authed_client.get("/api/v1/shop/feed", headers={"If-None-Match": etag})
+    assert changed.status_code == 200
+    assert changed.headers["etag"] != etag
 
 
 # --- 7b advisor --------------------------------------------------------------

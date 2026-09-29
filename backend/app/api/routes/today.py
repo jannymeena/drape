@@ -90,11 +90,13 @@ def _translate_usage(
 
 
 def _to_outfit_response(outfit) -> OutfitResponse:
+    items = payload_to_outfit_items(outfit.items)
     return OutfitResponse(
         id=outfit.id,
         user_id=outfit.user_id,
         occasion=outfit.occasion,
-        items=payload_to_outfit_items(outfit.items),
+        items=items,
+        shop_the_look=any(i.product_url for i in items),
         image_url=outfit.image_url,
         ai_reasoning_short=outfit.ai_reasoning_short,
         ai_reasoning_full=outfit.ai_reasoning_full,
@@ -131,7 +133,7 @@ async def dashboard(
     # POST /today/outfits, so the client paints the shell instantly and fills
     # each card as its AI call returns. No AI provider needed here.
     outfits = outfit_service.todays_outfits(db, user=user)
-    ready = outfit_service.wardrobe_ready(db, user_id=user.id)
+    ready = outfit_service.wardrobe_ready(db, user=user)
     pending = outfit_service.pending_occasions(db, user=user) if ready else []
 
     weather_ctx = None

@@ -1,18 +1,14 @@
 """init schema 6d usage
 
-Squashed init covering Phases 1–6d (per feedback_preprod_schema). Adds
-`usage_tracking` on top of the prior 6c schema; re-seeds
-`starter_wardrobe_templates` from JSON so a fresh `alembic upgrade head` lands
-with data the outfit generator can draw from on day one.
+Squashed init covering Phases 1–6d (per feedback_preprod_schema), plus the
+AWIN catalog tags on `products` and AWIN-product starter wardrobes
+(`wardrobe_items.product_id`; the static starter templates are gone).
 
 Revision ID: 6b13316bc906
 Revises:
 Create Date: 2026-05-07 10:42:40.893060
 
 """
-import json
-import uuid
-from pathlib import Path
 from typing import Sequence, Union
 
 from alembic import op
@@ -24,11 +20,6 @@ revision: str = '6b13316bc906'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
-
-
-_TEMPLATES_JSON = (
-    Path(__file__).resolve().parents[2] / "data" / "starter_wardrobe_templates.json"
-)
 
 
 def upgrade() -> None:
@@ -44,22 +35,35 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('cache_key')
     )
-    op.create_table('starter_wardrobe_templates',
+    op.create_table('products',
     sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('template_id', sa.String(length=100), nullable=False),
-    sa.Column('name', sa.String(length=100), nullable=False),
-    sa.Column('gender', sa.String(length=20), nullable=True),
-    sa.Column('age_range', sa.String(length=20), nullable=True),
-    sa.Column('style_profile', sa.String(length=50), nullable=True),
-    sa.Column('total_items', sa.Integer(), nullable=False),
-    sa.Column('items', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('external_id', sa.String(length=100), nullable=False),
+    sa.Column('name', sa.String(length=200), nullable=False),
+    sa.Column('brand', sa.String(length=100), nullable=False),
+    sa.Column('category', sa.String(length=30), nullable=False),
+    sa.Column('price_cents', sa.Integer(), nullable=False),
+    sa.Column('currency', sa.String(length=3), server_default='CAD', nullable=False),
+    sa.Column('image_url', sa.String(length=500), nullable=False),
+    sa.Column('product_url', sa.String(length=500), nullable=False),
+    sa.Column('retailer', sa.String(length=100), nullable=False),
+    sa.Column('advertiser_id', sa.String(length=20), nullable=True),
     sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
-    sa.Column('version', sa.Integer(), server_default='1', nullable=False),
+    sa.Column('gender', sa.String(length=10), nullable=True),
+    sa.Column('role', sa.String(length=20), nullable=True),
+    sa.Column('warmth', sa.String(length=10), nullable=True),
+    sa.Column('formality', sa.String(length=20), nullable=True),
+    sa.Column('occasions', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('color_name', sa.String(length=50), nullable=True),
+    sa.Column('tag_hash', sa.String(length=64), nullable=True),
+    sa.Column('tagged_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('external_id')
     )
-    op.create_index(op.f('ix_starter_wardrobe_templates_template_id'), 'starter_wardrobe_templates', ['template_id'], unique=True)
+    op.create_index(op.f('ix_products_category'), 'products', ['category'], unique=False)
+    op.create_index(op.f('ix_products_gender'), 'products', ['gender'], unique=False)
+    op.create_index(op.f('ix_products_tagged_at'), 'products', ['tagged_at'], unique=False)
     op.create_table('users',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('email', sa.String(length=255), nullable=False),
@@ -204,12 +208,10 @@ def upgrade() -> None:
     op.create_table('user_starter_wardrobes',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
-    sa.Column('template_id', sa.UUID(), nullable=False),
     sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
     sa.Column('assigned_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('deactivated_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('deactivation_reason', sa.String(length=50), nullable=True),
-    sa.ForeignKeyConstraint(['template_id'], ['starter_wardrobe_templates.id'], ondelete='RESTRICT'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_id')
@@ -238,12 +240,12 @@ def upgrade() -> None:
     sa.Column('is_favorite', sa.Boolean(), nullable=False),
     sa.Column('favorited_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('is_starter_wardrobe', sa.Boolean(), nullable=False),
-    sa.Column('starter_template_id', sa.UUID(), nullable=True),
+    sa.Column('product_id', sa.UUID(), nullable=True),
     sa.Column('added_via', sa.String(length=20), nullable=False),
     sa.Column('ai_detection_confidence', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['starter_template_id'], ['starter_wardrobe_templates.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['product_id'], ['products.id'], ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
@@ -416,24 +418,6 @@ def upgrade() -> None:
     sa.UniqueConstraint('token')
     )
     op.create_index(op.f('ix_devices_user_id'), 'devices', ['user_id'], unique=False)
-    op.create_table('products',
-    sa.Column('id', sa.UUID(), nullable=False),
-    sa.Column('external_id', sa.String(length=100), nullable=False),
-    sa.Column('name', sa.String(length=200), nullable=False),
-    sa.Column('brand', sa.String(length=100), nullable=False),
-    sa.Column('category', sa.String(length=30), nullable=False),
-    sa.Column('price_cents', sa.Integer(), nullable=False),
-    sa.Column('currency', sa.String(length=3), server_default='CAD', nullable=False),
-    sa.Column('image_url', sa.String(length=500), nullable=False),
-    sa.Column('product_url', sa.String(length=500), nullable=False),
-    sa.Column('retailer', sa.String(length=100), nullable=False),
-    sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('external_id')
-    )
-    op.create_index(op.f('ix_products_category'), 'products', ['category'], unique=False)
     op.create_table('wishlists',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -475,41 +459,6 @@ def upgrade() -> None:
     op.create_index(op.f('ix_support_tickets_user_id'), 'support_tickets', ['user_id'], unique=False)
     # ### end Alembic commands ###
 
-    _seed_starter_wardrobe_templates()
-
-
-def _seed_starter_wardrobe_templates() -> None:
-    """Insert the curated starter-wardrobe templates from JSON. Carried over
-    from the prior squashed init — re-running this migration on a fresh DB
-    reseeds from the file."""
-    templates = json.loads(_TEMPLATES_JSON.read_text())
-    rows = [
-        {
-            "id": str(uuid.uuid4()),
-            "template_id": t["template_id"],
-            "name": t["name"],
-            "gender": t.get("gender"),
-            "age_range": t.get("age_range"),
-            "style_profile": t.get("style_profile"),
-            "total_items": len(t["items"]),
-            "items": json.dumps(t["items"]),
-        }
-        for t in templates
-    ]
-    op.get_bind().execute(
-        sa.text(
-            """
-            INSERT INTO starter_wardrobe_templates
-                (id, template_id, name, gender, age_range, style_profile,
-                 total_items, items)
-            VALUES
-                (:id, :template_id, :name, :gender, :age_range, :style_profile,
-                 :total_items, CAST(:items AS jsonb))
-            """
-        ),
-        rows,
-    )
-
 
 def downgrade() -> None:
     op.drop_index(op.f('ix_buy_dont_buy_results_user_id'), table_name='buy_dont_buy_results')
@@ -518,8 +467,6 @@ def downgrade() -> None:
     op.drop_table('ai_style_advisor_conversations')
     op.drop_index(op.f('ix_wishlists_user_id'), table_name='wishlists')
     op.drop_table('wishlists')
-    op.drop_index(op.f('ix_products_category'), table_name='products')
-    op.drop_table('products')
     op.drop_index(op.f('ix_devices_user_id'), table_name='devices')
     op.drop_table('devices')
     op.drop_index(op.f('ix_payment_methods_user_id'), table_name='payment_methods')
@@ -572,6 +519,8 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_index(op.f('ix_users_apple_id'), table_name='users')
     op.drop_table('users')
-    op.drop_index(op.f('ix_starter_wardrobe_templates_template_id'), table_name='starter_wardrobe_templates')
-    op.drop_table('starter_wardrobe_templates')
+    op.drop_index(op.f('ix_products_tagged_at'), table_name='products')
+    op.drop_index(op.f('ix_products_gender'), table_name='products')
+    op.drop_index(op.f('ix_products_category'), table_name='products')
+    op.drop_table('products')
     # ### end Alembic commands ###

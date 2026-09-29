@@ -1,8 +1,8 @@
 """Shop backend (2.4 — items 7a-7e).
 
-- Feed (7a): products synced lazily from the AffiliateProvider catalog
-  (re-synced once stale), ordered profile-aware; carries the measurements
-  gate flag.
+- Feed (7a): the synced catalog (the catalog worker owns syncing — see
+  catalog_service) in the user's genders, ordered profile-aware; carries the
+  measurements gate flag.
 - AI Style Advisor (7b): AIProvider.chat returning structured suggestions,
   persisted per conversation. Free limit 10 questions/week.
 - Buy/Don't-Buy (7c): analyze_image (through the AI cache) -> fit/value/gap
@@ -16,13 +16,11 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
 import structlog
-from sqlalchemy import func, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -34,19 +32,13 @@ from app.db.models import (
     WardrobeItem,
     WishlistItem,
 )
-from app.services import usage_service
-from app.services.providers.affiliate.base import (
-    AffiliateProvider,
-    AffiliateProviderError,
-)
+from app.services import catalog_service, usage_service
+from app.services.providers.affiliate.base import AffiliateProvider
 from app.services.providers.ai.base import AIProvider
 
 _log = structlog.get_logger("shop")
 
 ADVISOR_MAX_QUESTION_LEN = 500
-# Matches the AWIN provider's snapshot TTL — syncing more often than the
-# provider refreshes would only rewrite identical rows.
-CATALOG_SYNC_TTL = timedelta(hours=6)
 
 
 class ShopError(Exception):
@@ -62,65 +54,6 @@ class ShopError(Exception):
 # ---------------------------------------------------------------------------
 
 
-def sync_products(db: Session, *, affiliate: AffiliateProvider) -> int:
-    """Upsert the provider catalog into `products` (idempotent, by external_id);
-    rows the catalog no longer carries are deactivated, never deleted —
-    wishlists still point at them. Every synced row's `updated_at` is stamped,
-    so the newest one marks the last sync."""
-    catalog = affiliate.catalog()  # before any writes: a failure leaves the table as-is
-    now = datetime.now(timezone.utc)
-    existing = {
-        row.external_id: row
-        for row in db.scalars(
-            select(Product).where(Product.external_id.in_([p.external_id for p in catalog]))
-        ).all()
-    }
-    count = 0
-    for p in catalog:
-        row = existing.get(p.external_id)
-        if row is None:
-            row = Product(external_id=p.external_id)
-            db.add(row)
-            count += 1
-        row.name = p.name
-        row.brand = p.brand
-        row.category = p.category
-        row.price_cents = p.price_cents
-        row.currency = p.currency
-        row.image_url = p.image_url
-        row.product_url = p.product_url
-        row.retailer = p.retailer
-        row.is_active = True
-        row.updated_at = now
-    db.execute(
-        update(Product)
-        .where(Product.external_id.not_in([p.external_id for p in catalog]))
-        .where(Product.is_active.is_(True))
-        .values(is_active=False, updated_at=now)
-    )
-    db.commit()
-    return count
-
-
-def refresh_catalog(db: Session, *, affiliate: AffiliateProvider) -> bool:
-    """Sync when the table is empty or the last sync is older than
-    CATALOG_SYNC_TTL. False when a needed sync failed — whatever rows exist
-    keep being served."""
-    last = db.scalar(select(func.max(Product.updated_at)))
-    if last is not None and datetime.now(timezone.utc) - last < CATALOG_SYNC_TTL:
-        return True
-    try:
-        sync_products(db, affiliate=affiliate)
-    except AffiliateProviderError as exc:
-        db.rollback()
-        _log.warning("shop.catalog_sync_failed", code=exc.code, error=str(exc))
-        return False
-    except IntegrityError:
-        # A concurrent request inserted the same products first — its sync stands.
-        db.rollback()
-    return True
-
-
 def _measurements_complete(db: Session, *, user_id: UUID) -> bool:
     return bool(
         db.scalar(
@@ -131,18 +64,23 @@ def _measurements_complete(db: Session, *, user_id: UUID) -> bool:
     )
 
 
-def get_feed(
-    db: Session, *, user: User, affiliate: AffiliateProvider
-) -> tuple[list[Product], bool]:
-    """Products (lazily synced) + whether fit features are unlocked.
-    Ordering is a light profile-aware touch: the user's wardrobe's thinnest
-    categories surface first (the feed doubles as gap-filling)."""
-    synced = refresh_catalog(db, affiliate=affiliate)
+def get_feed(db: Session, *, user: User) -> tuple[list[Product], bool]:
+    """Active products in the user's genders (untagged products from an
+    unmapped advertiser have no gender yet and are included) + whether fit
+    features are unlocked. Ordering is a light profile-aware touch: the user's
+    wardrobe's thinnest categories surface first (the feed doubles as
+    gap-filling)."""
     products = list(
-        db.scalars(select(Product).where(Product.is_active.is_(True))).all()
+        db.scalars(
+            select(Product).where(
+                Product.is_active.is_(True),
+                or_(
+                    Product.gender.in_(catalog_service.genders_for(user)),
+                    Product.gender.is_(None),
+                ),
+            )
+        ).all()
     )
-    if not products and not synced:
-        raise ShopError("catalog_unavailable", "The product catalog is unavailable")
     counts: dict[str, int] = {}
     for item in db.scalars(
         select(WardrobeItem).where(WardrobeItem.user_id == user.id)
@@ -176,14 +114,22 @@ def _extract_json(text: str) -> Optional[dict]:
     return parsed if isinstance(parsed, dict) else None
 
 
-def _match_products(db: Session, suggestions: list[dict]) -> list[dict]:
-    """Best-effort: attach a concrete catalog product to each suggestion."""
+def _match_products(db: Session, suggestions: list[dict], *, user: User) -> list[dict]:
+    """Best-effort: attach a concrete catalog product (in the user's genders)
+    to each suggestion."""
     enriched = []
     for sug in suggestions[:3]:
         category = str(sug.get("category", "")).lower()
         product = db.scalar(
             select(Product)
-            .where(Product.category == category, Product.is_active.is_(True))
+            .where(
+                Product.category == category,
+                Product.is_active.is_(True),
+                or_(
+                    Product.gender.in_(catalog_service.genders_for(user)),
+                    Product.gender.is_(None),
+                ),
+            )
             .order_by(Product.price_cents)
         )
         enriched.append(
@@ -202,16 +148,12 @@ async def advisor_ask(
     *,
     user: User,
     ai: AIProvider,
-    affiliate: AffiliateProvider,
     question: str,
     conversation_id: Optional[UUID] = None,
 ) -> AdvisorConversation:
     """One advisor turn. Counts 1 against the weekly advisor limit (429 via
     UsageError before any AI spend)."""
     usage_service.check_and_increment(db, user=user, resource="advisor")
-
-    # Best effort — without a catalog the suggestions just match no products.
-    refresh_catalog(db, affiliate=affiliate)
 
     if conversation_id is not None:
         convo = db.get(AdvisorConversation, conversation_id)
@@ -229,7 +171,7 @@ async def advisor_ask(
     parsed = _extract_json(raw) or {}
     reply = str(parsed.get("reply") or raw)[:2000]
     suggestions = parsed.get("suggestions")
-    enriched = _match_products(db, suggestions) if isinstance(suggestions, list) else []
+    enriched = _match_products(db, suggestions, user=user) if isinstance(suggestions, list) else []
 
     convo.messages = [
         *convo.messages,

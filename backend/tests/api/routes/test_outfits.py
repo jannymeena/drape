@@ -29,7 +29,7 @@ import pytest
 from sqlalchemy import select
 
 from app.db.models import Outfit, StreakTracking, WardrobeItem
-from tests.factories import make_outfit, make_starter_wardrobe, make_wardrobe_item
+from tests.factories import make_catalog, make_outfit, make_starter_wardrobe, make_wardrobe_item
 
 
 # ---------------------------------------------------------------------------
@@ -534,7 +534,8 @@ def test_dashboard_incomplete_profile_clears_after_measurements(authed_client, d
 # ---------------------------------------------------------------------------
 
 
-def _assign_starter(client):
+def _assign_starter(client, db):
+    make_catalog(db)
     r = client.post("/api/v1/starter-wardrobe/assign", json={})
     assert r.status_code == 200, r.text
 
@@ -545,13 +546,13 @@ def _starter_banner(client) -> bool:
     return r.json()["banners"]["starter_wardrobe"]
 
 
-def test_starter_banner_shows_for_active_assignment(authed_client):
-    _assign_starter(authed_client)
+def test_starter_banner_shows_for_active_assignment(authed_client, db):
+    _assign_starter(authed_client, db)
     assert _starter_banner(authed_client) is True
 
 
-def test_starter_banner_hides_after_dismiss(authed_client):
-    _assign_starter(authed_client)
+def test_starter_banner_hides_after_dismiss(authed_client, db):
+    _assign_starter(authed_client, db)
     r = authed_client.post("/api/v1/today/banners/starter_wardrobe/dismiss")
     assert r.status_code == 200, r.text
     body = r.json()
@@ -561,7 +562,7 @@ def test_starter_banner_hides_after_dismiss(authed_client):
 
 
 def test_starter_banner_hides_with_five_real_items(authed_client, db):
-    _assign_starter(authed_client)
+    _assign_starter(authed_client, db)
     for i in range(5):
         make_wardrobe_item(db, authed_client.test_user, name=f"Real {i}")
     assert _starter_banner(authed_client) is False

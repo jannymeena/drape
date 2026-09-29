@@ -41,6 +41,11 @@ router = APIRouter(prefix="/outfits", tags=["outfits"])
 def _translate(err: OutfitError) -> HTTPException:
     if err.code == "not_found":
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+    if err.code == "shop_the_look":
+        return HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": err.code, "message": str(err)},
+        )
     if err.code in ("ai_call_failed", "parse_failed"):
         return HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

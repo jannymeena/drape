@@ -27,6 +27,7 @@ class AffiliateProduct:
     image_url: str
     product_url: str
     retailer: str
+    advertiser_id: str | None = None  # AWIN advertiser (maps to a gender)
 
 
 class AffiliateProvider(ABC):

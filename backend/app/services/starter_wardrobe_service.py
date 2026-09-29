@@ -1,19 +1,22 @@
-"""Phase 5d — starter wardrobe assignment.
+"""Phase 5d — starter wardrobe assignment, built from AWIN products.
 
 Brand-new users have no items, so outfit generation has nothing to draw on.
-Assigning a starter wardrobe materializes a template's items into the user's
-wardrobe with `is_starter_wardrobe=true`, giving the AI something to work with
-on day one. As the user adds their own pieces, the transition-tracking row
-shifts the blending ratio so generation favours real items; once 15 real items
-exist the starter assignment auto-deactivates.
+Assigning a starter wardrobe picks a capsule of tagged catalog products in the
+user's genders and materializes them into the wardrobe with
+`is_starter_wardrobe=true` and a `product_id` link (price + buy link). They
+generate outfits like any other item; the user doesn't own them, so outfits
+using them are "shop the look". As the user adds their own pieces, the
+transition-tracking row shifts the blending ratio so generation favours real
+items; at AUTO_DEACTIVATE_REAL_ITEMS the starter assignment auto-deactivates.
 
-Template selection is a deterministic mapping over (shopping_style, age_range)
-— no AI in the loop. Falls back to `neutral_default` when either field is
-missing or doesn't have a dedicated template (e.g. women 45+ get the 35-44
-"refined" capsule, which holds up across the older bands).
+Capsule selection is deterministic in shape (a per-gender role mix) and
+greedy in content: each pick favours occasions, warmths and colours the
+capsule doesn't cover yet, so a small capsule still dresses work, casual and
+date night across the weather.
 """
 from __future__ import annotations
 
+import random
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
@@ -23,12 +26,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
-    StarterWardrobeTemplate,
+    Product,
     User,
     UserStarterWardrobe,
     WardrobeItem,
     WardrobeTransitionTracking,
 )
+from app.services import catalog_service
 
 _log = structlog.get_logger("starter_wardrobe")
 
@@ -56,54 +60,63 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# (shopping_style, age_range) -> template_id. Missing/unknown keys fall through
-# to neutral_default. Tuples are exhaustive over the values in
-# app/schemas/profile.py — anything outside that set means an upstream typo.
-_TEMPLATE_MAP: dict[tuple[Optional[str], Optional[str]], str] = {
-    ("womens", "18-24"): "women_18_24_versatile",
-    ("womens", "25-34"): "women_25_34_polished",
-    ("womens", "35-44"): "women_35_44_refined",
-    ("womens", "45-54"): "women_35_44_refined",
-    ("womens", "55+"): "women_35_44_refined",
-    ("mens", "18-24"): "men_18_24_versatile",
-    ("mens", "25-34"): "men_25_34_polished",
-    ("mens", "35-44"): "men_25_34_polished",
-    ("mens", "45-54"): "men_25_34_polished",
-    ("mens", "55+"): "men_25_34_polished",
+# Response slug for the (single) capsule kind; the client shows it verbatim.
+CAPSULE_ID = "awin_capsule"
+
+# Pieces per role. Men's feeds carry no shoes — their own shoes join outfits
+# once uploaded. "both" (or no answer) mixes the two catalogs.
+_CAPSULE_SHAPE: dict[str, dict[str, int]] = {
+    "mens": {"top": 4, "bottom": 3, "outerwear": 2, "accessory": 1},
+    "womens": {"top": 3, "bottom": 2, "dress": 2, "outerwear": 2, "shoes": 1, "accessory": 1},
+    "both": {"top": 3, "bottom": 2, "dress": 1, "outerwear": 2, "shoes": 1, "accessory": 1},
 }
-_FALLBACK_TEMPLATE = "neutral_default"
+
+_SEASONS_BY_WARMTH = {
+    "light": ["spring", "summer"],
+    "mid": ["spring", "fall"],
+    "heavy": ["fall", "winter"],
+}
 
 
-def _pick_template_id(user: User) -> str:
-    return _TEMPLATE_MAP.get((user.shopping_style, user.age_range), _FALLBACK_TEMPLATE)
+def _capsule_shape(user: User) -> dict[str, int]:
+    return _CAPSULE_SHAPE.get(user.shopping_style or "", _CAPSULE_SHAPE["both"])
 
 
-def list_active_templates(db: Session) -> list[StarterWardrobeTemplate]:
-    return list(
-        db.scalars(
-            select(StarterWardrobeTemplate)
-            .where(StarterWardrobeTemplate.is_active.is_(True))
-            .order_by(StarterWardrobeTemplate.template_id)
-        ).all()
-    )
+def _pick_capsule(products: list[Product], shape: dict[str, int]) -> list[Product]:
+    """Greedy per role: each pick maximises newly covered occasions (x2),
+    warmths and colours; random tie-break so users don't all get the same kit."""
+    by_role: dict[str, list[Product]] = {}
+    for p in products:
+        by_role.setdefault(p.role or "", []).append(p)
+    occasions: set[str] = set()
+    warmths: set[str] = set()
+    colours: set[str] = set()
+    picked: list[Product] = []
+    for role, count in shape.items():
+        pool = list(by_role.get(role, []))
+        random.shuffle(pool)
+        for _ in range(count):
+            if not pool:
+                break
+            best = max(
+                pool,
+                key=lambda p: (
+                    2 * len(set(p.occasions or []) - occasions)
+                    + (p.warmth not in warmths)
+                    + ((p.color_name or "").lower() not in colours)
+                ),
+            )
+            pool.remove(best)
+            picked.append(best)
+            occasions.update(best.occasions or [])
+            warmths.add(best.warmth or "")
+            colours.add((best.color_name or "").lower())
+    return picked
 
 
-def _get_template(
-    db: Session, *, template_id: Optional[str] = None, override_uuid: Optional[UUID] = None
-) -> StarterWardrobeTemplate:
-    stmt = select(StarterWardrobeTemplate)
-    if override_uuid is not None:
-        stmt = stmt.where(StarterWardrobeTemplate.id == override_uuid)
-    elif template_id is not None:
-        stmt = stmt.where(StarterWardrobeTemplate.template_id == template_id)
-    else:
-        raise StarterWardrobeError("invalid_request", "Template lookup needs an id")
-    template = db.scalar(stmt)
-    if template is None:
-        raise StarterWardrobeError("template_not_found", "Starter wardrobe template not found")
-    if not template.is_active:
-        raise StarterWardrobeError("template_inactive", "Starter wardrobe template is inactive")
-    return template
+def _capsule_is_wearable(picked: list[Product]) -> bool:
+    roles = [p.role for p in picked]
+    return roles.count("top") >= 2 and ("bottom" in roles or "dress" in roles)
 
 
 def real_item_count(db: Session, *, user_id: UUID) -> int:
@@ -131,39 +144,33 @@ def _starter_item_count(db: Session, *, user_id: UUID) -> int:
 
 
 def _materialize_items(
-    db: Session, *, user: User, template: StarterWardrobeTemplate
+    db: Session, *, user: User, products: list[Product]
 ) -> list[WardrobeItem]:
-    rows: list[WardrobeItem] = []
-    for spec in template.items:
-        rows.append(
-            WardrobeItem(
-                user_id=user.id,
-                name=spec["name"],
-                category=spec["category"],
-                subcategory=spec.get("subcategory"),
-                images=spec.get("images"),
-                primary_image_url=spec.get("primary_image_url"),
-                color_hex=spec.get("color_hex"),
-                color_name=spec.get("color_name"),
-                pattern=spec.get("pattern"),
-                material=spec.get("material"),
-                formality=spec.get("formality"),
-                season=spec.get("season"),
-                brand=spec.get("brand"),
-                description=spec.get("description"),
-                worn_count=0,
-                is_favorite=False,
-                is_starter_wardrobe=True,
-                starter_template_id=template.id,
-                added_via="starter_seed",
-            )
+    rows = [
+        WardrobeItem(
+            user_id=user.id,
+            name=catalog_service.display_name(p),
+            category=catalog_service.CATEGORY_BY_ROLE.get(p.role or "", p.category),
+            images=[p.image_url],
+            primary_image_url=p.image_url,
+            color_name=p.color_name,
+            formality=p.formality,
+            season=_SEASONS_BY_WARMTH.get(p.warmth or ""),
+            brand=p.brand,
+            worn_count=0,
+            is_favorite=False,
+            is_starter_wardrobe=True,
+            product_id=p.id,
+            added_via="starter_seed",
         )
+        for p in products
+    ]
     db.add_all(rows)
     return rows
 
 
 def _delete_starter_items(db: Session, *, user_id: UUID) -> int:
-    """Used during template swaps. Returns the count deleted."""
+    """Used when re-picking the capsule. Returns the count deleted."""
     rows = db.scalars(
         select(WardrobeItem).where(
             WardrobeItem.user_id == user_id,
@@ -211,7 +218,7 @@ def recompute_transition(
 
     Called from wardrobe_service.create_item / delete_item via the
     `on_wardrobe_change` hook (Phase 5d) and from `assign` here. Also
-    auto-deactivates the active starter wardrobe once real items >= 15.
+    auto-deactivates the active starter wardrobe at AUTO_DEACTIVATE_REAL_ITEMS.
     """
     row = get_or_create_transition_row(db, user_id=user.id)
     real = real_item_count(db, user_id=user.id)
@@ -243,28 +250,26 @@ def recompute_transition(
 
 
 def assign(
-    db: Session,
-    *,
-    user: User,
-    template_id: Optional[str] = None,
-) -> tuple[UserStarterWardrobe, StarterWardrobeTemplate, list[WardrobeItem], bool]:
-    """Pick a template (auto or explicit) and materialize starter items.
+    db: Session, *, user: User
+) -> tuple[UserStarterWardrobe, list[WardrobeItem], bool]:
+    """Pick a capsule of catalog products and materialize it.
 
     Idempotency rules:
       - No prior assignment        -> create + materialize.
-      - Prior assignment, 0 real   -> swap template (delete old starter items,
-                                       reassign, re-materialize).
+      - Prior assignment, 0 real   -> re-pick (delete old starter items,
+                                       reactivate, re-materialize).
       - Prior assignment, >=1 real -> no-op; return existing assignment.
-        (Swapping templates after the user has personalized their wardrobe
+        (Swapping the kit after the user has personalized their wardrobe
         would silently mutate items they may have ranked or worn.)
 
-    Returns (assignment, template, materialized_items, swapped).
-    `materialized_items` is empty on the no-op path; `swapped` reports whether
-    the assignment row was changed/created in this call.
-    """
-    chosen_template_id = template_id or _pick_template_id(user)
-    template = _get_template(db, template_id=chosen_template_id)
+    Raises StarterWardrobeError("catalog_not_ready") while too few products
+    are tagged for the user's genders to dress anyone (right after a fresh
+    catalog sync — the worker tags them within minutes).
 
+    Returns (assignment, materialized_items, swapped). `materialized_items` is
+    empty on the no-op path; `swapped` reports whether the assignment row was
+    changed/created in this call.
+    """
     existing = get_assignment(db, user_id=user.id)
     real = real_item_count(db, user_id=user.id)
 
@@ -272,18 +277,19 @@ def assign(
         # User has already added real items; preserve their state.
         recompute_transition(db, user=user)
         db.commit()
-        _log.info(
-            "starter_wardrobe.assign.noop",
-            user_id=str(user.id),
-            existing_template_id=str(existing.template_id),
-            real_items=real,
+        _log.info("starter_wardrobe.assign.noop", user_id=str(user.id), real_items=real)
+        return existing, [], False
+
+    picked = _pick_capsule(catalog_service.tagged_products(db, user=user), _capsule_shape(user))
+    if not _capsule_is_wearable(picked):
+        raise StarterWardrobeError(
+            "catalog_not_ready",
+            "The starter wardrobe is still being prepared — try again in a few minutes.",
         )
-        return existing, template, [], False
 
     if existing is not None:
-        # 0 real items: clear old starter items and swap.
+        # 0 real items: clear old starter items and re-pick.
         _delete_starter_items(db, user_id=user.id)
-        existing.template_id = template.id
         existing.is_active = True
         existing.assigned_at = _now()
         existing.deactivated_at = None
@@ -292,13 +298,12 @@ def assign(
     else:
         assignment = UserStarterWardrobe(
             user_id=user.id,
-            template_id=template.id,
             is_active=True,
             assigned_at=_now(),
         )
         db.add(assignment)
 
-    items = _materialize_items(db, user=user, template=template)
+    items = _materialize_items(db, user=user, products=picked)
     db.flush()
     recompute_transition(db, user=user)
     db.commit()
@@ -309,10 +314,10 @@ def assign(
     _log.info(
         "starter_wardrobe.assigned",
         user_id=str(user.id),
-        template_id=template.template_id,
+        shopping_style=user.shopping_style,
         items=len(items),
     )
-    return assignment, template, items, True
+    return assignment, items, True
 
 
 def deactivate(

@@ -83,7 +83,9 @@ class WardrobeItemResponse(WardrobeItemBase):
     is_favorite: bool
     favorited_at: datetime | None
     is_starter_wardrobe: bool
-    starter_template_id: UUID | None
+    # Starter items are AWIN products: the buy link for the "Buy" pill.
+    product_id: UUID | None
+    product_url: str | None = None
     added_via: AddedVia
     ai_detection_confidence: int | None
     created_at: datetime

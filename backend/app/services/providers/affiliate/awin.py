@@ -108,7 +108,7 @@ def _style_key(row: dict[str, str]) -> str:
     return "name:" + " ".join(name.lower().split())
 
 
-def _to_product(row: dict[str, str]) -> AffiliateProduct | None:
+def _to_product(row: dict[str, str], advertiser_id: str | None = None) -> AffiliateProduct | None:
     """Feed row -> product, or None when it can't be shown in the shop."""
     ext = (row.get("aw_product_id") or "").strip()
     name = (row.get("product_name") or "").strip()
@@ -137,6 +137,7 @@ def _to_product(row: dict[str, str]) -> AffiliateProduct | None:
         image_url=image,
         product_url=link,
         retailer=merchant,
+        advertiser_id=advertiser_id,
     )
 
 
@@ -216,7 +217,7 @@ class AwinProvider(AffiliateProvider):
                     rows += 1
                     if not _in_stock(row):
                         continue
-                    product = _to_product(row)
+                    product = _to_product(row, advertiser_id)
                     if product is None:
                         continue
                     prices[product.external_id] = product.price_cents

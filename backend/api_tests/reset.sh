@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Wipe the dev DB, reseed starter wardrobe templates + dev user, clear the
+# Wipe the dev DB (the server's catalog worker re-syncs products), reseed the dev user, clear the
 # cached bearer token. Safe to run anytime; refuses to run when ENVIRONMENT != dev.
 #
 # Usage (from backend/, with venv active):

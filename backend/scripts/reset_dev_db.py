@@ -6,9 +6,10 @@ Usage (from backend/, with the venv active):
 
 What it does:
     1. TRUNCATE every app table (CASCADE follows FKs; RESTART IDENTITY resets sequences).
-    2. Re-seed `starter_wardrobe_templates` from data/starter_wardrobe_templates.json
-       (the migration seeds them on `alembic upgrade head`, but TRUNCATE wipes them).
-    3. Idempotently create the dev user (delegates to seed_dev_user.main()).
+    2. Idempotently create the dev user (delegates to seed_dev_user.main()).
+
+The product catalog is wiped too; the catalog worker re-syncs and re-tags it on
+the next server start.
 
 What it preserves:
     - Schema (tables, columns, indexes, FKs).
@@ -19,9 +20,7 @@ Refuses to run when ENVIRONMENT != dev — never wipe a tbd/prd database.
 """
 from __future__ import annotations
 
-import json
 import sys
-import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -34,8 +33,6 @@ import app.db.models  # noqa: E402,F401  -- register models with metadata
 from scripts import seed_dev_user  # noqa: E402
 
 
-_TEMPLATES_JSON = Path(__file__).resolve().parent.parent / "data" / "starter_wardrobe_templates.json"
-
 
 def _truncate_all(engine) -> int:
     tables = [t.name for t in Base.metadata.sorted_tables if t.name != "alembic_version"]
@@ -45,38 +42,6 @@ def _truncate_all(engine) -> int:
     with engine.begin() as conn:
         conn.execute(text(f"TRUNCATE TABLE {quoted} RESTART IDENTITY CASCADE"))
     return len(tables)
-
-
-def _reseed_starter_wardrobe_templates(engine) -> int:
-    templates = json.loads(_TEMPLATES_JSON.read_text())
-    rows = [
-        {
-            "id": str(uuid.uuid4()),
-            "template_id": t["template_id"],
-            "name": t["name"],
-            "gender": t.get("gender"),
-            "age_range": t.get("age_range"),
-            "style_profile": t.get("style_profile"),
-            "total_items": len(t["items"]),
-            "items": json.dumps(t["items"]),
-        }
-        for t in templates
-    ]
-    with engine.begin() as conn:
-        conn.execute(
-            text(
-                """
-                INSERT INTO starter_wardrobe_templates
-                    (id, template_id, name, gender, age_range, style_profile,
-                     total_items, items)
-                VALUES
-                    (:id, :template_id, :name, :gender, :age_range, :style_profile,
-                     :total_items, CAST(:items AS jsonb))
-                """
-            ),
-            rows,
-        )
-    return len(rows)
 
 
 def main() -> int:
@@ -90,9 +55,6 @@ def main() -> int:
     engine = create_engine(settings.database_url)
     truncated = _truncate_all(engine)
     print(f"truncated {truncated} tables")
-
-    seeded = _reseed_starter_wardrobe_templates(engine)
-    print(f"reseeded {seeded} starter wardrobe templates")
 
     print()
     print("=== seeding dev user ===")

@@ -205,7 +205,14 @@ class SupportTicket(Base, TimestampMixin):
 
 class Product(Base, TimestampMixin):
     """Affiliate product synced from the AffiliateProvider catalog (7a).
-    `external_id` is the provider's stable key; re-syncs upsert on it."""
+    `external_id` is the provider's stable key; re-syncs upsert on it.
+
+    The catalog worker keeps the table in step with the feed (products that
+    leave it are deactivated, never deleted — wardrobe items and wishlists
+    point at them) and AI-tags each product once. Tag columns stay NULL until
+    `tagged_at` is set; only tagged products are offered to outfit generation
+    and the starter capsule. `tag_hash` fingerprints the text the tags were
+    derived from, so a rename re-tags but a price change doesn't."""
 
     __tablename__ = "products"
 
@@ -223,8 +230,23 @@ class Product(Base, TimestampMixin):
     image_url: Mapped[str] = mapped_column(String(500), nullable=False)
     product_url: Mapped[str] = mapped_column(String(500), nullable=False)
     retailer: Mapped[str] = mapped_column(String(100), nullable=False)
+    advertiser_id: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
+    )
+
+    # Outfit tags. gender: women | men | unisex (advertiser map, else AI).
+    # role: top | bottom | dress | outerwear | shoes | accessory. warmth:
+    # light | mid | heavy. formality uses the wardrobe vocabulary.
+    gender: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, index=True)
+    role: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    warmth: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    formality: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    occasions: Mapped[Optional[list[str]]] = mapped_column(JSONB, nullable=True)
+    color_name: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    tag_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    tagged_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
     )
 
 
@@ -527,15 +549,21 @@ class WardrobeItem(Base, TimestampMixin):
         DateTime(timezone=True), nullable=True
     )
 
-    # Starter wardrobe — Phase 5d.
+    # Starter wardrobe — Phase 5d. Starter items are AWIN products the user
+    # doesn't own yet; `product_id` links back for the price + buy link.
     is_starter_wardrobe: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, index=True
     )
-    starter_template_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    product_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("starter_wardrobe_templates.id", ondelete="SET NULL"),
+        ForeignKey("products.id", ondelete="SET NULL"),
         nullable=True,
     )
+    product: Mapped[Optional["Product"]] = relationship()
+
+    @property
+    def product_url(self) -> Optional[str]:
+        return self.product.product_url if self.product is not None else None
 
     # Provenance
     added_via: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
@@ -612,41 +640,10 @@ class UserMeasurements(Base, TimestampMixin):
     fit_profile: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
 
-class StarterWardrobeTemplate(Base, TimestampMixin):
-    """Curated outfit kit for new users to bootstrap outfit generation before
-    they've added their own items. Seeded as static data in the init migration;
-    `template_id` is a stable string the seed/code uses to reference a row.
-
-    `items` is a JSONB array of item-shaped dicts (name/category/color_hex/...)
-    matching the WardrobeItem column set the assignment service materializes.
-    """
-
-    __tablename__ = "starter_wardrobe_templates"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    template_id: Mapped[str] = mapped_column(
-        String(100), unique=True, index=True, nullable=False
-    )
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    gender: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    age_range: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    style_profile: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    total_items: Mapped[int] = mapped_column(Integer, nullable=False)
-    items: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default="true"
-    )
-    version: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=1, server_default="1"
-    )
-
-
 class UserStarterWardrobe(Base):
-    """Records that a user was assigned a starter wardrobe template, and
-    whether it's still active. Auto-deactivates when the user has 15 real
-    (non-starter) items — the threshold lives in starter_wardrobe_service.
+    """Records that a user was assigned a starter wardrobe (a capsule of AWIN
+    products), and whether it's still active. Auto-deactivates once the user
+    has enough real items — the threshold lives in starter_wardrobe_service.
     """
 
     __tablename__ = "user_starter_wardrobes"
@@ -658,11 +655,6 @@ class UserStarterWardrobe(Base):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         unique=True,
-        nullable=False,
-    )
-    template_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("starter_wardrobe_templates.id", ondelete="RESTRICT"),
         nullable=False,
     )
     is_active: Mapped[bool] = mapped_column(

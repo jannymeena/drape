@@ -78,6 +78,15 @@ class Settings(BaseSettings):
     awin_feed_api_key: str | None = None
     # Comma-separated advertiser allowlist; empty = every joined advertiser.
     awin_advertiser_ids: str = ""
+    # advertiser_id:gender pairs (women|men|unisex), e.g. "60701:men,60703:women".
+    # Unmapped advertisers get their gender from the AI tagger.
+    awin_advertiser_genders: str = ""
+
+    # Catalog worker: syncs the affiliate catalog on start + every 6 h and
+    # AI-tags new products one at a time. Off in tests (they sync explicitly).
+    catalog_worker_enabled: bool = True
+    # Cheap model for the one-line-per-product tagging calls.
+    catalog_tag_model: str = "claude-haiku-4-5-20251001"
 
     anthropic_api_key: str | None = None
     # Claude model id for the AI provider. Override per env with ANTHROPIC_MODEL
@@ -110,6 +119,10 @@ class Settings(BaseSettings):
 
     def _disabled_feature_set(self) -> set[str]:
         return {f.strip() for f in self.disabled_features.split(",") if f.strip()}
+
+    def advertiser_genders(self) -> dict[str, str]:
+        pairs = (p.split(":", 1) for p in self.awin_advertiser_genders.split(",") if ":" in p)
+        return {a.strip(): g.strip().lower() for a, g in pairs if a.strip() and g.strip()}
 
     def feature_enabled(self, feature: str) -> bool:
         return feature not in self._disabled_feature_set()

@@ -64,6 +64,9 @@ for _stripe_key in (
 # feed downloads.
 for _awin_key in ("AWIN_PUBLISHER_ID", "AWIN_FEED_API_KEY"):
     os.environ[_awin_key] = ""
+# TestClient runs the app lifespan; the catalog worker would sync + AI-tag in
+# the background mid-test. Tests drive catalog_service directly instead.
+os.environ["CATALOG_WORKER_ENABLED"] = "false"
 
 # Now safe to import the app stack.
 from fastapi.testclient import TestClient  # noqa: E402
@@ -122,59 +125,15 @@ def db(session_factory) -> Iterator[Session]:
         session.close()
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _ensure_starter_templates_seeded(engine):
-    """Make sure `starter_wardrobe_templates` is populated before any test runs.
-    Templates are migration-seed data; if a prior test run (before
-    `_truncate_after_test` was taught to preserve them) emptied the table,
-    re-seed from JSON here. No-op when the table is already populated."""
-    import json
-    import uuid
-    from pathlib import Path
-
-    with engine.begin() as conn:
-        count = conn.execute(text("SELECT count(*) FROM starter_wardrobe_templates")).scalar()
-        if count and count > 0:
-            return
-        json_path = Path(__file__).resolve().parent.parent / "data" / "starter_wardrobe_templates.json"
-        templates = json.loads(json_path.read_text())
-        for t in templates:
-            conn.execute(
-                text(
-                    """
-                    INSERT INTO starter_wardrobe_templates
-                        (id, template_id, name, gender, age_range, style_profile,
-                         total_items, items)
-                    VALUES
-                        (:id, :template_id, :name, :gender, :age_range, :style_profile,
-                         :total_items, CAST(:items AS jsonb))
-                    """
-                ),
-                {
-                    "id": str(uuid.uuid4()),
-                    "template_id": t["template_id"],
-                    "name": t["name"],
-                    "gender": t.get("gender"),
-                    "age_range": t.get("age_range"),
-                    "style_profile": t.get("style_profile"),
-                    "total_items": len(t["items"]),
-                    "items": json.dumps(t["items"]),
-                },
-            )
-
-
 @pytest.fixture(autouse=True)
 def _truncate_after_test(engine):
-    """Wipe per-test state after each test. Preserves seed data:
-      * `alembic_version` — Alembic's bookkeeping row.
-      * `starter_wardrobe_templates` — seeded by the migration once at init;
-        re-seeding per test would cost ~50ms with no benefit (templates are
-        stable reference data, not per-user state).
+    """Wipe per-test state after each test. Preserves `alembic_version` —
+    Alembic's bookkeeping row.
 
     CASCADE handles FK ordering; RESTART IDENTITY resets sequences.
     """
     yield
-    preserved = {"alembic_version", "starter_wardrobe_templates"}
+    preserved = {"alembic_version"}
     tables = [t.name for t in Base.metadata.sorted_tables if t.name not in preserved]
     if not tables:
         return
