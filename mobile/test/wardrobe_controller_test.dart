@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -19,6 +20,12 @@ class _FakeWardrobeService extends WardrobeService {
   int lastOffset = -1;
   int totalToReport = 0;
   List<WardrobeItem> Function(int offset)? pageBuilder;
+
+  /// Per-category responses (wins over [pageBuilder]) and gates that hold a
+  /// category's response until completed — for in-flight / race tests. The
+  /// Favorites view is keyed 'favorites'.
+  Map<String?, List<WardrobeItem>>? byCategory;
+  final Map<String?, Completer<void>> gates = {};
 
   // Mutation knobs.
   ToggleFavoriteResult? favoriteResult;
@@ -42,10 +49,13 @@ class _FakeWardrobeService extends WardrobeService {
     lastCategory = category;
     lastIsFavorite = isFavorite;
     lastOffset = offset;
-    final items = pageBuilder?.call(offset) ?? const <WardrobeItem>[];
+    final key = isFavorite == true ? 'favorites' : category;
+    await gates[key]?.future;
+    final canned = byCategory?[key];
+    final items = canned ?? pageBuilder?.call(offset) ?? const <WardrobeItem>[];
     return WardrobeListResult(
       items: items,
-      total: totalToReport,
+      total: canned?.length ?? totalToReport,
       limit: limit,
       offset: offset,
     );
@@ -381,5 +391,75 @@ void main() {
 
     expect(outcome.created, 2);
     expect(outcome.limitReached, isTrue);
+  });
+
+  group('chip switching never flashes the empty state', () {
+    final top = _item('t', category: 'tops');
+    final bottom = _item('b', category: 'bottoms', isFavorite: true);
+
+    test('a loaded wardrobe paints the chip locally while the server confirms',
+        () async {
+      service.byCategory = {null: [top, bottom], 'bottoms': [bottom]};
+      await controller.load();
+      expect(controller.state.settled, isTrue);
+
+      service.gates['bottoms'] = Completer<void>();
+      final switching = controller.selectCategory(WardrobeCategoryFilter.bottoms);
+      expect(controller.state.items.map((i) => i.id), ['b']); // instant
+      expect(controller.state.loading, isTrue);
+      expect(controller.state.settled, isFalse);
+
+      service.gates['bottoms']!.complete();
+      await switching;
+      expect(controller.state.settled, isTrue);
+      expect(controller.state.items.map((i) => i.id), ['b']);
+
+      // Favorites paint locally too.
+      service.byCategory = {null: [top, bottom], 'favorites': [bottom]};
+      await controller.selectCategory(WardrobeCategoryFilter.all);
+      service.gates['favorites'] = Completer<void>();
+      final favs = controller.selectFavorites();
+      expect(controller.state.items.map((i) => i.id), ['b']);
+      service.gates['favorites']!.complete();
+      await favs;
+    });
+
+    test('with nothing known the switch is "loading", never "settled empty"',
+        () async {
+      service.gates['tops'] = Completer<void>();
+      final switching = controller.selectCategory(WardrobeCategoryFilter.tops);
+      expect(controller.state.items, isEmpty);
+      expect(controller.state.settled, isFalse); // screen shows the spinner
+      service.gates['tops']!.complete();
+      await switching;
+      expect(controller.state.settled, isTrue); // now empty really means empty
+    });
+
+    test('a late response for a chip the user already left is dropped',
+        () async {
+      service.byCategory = {'tops': [top], 'bottoms': [bottom]};
+      service.gates['tops'] = Completer<void>();
+      final slowTops = controller.selectCategory(WardrobeCategoryFilter.tops);
+      await controller.selectCategory(WardrobeCategoryFilter.bottoms);
+      service.gates['tops']!.complete();
+      await slowTops;
+      expect(controller.state.category, WardrobeCategoryFilter.bottoms);
+      expect(controller.state.items.map((i) => i.id), ['b']);
+    });
+
+    test('a mutation drops the local snapshot so deleted pieces cannot flash back',
+        () async {
+      service.byCategory = {null: [top, bottom], 'tops': [top]};
+      await controller.load();
+      await controller.deleteItem('t');
+      service.gates['tops'] = Completer<void>();
+      final switching = controller.selectCategory(WardrobeCategoryFilter.tops);
+      // The All list is still complete after the optimistic delete, so the
+      // local subset comes from the live list — which no longer has 't'.
+      expect(controller.state.items.map((i) => i.id), isEmpty);
+      expect(controller.state.settled, isFalse);
+      service.gates['tops']!.complete();
+      await switching;
+    });
   });
 }

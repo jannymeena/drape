@@ -258,14 +258,18 @@ final wardrobeItemProvider =
   return ref.read(wardrobeServiceProvider).getItem(itemId);
 });
 
-/// Free-tier capacity for the warning banner. Composes the real (non-starter)
-/// item count with the subscription tier — the tier comes from
-/// `/usage/current-week` (the only endpoint exposing it today), defaulting to
-/// free if that read fails. Invalidate after create/delete to refresh.
+/// Wardrobe-wide counts for the banners: the real (non-starter) item count
+/// (free-tier cap), the visible total (real + active starter items) and the
+/// subscription tier — the tier comes from `/usage/current-week` (the only
+/// endpoint exposing it today), defaulting to free if that read fails.
+/// Banners read these instead of the loaded grid, so they stay put across
+/// chip switches. Invalidate after create/delete to refresh.
 final wardrobeCapacityProvider = FutureProvider<WardrobeCapacity>((ref) async {
   ref.watch(sessionEpochProvider);
   final service = ref.read(wardrobeServiceProvider);
-  final real = await service.getItems(isStarter: false, limit: 1);
+  final realFuture = service.getItems(isStarter: false, limit: 1);
+  final visible = await service.getItems(limit: 1);
+  final real = await realFuture;
   var isPro = false;
   try {
     final usage = await ref.read(todayServiceProvider).getCurrentWeekUsage();
@@ -273,7 +277,7 @@ final wardrobeCapacityProvider = FutureProvider<WardrobeCapacity>((ref) async {
   } on ApiException {
     // Banner is a warning, not a gate — fall back to free.
   }
-  return WardrobeCapacity(used: real.total, isPro: isPro);
+  return WardrobeCapacity(used: real.total, isPro: isPro, visibleTotal: visible.total);
 });
 
 // Read-once analytics providers (same pattern as the detail/reasoning reads).

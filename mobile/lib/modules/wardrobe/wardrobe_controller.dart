@@ -21,6 +21,7 @@ import 'wardrobe_service.dart';
 class WardrobeState {
   const WardrobeState({
     this.loading = false,
+    this.settled = false,
     this.loadingMore = false,
     this.items = const [],
     this.total = 0,
@@ -31,6 +32,11 @@ class WardrobeState {
   });
 
   final bool loading;
+
+  /// A load for the current filter has finished (success or error). Until
+  /// then an empty [items] means "not known yet", never "you have nothing" —
+  /// the screen shows a spinner instead of flashing the empty state.
+  final bool settled;
   final bool loadingMore;
   final List<WardrobeItem> items;
   final int total;
@@ -51,6 +57,7 @@ class WardrobeState {
 
   WardrobeState copyWith({
     bool? loading,
+    bool? settled,
     bool? loadingMore,
     List<WardrobeItem>? items,
     int? total,
@@ -61,6 +68,7 @@ class WardrobeState {
   }) {
     return WardrobeState(
       loading: loading ?? this.loading,
+      settled: settled ?? this.settled,
       loadingMore: loadingMore ?? this.loadingMore,
       items: items ?? this.items,
       total: total ?? this.total,
@@ -79,24 +87,55 @@ class WardrobeController extends StateNotifier<WardrobeState> {
 
   static const _pageSize = 50;
 
+  /// The whole unfiltered wardrobe, when one page held all of it. Lets a chip
+  /// switch paint its items instantly (filtered locally) while the server
+  /// confirms. Dropped on any mutation so a stale piece can't flash back.
+  List<WardrobeItem>? _allItems;
+
+  bool _isUnfilteredComplete(WardrobeState s) =>
+      s.category == WardrobeCategoryFilter.all &&
+      !s.favoritesOnly &&
+      s.settled &&
+      s.items.length == s.total;
+
+  /// Best local guess for a filter's items, or empty when unknown.
+  List<WardrobeItem> _provisional(WardrobeCategoryFilter category, bool favoritesOnly) {
+    final all = _isUnfilteredComplete(state) ? state.items : _allItems;
+    if (all == null) return const [];
+    return all
+        .where((i) => favoritesOnly
+            ? i.isFavorite
+            : category.query == null || i.category == category.query)
+        .toList();
+  }
+
   /// Loads the first page for the current filter. Keeps the existing items
-  /// visible while refreshing so the grid doesn't flash empty.
+  /// visible while refreshing so the grid doesn't flash empty. A response for
+  /// a filter the user has already left is dropped.
   Future<void> load() async {
+    final category = state.category;
+    final favoritesOnly = state.favoritesOnly;
+    bool stillCurrent() =>
+        state.category == category && state.favoritesOnly == favoritesOnly;
     state = state.copyWith(loading: true, error: null);
     try {
       final result = await _service.getItems(
-        category: state.category.query,
-        isFavorite: state.favoritesOnly ? true : null,
+        category: category.query,
+        isFavorite: favoritesOnly ? true : null,
         limit: _pageSize,
         offset: 0,
       );
+      if (!stillCurrent()) return;
       state = state.copyWith(
         loading: false,
+        settled: true,
         items: result.items,
         total: result.total,
       );
+      if (_isUnfilteredComplete(state)) _allItems = state.items;
     } on ApiException catch (e) {
-      state = state.copyWith(loading: false, error: e);
+      if (!stillCurrent()) return;
+      state = state.copyWith(loading: false, settled: true, error: e);
     }
   }
 
@@ -105,11 +144,14 @@ class WardrobeController extends StateNotifier<WardrobeState> {
   /// back onto the same category. No-op if already selected.
   Future<void> selectCategory(WardrobeCategoryFilter category) async {
     if (category == state.category && !state.favoritesOnly) return;
+    final provisional = _provisional(category, false);
     state = state.copyWith(
       category: category,
       favoritesOnly: false,
-      items: const [],
-      total: 0,
+      items: provisional,
+      total: provisional.length,
+      loading: true,
+      settled: false,
     );
     await load();
   }
@@ -118,11 +160,14 @@ class WardrobeController extends StateNotifier<WardrobeState> {
   /// reloads. Resets the category to All — the chip row is single-select.
   Future<void> selectFavorites() async {
     if (state.favoritesOnly) return;
+    final provisional = _provisional(WardrobeCategoryFilter.all, true);
     state = state.copyWith(
       category: WardrobeCategoryFilter.all,
       favoritesOnly: true,
-      items: const [],
-      total: 0,
+      items: provisional,
+      total: provisional.length,
+      loading: true,
+      settled: false,
     );
     await load();
   }
@@ -159,6 +204,7 @@ class WardrobeController extends StateNotifier<WardrobeState> {
   /// it isn't (e.g. opened via deep link), the toggle still persists. Rethrows
   /// for UI feedback.
   Future<void> toggleFavorite(String itemId) async {
+    _allItems = null;
     final index = state.items.indexWhere((i) => i.id == itemId);
     final original = index >= 0 ? state.items[index] : null;
 
@@ -220,6 +266,7 @@ class WardrobeController extends StateNotifier<WardrobeState> {
   /// Creates an item, then reloads the grid (so filters/order stay correct).
   /// Rethrows (incl. 429 `limit_reached`) for UI feedback.
   Future<WardrobeItem> createItem(WardrobeItemInput input) async {
+    _allItems = null;
     final created = await _service.createItem(input);
     await load();
     return created;
@@ -233,6 +280,7 @@ class WardrobeController extends StateNotifier<WardrobeState> {
     WardrobeItemInput input,
     List<PickedImage> images,
   ) async {
+    _allItems = null;
     var created = await _service.createItem(input);
     if (images.isNotEmpty) {
       created = await _service.addImages(created.id, images);
@@ -248,6 +296,7 @@ class WardrobeController extends StateNotifier<WardrobeState> {
   Future<({int created, bool limitReached, ApiException? error})> createBatch(
     List<({WardrobeItemInput input, PickedImage? image})> entries,
   ) async {
+    _allItems = null;
     var created = 0;
     var limitReached = false;
     ApiException? error;
@@ -273,6 +322,7 @@ class WardrobeController extends StateNotifier<WardrobeState> {
   /// Attaches photos to an existing item and swaps the returned item into the
   /// grid.
   Future<WardrobeItem> addImages(String itemId, List<PickedImage> images) async {
+    _allItems = null;
     final updated = await _service.addImages(itemId, images);
     _replaceItem(itemId, updated);
     return updated;
@@ -280,6 +330,7 @@ class WardrobeController extends StateNotifier<WardrobeState> {
 
   /// Applies a partial update and swaps the returned item into the grid.
   Future<WardrobeItem> updateItem(String itemId, WardrobeItemInput input) async {
+    _allItems = null;
     final updated = await _service.updateItem(itemId, input);
     _replaceItem(itemId, updated);
     return updated;
@@ -287,6 +338,7 @@ class WardrobeController extends StateNotifier<WardrobeState> {
 
   /// Deletes an item and removes it from the grid.
   Future<void> deleteItem(String itemId) async {
+    _allItems = null;
     await _service.deleteItem(itemId);
     final remaining = state.items.where((i) => i.id != itemId).toList();
     state = state.copyWith(

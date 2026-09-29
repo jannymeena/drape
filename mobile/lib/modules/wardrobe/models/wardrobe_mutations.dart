@@ -129,11 +129,24 @@ class WardrobeCapacity {
     required this.used,
     required this.isPro,
     this.cap = 30,
-  });
+    int? visibleTotal,
+  }) : visibleTotal = visibleTotal ?? used;
 
+  /// Real (non-starter) items — what the free-tier cap counts.
   final int used;
   final int cap;
   final bool isPro;
+
+  /// Everything the default wardrobe listing shows: real items plus starter
+  /// items while the starter wardrobe is active (retired ones are hidden).
+  final int visibleTotal;
+
+  /// Starter items currently in the wardrobe. Drives the "unlock wardrobe
+  /// mode" banner on every chip — independent of which filter is loaded.
+  int get activeStarterItems => (visibleTotal - used).clamp(0, visibleTotal);
+
+  /// Nothing at all in the wardrobe: every chip shows the full empty state.
+  bool get isEmpty => visibleTotal == 0;
 
   static const _soft = 22;
   static const _urgent = 27;

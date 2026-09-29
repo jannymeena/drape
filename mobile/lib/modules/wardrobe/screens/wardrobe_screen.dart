@@ -79,7 +79,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                     ),
                     const SizedBox(height: 16),
                     ..._buildCapacityBanner(),
-                    ..._buildStarterBanner(state),
+                    ..._buildStarterBanner(),
                     // Chip 0 is the Favorites view; category chips follow,
                     // shifted by one. Single-select across both.
                     CategoryFilterChips(
@@ -95,8 +95,17 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                               WardrobeCategoryFilter.values[i - 1]),
                     ),
                     const SizedBox(height: 16),
-                    ..._buildLowCountBanner(state),
+                    ..._buildLowCountBanner(),
                     ..._buildBody(context, state, controller),
+                    // Same on every chip, loading or not — only the grid
+                    // area above changes. The full empty state has its own CTA.
+                    if (!_showsFullEmptyState(state)) ...[
+                      const SizedBox(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: _GrowYourWardrobeCard(onAdd: _openAddSheet),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -113,7 +122,8 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
     WardrobeState state,
     WardrobeController controller,
   ) {
-    if (state.loading && !state.hasData) {
+    // Nothing known yet for this filter: spinner, never the empty state.
+    if (!state.hasData && (state.loading || !state.settled)) {
       return const [
         Padding(
           padding: EdgeInsets.symmetric(vertical: 64),
@@ -142,19 +152,19 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
           _MessageBlock(message: 'No pieces match "${state.search.trim()}".'),
         ];
       }
-      if (state.favoritesOnly) {
-        return [
-          FavoritesEmptyState(
-            onExplore: () => context.goNamed(ShopFeedScreen.name),
-          ),
-        ];
-      }
-      if (state.category == WardrobeCategoryFilter.all) {
-        // Truly empty wardrobe — the full designed empty state.
+      if (_showsFullEmptyState(state)) {
+        // Truly empty wardrobe — the full designed empty state, on every chip.
         return [
           AnalyticsScreenView(
             event: AnalyticsEvents.wardrobeEmptyStateViewed,
             child: WardrobeEmptyState(onAdd: _openAddSheet),
+          ),
+        ];
+      }
+      if (state.favoritesOnly) {
+        return [
+          FavoritesEmptyState(
+            onExplore: () => context.goNamed(ShopFeedScreen.name),
           ),
         ];
       }
@@ -204,22 +214,31 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
                 ),
         ),
       ],
-      const SizedBox(height: 24),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: _GrowYourWardrobeCard(onAdd: _openAddSheet),
-      ),
     ];
   }
 
+  /// The wardrobe has nothing in it at all (known from the wardrobe-wide
+  /// count, or from a settled, complete All list before that count arrives).
+  bool _showsFullEmptyState(WardrobeState state) {
+    if (state.search.trim().isNotEmpty) return false;
+    final capacity = ref.watch(wardrobeCapacityProvider).valueOrNull;
+    if (capacity != null) return capacity.isEmpty;
+    return state.settled &&
+        !state.favoritesOnly &&
+        state.category == WardrobeCategoryFilter.all &&
+        state.items.isEmpty;
+  }
+
   /// Starter-transition indicator (atelier_starter_wardrobe_indicator
-  /// mockup): shown while the grid still contains starter items and the user
+  /// mockup): shown while the wardrobe still holds starter items and the user
   /// hasn't hit real-wardrobe mode (10 real items — outfit generation drops
-  /// starter items entirely at that point).
-  List<Widget> _buildStarterBanner(WardrobeState state) {
-    final hasStarter = state.items.any((i) => i.isStarterWardrobe);
-    final real = ref.watch(wardrobeCapacityProvider).valueOrNull?.used;
-    if (!hasStarter || real == null || real >= 10) return const [];
+  /// starter items entirely at that point). Wardrobe-wide counts, not the
+  /// loaded grid, so it's the same on every chip and never blinks on a switch.
+  List<Widget> _buildStarterBanner() {
+    final capacity = ref.watch(wardrobeCapacityProvider).valueOrNull;
+    if (capacity == null || capacity.activeStarterItems == 0) return const [];
+    final real = capacity.used;
+    if (real >= 10) return const [];
     return [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -234,16 +253,14 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
 
   /// Low-count warning (wardrobe_with_low_count_warning mockup): the wardrobe
   /// has real items but fewer than 10, and the starter banner no longer
-  /// applies (no starter items in the grid). Session-dismissible; only on the
-  /// main All view so "You have N items." refers to what's on screen.
-  List<Widget> _buildLowCountBanner(WardrobeState state) {
+  /// applies (no starter items). Session-dismissible. Shown on every chip —
+  /// "You have N items." counts the whole wardrobe.
+  List<Widget> _buildLowCountBanner() {
     if (ref.watch(lowCountBannerDismissedProvider)) return const [];
-    if (state.favoritesOnly || state.category != WardrobeCategoryFilter.all) {
-      return const [];
-    }
-    final hasStarter = state.items.any((i) => i.isStarterWardrobe);
-    final real = ref.watch(wardrobeCapacityProvider).valueOrNull?.used;
-    if (hasStarter || real == null || real < 1 || real >= 10) return const [];
+    final capacity = ref.watch(wardrobeCapacityProvider).valueOrNull;
+    if (capacity == null || capacity.activeStarterItems > 0) return const [];
+    final real = capacity.used;
+    if (real < 1 || real >= 10) return const [];
     return [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
