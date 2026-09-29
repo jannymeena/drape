@@ -69,6 +69,18 @@ class ShopService {
     }
   }
 
+  /// `GET /shop/advisor/conversations/{id}` — one conversation (404 if not
+  /// the user's).
+  Future<AdvisorConversation> advisorConversation(String id) async {
+    try {
+      final r = await _dio
+          .get<Map<String, dynamic>>('/shop/advisor/conversations/$id');
+      return AdvisorConversation.fromJson(r.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   /// `GET /shop/advisor/history`.
   Future<List<AdvisorConversation>> advisorHistory() async {
     try {

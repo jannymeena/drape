@@ -53,25 +53,70 @@ class ShopFeed {
       );
 }
 
-class AdvisorSuggestion {
-  const AdvisorSuggestion({
+/// A real catalog product inside an advisor look — snapshotted server-side,
+/// so it carries everything the card and the Buy link need.
+class AdvisorLookItem {
+  const AdvisorLookItem({
+    required this.productId,
     required this.name,
+    required this.brand,
     required this.category,
-    required this.reason,
-    this.productId,
+    required this.priceCents,
+    required this.currency,
+    required this.imageUrl,
+    required this.productUrl,
+    required this.retailer,
+  });
+
+  final String productId;
+  final String name;
+  final String brand;
+  final String category;
+  final int priceCents;
+  final String currency;
+  final String imageUrl;
+  final String productUrl;
+  final String retailer;
+
+  String get priceLabel => '\$${(priceCents / 100).toStringAsFixed(0)}';
+
+  factory AdvisorLookItem.fromJson(Map<String, dynamic> json) =>
+      AdvisorLookItem(
+        productId: json['product_id'] as String,
+        name: json['name'] as String,
+        brand: json['brand'] as String? ?? '',
+        category: json['category'] as String? ?? '',
+        priceCents: json['price_cents'] as int,
+        currency: json['currency'] as String? ?? 'CAD',
+        imageUrl: json['image_url'] as String? ?? '',
+        productUrl: json['product_url'] as String? ?? '',
+        retailer: json['retailer'] as String? ?? '',
+      );
+}
+
+/// One of up to 3 looks in a stylist reply.
+class AdvisorLook {
+  const AdvisorLook({
+    required this.name,
+    required this.note,
+    required this.items,
+    required this.totalPriceCents,
   });
 
   final String name;
-  final String category;
-  final String reason;
-  final String? productId;
+  final String note; // ties the look to the user's wardrobe; may be empty
+  final List<AdvisorLookItem> items;
+  final int totalPriceCents;
 
-  factory AdvisorSuggestion.fromJson(Map<String, dynamic> json) =>
-      AdvisorSuggestion(
+  String get totalLabel => '~\$${(totalPriceCents / 100).toStringAsFixed(0)}';
+
+  factory AdvisorLook.fromJson(Map<String, dynamic> json) => AdvisorLook(
         name: json['name'] as String? ?? '',
-        category: json['category'] as String? ?? '',
-        reason: json['reason'] as String? ?? '',
-        productId: json['product_id'] as String?,
+        note: json['note'] as String? ?? '',
+        items: (json['items'] as List<dynamic>? ?? const [])
+            .map((e) => AdvisorLookItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        totalPriceCents: json['total_price_cents'] as int? ?? 0,
       );
 }
 
@@ -79,18 +124,19 @@ class AdvisorMessage {
   const AdvisorMessage({
     required this.role,
     required this.content,
-    this.suggestions = const [],
+    this.looks = const [],
   });
 
   final String role; // user | assistant
   final String content;
-  final List<AdvisorSuggestion> suggestions;
+  // Empty for plain answers and for conversations saved before looks existed.
+  final List<AdvisorLook> looks;
 
   factory AdvisorMessage.fromJson(Map<String, dynamic> json) => AdvisorMessage(
         role: json['role'] as String,
         content: json['content'] as String,
-        suggestions: (json['suggestions'] as List<dynamic>? ?? const [])
-            .map((e) => AdvisorSuggestion.fromJson(e as Map<String, dynamic>))
+        looks: (json['looks'] as List<dynamic>? ?? const [])
+            .map((e) => AdvisorLook.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 }

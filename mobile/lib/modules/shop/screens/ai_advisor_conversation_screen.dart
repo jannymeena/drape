@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,12 +10,14 @@ import '../../../shared/theme/app_colors.dart';
 import '../../profile/screens/compare_plans_screen.dart';
 import '../models/shop.dart';
 import '../shop_service.dart';
-import '../widgets/product_options_sheet.dart';
+import '../widgets/advisor_measurement_banner.dart';
+import '../../../shared/widgets/buy_pill.dart';
 import '../../../shared/widgets/zoura_header.dart';
 
 /// AI Style Advisor chat (`POST /shop/advisor/ask`). Opens with either an
 /// initial [question] (fired immediately, one call per turn) or an existing
-/// [conversationId] from history. 429s surface the paywall.
+/// [conversationId] from history. Stylist replies carry up to 3 looks of real
+/// products with Buy links. A 429 swaps the input for the upgrade card.
 class AiAdvisorConversationScreen extends ConsumerStatefulWidget {
   static const path = 'advisor/conversation';
   static const name = 'shop_advisor_conversation';
@@ -42,6 +45,7 @@ class _AiAdvisorConversationScreenState
   String? _conversationId;
   String? _pendingQuestion; // rendered as a user bubble while waiting
   bool _sending = false;
+  bool _limitReached = false;
 
   @override
   void initState() {
@@ -63,12 +67,12 @@ class _AiAdvisorConversationScreenState
 
   Future<void> _loadExisting() async {
     try {
-      final history = await ref.read(shopServiceProvider).advisorHistory();
-      final convo =
-          history.where((c) => c.id == widget.conversationId).firstOrNull;
-      if (convo != null && mounted) {
-        setState(() => _messages = convo.messages);
-      }
+      final convo = await ref
+          .read(shopServiceProvider)
+          .advisorConversation(widget.conversationId!);
+      if (!mounted) return;
+      setState(() => _messages = convo.messages);
+      _scrollToEnd();
     } on ApiException catch (e) {
       if (mounted) _showError(e.message);
     }
@@ -106,7 +110,7 @@ class _AiAdvisorConversationScreenState
         _sending = false;
       });
       if (e.statusCode == 429) {
-        _showLimit(e.message);
+        _showLimit();
       } else {
         _showError(e.message);
       }
@@ -137,25 +141,20 @@ class _AiAdvisorConversationScreenState
         .showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _showLimit(String message) {
+  void _showLimit() {
     ref
         .read(analyticsProvider)
         .capture(AnalyticsEvents.aiAdvisorLimitReached);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        action: SnackBarAction(
-          label: 'Upgrade',
-          onPressed: () {
-            ref.read(analyticsProvider).capture(
-              AnalyticsEvents.upgradeTapped,
-              {'source': 'advisor_limit'},
-            );
-            context.goNamed(ComparePlansScreen.name);
-          },
-        ),
-      ),
+    setState(() => _limitReached = true);
+    _scrollToEnd();
+  }
+
+  void _upgrade() {
+    ref.read(analyticsProvider).capture(
+      AnalyticsEvents.upgradeTapped,
+      {'source': 'advisor_limit'},
     );
+    context.goNamed(ComparePlansScreen.name);
   }
 
   @override
@@ -167,6 +166,7 @@ class _AiAdvisorConversationScreenState
         child: Column(
           children: [
             NestedHeader(title: 'AI Advisor', onBack: () => context.pop()),
+            const AdvisorMeasurementBanner(),
             Expanded(
               child: ListView(
                 controller: _scroll,
@@ -206,11 +206,14 @@ class _AiAdvisorConversationScreenState
                 ],
               ),
             ),
-            _InputBar(
-              controller: _input,
-              enabled: !_sending,
-              onSend: _send,
-            ),
+            if (_limitReached)
+              _LimitCard(onUpgrade: _upgrade)
+            else
+              _InputBar(
+                controller: _input,
+                enabled: !_sending,
+                onSend: _send,
+              ),
           ],
         ),
       ),
@@ -243,12 +246,12 @@ class _UserBubble extends StatelessWidget {
   }
 }
 
-class _StylistReply extends ConsumerWidget {
+class _StylistReply extends StatelessWidget {
   final AdvisorMessage message;
   const _StylistReply({required this.message});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -289,79 +292,263 @@ class _StylistReply extends ConsumerWidget {
                 ),
           ),
         ),
-        for (final suggestion in message.suggestions) ...[
-          const SizedBox(height: 8),
-          _SuggestionCard(suggestion: suggestion),
+        if (message.looks.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _Looks(looks: message.looks),
         ],
       ],
     );
   }
 }
 
-class _SuggestionCard extends ConsumerWidget {
-  final AdvisorSuggestion suggestion;
-  const _SuggestionCard({required this.suggestion});
+/// Look 1 expanded; the rest as collapsed rows that expand in its place.
+class _Looks extends StatefulWidget {
+  final List<AdvisorLook> looks;
+  const _Looks({required this.looks});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Resolve the matched catalog product (if any) from the loaded feed.
-    // A resolved card opens the same product-options sheet as the feed grid;
-    // an unmatched suggestion stays informational.
-    final product = ref
-        .watch(shopFeedProvider)
-        .valueOrNull
-        ?.products
-        .where((p) => p.id == suggestion.productId)
-        .firstOrNull;
-    return Material(
-      color: AppColors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: product == null
-            ? null
-            : () => showProductOptionsSheet(
-                  context,
-                  title: product.name,
-                  unlockCount: 6,
+  State<_Looks> createState() => _LooksState();
+}
+
+class _LooksState extends State<_Looks> {
+  int _open = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final looks = widget.looks;
+    return Column(
+      children: [
+        for (var i = 0; i < looks.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          i == _open
+              ? _LookCard(look: looks[i], index: i, count: looks.length)
+              : _LookRow(
+                  look: looks[i],
+                  index: i,
+                  onTap: () => setState(() => _open = i),
                 ),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border:
-                Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.4)),
+        ],
+      ],
+    );
+  }
+}
+
+class _LookCard extends StatelessWidget {
+  final AdvisorLook look;
+  final int index;
+  final int count;
+  const _LookCard({required this.look, required this.index, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.taupeSoft.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'LOOK ${index + 1} OF $count',
+            style: textTheme.labelSmall?.copyWith(
+              color: AppColors.gold,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          child: Row(
+          const SizedBox(height: 6),
+          Row(
             children: [
-              const Icon(Icons.checkroom_outlined,
-                  color: AppColors.espresso, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(suggestion.name,
-                        style: Theme.of(context).textTheme.titleSmall),
-                    Text(suggestion.reason,
-                        style: Theme.of(context).textTheme.bodySmall),
-                    if (product != null)
-                      Text(
-                        '${product.brand} · ${product.priceLabel}',
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: AppColors.espresso,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                      ),
-                  ],
+              Expanded(child: Text(look.name, style: textTheme.titleLarge)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.ivoryWarm,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  look.totalLabel,
+                  style: textTheme.labelMedium?.copyWith(
+                    color: AppColors.espresso,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              if (product != null)
-                const Icon(Icons.chevron_right,
-                    color: AppColors.taupe, size: 20),
             ],
           ),
+          const SizedBox(height: 14),
+          for (final item in look.items) ...[
+            _ItemRow(item: item),
+            const SizedBox(height: 12),
+          ],
+          if (look.note.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.tanFixed.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lightbulb_outline,
+                      color: AppColors.espresso, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      look.note,
+                      style: textTheme.bodySmall
+                          ?.copyWith(color: AppColors.espressoDark),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ItemRow extends StatelessWidget {
+  final AdvisorLookItem item;
+  const _ItemRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: 52,
+            height: 52,
+            color: AppColors.ivoryWarm,
+            child: item.imageUrl.isEmpty
+                ? const Icon(Icons.checkroom_outlined, color: AppColors.taupeSoft)
+                : CachedNetworkImage(
+                    imageUrl: item.imageUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, _, _) => const Icon(
+                        Icons.checkroom_outlined,
+                        color: AppColors.taupeSoft),
+                  ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleSmall),
+              Text(item.brand,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.taupe,
+                    fontStyle: FontStyle.italic,
+                  )),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(item.priceLabel,
+            style: textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+        if (item.productUrl.isNotEmpty) ...[
+          const SizedBox(width: 10),
+          BuyPill(onTap: () => openProductLink(context, item.productUrl)),
+        ],
+      ],
+    );
+  }
+}
+
+class _LookRow extends StatelessWidget {
+  final AdvisorLook look;
+  final int index;
+  final VoidCallback onTap;
+  const _LookRow({required this.look, required this.index, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Material(
+      color: AppColors.ivoryWarm,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Text((index + 1).toString().padLeft(2, '0'),
+                  style: textTheme.labelMedium?.copyWith(color: AppColors.taupe)),
+              const SizedBox(width: 12),
+              Expanded(child: Text(look.name, style: textTheme.titleMedium)),
+              Text(look.totalLabel,
+                  style: textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(width: 8),
+              const Icon(Icons.expand_more, color: AppColors.taupe),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Replaces the input once the weekly question limit is hit (429).
+class _LimitCard extends StatelessWidget {
+  final VoidCallback onUpgrade;
+  const _LimitCard({required this.onUpgrade});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.tanFixed.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Unlock Unlimited Styling Advice', style: textTheme.titleMedium),
+            const SizedBox(height: 6),
+            Text(
+              "You've used this week's questions. Upgrade to ZOURA Pro for "
+              'unlimited questions, or ask again after your weekly reset.',
+              style: textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.gold,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: onUpgrade,
+                child: const Text('Upgrade to Pro'),
+              ),
+            ),
+          ],
         ),
       ),
     );

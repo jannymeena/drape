@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/analytics_screen_view.dart';
+import '../models/shop.dart';
+import '../shop_service.dart';
+import '../widgets/advisor_measurement_banner.dart';
 import 'ai_advisor_conversation_screen.dart';
 import 'ai_advisor_history_screen.dart';
 import 'wishlist_screen.dart';
 import '../../../shared/widgets/zoura_header.dart';
 
-class AiAdvisorInitialScreen extends StatelessWidget {
+class AiAdvisorInitialScreen extends ConsumerWidget {
   static const path = 'advisor';
   static const name = 'shop_advisor';
 
   const AiAdvisorInitialScreen({super.key});
 
-  static const _historyChips = ['Wedding in Tuscany', 'Work conference outfits'];
+  /// Recent conversations shown under the prompt; tapping reopens one.
+  static const _recentCount = 3;
 
   static const _prompts = [
     'Traditional Tamil wedding guest look',
@@ -27,7 +32,11 @@ class AiAdvisorInitialScreen extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recent = (ref.watch(advisorHistoryProvider).valueOrNull ??
+            const <AdvisorConversation>[])
+        .take(_recentCount)
+        .toList();
     return AnalyticsScreenView(
       event: AnalyticsEvents.aiStyleAdvisorOpened,
       properties: const {'source': 'shop_tab'},
@@ -42,7 +51,7 @@ class AiAdvisorInitialScreen extends StatelessWidget {
               onFavorites: () => context.goNamed(WishlistScreen.name),
               onHistory: () => context.goNamed(AiAdvisorHistoryScreen.name),
             ),
-            const _MeasurementBanner(),
+            const AdvisorMeasurementBanner(),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
@@ -69,28 +78,24 @@ class AiAdvisorInitialScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 24),
-                  Text('HISTORY',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.taupe,
-                            letterSpacing: 1.4,
-                            fontWeight: FontWeight.w700,
-                          )),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final h in _historyChips)
-                        _HistoryChip(
-                          label: h,
-                          onTap: () => context.goNamed(
-                            AiAdvisorConversationScreen.name,
-                            queryParameters: {'q': h},
-                          ),
+                  if (recent.isNotEmpty) ...[
+                    Text('RECENT QUESTIONS',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppColors.taupe,
+                              letterSpacing: 1.4,
+                              fontWeight: FontWeight.w700,
+                            )),
+                    const SizedBox(height: 6),
+                    for (final c in recent)
+                      _RecentQuestion(
+                        title: c.title,
+                        onTap: () => context.goNamed(
+                          AiAdvisorConversationScreen.name,
+                          queryParameters: {'id': c.id},
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                      ),
+                    const SizedBox(height: 16),
+                  ],
                   GridView.count(
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
@@ -158,50 +163,29 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _MeasurementBanner extends StatelessWidget {
-  const _MeasurementBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: AppColors.tanFixed.withValues(alpha: 0.5),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Row(
-        children: [
-          const Icon(Icons.lightbulb_outline, color: AppColors.espresso, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text('Complete measurements for better fit suggestions',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.espressoDark,
-                    )),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HistoryChip extends StatelessWidget {
-  final String label;
+class _RecentQuestion extends StatelessWidget {
+  final String title;
   final VoidCallback onTap;
-  const _HistoryChip({required this.label, required this.onTap});
+  const _RecentQuestion({required this.title, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
-        side: BorderSide(color: AppColors.taupeSoft.withValues(alpha: 0.6)),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.history, color: AppColors.taupe, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          ],
         ),
       ),
     );

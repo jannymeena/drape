@@ -23,7 +23,7 @@ void main() {
     expect(feed.measurementsComplete, isFalse);
   });
 
-  test('AdvisorConversation parses messages with suggestions', () {
+  test('AdvisorConversation parses looks with real products', () {
     final convo = AdvisorConversation.fromJson({
       'id': 'c1',
       'title': 'Summer wedding',
@@ -33,19 +33,45 @@ void main() {
         {
           'role': 'assistant',
           'content': 'Linen layers.',
-          'suggestions': [
+          'looks': [
             {
-              'name': 'Linen shirt',
-              'category': 'tops',
-              'reason': 'Breathable.',
-              'product_id': 'p1',
+              'name': 'Garden Party',
+              'note': 'Pairs with your navy chinos.',
+              'total_price_cents': 26300,
+              'items': [
+                {
+                  'product_id': 'p1',
+                  'name': 'White Linen Shirt',
+                  'brand': 'Everlane',
+                  'category': 'tops',
+                  'price_cents': 6800,
+                  'currency': 'CAD',
+                  'image_url': 'https://img/1.jpg',
+                  'product_url': 'https://www.awin1.com/p1',
+                  'retailer': 'Everlane',
+                },
+              ],
             },
           ],
         },
       ],
     });
-    expect(convo.messages, hasLength(2));
-    expect(convo.messages.last.suggestions.single.productId, 'p1');
+    final look = convo.messages.last.looks.single;
+    expect(look.totalLabel, '~\$263');
+    expect(look.items.single.priceLabel, '\$68');
+    expect(look.items.single.productUrl, 'https://www.awin1.com/p1');
+  });
+
+  test('AdvisorMessage from before looks existed parses with no looks', () {
+    final m = AdvisorMessage.fromJson({
+      'role': 'assistant',
+      'content': 'Old answer',
+      'suggestions': [
+        {'name': 'Shirt', 'category': 'tops', 'reason': 'r'},
+      ],
+    });
+    expect(m.content, 'Old answer');
+    expect(m.looks, isEmpty);
   });
 
   test('BuyDontBuyVerdict parses and classifies', () {
