@@ -27,3 +27,9 @@ Defaults with no defines: Google hidden (no client ID), Apple shown on iOS
 only. Until the Sign in with Apple capability is added to the Runner target,
 run iOS dev builds with `--dart-define=DISABLED_FEATURES=apple_login`.
 Several defines can be grouped in a JSON file: `--dart-define-from-file=dev.json`.
+
+build apk
+
+flutter build apk --dart-define-from-file=env/tbd.env --debug
+
+flutter build apk --release --dart-define-from-file=env/tbd.env
