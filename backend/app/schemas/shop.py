@@ -33,15 +33,42 @@ class AdvisorAskRequest(BaseModel):
 
 
 class AdvisorSuggestion(BaseModel):
+    """Legacy (pre-looks) category suggestion — still read from old saved
+    conversations, never written."""
+
     name: str
     category: str
     reason: str
     product_id: UUID | None = None
 
 
+class AdvisorLookItem(BaseModel):
+    """A real catalog product in a look, snapshotted when the answer was given
+    so old conversations stay readable if the product later leaves the feed."""
+
+    product_id: UUID
+    name: str
+    brand: str
+    category: str
+    price_cents: int
+    currency: str
+    image_url: str
+    product_url: str
+    retailer: str
+
+
+class AdvisorLook(BaseModel):
+    name: str
+    # One line tying the look to the user's own wardrobe or profile.
+    note: str = ""
+    items: list[AdvisorLookItem]
+    total_price_cents: int
+
+
 class AdvisorMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str
+    looks: list[AdvisorLook] | None = None
     suggestions: list[AdvisorSuggestion] | None = None
 
 

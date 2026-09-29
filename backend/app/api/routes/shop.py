@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+from uuid import UUID
 
 from fastapi import (
     APIRouter,
@@ -137,6 +138,24 @@ def advisor_history(
 ) -> AdvisorHistoryResponse:
     convos = shop_service.advisor_history(db, user=user)
     return AdvisorHistoryResponse(conversations=[_to_conversation(c) for c in convos])
+
+
+@router.get(
+    "/advisor/conversations/{conversation_id}",
+    response_model=AdvisorConversationResponse,
+)
+def advisor_conversation(
+    conversation_id: UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> AdvisorConversationResponse:
+    try:
+        convo = shop_service.get_conversation(
+            db, user=user, conversation_id=conversation_id
+        )
+    except ShopError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    return _to_conversation(convo)
 
 
 @router.post("/buy-check", response_model=BuyDontBuyResponse)

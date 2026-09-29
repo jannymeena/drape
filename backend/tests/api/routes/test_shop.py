@@ -23,14 +23,39 @@ def _synced_mock_catalog(db):
 
 
 class _ShopAI(AIProvider):
-    """Deterministic advisor/buy-check responses."""
+    """Deterministic advisor/buy-check responses. Records every chat call so
+    tests can assert what the advisor sent (history, system context)."""
 
-    def __init__(self, chat_json=None, image_json=None):
+    calls: list[dict] = []
+
+    def __init__(self, chat_json=None, image_json=None, chat_text=None):
+        self._chat_text = chat_text
         self._chat = chat_json or {
             "reply": "Linen layers will beat the heat.",
-            "suggestions": [
-                {"name": "Linen shirt", "category": "tops", "reason": "Breathable."},
-                {"name": "Loafers", "category": "shoes", "reason": "Smart casual."},
+            "looks": [
+                {
+                    "name": "Garden Party",
+                    "note": "Pairs with your navy chinos.",
+                    "pieces": [
+                        {"category": "tops", "color": "white", "keywords": ["linen", "shirt"]},
+                        {"category": "shoes", "color": "white", "keywords": ["sneakers"]},
+                    ],
+                },
+                {
+                    "name": "Evening",
+                    "note": "",
+                    "pieces": [
+                        {"category": "top", "color": "black", "keywords": ["turtleneck"]},
+                        {"category": "top", "color": "white", "keywords": ["linen"]},
+                        {"category": "capes", "color": "red", "keywords": []},
+                        {"category": "bottoms", "color": "gold", "keywords": ["saree"]},
+                    ],
+                },
+                {
+                    "name": "Nothing Fits",
+                    "note": "",
+                    "pieces": [{"category": "dresses", "keywords": ["lehenga"]}],
+                },
             ],
         }
         self._image = image_json or {
@@ -42,13 +67,15 @@ class _ShopAI(AIProvider):
         }
 
     async def chat(self, messages, *, model=None, system=None, max_tokens=1024, cache_system=False):
-        return json.dumps(self._chat)
+        _ShopAI.calls.append({"messages": messages, "system": system})
+        return self._chat_text if self._chat_text is not None else json.dumps(self._chat)
 
     async def analyze_image(self, image_bytes, prompt, *, media_type="image/jpeg"):
         return json.dumps(self._image)
 
 
 def _use_shop_ai(**kwargs):
+    _ShopAI.calls = []
     app.dependency_overrides[get_ai_provider] = lambda: _ShopAI(**kwargs)
 
 
@@ -103,7 +130,7 @@ def test_feed_etag_revalidates_with_304(authed_client, db):
 # --- 7b advisor --------------------------------------------------------------
 
 
-def test_advisor_ask_returns_reply_and_matched_products(authed_client):
+def test_advisor_ask_returns_looks_matched_to_real_products(authed_client):
     _use_shop_ai()
     r = authed_client.post(
         "/api/v1/shop/advisor/ask", json={"question": "What do I wear to a summer wedding?"}
@@ -114,24 +141,156 @@ def test_advisor_ask_returns_reply_and_matched_products(authed_client):
     assert len(convo["messages"]) == 2
     reply = convo["messages"][1]
     assert reply["content"] == "Linen layers will beat the heat."
-    sugs = reply["suggestions"]
-    assert {s["category"] for s in sugs} == {"tops", "shoes"}
-    assert all(s["product_id"] for s in sugs)  # matched to catalog products
 
-    # Follow-up lands in the same conversation.
+    first, second = reply["looks"]
+    assert first["name"] == "Garden Party"
+    assert first["note"] == "Pairs with your navy chinos."
+    # Colour + keyword hits pick the right product, not the cheapest.
+    assert [i["name"] for i in first["items"]] == [
+        "White Linen Shirt",
+        "White Leather Sneakers",
+    ]
+    shirt = first["items"][0]
+    assert shirt["brand"] == "Everlane"
+    assert shirt["price_cents"] == 6800
+    assert shirt["product_url"] == "https://shop.example/001"
+    assert shirt["image_url"].endswith("/001.jpg")
+    assert first["total_price_cents"] == 6800 + 19500
+    # "top" is aliased to tops. The linen shirt is already used (never the
+    # same product twice) and nothing else qualifies, so that piece is left
+    # out — as are an unknown category and a piece the shop can't match
+    # ("saree"). A look with no matches at all is dropped.
+    assert [i["name"] for i in second["items"]] == ["Black Turtleneck"]
+    assert [look["name"] for look in reply["looks"]] == ["Garden Party", "Evening"]
+
+
+def test_advisor_follow_up_sends_the_conversation_so_far(authed_client):
+    _use_shop_ai()
+    convo = authed_client.post(
+        "/api/v1/shop/advisor/ask", json={"question": "Summer wedding?"}
+    ).json()
     r = authed_client.post(
         "/api/v1/shop/advisor/ask",
-        json={"question": "And for the evening?", "conversation_id": convo["id"]},
+        json={"question": "Anything cheaper?", "conversation_id": convo["id"]},
     )
     assert len(r.json()["messages"]) == 4
+
+    sent = _ShopAI.calls[-1]["messages"]
+    assert [m["role"] for m in sent] == ["user", "assistant", "user"]
+    assert sent[0]["content"] == "Summer wedding?"
+    # The earlier answer's looks ride along with prices, for "cheaper" asks.
+    assert "[Looks shown: Garden Party (~$263: White Linen Shirt $68" in sent[1]["content"]
+    assert sent[2]["content"] == "Anything cheaper?"
 
     history = authed_client.get("/api/v1/shop/advisor/history").json()
     assert len(history["conversations"]) == 1
 
 
-def test_advisor_weekly_limit_429_with_plans(authed_client):
+def test_advisor_system_knows_the_user_and_their_own_wardrobe(authed_client, db):
+    user = authed_client.test_user
+    user.shopping_style = "mens"
+    user.style_goals = ["look sharper at work"]
+    user.style_profile = {"style_aesthetics": ["minimalist"], "occupation": "Nurse"}
+    db.commit()
+    make_wardrobe_item(db, user, name="Navy Blazer", category="outerwear", color_name="navy")
+    make_wardrobe_item(db, user, name="Starter Tee", is_starter_wardrobe=True)
     _use_shop_ai()
-    for _ in range(10):
+    authed_client.post("/api/v1/shop/advisor/ask", json={"question": "Wedding?"})
+
+    system = _ShopAI.calls[-1]["system"]
+    assert "Shops for: menswear." in system
+    assert "look sharper at work" in system
+    assert "style aesthetics: minimalist." in system
+    assert "Nurse" not in system  # occupation stays out of the prompt
+    assert "- Navy Blazer [outerwear | navy" in system
+    assert "Starter Tee" not in system  # starter pieces aren't theirs
+    # The shop's vocabulary steers the AI toward matchable pieces.
+    assert "- tops: " in system
+    assert "linen" in system.split("The shop's vocabulary")[1]
+
+
+def test_advisor_formal_piece_never_gets_a_casual_product(authed_client, db):
+    make_catalog(db, genders=("women",))  # tagged: formality set
+    user = authed_client.test_user
+    user.shopping_style = "womens"
+    db.commit()
+    _use_shop_ai(
+        chat_json={
+            "reply": "Go formal.",
+            "looks": [
+                {
+                    "name": "Gala",
+                    "pieces": [
+                        {"category": "tops", "formality": "formal", "keywords": ["top"]},
+                    ],
+                }
+            ],
+        }
+    )
+    reply = authed_client.post(
+        "/api/v1/shop/advisor/ask", json={"question": "Gala?"}
+    ).json()["messages"][1]
+    # Every women's top says "top"; the casual ones are ruled out and the
+    # formal one (black) wins on the formality match.
+    assert [i["name"] for i in reply["looks"][0]["items"]] == ["Women Black Top"]
+
+
+def test_advisor_unparseable_reply_is_shown_as_text(authed_client):
+    _use_shop_ai(chat_text="Wear what makes you happy!")
+    r = authed_client.post("/api/v1/shop/advisor/ask", json={"question": "Help"})
+    reply = r.json()["messages"][1]
+    assert reply["content"] == "Wear what makes you happy!"
+    assert reply["looks"] == []
+
+
+def test_advisor_conversation_by_id_owner_only(authed_client, client, make_user, auth_headers):
+    _use_shop_ai()
+    convo = authed_client.post(
+        "/api/v1/shop/advisor/ask", json={"question": "Date night?"}
+    ).json()
+    r = authed_client.get(f"/api/v1/shop/advisor/conversations/{convo['id']}")
+    assert r.status_code == 200
+    assert r.json()["messages"][1]["looks"]
+
+    stranger = make_user(email="stranger@example.com")
+    r = client.get(
+        f"/api/v1/shop/advisor/conversations/{convo['id']}", headers=auth_headers(stranger)
+    )
+    assert r.status_code == 404
+    # ...and can't continue it either.
+    r = client.post(
+        "/api/v1/shop/advisor/ask",
+        json={"question": "hi", "conversation_id": convo["id"]},
+        headers=auth_headers(stranger),
+    )
+    assert r.status_code == 404
+
+
+def test_advisor_old_suggestion_conversations_still_load(authed_client, db):
+    from app.db.models import AdvisorConversation
+
+    old = AdvisorConversation(
+        user_id=authed_client.test_user.id,
+        title="Old",
+        messages=[
+            {"role": "user", "content": "Old question"},
+            {
+                "role": "assistant",
+                "content": "Old answer",
+                "suggestions": [{"name": "Shirt", "category": "tops", "reason": "r"}],
+            },
+        ],
+    )
+    db.add(old)
+    db.commit()
+    r = authed_client.get(f"/api/v1/shop/advisor/conversations/{old.id}")
+    assert r.status_code == 200
+    assert r.json()["messages"][1]["looks"] is None
+
+
+def test_advisor_weekly_limit_is_25_then_429_with_plans(authed_client):
+    _use_shop_ai()
+    for _ in range(25):
         r = authed_client.post(
             "/api/v1/shop/advisor/ask", json={"question": "hi"}
         )
@@ -140,6 +299,7 @@ def test_advisor_weekly_limit_429_with_plans(authed_client):
     assert r.status_code == 429
     detail = r.json()["detail"]
     assert detail["resource"] == "advisor"
+    assert detail["limit"] == 25
     assert detail["plans"]
 
 

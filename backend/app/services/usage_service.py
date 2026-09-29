@@ -46,7 +46,8 @@ DEFAULT_OUTFIT_LIMIT = 21
 DEFAULT_MIX_LIMIT = 3
 # CTO doc 4 §Shop free limits.
 DEFAULT_BDB_LIMIT = 5
-DEFAULT_ADVISOR_LIMIT = 10
+# Advisor: 25/week (product decision 2026-09-30; the doc said 10/day).
+DEFAULT_ADVISOR_LIMIT = 25
 
 # Reset clock: Monday 05:00 in the user's timezone.
 _RESET_HOUR_LOCAL = 5
