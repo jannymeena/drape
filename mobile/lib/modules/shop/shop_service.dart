@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
 import '../../shared/providers/network_provider.dart';
+import '../../shared/providers/session_epoch.dart';
 import '../wardrobe/image_pick.dart';
 import 'models/shop.dart';
 
@@ -13,13 +14,39 @@ class ShopService {
 
   final Dio _dio;
 
-  /// `GET /shop/feed`.
+  // Last feed + its ETag. The backend answers an unchanged catalog with an
+  // empty 304, so revisits (and a feed prefetched during onboarding) don't
+  // re-download the product list.
+  ShopFeed? _feed;
+  String? _feedEtag;
+
+  /// `GET /shop/feed`, cache-validated with If-None-Match.
   Future<ShopFeed> getFeed() async {
     try {
-      final r = await _dio.get<Map<String, dynamic>>('/shop/feed');
-      return ShopFeed.fromJson(r.data!);
+      final r = await _dio.get<Map<String, dynamic>>(
+        '/shop/feed',
+        options: Options(
+          headers: {if (_feed != null && _feedEtag != null) 'If-None-Match': _feedEtag},
+          validateStatus: (s) => s != null && ((s >= 200 && s < 300) || s == 304),
+        ),
+      );
+      final cached = _feed;
+      if (r.statusCode == 304 && cached != null) return cached;
+      final feed = ShopFeed.fromJson(r.data!);
+      _feed = feed;
+      _feedEtag = r.headers.value('etag');
+      return feed;
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
+    }
+  }
+
+  /// Warms the feed cache (onboarding prefetch). Best-effort.
+  Future<void> prefetchFeed() async {
+    try {
+      await getFeed();
+    } on ApiException {
+      // The Shop tab loads it normally.
     }
   }
 
@@ -137,6 +164,8 @@ class ShopService {
 }
 
 final shopServiceProvider = Provider<ShopService>((ref) {
+  // User-scoped: the cached feed is filtered to the user's genders.
+  ref.watch(sessionEpochProvider);
   return ShopService(ref.read(dioProvider));
 });
 

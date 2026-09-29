@@ -164,27 +164,13 @@ class OnboardingService {
     }
   }
 
-  /// `GET /starter-wardrobe/templates` — the browsable starter-kit catalogue.
-  Future<List<StarterTemplate>> getStarterTemplates() async {
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/starter-wardrobe/templates',
-      );
-      final list = (response.data!['templates'] as List).cast<Map<String, dynamic>>();
-      return list.map(StarterTemplate.fromJson).toList();
-    } on DioException catch (e) {
-      throw ApiException.fromDio(e);
-    }
-  }
-
-  /// `POST /starter-wardrobe/assign` — assign a starter kit and materialize its
-  /// items into the wardrobe. [templateId] null lets the server auto-pick from
-  /// the user's shopping_style + age_range (neutral default if unmatched).
-  Future<StarterWardrobeResult> assignStarterWardrobe({String? templateId}) async {
+  /// `POST /starter-wardrobe/assign` — the server picks a capsule of AWIN
+  /// products for the user's shopping_style and materializes it into the
+  /// wardrobe. 503 while the catalog is still being tagged (fresh sync).
+  Future<StarterWardrobeResult> assignStarterWardrobe() async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/starter-wardrobe/assign',
-        data: {'template_id': templateId},
       );
       return StarterWardrobeResult.fromJson(response.data!);
     } on DioException catch (e) {
@@ -193,7 +179,7 @@ class OnboardingService {
   }
 
   /// `POST /starter-wardrobe/deactivate` — manual opt-out of the starter kit.
-  /// (Auto-deactivation at 15 real items is handled server-side.)
+  /// (Auto-deactivation at 10 real items is handled server-side.)
   Future<void> deactivateStarterWardrobe({String? reason}) async {
     try {
       await _dio.post<void>(

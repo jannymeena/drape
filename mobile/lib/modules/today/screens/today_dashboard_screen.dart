@@ -27,6 +27,7 @@ import '../widgets/outfit_card.dart';
 import '../widgets/outfit_card_skeleton.dart';
 import '../widgets/outfit_item_grid.dart';
 import '../widgets/resume_banner.dart';
+import '../widgets/shop_the_look_sheet.dart';
 import '../widgets/starter_wardrobe_banner.dart';
 import '../widgets/usage_warning_banner.dart';
 import '../widgets/weather_chip.dart';
@@ -375,23 +376,26 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     return OutfitCard(
       outfit: OutfitCardData(
         id: outfit.id,
-        occasion: outfit.occasionLabel,
+        heading: outfit.occasionHeading,
         items: [
           for (final i in outfit.items)
             GarmentCell(
               imageUrl: i.primaryImageUrl,
               category: i.category,
               color: garmentColorFromName(i.colorName),
+              buyUrl: i.productUrl,
             ),
         ],
         reasoning: outfit.aiReasoningShort ?? '',
         logged: outfit.isLogged,
         favorited: outfit.isFavorite,
+        shopTheLook: outfit.shopTheLook,
       ),
       regenerating: state.regeneratingIds.contains(outfit.id),
       logging: state.loggingIds.contains(outfit.id),
       onRegenerate: () => _onRegenerate(outfit.id),
       onLogWorn: () => _onLogWorn(outfit.id),
+      onShopTheLook: () => ShopTheLookSheet.show(context, outfit),
       onMix: () => MixMatchSheet.show(context, outfit),
       onFavorite: () => _onFavorite(outfit.id),
       onLearnMore: () => context.goNamed(

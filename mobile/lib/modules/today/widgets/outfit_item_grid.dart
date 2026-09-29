@@ -2,15 +2,18 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/buy_pill.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 
 /// One garment in the grid: its photo (if any) plus the category + colour used
-/// to draw a [GarmentPlaceholder] when there's no photo (e.g. starter items).
+/// to draw a [GarmentPlaceholder] when there's no photo. [buyUrl] is set for
+/// pieces the user doesn't own (AWIN products): the tile gets a "Buy" pill.
 class GarmentCell {
   final String? imageUrl;
   final String category;
   final Color? color;
-  const GarmentCell({this.imageUrl, required this.category, this.color});
+  final String? buyUrl;
+  const GarmentCell({this.imageUrl, required this.category, this.color, this.buyUrl});
 }
 
 /// Client-side composite of an outfit's item images (2 columns, square tiles).
@@ -66,6 +69,19 @@ class _OutfitGridCell extends StatelessWidget {
             GarmentPlaceholder(category: cell.category, color: cell.color),
       );
     }
-    return ClipRRect(borderRadius: BorderRadius.circular(8), child: child);
+    final tile = ClipRRect(borderRadius: BorderRadius.circular(8), child: child);
+    final url = cell.buyUrl;
+    if (url == null) return tile;
+    void open() => openProductLink(context, url);
+    return GestureDetector(
+      onTap: open,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          tile,
+          Positioned(top: 6, right: 6, child: BuyPill(onTap: open)),
+        ],
+      ),
+    );
   }
 }

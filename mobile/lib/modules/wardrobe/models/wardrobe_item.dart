@@ -32,7 +32,7 @@ class WardrobeItem {
     this.lastWorn,
     this.costPerWear,
     this.favoritedAt,
-    this.starterTemplateId,
+    this.productUrl,
     this.aiDetectionConfidence,
   });
 
@@ -58,7 +58,8 @@ class WardrobeItem {
   final bool isFavorite;
   final DateTime? favoritedAt;
   final bool isStarterWardrobe;
-  final String? starterTemplateId;
+  /// Starter items are AWIN products: the buy link for the "Buy" pill.
+  final String? productUrl;
   final String addedVia; // manual | scan | batch_upload | starter_seed
   final int? aiDetectionConfidence;
   final DateTime createdAt;
@@ -99,7 +100,7 @@ class WardrobeItem {
           ? this.favoritedAt
           : favoritedAt as DateTime?,
       isStarterWardrobe: isStarterWardrobe,
-      starterTemplateId: starterTemplateId,
+      productUrl: productUrl,
       addedVia: addedVia,
       aiDetectionConfidence: aiDetectionConfidence,
       createdAt: createdAt,
@@ -173,7 +174,7 @@ class WardrobeItem {
       isFavorite: json['is_favorite'] as bool? ?? false,
       favoritedAt: _parseDate(json['favorited_at']),
       isStarterWardrobe: json['is_starter_wardrobe'] as bool? ?? false,
-      starterTemplateId: json['starter_template_id'] as String?,
+      productUrl: json['product_url'] as String?,
       addedVia: json['added_via'] as String? ?? 'manual',
       aiDetectionConfidence: json['ai_detection_confidence'] as int?,
       createdAt: DateTime.parse(json['created_at'] as String),

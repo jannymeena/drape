@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../shop/shop_service.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
 import '../widgets/option_card.dart';
@@ -72,6 +75,9 @@ class _BlueprintIdentityScreenState
             shoppingStyle: style,
             ageRange: _ageIndex == null ? null : _ages[_ageIndex!].$1,
           );
+      // Shopping style is saved, so the gender-filtered shop feed is final:
+      // warm its cache while the rest of onboarding runs.
+      unawaited(ref.read(shopServiceProvider).prefetchFeed());
       if (!mounted) return;
       context.pushNamed(BlueprintFitScreen.name);
     } on ApiException catch (e) {

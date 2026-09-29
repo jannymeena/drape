@@ -14,8 +14,16 @@ import 'package:mobile/modules/onboarding/screens/blueprint_identity_screen.dart
 import 'package:mobile/modules/onboarding/screens/blueprint_lifestyle_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_reveal_screen.dart';
 import 'package:mobile/modules/onboarding/screens/wardrobe_setup_screen.dart';
+import 'package:mobile/modules/shop/shop_service.dart';
 import 'package:mobile/shared/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
+
+class _NoopShopService extends ShopService {
+  _NoopShopService() : super(Dio());
+
+  @override
+  Future<void> prefetchFeed() async {}
+}
 
 /// Records what each step posted without touching the network.
 class _StubService extends OnboardingService {
@@ -58,7 +66,11 @@ class _StubService extends OnboardingService {
 /// is how a "resumed onboarding" is simulated.
 ProviderContainer _container(_StubService service) {
   return ProviderContainer(
-    overrides: [onboardingServiceProvider.overrideWithValue(service)],
+    overrides: [
+      onboardingServiceProvider.overrideWithValue(service),
+      // Step 1 prefetches the shop feed; keep it off the network.
+      shopServiceProvider.overrideWithValue(_NoopShopService()),
+    ],
   );
 }
 

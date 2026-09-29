@@ -29,7 +29,7 @@ void main() {
         'is_favorite': true,
         'favorited_at': '2026-05-01T10:00:00Z',
         'is_starter_wardrobe': false,
-        'starter_template_id': null,
+        'product_url': null,
         'added_via': 'manual',
         'ai_detection_confidence': null,
         'created_at': '2024-03-01T10:00:00Z',

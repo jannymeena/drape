@@ -15,6 +15,11 @@ class OutfitItem {
     this.formality,
     this.whyItWorks,
     this.isStarterWardrobe = false,
+    this.productId,
+    this.productUrl,
+    this.priceCents,
+    this.currency,
+    this.retailer,
   });
 
   final String itemId;
@@ -26,6 +31,31 @@ class OutfitItem {
   final String? whyItWorks;
   final bool isStarterWardrobe;
 
+  /// Set when the piece is an AWIN product the user doesn't own (a starter
+  /// item or a shop fill): the tile shows a "Buy" pill opening [productUrl].
+  final String? productId;
+  final String? productUrl;
+  final int? priceCents;
+  final String? currency;
+  final String? retailer;
+
+  bool get isShopItem => productUrl != null;
+
+  /// e.g. "US$65.00" — currency shown because feeds aren't all CAD.
+  String? get priceLabel {
+    final cents = priceCents;
+    if (cents == null) return null;
+    final code = currency ?? 'CAD';
+    final symbol = switch (code) {
+      'CAD' => r'CA$',
+      'USD' => r'US$',
+      'GBP' => '£',
+      'EUR' => '€',
+      _ => '$code ',
+    };
+    return '$symbol${(cents / 100).toStringAsFixed(2)}';
+  }
+
   factory OutfitItem.fromJson(Map<String, dynamic> json) {
     return OutfitItem(
       itemId: json['item_id'] as String,
@@ -36,6 +66,11 @@ class OutfitItem {
       formality: json['formality'] as String?,
       whyItWorks: json['why_it_works'] as String?,
       isStarterWardrobe: json['is_starter_wardrobe'] as bool? ?? false,
+      productId: json['product_id'] as String?,
+      productUrl: json['product_url'] as String?,
+      priceCents: json['price_cents'] as int?,
+      currency: json['currency'] as String?,
+      retailer: json['retailer'] as String?,
     );
   }
 
@@ -48,6 +83,11 @@ class OutfitItem {
         'formality': formality,
         'why_it_works': whyItWorks,
         'is_starter_wardrobe': isStarterWardrobe,
+        'product_id': productId,
+        'product_url': productUrl,
+        'price_cents': priceCents,
+        'currency': currency,
+        'retailer': retailer,
       };
 }
 
@@ -94,6 +134,7 @@ class Outfit {
     required this.isLogged,
     required this.wornCount,
     this.isFavorite = false,
+    this.shopTheLook = false,
     this.imageUrl,
     this.aiReasoningShort,
     this.aiReasoningFull,
@@ -109,6 +150,10 @@ class Outfit {
   final bool isLogged;
   final int wornCount;
   final bool isFavorite;
+
+  /// Some pieces aren't owned yet: the card offers "Shop the look" instead of
+  /// "Wear this" (the backend refuses to log such an outfit).
+  final bool shopTheLook;
   final String? imageUrl;
   final String? aiReasoningShort;
   final String? aiReasoningFull;
@@ -138,6 +183,7 @@ class Outfit {
       isLogged: isLogged ?? this.isLogged,
       wornCount: wornCount ?? this.wornCount,
       isFavorite: isFavorite ?? this.isFavorite,
+      shopTheLook: (items ?? this.items).any((i) => i.isShopItem),
       imageUrl: imageUrl,
       aiReasoningShort: aiReasoningShort,
       aiReasoningFull: aiReasoningFull,
@@ -153,14 +199,26 @@ class Outfit {
       .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
       .join(' ');
 
+  /// Heading on the card, e.g. "For work" — reads as a sentence so it doesn't
+  /// echo the title-case occasion filter chips.
+  String get occasionHeading => switch (occasion) {
+        'work' => 'For work',
+        'casual' => 'For a casual day',
+        'date_night' => 'For date night',
+        'gym' => 'For the gym',
+        _ => 'For ${occasionLabel.toLowerCase()}',
+      };
+
   factory Outfit.fromJson(Map<String, dynamic> json) {
     final weather = json['weather_context'] as Map<String, dynamic>?;
+    final items = (json['items'] as List<dynamic>)
+        .map((e) => OutfitItem.fromJson(e as Map<String, dynamic>))
+        .toList();
     return Outfit(
       id: json['id'] as String,
       occasion: json['occasion'] as String,
-      items: (json['items'] as List<dynamic>)
-          .map((e) => OutfitItem.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      items: items,
+      shopTheLook: json['shop_the_look'] as bool? ?? items.any((i) => i.isShopItem),
       usingStarterWardrobe: json['using_starter_wardrobe'] as bool? ?? false,
       isLogged: json['is_logged'] as bool? ?? false,
       wornCount: json['worn_count'] as int? ?? 0,
@@ -184,6 +242,7 @@ class Outfit {
         'is_logged': isLogged,
         'worn_count': wornCount,
         'is_favorite': isFavorite,
+        'shop_the_look': shopTheLook,
         'image_url': imageUrl,
         'ai_reasoning_short': aiReasoningShort,
         'ai_reasoning_full': aiReasoningFull,

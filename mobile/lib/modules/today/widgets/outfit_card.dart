@@ -5,23 +5,29 @@ import 'outfit_item_grid.dart';
 import 'why_this_works_block.dart';
 
 /// View model for [OutfitCard]. Built from the `Outfit` DTO on the dashboard;
-/// `items` carry the photo plus category/colour so photoless items (e.g.
-/// starter wardrobe) render a coloured silhouette instead of a blank cell.
+/// `items` carry the photo plus category/colour so photoless items render a
+/// coloured silhouette instead of a blank cell.
 class OutfitCardData {
   final String id;
-  final String occasion;
+
+  /// Section heading for the occasion, e.g. "For work".
+  final String heading;
   final List<GarmentCell> items;
   final String reasoning;
   final bool favorited;
   final bool logged;
 
+  /// Some pieces aren't owned yet: "Shop the look" replaces "Wear this".
+  final bool shopTheLook;
+
   const OutfitCardData({
     required this.id,
-    required this.occasion,
+    required this.heading,
     required this.items,
     required this.reasoning,
     this.favorited = false,
     this.logged = false,
+    this.shopTheLook = false,
   });
 }
 
@@ -30,6 +36,7 @@ class OutfitCard extends StatelessWidget {
   final VoidCallback? onRegenerate;
   final VoidCallback? onMix;
   final VoidCallback? onLogWorn;
+  final VoidCallback? onShopTheLook;
   final VoidCallback? onFavorite;
   final VoidCallback? onLearnMore;
 
@@ -45,6 +52,7 @@ class OutfitCard extends StatelessWidget {
     this.onRegenerate,
     this.onMix,
     this.onLogWorn,
+    this.onShopTheLook,
     this.onFavorite,
     this.onLearnMore,
     this.regenerating = false,
@@ -71,6 +79,14 @@ class OutfitCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            outfit.heading,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: AppColors.espresso,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 12),
           Stack(
             children: [
               OutfitItemGrid(cells: outfit.items),
@@ -96,25 +112,6 @@ class OutfitCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              Positioned(
-                top: 12,
-                left: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.tanFixed,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    outfit.occasion.toUpperCase(),
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.espresso,
-                          letterSpacing: 1.4,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-              ),
               Positioned(
                 bottom: 12,
                 right: 12,
@@ -148,14 +145,20 @@ class OutfitCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _CardActionButton(
-                  label: outfit.logged ? 'LOGGED' : 'LOG AS WORN',
-                  filled: true,
-                  loading: logging,
-                  // Logged outfits can be re-logged (idempotent server-side),
-                  // but disable while any action on this card is in flight.
-                  onPressed: _busy ? null : onLogWorn,
-                ),
+                child: outfit.shopTheLook
+                    ? _CardActionButton(
+                        label: 'SHOP THE LOOK',
+                        filled: true,
+                        onPressed: _busy ? null : onShopTheLook,
+                      )
+                    : _CardActionButton(
+                        label: outfit.logged ? 'WORN TODAY' : 'WEAR THIS',
+                        filled: true,
+                        loading: logging,
+                        // Worn outfits can be re-logged (idempotent server-side),
+                        // but disable while any action on this card is in flight.
+                        onPressed: _busy ? null : onLogWorn,
+                      ),
               ),
             ],
           ),

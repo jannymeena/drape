@@ -153,15 +153,15 @@ void main() {
     ));
     await _settle(tester);
 
-    // "All" (default) shows both cards — badges render uppercase.
-    expect(find.text('WORK'), findsOneWidget);
-    expect(find.text('CASUAL'), findsOneWidget);
+    // "All" (default) shows both cards — each headed by its occasion.
+    expect(find.text('For work'), findsOneWidget);
+    expect(find.text('For a casual day'), findsOneWidget);
 
     await tester.tap(find.text('Work')); // chip, title-case
     await _settle(tester);
 
-    expect(find.text('WORK'), findsOneWidget);
-    expect(find.text('CASUAL'), findsNothing);
+    expect(find.text('For work'), findsOneWidget);
+    expect(find.text('For a casual day'), findsNothing);
   });
 
   testWidgets('filtering to an occasion with no pick shows the empty message',
@@ -177,11 +177,11 @@ void main() {
     await _settle(tester);
 
     expect(find.text("No Gym pick in today's outfits."), findsOneWidget);
-    expect(find.text('WORK'), findsNothing);
+    expect(find.text('For work'), findsNothing);
 
     await tester.tap(find.text('All'));
     await _settle(tester);
-    expect(find.text('WORK'), findsOneWidget);
+    expect(find.text('For work'), findsOneWidget);
   });
 
   testWidgets('occasion filter also scopes the pending skeletons',
