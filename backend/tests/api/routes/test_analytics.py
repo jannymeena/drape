@@ -214,3 +214,27 @@ def test_profile_intelligence_aggregates(authed_client, db):
     assert body["average_cost_per_wear"] == 40.0
     assert body["items_unworn_60d"] == 1
     assert body["utilization_score"] == 50
+
+
+def test_profile_intelligence_ignores_starter_items(authed_client, db):
+    """Starter pieces aren't the user's clothes: they don't count toward the
+    total, utilization, or "unworn" (active or retired alike)."""
+    user = authed_client.test_user
+    worn = make_wardrobe_item(db, user, name="Trousers", category="bottoms")
+    for n in range(3):
+        make_wardrobe_item(db, user, name=f"Starter {n}", is_starter_wardrobe=True)
+    db.add(
+        WardrobeWearLog(
+            user_id=user.id,
+            item_id=worn.id,
+            worn_date=date.today(),
+            logged_at=__import__("datetime").datetime.now(),
+        )
+    )
+    worn.worn_count = 1
+    db.commit()
+
+    body = authed_client.get("/api/v1/profile/intelligence").json()
+    assert body["items_total"] == 1
+    assert body["utilization_score"] == 100
+    assert body["items_unworn_60d"] == 0

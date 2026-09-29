@@ -55,13 +55,20 @@ def _items_for(db: Session, *, user: User) -> list[WardrobeItem]:
     )
 
 
+def _real_items_for(db: Session, *, user: User) -> list[WardrobeItem]:
+    """The user's own clothes. Starter items (active or retired) are never
+    worn or priced, so counting them would drag utilization down and inflate
+    "unworn" — every wear stat reads from this instead of `_items_for`."""
+    return [i for i in _items_for(db, user=user) if not i.is_starter_wardrobe]
+
+
 # ---------------------------------------------------------------------------
 # Cost per wear
 # ---------------------------------------------------------------------------
 
 
 def cost_per_wear(db: Session, *, user: User) -> CostPerWearReport:
-    items = _items_for(db, user=user)
+    items = _real_items_for(db, user=user)
     item_rows = [
         CostPerWearItem(
             item_id=i.id,
@@ -120,7 +127,7 @@ def _label_for_score(score: int) -> str:
 def utilization_score(db: Session, *, user: User) -> UtilizationScore:
     """Score 0-100 = % of items worn at least once in the last 30 days,
     rounded. With 0 items, returns 0/Low."""
-    items = _items_for(db, user=user)
+    items = _real_items_for(db, user=user)
     total = len(items)
     if total == 0:
         return UtilizationScore(
@@ -163,7 +170,7 @@ UNWORN_WINDOW_DAYS = 60
 def profile_intelligence(db: Session, *, user: User) -> ProfileIntelligence:
     """Headline stats for the Profile tab. Re-aggregates the same rows the
     wardrobe analytics use; live rollup, no cache (same trade-off as above)."""
-    items = _items_for(db, user=user)
+    items = _real_items_for(db, user=user)
     total = len(items)
 
     util = utilization_score(db, user=user)
@@ -289,7 +296,8 @@ def weekly_report(db: Session, *, user: User) -> WeeklyReport:
 
 
 def intelligence_report(db: Session, *, user: User) -> IntelligenceReport:
-    items = _items_for(db, user=user)
+    all_items = _items_for(db, user=user)
+    items = [i for i in all_items if not i.is_starter_wardrobe]
     total_items = len(items)
     total_wears = sum(i.worn_count for i in items)
     total_price = sum(
@@ -349,11 +357,10 @@ def intelligence_report(db: Session, *, user: User) -> IntelligenceReport:
     )
 
     # Real-vs-starter ratio: 0.0 = all starter, 1.0 = all real.
-    if total_items == 0:
+    if not all_items:
         real_ratio = 0.0
     else:
-        real = sum(1 for i in items if not i.is_starter_wardrobe)
-        real_ratio = round(real / total_items, 4)
+        real_ratio = round(total_items / len(all_items), 4)
 
     return IntelligenceReport(
         total_items=total_items,

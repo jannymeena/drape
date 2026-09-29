@@ -1292,6 +1292,21 @@ def log_outfit(
             shared=False,
         )
         db.add(history)
+        # Wearing an outfit wears its pieces: feed the item-level wear log
+        # that the Profile intelligence stats read. Starter pieces aren't the
+        # user's clothes, so they don't count.
+        from app.services import wardrobe_service
+
+        wardrobe_service.record_outfit_wear(
+            db,
+            user=user,
+            item_ids=[
+                i.item_id
+                for i in payload_to_outfit_items(outfit.items)
+                if not i.is_starter_wardrobe
+            ],
+            worn_date=today,
+        )
     db.commit()
     db.refresh(outfit)
     db.refresh(streak)

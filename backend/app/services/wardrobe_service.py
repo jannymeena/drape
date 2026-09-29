@@ -239,6 +239,43 @@ def log_worn(
     return item, already
 
 
+def record_outfit_wear(
+    db: Session, *, user: User, item_ids: list[UUID], worn_date: date
+) -> int:
+    """Log one wear per wardrobe item of an outfit the user just logged, so
+    item-level analytics (utilization, unworn, cost per wear) see outfit logs.
+    Same per-(user, item, day) idempotency as `log_worn`; items the user no
+    longer owns are skipped. Flushes only — the caller commits. Returns the
+    number of new wear rows."""
+    if not item_ids:
+        return 0
+    items = db.scalars(
+        select(WardrobeItem).where(
+            WardrobeItem.user_id == user.id, WardrobeItem.id.in_(item_ids)
+        )
+    ).all()
+    logged = 0
+    for item in items:
+        try:
+            with db.begin_nested():
+                db.add(
+                    WardrobeWearLog(
+                        user_id=user.id,
+                        item_id=item.id,
+                        worn_date=worn_date,
+                        logged_at=_now(),
+                    )
+                )
+        except IntegrityError:
+            continue
+        item.worn_count += 1
+        if item.last_worn is None or worn_date > item.last_worn:
+            item.last_worn = worn_date
+        item.cost_per_wear = _compute_cost_per_wear(item.purchase_price, item.worn_count)
+        logged += 1
+    return logged
+
+
 def add_images(
     db: Session,
     *,

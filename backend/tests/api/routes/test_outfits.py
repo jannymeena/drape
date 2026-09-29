@@ -28,7 +28,7 @@ def _app_today(user) -> date:
 import pytest
 from sqlalchemy import select
 
-from app.db.models import Outfit, StreakTracking, WardrobeItem
+from app.db.models import Outfit, StreakTracking, WardrobeItem, WardrobeWearLog
 from tests.factories import make_catalog, make_outfit, make_starter_wardrobe, make_wardrobe_item
 
 
@@ -450,6 +450,50 @@ def test_log_idempotent_same_day(authed_client, db):
     r2 = authed_client.post(f"/api/v1/outfits/{outfit.id}/log").json()
     assert r1["current_streak"] == r2["current_streak"]
     assert r1["total_outfits_logged"] == r2["total_outfits_logged"]
+
+
+def test_log_records_a_wear_for_each_real_item(authed_client, db):
+    """Logging an outfit wears its pieces: one wear-log row per real item for
+    the user's app day (so Profile intelligence sees it); starter pieces are
+    skipped, and a same-day re-log doesn't double-count."""
+    user = authed_client.test_user
+    shirt = make_wardrobe_item(db, user, name="Shirt", purchase_price=60.0)
+    jeans = make_wardrobe_item(db, user, name="Jeans", category="bottoms")
+    starter = make_wardrobe_item(
+        db, user, name="Starter Shoes", category="shoes", is_starter_wardrobe=True
+    )
+    outfit = make_outfit(db, user, items=[shirt, jeans, starter])
+
+    assert authed_client.post(f"/api/v1/outfits/{outfit.id}/log").status_code == 200
+    assert authed_client.post(f"/api/v1/outfits/{outfit.id}/log").status_code == 200
+
+    logs = db.scalars(
+        select(WardrobeWearLog).where(WardrobeWearLog.user_id == user.id)
+    ).all()
+    assert {l.item_id for l in logs} == {shirt.id, jeans.id}
+    assert {l.worn_date for l in logs} == {_app_today(user)}
+    for item in (shirt, jeans, starter):
+        db.refresh(item)
+    assert (shirt.worn_count, jeans.worn_count, starter.worn_count) == (1, 1, 0)
+    assert shirt.last_worn == _app_today(user)
+    assert float(shirt.cost_per_wear) == 60.0
+
+
+def test_log_wear_skips_items_already_marked_worn_today(authed_client, db):
+    """An item marked worn from its detail screen earlier the same day keeps
+    worn_count=1 when the outfit containing it is logged."""
+    user = authed_client.test_user
+    shirt = make_wardrobe_item(db, user, name="Shirt")
+    r = authed_client.post(
+        f"/api/v1/wardrobe/items/{shirt.id}/log-worn",
+        json={"worn_date": _app_today(user).isoformat()},
+    )
+    assert r.status_code == 200, r.text
+    outfit = make_outfit(db, user, items=[shirt])
+
+    assert authed_client.post(f"/api/v1/outfits/{outfit.id}/log").status_code == 200
+    db.refresh(shirt)
+    assert shirt.worn_count == 1
 
 
 def test_log_unknown_outfit_returns_404(authed_client):
