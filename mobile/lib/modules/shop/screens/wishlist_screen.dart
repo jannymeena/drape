@@ -8,6 +8,7 @@ import '../../../shared/widgets/buy_pill.dart';
 import '../models/shop.dart';
 import '../shop_service.dart';
 import '../widgets/wishlist_toast.dart';
+import 'in_app_browser_screen.dart';
 
 class WishlistScreen extends ConsumerWidget {
   static const path = 'wishlist';
@@ -63,7 +64,9 @@ class WishlistScreen extends ConsumerWidget {
                     for (final entry in items) ...[
                       _WishCard(
                         entry: entry,
-                        onOpen: entry.product.productUrl.isEmpty
+                        onOpen: () =>
+                            context.goNamed(InAppBrowserScreen.name),
+                        onBuy: entry.product.productUrl.isEmpty
                             ? null
                             : () => openProductLink(
                                 context, entry.product.productUrl),
@@ -134,11 +137,13 @@ class _Header extends StatelessWidget {
 
 class _WishCard extends StatelessWidget {
   final WishlistEntry entry;
-  final VoidCallback? onOpen;
+  final VoidCallback onOpen;
+  final VoidCallback? onBuy;
   final VoidCallback onRemove;
   const _WishCard({
     required this.entry,
-    this.onOpen,
+    required this.onOpen,
+    this.onBuy,
     required this.onRemove,
   });
 
@@ -209,9 +214,9 @@ class _WishCard extends StatelessWidget {
                           ),
                       ],
                     ),
-                    if (onOpen != null) ...[
+                    if (onBuy != null) ...[
                       const SizedBox(height: 10),
-                      BuyPill(onTap: onOpen!),
+                      BuyPill(onTap: onBuy!),
                     ],
                   ],
                 ),
