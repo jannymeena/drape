@@ -14,12 +14,12 @@ import '../../onboarding/models/onboarding_status.dart';
 import '../../onboarding/onboarding_service.dart';
 import '../../profile/screens/edit_measurements_screen.dart';
 import '../../wardrobe/screens/wardrobe_screen.dart';
+import '../../wardrobe/wardrobe_service.dart';
 import '../models/log_outfit_result.dart';
 import '../models/outfit.dart';
 import '../models/today_dashboard.dart';
 import '../models/usage.dart';
 import '../today_controller.dart';
-import '../today_service.dart';
 import '../widgets/mix_match_sheet.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
@@ -51,7 +51,6 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
   /// [_selectedOccasion] (lowercased, spaces → underscores).
   static const _occasions = ['All', 'Work', 'Casual', 'Gym', 'Date Night'];
   int _occasionIndex = 0;
-  bool _starterBannerDismissed = false;
 
   /// Backend occasion literal for the active chip; null when "All".
   String? get _selectedOccasion => _occasionIndex == 0
@@ -229,7 +228,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
                   ),
                 ),
                 ..._resumeBanner(),
-                ..._starterBanner(dashboard),
+                ..._starterBanner(),
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -444,34 +443,27 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     ];
   }
 
-  /// Starter-wardrobe nudge (CTO doc 2 §Starter Wardrobe). The backend sets
-  /// `banners.starter_wardrobe` (active assignment + <5 real items + not
-  /// dismissed in 7 days); dismissing persists server-side and hides locally.
-  List<Widget> _starterBanner(TodayDashboard dashboard) {
-    if (_starterBannerDismissed || !dashboard.banners.starterWardrobe) {
-      return const [];
-    }
+  /// "Unlock real wardrobe mode" card: the app is meant to run on the user's
+  /// own clothes, so this stays up (not dismissible) while starter items are
+  /// still in the wardrobe and the user has <10 real items — the point where
+  /// outfit generation drops starter items. Same wardrobe-wide counts as the
+  /// Wardrobe tab's banner; hidden while the capacity fetch is loading/failed.
+  List<Widget> _starterBanner() {
+    final capacity = ref.watch(wardrobeCapacityProvider).valueOrNull;
+    if (capacity == null || capacity.activeStarterItems == 0) return const [];
+    final real = capacity.used;
+    if (real >= 10) return const [];
     return [
       const SizedBox(height: 20),
       AnalyticsScreenView(
         event: AnalyticsEvents.starterWardrobeBannerShown,
         child: StarterWardrobeBanner(
+          realItems: real,
           onAdd: () {
             ref
                 .read(analyticsProvider)
                 .capture(AnalyticsEvents.starterWardrobeAddItemsTapped);
             context.goNamed(WardrobeScreen.name);
-          },
-          onDismiss: () {
-            ref
-                .read(analyticsProvider)
-                .capture(AnalyticsEvents.starterWardrobeBannerDismissed);
-            setState(() => _starterBannerDismissed = true);
-            // Fire-and-forget; the flag also drops from the next frame load.
-            ref
-                .read(todayServiceProvider)
-                .dismissBanner('starter_wardrobe')
-                .catchError((_) {});
           },
         ),
       ),
