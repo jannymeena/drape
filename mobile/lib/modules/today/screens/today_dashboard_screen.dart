@@ -12,6 +12,7 @@ import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../onboarding/models/onboarding_status.dart';
 import '../../onboarding/onboarding_service.dart';
+import '../../profile/profile_service.dart';
 import '../../profile/screens/edit_measurements_screen.dart';
 import '../../wardrobe/screens/wardrobe_screen.dart';
 import '../../wardrobe/wardrobe_service.dart';
@@ -88,6 +89,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
       final result =
           await ref.read(todayControllerProvider.notifier).logWorn(outfitId);
       if (!mounted) return;
+      // The log also wears each item, which moves the Profile stats.
+      ref.invalidate(profileIntelligenceProvider);
       _showToast(result.toast);
     } on ApiException catch (e) {
       if (!mounted) return;
