@@ -69,7 +69,15 @@ class Settings(BaseSettings):
     # FCM service-account JSON, raw or base64-encoded (11d) — required outside
     # dev unless `push` is disabled. Dev logs via LogPushProvider.
     fcm_credentials_json: str | None = None
-    awin_api_key: str | None = None  # required outside dev (11e)
+    # AWIN affiliate (11e). Publisher ID + feed key drive the product-feed
+    # catalog — required outside dev unless `affiliate` is disabled; in dev,
+    # both set = real feeds, otherwise the mock catalog. AWIN_API_KEY (Publisher
+    # API token) is reserved for commission reporting and not read yet.
+    awin_api_key: str | None = None
+    awin_publisher_id: str | None = None
+    awin_feed_api_key: str | None = None
+    # Comma-separated advertiser allowlist; empty = every joined advertiser.
+    awin_advertiser_ids: str = ""
 
     anthropic_api_key: str | None = None
     # Claude model id for the AI provider. Override per env with ANTHROPIC_MODEL
@@ -155,7 +163,8 @@ class Settings(BaseSettings):
             if self.feature_enabled("push"):
                 required["FCM_CREDENTIALS_JSON"] = self.fcm_credentials_json
             if self.feature_enabled("affiliate"):
-                required["AWIN_API_KEY"] = self.awin_api_key
+                required["AWIN_PUBLISHER_ID"] = self.awin_publisher_id
+                required["AWIN_FEED_API_KEY"] = self.awin_feed_api_key
             missing = [k for k, v in required.items() if not v]
             if missing:
                 raise ValueError(

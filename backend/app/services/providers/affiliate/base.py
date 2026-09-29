@@ -1,11 +1,19 @@
 """AffiliateProvider interface (7a) — product catalog + live prices.
 
-Mock in dev (seeded catalog); real AWIN lands in Tier 3.4 / item 11e.
+Mock in dev without AWIN keys (seeded catalog); real AWIN feeds otherwise (11e).
 """
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+
+
+class AffiliateProviderError(Exception):
+    """The upstream catalog couldn't be loaded (and nothing cached to serve)."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 @dataclass(frozen=True)

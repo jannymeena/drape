@@ -92,7 +92,8 @@ def test_auth_rate_limit_floor_applied_outside_dev(monkeypatch):
         stripe_price_id_pro_monthly="p1",
         stripe_price_id_pro_yearly="p2",
         fcm_credentials_json="{}",
-        awin_api_key="a",
+        awin_publisher_id="1",
+        awin_feed_api_key="f",
         apple_client_id="ac",
     )
     assert s.auth_rate_limit_per_minute == 10

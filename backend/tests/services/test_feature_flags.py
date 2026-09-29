@@ -42,7 +42,8 @@ def _tbd_settings(**overrides) -> Settings:
             '{"project_id": "p", "client_email": "e@p.iam", '
             '"private_key": "pem", "token_uri": "https://t"}'
         ),
-        awin_api_key="awin_x",
+        awin_publisher_id="123456",
+        awin_feed_api_key="feed_x",
     )
     base.update(overrides)
     return Settings(**base)
@@ -118,14 +119,21 @@ def test_push_enabled_requires_fcm_credentials():
         _tbd_settings(fcm_credentials_json=None)
 
 
-def test_affiliate_disabled_boots_without_awin_key():
-    s = _tbd_settings(disabled_features="affiliate", awin_api_key=None)
+def test_affiliate_disabled_boots_without_awin_keys():
+    s = _tbd_settings(
+        disabled_features="affiliate", awin_publisher_id=None, awin_feed_api_key=None
+    )
     assert not s.feature_enabled("affiliate")
 
 
-def test_affiliate_enabled_requires_awin_key():
-    with pytest.raises(ValidationError, match="AWIN_API_KEY"):
-        _tbd_settings(awin_api_key=None)
+def test_affiliate_enabled_requires_awin_publisher_id():
+    with pytest.raises(ValidationError, match="AWIN_PUBLISHER_ID"):
+        _tbd_settings(awin_publisher_id=None)
+
+
+def test_affiliate_enabled_requires_awin_feed_key():
+    with pytest.raises(ValidationError, match="AWIN_FEED_API_KEY"):
+        _tbd_settings(awin_feed_api_key=None)
 
 
 def test_whitespace_and_trailing_commas_tolerated():
@@ -251,8 +259,10 @@ def test_push_enabled_wires_fcm():
 
 def test_affiliate_disabled_keeps_mock_catalog_in_tbd():
     # Unlike billing/push there's no "unavailable" mode — the shop tab keeps
-    # working against the mock catalog until AWIN exists.
-    s = _tbd_settings(disabled_features="affiliate", awin_api_key=None)
+    # working against the mock catalog.
+    s = _tbd_settings(
+        disabled_features="affiliate", awin_publisher_id=None, awin_feed_api_key=None
+    )
     assert type(Providers._build_affiliate(s)).__name__ == "MockAffiliateProvider"
 
 

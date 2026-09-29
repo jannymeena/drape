@@ -81,7 +81,10 @@ def feed(
     user: User = Depends(get_current_user),
     affiliate: AffiliateProvider = Depends(get_affiliate_provider),
 ) -> ShopFeedResponse:
-    products, complete = shop_service.get_feed(db, user=user, affiliate=affiliate)
+    try:
+        products, complete = shop_service.get_feed(db, user=user, affiliate=affiliate)
+    except ShopError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
     return ShopFeedResponse(
         products=[ProductResponse.model_validate(p) for p in products],
         measurements_complete=complete,

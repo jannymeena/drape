@@ -72,11 +72,20 @@ class Providers:
         # Disabled affiliate keeps the mock catalog (shop stays demoable) —
         # unlike billing/push, there's no meaningful "unavailable" response
         # for the shop tab, so the mock is the degraded mode in every env.
-        if s.environment == "dev" or not s.feature_enabled("affiliate"):
+        # Dev follows the key-presence rule: both AWIN feed keys = real feeds.
+        if not s.feature_enabled("affiliate"):
             return MockAffiliateProvider()
-        # Config validator guarantees the key when affiliate is enabled.
-        assert s.awin_api_key
-        return AwinProvider(api_key=s.awin_api_key)
+        if s.environment == "dev" and not (s.awin_publisher_id and s.awin_feed_api_key):
+            return MockAffiliateProvider()
+        # Config validator guarantees both keys outside dev when enabled.
+        assert s.awin_publisher_id and s.awin_feed_api_key
+        return AwinProvider(
+            publisher_id=s.awin_publisher_id,
+            feed_api_key=s.awin_feed_api_key,
+            advertiser_ids=frozenset(
+                a.strip() for a in s.awin_advertiser_ids.split(",") if a.strip()
+            ),
+        )
 
     @staticmethod
     def _build_push(s: Settings) -> PushProvider | None:

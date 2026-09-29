@@ -60,6 +60,10 @@ for _stripe_key in (
     "STRIPE_PRICE_ID_PRO_YEARLY",
 ):
     os.environ[_stripe_key] = ""
+# Same for AWIN: real feed keys would swap the shop's mock catalog for live
+# feed downloads.
+for _awin_key in ("AWIN_PUBLISHER_ID", "AWIN_FEED_API_KEY"):
+    os.environ[_awin_key] = ""
 
 # Now safe to import the app stack.
 from fastapi.testclient import TestClient  # noqa: E402
