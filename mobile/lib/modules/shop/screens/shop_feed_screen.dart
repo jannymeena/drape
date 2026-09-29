@@ -4,12 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/buy_pill.dart';
 import '../../profile/screens/edit_measurements_screen.dart';
 import '../models/shop.dart';
 import '../shop_service.dart';
 import '../widgets/measurement_incomplete_banner.dart';
 import '../widgets/product_card.dart';
-import '../widgets/product_options_sheet.dart';
 import '../widgets/wishlist_toast.dart';
 import 'ai_advisor_initial_screen.dart';
 import 'buy_dont_buy_scan_screen.dart';
@@ -154,15 +154,15 @@ class _ShopFeedScreenState extends ConsumerState<ShopFeedScreen> {
                 delegate: SliverChildBuilderDelegate(
                   (_, i) {
                     final p = products[i];
+                    final buy = p.productUrl.isEmpty
+                        ? null
+                        : () => openProductLink(context, p.productUrl);
                     return ProductCard(
                       product: _toCard(p),
                       favorited: _wishlisted.contains(p.id),
                       onFavorite: () => _toggleWishlist(p),
-                      onTap: () => showProductOptionsSheet(
-                        context,
-                        title: p.name,
-                        unlockCount: 6,
-                      ),
+                      onTap: buy,
+                      onBuy: buy,
                     );
                   },
                   childCount: products.length,

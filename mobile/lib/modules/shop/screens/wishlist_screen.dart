@@ -4,10 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/buy_pill.dart';
 import '../models/shop.dart';
 import '../shop_service.dart';
 import '../widgets/wishlist_toast.dart';
-import 'in_app_browser_screen.dart';
 
 class WishlistScreen extends ConsumerWidget {
   static const path = 'wishlist';
@@ -63,8 +63,10 @@ class WishlistScreen extends ConsumerWidget {
                     for (final entry in items) ...[
                       _WishCard(
                         entry: entry,
-                        onOpen: () =>
-                            context.goNamed(InAppBrowserScreen.name),
+                        onOpen: entry.product.productUrl.isEmpty
+                            ? null
+                            : () => openProductLink(
+                                context, entry.product.productUrl),
                         onRemove: () => _remove(context, ref, entry),
                       ),
                       const SizedBox(height: 16),
@@ -132,11 +134,11 @@ class _Header extends StatelessWidget {
 
 class _WishCard extends StatelessWidget {
   final WishlistEntry entry;
-  final VoidCallback onOpen;
+  final VoidCallback? onOpen;
   final VoidCallback onRemove;
   const _WishCard({
     required this.entry,
-    required this.onOpen,
+    this.onOpen,
     required this.onRemove,
   });
 
@@ -207,6 +209,10 @@ class _WishCard extends StatelessWidget {
                           ),
                       ],
                     ),
+                    if (onOpen != null) ...[
+                      const SizedBox(height: 10),
+                      BuyPill(onTap: onOpen!),
+                    ],
                   ],
                 ),
               ),

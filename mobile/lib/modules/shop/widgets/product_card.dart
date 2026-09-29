@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/buy_pill.dart';
 
 class ProductData {
   final String id;
@@ -26,12 +27,14 @@ class ProductData {
 }
 
 /// Shop product tile: image (heart toggle + optional unlock/sale badge), brand,
-/// name, price. Used in the shop feed and gap-analysis grids.
+/// name, price. Used in the shop feed and gap-analysis grids. [onBuy] adds a
+/// BUY pill on the image (opens the AWIN link).
 class ProductCard extends StatelessWidget {
   final ProductData product;
   final bool favorited;
   final VoidCallback? onTap;
   final VoidCallback? onFavorite;
+  final VoidCallback? onBuy;
   final bool showViewOptions;
   final VoidCallback? onViewOptions;
 
@@ -41,6 +44,7 @@ class ProductCard extends StatelessWidget {
     this.favorited = false,
     this.onTap,
     this.onFavorite,
+    this.onBuy,
     this.showViewOptions = false,
     this.onViewOptions,
   });
@@ -146,6 +150,12 @@ class ProductCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (onBuy != null)
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: BuyPill(onTap: onBuy!),
+                  ),
               ],
             ),
           ),
