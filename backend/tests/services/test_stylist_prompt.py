@@ -10,6 +10,7 @@ from datetime import date
 from app.db.models import WardrobeItem
 from app.schemas.outfit import OutfitItem, payload_to_outfit_items
 from app.schemas.wardrobe import AIDetection
+from app.data import occasion_rules
 from app.services import outfit_service, stylist_prompt
 from tests.factories import make_wardrobe_item
 from tests.services.test_outfit_shop_fill import _PickAll, _Weather
@@ -84,14 +85,15 @@ def test_advisor_shares_the_stylist_brief(authed_client, db):
 def test_fallback_never_pairs_a_dress_with_separates():
     items = [_item("dresses", "Dress"), _item("tops", "Tee"), _item("bottoms", "Jeans"),
              _item("shoes", "Boots")]
-    names = {i.name for i in outfit_service._heuristic_pick(items)}
-    assert "Dress" not in names
-    assert {"Tee", "Jeans", "Boots"} <= names
+    rule = occasion_rules.rule_for("casual", "womens")
+    names = {i.name for i in outfit_service._heuristic_pick(items, rule)}
+    assert names == {"Tee", "Jeans", "Boots"}
 
 
 def test_fallback_uses_the_dress_when_separates_are_incomplete():
     items = [_item("dresses", "Dress"), _item("tops", "Tee"), _item("shoes", "Boots")]
-    names = {i.name for i in outfit_service._heuristic_pick(items)}
+    rule = occasion_rules.rule_for("casual", "womens")
+    names = {i.name for i in outfit_service._heuristic_pick(items, rule)}
     assert names == {"Dress", "Boots"}
 
 
@@ -99,7 +101,7 @@ def test_bottoms_are_dropped_from_a_dress_outfit():
     def oi(category: str, name: str) -> OutfitItem:
         return OutfitItem(item_id=uuid.uuid4(), name=name, category=category)
 
-    kept = outfit_service._without_bottoms_under_a_dress(
+    kept = outfit_service._drop_clashes(
         [oi("dresses", "Dress"), oi("bottoms", "Jeans"), oi("shoes", "Boots")]
     )
     assert [i.name for i in kept] == ["Dress", "Boots"]

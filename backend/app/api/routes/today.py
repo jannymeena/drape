@@ -23,6 +23,7 @@ from app.schemas.outfit import (
     GenerateOccasionRequest,
     GenerateOutfitsRequest,
     GenerateOutfitsResponse,
+    OccasionOption,
     OutfitResponse,
     TodayBanners,
     TodayDashboardResponse,
@@ -33,10 +34,12 @@ from app.schemas.outfit import (
     payload_to_outfit_items,
 )
 from app.core.localtime import next_day_rollover_utc
+from app.data import occasion_rules
 from app.core.providers import providers
 from app.services import banner_service, outfit_service, push_service, usage_service
 from app.services.outfit_service import (
     DAILY_OUTFIT_TARGET,
+    DEFAULT_OCCASIONS,
     OutfitError,
     _starter_wardrobe_banner,  # type: ignore[attr-defined]
     _outfits_generated_today,  # type: ignore[attr-defined]
@@ -164,6 +167,10 @@ async def dashboard(
         ),
         wardrobe_ready=ready,
         pending_occasions=pending,
+        occasions=[
+            OccasionOption(key=k, label=occasion_rules.label(k), daily=k in DEFAULT_OCCASIONS)
+            for k in occasion_rules.occasion_keys()
+        ],
     )
 
 

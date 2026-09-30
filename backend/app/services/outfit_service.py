@@ -5,7 +5,12 @@ Architecture:
   * `generate_for_user` orchestrates the full pipeline for one occasion:
     pick candidate items → ask Claude for a structured proposal →
     validate item ids belong to the user → persist `outfits` row.
-  * Today dashboard reuses `generate_for_user` for each of the three occasions.
+  * Today dashboard reuses `generate_for_user` for each daily occasion.
+  * What a complete outfit is comes from the occasion rulebook
+    (`app/data/occasion_rules.yaml`, per occasion and menswear/womenswear):
+    it goes into the prompt, drives the shop gap-fill, and the AI's outfit is
+    checked against it — one retry saying what's missing, then a rule-shaped
+    heuristic outfit.
   * `regenerate` calls the same pipeline but excludes the prior outfit's items
     so the AI returns something visibly different.
   * AWIN products (11e): the user's wardrobe always leads. Products are offered
@@ -48,6 +53,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.localtime import as_user_day, user_day_start_utc, user_today
+from app.data import occasion_rules
 from app.services import catalog_service
 from app.services import measurements_service
 from app.services import stylist_prompt, trend_service
@@ -88,8 +94,8 @@ from app.services.providers.weather.base import (
 
 _log = structlog.get_logger("outfit")
 
-# CTO doc 2 default occasion list for /today/dashboard.
-DEFAULT_OCCASIONS: tuple[Occasion, ...] = ("work", "casual", "date_night")
+# The occasions Today styles every day (`daily: true` in occasion_rules.yaml).
+DEFAULT_OCCASIONS: tuple[Occasion, ...] = occasion_rules.daily_occasions()
 
 # Items per outfit. Selection skews toward 4 (top + bottom + shoes + outerwear/
 # accessory) but the AI may return 2-5 depending on category mix.
@@ -113,32 +119,10 @@ _MAX_CREATIVE_SHOP_ITEMS = 2
 _SHOP_CANDIDATES_PER_ROLE = 4
 _COLD_FEELS_LIKE_C = 12.0  # below: outerwear is part of the outfit
 _HOT_FEELS_LIKE_C = 22.0  # at/above: no heavy pieces
-# Wardrobe slice sent to the AI (see _select_candidates): at most this many
-# items per category, so the prompt stays flat however large the wardrobe grows.
-_CANDIDATES_PER_CATEGORY = {
-    "tops": 8,
-    "bottoms": 6,
-    "dresses": 5,
-    "shoes": 4,
-    "outerwear": 3,
-    "accessories": 4,
-    "bags": 2,
-    "jewelry": 3,
-}
-_DEFAULT_CANDIDATES_PER_CATEGORY = 4
-# Items worn within this many days (today included) are held back for variety.
-_RECENT_WEAR_DAYS = 2
-# Main pieces in today's other Today sections are held back so each section
-# gets its own core look; shoes, bags, jewelry and accessories may repeat
-# (most people own a few pairs of shoes, and reusing them reads as normal).
-_DISTINCT_PER_SECTION = {"tops", "bottoms", "dresses", "outerwear"}
-_COLD_SEASONS = {"fall", "winter"}
-_WARM_SEASONS = {"spring", "summer"}
-_ROLE_BY_WARDROBE_CATEGORY = {
-    **catalog_service.ROLE_BY_CATEGORY,
-    "bags": "accessory",
-    "jewelry": "accessory",
-}
+# Safety cap on the wardrobe list in the prompt (~40 tokens an item). Real
+# wardrobes sit well under it; past it, favourites and the least recently
+# worn pieces go first.
+_MAX_PROMPT_ITEMS = 150
 
 # Toronto fallback for the dashboard weather lookup when the user has no
 # stored coords. This is an MVP placeholder — Phase 7 hardening adds real
@@ -172,30 +156,6 @@ def _user_wardrobe(db: Session, *, user_id: UUID) -> list[WardrobeItem]:
             .order_by(WardrobeItem.is_favorite.desc(), WardrobeItem.created_at.desc())
         ).all()
     )
-
-
-def _filter_for_occasion(
-    items: Sequence[WardrobeItem], occasion: Occasion
-) -> list[WardrobeItem]:
-    """Light heuristic preselect — keeps the AI prompt small and grounded.
-
-    The AI still does final coordination; this just filters out clear mismatches
-    (e.g. tuxedo trousers for `gym`). When nothing matches, we fall back to the
-    full set so the AI always has something to work with.
-    """
-    if occasion == "work":
-        match = lambda f: f in (None, "smart_casual", "formal", "casual")  # noqa: E731
-    elif occasion == "gym":
-        match = lambda f: f in (None, "casual")  # noqa: E731
-    elif occasion == "date_night":
-        match = lambda f: f in (None, "smart_casual", "formal")  # noqa: E731
-    elif occasion == "casual":
-        match = lambda f: f in (None, "casual", "smart_casual")  # noqa: E731
-    else:
-        match = lambda _f: True  # noqa: E731
-
-    selected = [i for i in items if match(i.formality)]
-    return selected if selected else list(items)
 
 
 def _to_outfit_item(row: WardrobeItem, *, why: Optional[str] = None) -> OutfitItem:
@@ -240,45 +200,40 @@ def _product_to_outfit_item(p: Product, *, why: Optional[str] = None) -> OutfitI
 # ---------------------------------------------------------------------------
 
 
+def _fits_formality(item: WardrobeItem, rule: occasion_rules.Rule) -> bool:
+    return not rule.formality or item.formality is None or item.formality in rule.formality
+
+
 def _shop_plan(
-    candidates: Sequence[WardrobeItem],
+    rule: occasion_rules.Rule,
+    items: Sequence[WardrobeItem],
     *,
-    shopping_style: Optional[str],
     weather: Optional[WeatherSnapshot],
     creative: bool,
 ) -> tuple[list[str], int]:
     """(roles to offer shop products for, max shop pieces in the outfit).
 
-    Gap mode: only roles the occasion's wardrobe candidates can't cover —
-    top + bottom (or a dress, outside menswear), plus outerwear when it's
-    cold. An empty wardrobe for the occasion gets a whole outfit, shoes and an
-    accessory included. Creative mode (regenerate) also offers every role for
-    up to `_MAX_CREATIVE_SHOP_ITEMS` new pieces on top of any gap fill."""
-    mens = shopping_style == "mens"
-    roles = {_ROLE_BY_WARDROBE_CATEGORY.get(i.category) for i in candidates}
+    Gap mode: the roles the occasion's rule still needs for a complete outfit,
+    counting only owned pieces of the rule's formality (a casual tee doesn't
+    cover the top for date night) — plus outerwear when it's cold and the rule
+    allows a layer. An empty wardrobe is offered every role the rule mentions.
+    Creative mode (regenerate) also offers every rule role for up to
+    `_MAX_CREATIVE_SHOP_ITEMS` new pieces."""
+    rule_roles: list[str] = []
+    for role in [r for shape in rule.complete_when for r in shape] + list(rule.optional):
+        if role not in rule_roles:
+            rule_roles.append(role)
+    if not items:
+        return rule_roles, _MAX_ITEMS_PER_OUTFIT
+
+    owned = occasion_rules.roles_of(i.category for i in items if _fits_formality(i, rule))
+    offer, cap = occasion_rules.gap(rule, owned)
     cold = weather is not None and weather.feels_like_c < _COLD_FEELS_LIKE_C
-
-    if not candidates:
-        offer = ["top", "bottom"] + ([] if mens else ["dress", "shoes"]) + ["accessory"]
-        if cold:
-            offer.append("outerwear")
-        return offer, _MAX_ITEMS_PER_OUTFIT
-
-    offer: list[str] = []
-    cap = 0
-    if not (("top" in roles and "bottom" in roles) or "dress" in roles):
-        missing = [r for r in ("top", "bottom") if r not in roles]
-        offer += missing
-        cap += len(missing)
-        if not mens:
-            offer.append("dress")  # alternative to the missing top/bottom
-    if cold and "outerwear" not in roles:
+    if cold and "outerwear" in rule.optional and "outerwear" not in owned:
         offer.append("outerwear")
         cap += 1
     if creative:
-        for role in ("top", "bottom", "outerwear", "accessory") + (() if mens else ("dress", "shoes")):
-            if role not in offer:
-                offer.append(role)
+        offer += [r for r in rule_roles if r not in offer]
         cap = max(cap, _MAX_CREATIVE_SHOP_ITEMS)
     return offer, cap
 
@@ -300,16 +255,18 @@ def _shop_candidates(
     occasion: Occasion,
     weather: Optional[WeatherSnapshot],
     exclude: set[UUID],
+    formality: Sequence[str] = (),
 ) -> list[Product]:
     """Up to `_SHOP_CANDIDATES_PER_ROLE` random products per role, preferring
-    ones tagged for the occasion and suited to the temperature (each filter is
-    dropped when it would leave the role empty). Random so regenerate shows
-    different products."""
+    ones of the occasion rule's `formality`, tagged for the occasion, and
+    suited to the temperature (each filter is dropped when it would leave the
+    role empty). Random so regenerate shows different products."""
     feels = weather.feels_like_c if weather is not None else None
     picked: list[Product] = []
     for role in roles:
         pool = [p for p in products if p.role == role and p.id not in exclude]
         for keep in (
+            lambda p: not formality or p.formality in formality,
             lambda p: occasion in (p.occasions or []),
             lambda p: _suits_weather(p, feels),
         ):
@@ -328,9 +285,19 @@ def _shop_candidates(
 _SYSTEM_PROMPT = (
     "You are Zoura, the user's personal stylist. You dress them from their own "
     "wardrobe and make the calls a good stylist would: which pieces go "
-    "together, what flatters this person, and what suits the day. You always "
-    "ground the outfit in the user's own items; shop products are only offered "
-    "separately, per request, with their own limit. You never invent items. "
+    "together, what flatters this person, and what suits the day. You build "
+    "from the user's own items first, wherever they suit the occasion, but "
+    "never include one just because it's theirs; shop products are only "
+    "offered separately, per request, with their own limit. You never invent "
+    "items. "
+    "Every outfit you return is complete and wearable as it is, as the "
+    "occasion's rules in the request define complete. When the user's own "
+    "items can't complete it for the occasion, use the shop products "
+    "offered. Never leave the user to add pieces themselves; only when neither "
+    "their items nor the shop offer a piece at all (say, no shoes), name in "
+    "one short sentence what would finish the look. Accessories and a layer "
+    "are optional: include a piece only if it makes the look better, and "
+    "never include one you'd then tell the user to swap. "
     "You write in a warm, confident, second-person voice, like a stylist "
     "talking to their client (\"the boots toughen up the dress…\")."
 )
@@ -340,10 +307,11 @@ _RESPONSE_FORMAT = (
     "Respond with ONLY a JSON object — no prose, no markdown, no code "
     "fences. Schema:\n"
     "{\n"
-    '  "occasion": "<echo the requested occasion exactly>",\n'
-    '  "item_ids": ["3", "7", ...]   // 2-6 id= values of the items you chose,\n'
+    '  "item_ids": ["3", "7", ...]   // 2-6 id= values: exactly the pieces worn '
+    'in this outfit, never one your reasoning says you left out,\n'
     '  "reasoning_short": "1-2 sentence hook for the card",\n'
-    '  "reasoning_full": "3-4 sentences that explain your styling decisions: '
+    '  "reasoning_full": "3-4 sentences that explain your styling decisions '
+    'and mention every piece in item_ids: '
     'why these pieces work together, how the look flatters the wearer, and '
     'why it suits the occasion and weather. Refer to pieces by name.",\n'
     '  "per_item_rationales": {"<item_id>": "why this piece fits"},\n'
@@ -381,6 +349,7 @@ def _build_system_context(
             it.pattern or "",
             it.material or "",
             "/".join(it.season) if it.season else "",
+            f"last worn {it.last_worn:%Y-%m-%d}" if it.last_worn else "",
             "starter" if it.is_starter_wardrobe else "",
         ]
         descriptor_str = " | ".join(d for d in descriptors if d)
@@ -421,7 +390,12 @@ def _build_user_prompt(
     shop_cap: int = 0,
     creative: bool = False,
     today: Optional[date] = None,
+    rule: Optional[occasion_rules.Rule] = None,
+    other_sections: Sequence[tuple[str, list[str]]] = (),
+    note: str = "",
 ) -> str:
+    """The per-request part: occasion + its rulebook entry, date, weather,
+    what today's other sections already wear, and any shop products."""
     weather_block = "Weather: not available."
     if weather is not None:
         weather_block = (
@@ -429,9 +403,18 @@ def _build_user_prompt(
             f"feels like {weather.feels_like_c:.0f}°C."
         )
     prompt = f"Build ONE outfit for the occasion: {occasion}.\n"
+    if rule is not None:
+        prompt += occasion_rules.prompt_block(occasion, rule) + "\n"
     if today is not None:
         prompt += f"Today is {today:%A} {today.day} {today:%B %Y}.\n"
     prompt += weather_block
+    if other_sections:
+        worn = "; ".join(f"{label}: {', '.join(names)}" for label, names in other_sections)
+        prompt += (
+            f"\n\nToday's other outfits already use — {worn}. Don't repeat their "
+            "tops, bottoms, dresses or outerwear unless nothing else suits; "
+            "shoes and accessories can repeat."
+        )
     if shop and shop_cap:
         why = (
             "to add something new the user doesn't own yet"
@@ -447,6 +430,8 @@ def _build_user_prompt(
             f"\n\nShop products (not owned). Use at most {shop_cap}, {why}; "
             f"prefer the user's items whenever they work:\n{lines}"
         )
+    if note:
+        prompt += f"\n\n{note}"
     return prompt
 
 
@@ -487,7 +472,9 @@ def _resolve_refs(payload: object, refs: dict[str, UUID]) -> object:
     return payload
 
 
-def _parse_proposal(text: str, refs: dict[str, UUID]) -> StructuredOutfitProposal:
+def _parse_proposal(
+    text: str, refs: dict[str, UUID], occasion: Occasion
+) -> StructuredOutfitProposal:
     candidate = text.strip()
     try:
         payload = json.loads(candidate)
@@ -499,6 +486,9 @@ def _parse_proposal(text: str, refs: dict[str, UUID]) -> StructuredOutfitProposa
             payload = json.loads(match.group(0))
         except JSONDecodeError as exc:
             raise OutfitError("parse_failed", f"AI response had malformed JSON: {exc}") from exc
+    if isinstance(payload, dict):
+        # We know the occasion; the AI isn't asked to echo it back.
+        payload["occasion"] = occasion
     try:
         return StructuredOutfitProposal.model_validate(_resolve_refs(payload, refs))
     except ValidationError as exc:
@@ -628,6 +618,9 @@ async def _ask_ai_for_outfit(
     style_profile: Optional[dict] = None,
     today: Optional[date] = None,
     trends: str = "",
+    rule: Optional[occasion_rules.Rule] = None,
+    other_sections: Sequence[tuple[str, list[str]]] = (),
+    note: str = "",
 ) -> StructuredOutfitProposal:
     system = _build_system_context(
         items=items,
@@ -647,6 +640,9 @@ async def _ask_ai_for_outfit(
         shop_cap=shop_cap,
         creative=creative,
         today=today,
+        rule=rule,
+        other_sections=other_sections,
+        note=note,
     )
     try:
         text = await ai.chat(
@@ -666,7 +662,7 @@ async def _ask_ai_for_outfit(
         **dict(zip(_item_refs(items), (i.id for i in items))),
         **dict(zip(_shop_refs(shop), (p.id for p in shop))),
     }
-    return _parse_proposal(text, refs)
+    return _parse_proposal(text, refs, occasion)
 
 
 def _materialize_items(
@@ -702,33 +698,34 @@ def _materialize_items(
     return materialized
 
 
-def _without_bottoms_under_a_dress(items: list[OutfitItem]) -> list[OutfitItem]:
-    """A dress is a complete base; trousers, jeans or a skirt with it read as a
-    mistake. The prompt says so — this enforces it when the AI slips."""
-    if not any(i.category == "dresses" for i in items):
-        return items
-    kept = [i for i in items if i.category != "bottoms"]
-    if len(kept) != len(items):
-        _log.info("outfit.bottoms_with_dress_dropped", dropped=len(items) - len(kept))
-    return kept
+def _drop_clashes(items: list[OutfitItem]) -> list[OutfitItem]:
+    """Enforce the rulebook's `never_together` pairs (a dress with trousers):
+    the second role of a clashing pair gives way. The prompt says so too —
+    this catches the AI when it slips."""
+    for _, loser in occasion_rules.clashes(occasion_rules.roles_of(i.category for i in items)):
+        before = len(items)
+        items = [i for i in items if occasion_rules.ROLE_BY_CATEGORY.get(i.category) != loser]
+        _log.info("outfit.clash_dropped", role=loser, dropped=before - len(items))
+    return items
 
 
 def _fallback_proposal(
     occasion: Occasion,
     items: Sequence[WardrobeItem | Product],
+    rule: occasion_rules.Rule,
 ) -> StructuredOutfitProposal:
-    """Used when the AI returned a response we couldn't parse but we still want
-    to give the user *something*. Picks a plausible 3-4 item set and writes a
-    bland reasoning paragraph. Only callers who explicitly opt in (the
-    dashboard) should use this; per-call /generate routes raise instead."""
-    pick = _heuristic_pick(items)
+    """Used when the AI returned a response we couldn't parse (or twice left
+    the outfit incomplete) but we still want to give the user *something*:
+    the first of the rule's shapes the items can fill, with a bland
+    reasoning paragraph."""
+    pick = _heuristic_pick(items, rule)
     return StructuredOutfitProposal(
         occasion=occasion,
         item_ids=[i.id for i in pick],
-        reasoning_short=f"A grounded {occasion.replace('_', ' ')} look from your wardrobe.",
+        reasoning_short=f"A grounded {occasion_rules.label(occasion).lower()} look from your wardrobe.",
         reasoning_full=(
-            "We've combined neutral basics from your wardrobe to put together "
-            f"a balanced {occasion.replace('_', ' ')} outfit. "
+            "We've combined basics from your wardrobe to put together "
+            f"a balanced {occasion_rules.label(occasion).lower()} outfit. "
             "Open the reasoning detail to see why each piece works together."
         ),
         per_item_rationales={},
@@ -737,38 +734,27 @@ def _fallback_proposal(
     )
 
 
-def _heuristic_pick(items: Sequence[WardrobeItem | Product]) -> list[WardrobeItem | Product]:
-    """Best-effort 4-item pick: a base (top + bottom, or a dress — never both),
-    then shoes and outerwear/accessory. Falls back to whatever's available if
-    the wardrobe is missing categories. Callers list wardrobe items before
-    shop products, so owned pieces win."""
-    by_cat: dict[str, list[WardrobeItem | Product]] = {}
+def _heuristic_pick(
+    items: Sequence[WardrobeItem | Product], rule: occasion_rules.Rule
+) -> list[WardrobeItem | Product]:
+    """One piece per role of the first rule shape the items can fill (callers
+    list the best candidates first); when none fits, as much as possible of
+    the nearest shape. Tops up to the proposal's minimum."""
+    first: dict[str, WardrobeItem | Product] = {}
     for it in items:
-        by_cat.setdefault(it.category, []).append(it)
-    base = ("tops", "bottoms")
-    if not all(by_cat.get(c) for c in base) and by_cat.get("dresses"):
-        base = ("dresses",)
-    pick: list[WardrobeItem | Product] = []
-    picked_ids: set[UUID] = set()
-    for cat in (*base, "shoes", "outerwear", "accessories"):
-        bucket = by_cat.get(cat) or []
-        if bucket:
-            pick.append(bucket[0])
-            picked_ids.add(bucket[0].id)
-        if len(pick) >= 4:
+        role = occasion_rules.ROLE_BY_CATEGORY.get(it.category)
+        if role:
+            first.setdefault(role, it)
+    fillable = [shape for shape in rule.complete_when if all(r in first for r in shape)]
+    shape = fillable[0] if fillable else max(
+        rule.complete_when, key=lambda s: sum(r in first for r in s)
+    )
+    pick: list[WardrobeItem | Product] = [first[r] for r in shape if r in first]
+    for it in items:
+        if len(pick) >= _MIN_ITEMS_PER_OUTFIT:
             break
-    # Category picking can yield <2 items (e.g. everything in one category), which
-    # would fail the proposal's min_length. Top up from the rest when we can.
-    if len(pick) < _MIN_ITEMS_PER_OUTFIT:
-        for it in items:
-            if it.id in picked_ids:
-                continue
+        if it not in pick:
             pick.append(it)
-            picked_ids.add(it.id)
-            if len(pick) >= _MIN_ITEMS_PER_OUTFIT:
-                break
-    if not pick:
-        pick = list(items[:_MAX_ITEMS_PER_OUTFIT])
     return pick
 
 
@@ -791,81 +777,33 @@ def _blend_pool(pool: list[WardrobeItem]) -> list[WardrobeItem]:
     return real + starter
 
 
-def _items_in_other_sections(db: Session, *, user: User, occasion: Occasion) -> frozenset[UUID]:
-    """Item ids in the outfits today's dashboard shows for the *other*
-    occasions (latest generation each), so a new outfit can avoid them."""
-    return frozenset(
-        it.item_id
-        for outfit in _latest_per_occasion(_today_outfits(db, user=user))
-        if outfit.occasion != occasion
-        for it in payload_to_outfit_items(outfit.items)
+def _prompt_items(pool: list[WardrobeItem]) -> list[WardrobeItem]:
+    """The wardrobe as the stylist sees it: the starter blend, capped at
+    `_MAX_PROMPT_ITEMS` (favourites and least recently worn first) as a
+    safety net for very large wardrobes."""
+    items = _blend_pool(pool)
+    if len(items) <= _MAX_PROMPT_ITEMS:
+        return items
+    ranked = sorted(items, key=lambda i: (not i.is_favorite, i.last_worn or date.min))
+    return ranked[:_MAX_PROMPT_ITEMS]
+
+
+def _completion_note(missing: Sequence[str]) -> str:
+    pieces = " and ".join(missing)
+    return (
+        f"A previous attempt left out: {pieces}. Build the outfit again, "
+        f"complete this time: it must include {pieces} from the items offered."
     )
 
 
-def _item_suits_weather(item: WardrobeItem, feels_like_c: Optional[float]) -> bool:
-    """Season tags vs the temperature. Untagged items suit any weather."""
-    if feels_like_c is None or not item.season:
-        return True
-    if feels_like_c < _COLD_FEELS_LIKE_C:
-        return bool(_COLD_SEASONS.intersection(item.season))
-    if feels_like_c >= _HOT_FEELS_LIKE_C:
-        return bool(_WARM_SEASONS.intersection(item.season))
-    return True
-
-
-def _select_candidates(
-    pool: list[WardrobeItem],
-    *,
-    occasion: Occasion,
-    weather: Optional[WeatherSnapshot],
-    today: date,
-    used_elsewhere: frozenset[UUID] = frozenset(),
-) -> list[WardrobeItem]:
-    """The wardrobe slice the AI chooses from — narrowed in code so the prompt
-    stays small and the AI never has to ask for more.
-
-    Starter blend and occasion filter first. In hot weather outerwear is left
-    out. Then per category: prefer season-appropriate items, hold back main
-    pieces (`_DISTINCT_PER_SECTION`) already in today's other sections
-    (`used_elsewhere`), and skip anything worn in the last `_RECENT_WEAR_DAYS`
-    days — each filter is dropped when it would empty the category, so a
-    small wardrobe still shares pieces. Finally rank the user's own
-    least-recently-worn pieces first (favorites break ties) and keep at most
-    `_CANDIDATES_PER_CATEGORY` per category."""
-    items = _filter_for_occasion(_blend_pool(pool), occasion)
-    feels = weather.feels_like_c if weather is not None else None
-    if feels is not None and feels >= _HOT_FEELS_LIKE_C:
-        no_outerwear = [i for i in items if i.category != "outerwear"]
-        if len(no_outerwear) >= _MIN_ITEMS_PER_OUTFIT:
-            items = no_outerwear
-
-    worn_cutoff = today - timedelta(days=_RECENT_WEAR_DAYS - 1)
-    by_category: dict[str, list[WardrobeItem]] = {}
-    for it in items:
-        by_category.setdefault(it.category, []).append(it)
-
-    selected: list[WardrobeItem] = []
-    for category, bucket in by_category.items():
-        hold_back = category in _DISTINCT_PER_SECTION
-        for keep in (
-            lambda i: _item_suits_weather(i, feels),
-            lambda i: not hold_back or i.id not in used_elsewhere,
-            lambda i: i.last_worn is None or i.last_worn < worn_cutoff,
-        ):
-            narrowed = [i for i in bucket if keep(i)]
-            if narrowed:
-                bucket = narrowed
-        bucket = sorted(
-            bucket,
-            key=lambda i: (
-                bool(i.is_starter_wardrobe),
-                i.last_worn or date.min,
-                not i.is_favorite,
-            ),
-        )
-        cap = _CANDIDATES_PER_CATEGORY.get(category, _DEFAULT_CANDIDATES_PER_CATEGORY)
-        selected += bucket[:cap]
-    return selected
+def _other_sections(db: Session, *, user: User, occasion: Occasion) -> list[tuple[str, list[str]]]:
+    """(occasion label, piece names) for the outfits today's dashboard shows
+    for the *other* occasions, so the stylist can avoid repeating them."""
+    return [
+        (occasion_rules.label(o.occasion), [i.name for i in payload_to_outfit_items(o.items)])
+        for o in _latest_per_occasion(_today_outfits(db, user=user))
+        if o.occasion != occasion
+    ]
 
 
 async def generate_one(
@@ -900,24 +838,18 @@ async def generate_one(
         # the full wardrobe so we still produce something.
         pool = all_items
 
+    rule = occasion_rules.rule_for(occasion, user.shopping_style)
     snap = await _maybe_weather(weather, lat=lat, lon=lon)
     today = user_today(user, now_utc=_now())
-    candidates = (
-        _select_candidates(
-            pool,
-            occasion=occasion,
-            weather=snap,
-            today=today,
-            used_elsewhere=_items_in_other_sections(db, user=user, occasion=occasion),
-        )
-        if pool
-        else []
-    )
-    shop_roles, shop_cap = _shop_plan(
-        candidates, shopping_style=user.shopping_style, weather=snap, creative=creative
-    )
+    candidates = _prompt_items(pool) if pool else []
+    shop_roles, shop_cap = _shop_plan(rule, candidates, weather=snap, creative=creative)
     shop = _shop_candidates(
-        products, roles=shop_roles, occasion=occasion, weather=snap, exclude=excluded_set
+        products,
+        roles=shop_roles,
+        occasion=occasion,
+        weather=snap,
+        exclude=excluded_set,
+        formality=rule.formality,
     )
     if not shop:
         shop_cap = 0
@@ -934,16 +866,26 @@ async def generate_one(
     shop_by_id = {p.id: p for p in shop}
 
     def materialize(proposal: StructuredOutfitProposal) -> list[OutfitItem]:
-        return _without_bottoms_under_a_dress(
+        return _drop_clashes(
             _materialize_items(
                 proposal, user_items_by_id=items_by_id, shop_by_id=shop_by_id, shop_cap=shop_cap
             )
         )
 
-    # Owned pieces first so the heuristic fallback prefers them.
-    fallback_pool: list[WardrobeItem | Product] = [*candidates, *shop]
-    try:
-        proposal = await _ask_ai_for_outfit(
+    # The heuristic fallback takes the first fit per role: owned pieces of
+    # the occasion's formality, then shop pieces, then the rest.
+    fallback_pool: list[WardrobeItem | Product] = [
+        *(i for i in candidates if _fits_formality(i, rule)),
+        *shop,
+        *(i for i in candidates if not _fits_formality(i, rule)),
+    ]
+    offered = occasion_rules.roles_of(i.category for i in candidates) | (
+        {p.role for p in shop if p.role} if shop_cap else set()
+    )
+    other_sections = _other_sections(db, user=user, occasion=occasion)
+
+    async def ask(note: str = "") -> StructuredOutfitProposal:
+        return await _ask_ai_for_outfit(
             ai,
             occasion=occasion,
             items=candidates,
@@ -963,21 +905,41 @@ async def generate_one(
             trends=trend_service.prompt_block(
                 trend_service.briefs_for(db, shopping_style=user.shopping_style)
             ),
+            rule=rule,
+            other_sections=other_sections,
+            note=note,
         )
+
+    def missing(chosen: list[OutfitItem]) -> list[str]:
+        have = occasion_rules.roles_of(i.category for i in chosen)
+        return occasion_rules.missing_roles(rule, have, offered)
+
+    try:
+        proposal = await ask()
         chosen = materialize(proposal)
+        if gaps := missing(chosen):
+            # One more try, told what the occasion's rule still needs; a
+            # second miss gets the heuristic outfit (built from the rule).
+            _log.info("outfit.incomplete_retry", occasion=occasion, missing=gaps)
+            proposal = await ask(note=_completion_note(gaps))
+            chosen = materialize(proposal)
+            if missing(chosen):
+                _log.warning("outfit.incomplete_fallback", occasion=occasion)
+                proposal = _fallback_proposal(occasion, fallback_pool, rule)
+                chosen = materialize(proposal)
     except OutfitError as exc:
         if exc.code != "parse_failed":
             raise
         # Parse failures are recoverable: ship a heuristic outfit so the
         # dashboard never lands the user on an empty state.
         _log.warning("outfit.parse_fallback", reason=str(exc))
-        proposal = _fallback_proposal(occasion, fallback_pool)
+        proposal = _fallback_proposal(occasion, fallback_pool, rule)
         chosen = materialize(proposal)
 
     if len(chosen) < _MIN_ITEMS_PER_OUTFIT:
         # AI hallucinated too many ids; fall back to heuristic + bland reasoning.
         _log.info("outfit.too_few_real_items", returned=len(chosen))
-        proposal = _fallback_proposal(occasion, fallback_pool)
+        proposal = _fallback_proposal(occasion, fallback_pool, rule)
         chosen = materialize(proposal)
 
     if len(chosen) > _MAX_ITEMS_PER_OUTFIT:
@@ -1032,8 +994,8 @@ async def generate_for_user(
     lon: Optional[float] = None,
 ) -> list[Outfit]:
     """Sequential generation per occasion (not gather): each outfit is
-    persisted before the next is built, so `generate_one` can hold back the
-    main pieces already used in today's earlier sections."""
+    persisted before the next is built, so the next one's prompt can list
+    what today's earlier sections already wear."""
     outfits: list[Outfit] = []
     for occ in occasions:
         outfit = await generate_one(
@@ -1090,7 +1052,7 @@ def _latest_per_occasion(outfits: list[Outfit]) -> list[Outfit]:
     newest: dict[str, Outfit] = {}
     for outfit in outfits:  # newest first
         newest.setdefault(outfit.occasion, outfit)
-    order = {occ: i for i, occ in enumerate(DEFAULT_OCCASIONS)}
+    order = {occ: i for i, occ in enumerate(occasion_rules.occasion_keys())}
     return sorted(
         newest.values(),
         key=lambda o: order.get(o.occasion, len(order)),

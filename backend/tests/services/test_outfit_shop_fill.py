@@ -25,9 +25,11 @@ class _PickAll(AIProvider):
 
     def __init__(self) -> None:
         self.prompt = ""
+        self.system = ""
 
     async def chat(self, messages, *, model=None, system=None, max_tokens=1024, cache_system=False):
         self.prompt = messages[-1]["content"]
+        self.system = system or ""
         # Within the schema's 8-id limit: up to 4 owned + 4 shop.
         ids = _ID_RE.findall(system or "")[:4] + self.shop_ids[:4]
         return json.dumps(
@@ -97,14 +99,15 @@ async def test_missing_bottom_is_filled_by_one_shop_piece(db, make_user):
     assert {i.name for i in items if not i.product_url} == {"My shirt", "My shoes"}
 
 
-async def test_cold_weather_adds_outerwear_to_the_gap(db, make_user):
+async def test_cold_weather_adds_outerwear_and_missing_shoes_to_the_gap(db, make_user):
     user = make_user()
     make_catalog(db)
-    make_wardrobe_item(db, user, name="My shirt", category="tops")
-    make_wardrobe_item(db, user, name="My jeans", category="bottoms")
+    make_wardrobe_item(db, user, name="My shirt", category="tops", formality="smart_casual")
+    make_wardrobe_item(db, user, name="My jeans", category="bottoms", formality="smart_casual")
     _, items, ai = await _generate(db, user, feels=3.0)
     shop = [i for i in items if i.product_url]
-    assert [i.category for i in shop] == ["outerwear"]
+    # No shoes of their own: a complete outfit needs a pair from the shop.
+    assert sorted(i.category for i in shop) == ["outerwear", "shoes"]
 
 
 async def test_empty_wardrobe_gets_a_whole_outfit_in_the_users_gender(db, make_user):
@@ -168,6 +171,7 @@ class _OnePerCategory(_PickAll):
     _LINE_RE = re.compile(r'id=(\d+) name="[^"]*" \[(\w+)')
 
     async def chat(self, messages, *, model=None, system=None, max_tokens=1024, cache_system=False):
+        self.prompt, self.system = messages[-1]["content"], system or ""
         first: dict[str, str] = {}
         for ref, category in self._LINE_RE.findall(system or ""):
             first.setdefault(category, ref)
@@ -182,22 +186,19 @@ class _OnePerCategory(_PickAll):
         )
 
 
-async def test_today_sections_get_different_main_pieces(db, make_user):
-    """Work is built first; casual then gets a different top/bottom/coat but
-    may reuse the only pair of shoes."""
+async def test_later_sections_are_told_what_earlier_ones_wear(db, make_user):
+    """Today's sections are built one after another; each later prompt lists
+    what the earlier ones use, so the stylist can avoid repeating them."""
     user = make_user()
     for n in (1, 2):
         make_wardrobe_item(db, user, name=f"Top {n}", category="tops")
         make_wardrobe_item(db, user, name=f"Bottom {n}", category="bottoms")
-        make_wardrobe_item(db, user, name=f"Coat {n}", category="outerwear")
     make_wardrobe_item(db, user, name="Only shoes", category="shoes")
 
-    weather = _Weather(8.0)  # cold enough that a coat belongs in the look
-    work, work_items, _ = await _generate(db, user, feels=8.0, ai=_OnePerCategory())
-    casual = await outfit_service.generate_one(
-        db=db, user=user, ai=_OnePerCategory(), weather=weather, occasion="casual"
+    await _generate(db, user, feels=15.0, ai=_OnePerCategory())
+    ai = _OnePerCategory()
+    await outfit_service.generate_one(
+        db=db, user=user, ai=ai, weather=_Weather(15.0), occasion="casual"
     )
-    work_names = {i.name for i in work_items}
-    casual_names = {i.name for i in payload_to_outfit_items(casual.items)}
-    assert len(work_names) == 4 and len(casual_names) == 4
-    assert work_names & casual_names == {"Only shoes"}
+    assert "Today's other outfits already use — Work: " in ai.prompt
+    assert "shoes and accessories can repeat" in ai.prompt

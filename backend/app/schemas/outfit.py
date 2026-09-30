@@ -1,8 +1,8 @@
 """Phase 6c — outfit + today dashboard request/response shapes.
 
-`Occasion` is the source-of-truth Literal for valid occasions; the DB column is
-plain VARCHAR per the same convention as wardrobe.py (Pydantic Literal owns the
-allowed-values set so adding "weekend" doesn't need a migration).
+`Occasion` is any key of the occasion rulebook (`app/data/occasion_rules.yaml`);
+the DB column is plain VARCHAR, so adding an occasion is a data change — no
+migration.
 
 Item references inside an outfit are stored as JSONB on the row but exposed as
 typed `OutfitItem` objects on the wire — the client renders them client-side
@@ -11,12 +11,23 @@ typed `OutfitItem` objects on the wire — the client renders them client-side
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-Occasion = Literal["work", "casual", "gym", "date_night", "other"]
+from app.data import occasion_rules
+
+
+def _known_occasion(value: str) -> str:
+    if value not in occasion_rules.rules().occasions:
+        raise ValueError(
+            f"unknown occasion {value!r}; one of {', '.join(occasion_rules.occasion_keys())}"
+        )
+    return value
+
+
+Occasion = Annotated[str, AfterValidator(_known_occasion)]
 GenerationMethod = Literal["anthropic_v1", "manual_mix"]
 ToastVariant = Literal["milestone", "streak", "default"]
 
@@ -147,6 +158,15 @@ class TodayUsage(BaseModel):
     resets_at: datetime | None = None
 
 
+class OccasionOption(BaseModel):
+    """An occasion the app can style, in display order. `daily` ones are
+    filled on Today every day; the rest are styled on demand."""
+
+    key: str
+    label: str
+    daily: bool
+
+
 class TodayDashboardResponse(BaseModel):
     user: TodayUser
     # Always the current conditions (cached ~15 min per ~1 km area), not the
@@ -163,6 +183,8 @@ class TodayDashboardResponse(BaseModel):
     # fills each via POST /today/outfits. Defaults keep older clients compatible.
     wardrobe_ready: bool = False
     pending_occasions: list[Occasion] = Field(default_factory=list)
+    # Every occasion the rulebook defines — the app's occasion chips.
+    occasions: list[OccasionOption] = Field(default_factory=list)
 
 
 class ReasoningItem(BaseModel):

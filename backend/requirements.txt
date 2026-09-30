@@ -22,3 +22,5 @@ python-multipart
 # Phase 6a: AI (Anthropic Claude — text + vision)
 anthropic
 
+# Outfit rulebook (app/data/occasion_rules.yaml)
+pyyaml

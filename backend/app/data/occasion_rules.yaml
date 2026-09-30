@@ -1,0 +1,221 @@
+# What a finished outfit is, per occasion — the stylist's rulebook.
+#
+# This file is data, not code: when a user reports a bad outfit, or fashion
+# knowledge changes, fix it here and add a regression case to
+# tests/services/test_occasion_rules.py. Loaded and validated at startup
+# (app/data/occasion_rules.py); a mistake here stops the app from booting.
+#
+# Roles: top, bottom, dress, outerwear, shoes, accessory
+#   (wardrobe categories map onto them: bags and jewelry are accessories).
+# Formality values: casual, smart_casual, formal.
+#
+# In [a, b] lists a comma separates entries: quote an entry that contains one.
+#
+# Each occasion:
+#   label          shown in the app
+#   daily          true = styled on the Today dashboard every day
+#   rule           applies to everyone:
+#     complete_when  the outfit must match ONE of these role sets
+#     optional       roles that may be added when they improve the look
+#     formality      preferred formality of the pieces (empty = any)
+#     guidance       how a stylist dresses for it (goes into the prompt)
+#     avoid          things that don't belong (goes into the prompt)
+#   mens / womens  optional overrides for menswear / womenswear shoppers;
+#                  list only the fields that differ from `rule`.
+
+# Role pairs that never belong in the same outfit.
+never_together:
+  - [dress, bottom]   # a dress is a complete base; no trousers, jeans or skirt with it
+
+occasions:
+  work:
+    label: Work
+    daily: true
+    rule:
+      complete_when:
+        - [top, bottom, shoes]
+        - [dress, shoes]
+      optional: [outerwear, accessory]
+      formality: [smart_casual, formal]
+      guidance: >-
+        Polished and appropriate for the office; match the wearer's dress
+        code, one notch smarter when unsure.
+      avoid: [distressed or ripped pieces, graphic or slogan tees, athletic wear, loungewear, flip-flops]
+    mens:
+      complete_when:
+        - [top, bottom, shoes]
+
+  casual:
+    label: Casual
+    daily: true
+    rule:
+      complete_when:
+        - [top, bottom, shoes]
+        - [dress, shoes]
+      optional: [outerwear, accessory]
+      formality: [casual, smart_casual]
+      guidance: Relaxed but put together; comfortable pieces worn with intent.
+      avoid: [anything that reads as gym kit or pyjamas]
+    mens:
+      complete_when:
+        - [top, bottom, shoes]
+
+  date_night:
+    label: Date Night
+    daily: true
+    rule:
+      complete_when:
+        - [top, bottom, shoes]
+        - [dress, shoes]
+      optional: [outerwear, accessory]
+      formality: [smart_casual, formal]
+      guidance: >-
+        Elevated and flattering: sleek fabrics, a considered shoe and one
+        thoughtful accent.
+      avoid: [gym or loungewear, slogan or grunge tees, novelty pieces such as costume-like buckles or joke prints]
+    mens:
+      complete_when:
+        - [top, bottom, shoes]
+      guidance: >-
+        A well-fitted shirt, polo or fine knit with tailored trousers or dark
+        jeans, and clean leather shoes or sleek minimal trainers.
+    womens:
+      guidance: >-
+        A flattering dress, or elevated separates (a silky or fitted top with
+        tailored trousers or a skirt), finished with a considered shoe —
+        heeled boots, slingbacks or sleek flats — and one accent.
+
+  gym:
+    label: Gym
+    rule:
+      complete_when:
+        - [top, bottom, shoes]
+      optional: [outerwear]
+      formality: [casual]
+      guidance: Performance fabrics that move and breathe, and trainers made for the activity.
+      avoid: [jeans, tailoring, fashion shoes, jewellery or bags beyond a gym bag]
+
+  beach:
+    label: Beach
+    rule:
+      complete_when:
+        - [bottom]
+        - [dress]
+      optional: [top, shoes, accessory]
+      formality: [casual]
+      guidance: >-
+        Light, breathable and easy to take off; sandals or slides, sunglasses
+        and a hat when it's sunny.
+      avoid: [heavy fabrics, closed leather shoes, anything that minds sand or water]
+    mens:
+      complete_when:
+        - [bottom]          # swim or linen shorts alone are fine
+      guidance: >-
+        Swim or linen shorts on their own are fine; add a linen shirt or tee
+        and slides or sandals when heading to or from the water.
+    womens:
+      complete_when:
+        - [dress]
+        - [top, bottom]
+      guidance: >-
+        A sundress or cover-up, or a light top with shorts or a skirt; flat
+        sandals and a sun hat.
+
+  brunch:
+    label: Brunch
+    rule:
+      complete_when:
+        - [top, bottom, shoes]
+        - [dress, shoes]
+      optional: [outerwear, accessory]
+      formality: [casual, smart_casual]
+      guidance: Easy and fresh with a little polish; daytime colours and comfortable shoes.
+      avoid: [evening sparkle, gym kit]
+    mens:
+      complete_when:
+        - [top, bottom, shoes]
+
+  wedding_guest:
+    label: Wedding Guest
+    rule:
+      complete_when:
+        - [top, bottom, shoes]
+        - [dress, shoes]
+      optional: [outerwear, accessory]
+      formality: [formal, smart_casual]
+      guidance: >-
+        Dressed-up and celebratory, respecting the invitation's dress code;
+        polished shoes.
+      avoid: [denim, trainers, casual tees, anything that competes with the couple]
+    mens:
+      complete_when:
+        - [top, bottom, outerwear, shoes]   # a suit or blazer
+        - [top, bottom, shoes]              # warm-weather or casual weddings
+      guidance: >-
+        A suit, or tailored trousers with a blazer, a crisp shirt and leather
+        shoes; the jacket can go for a warm or casual wedding.
+    womens:
+      guidance: >-
+        A dress or jumpsuit-style set in a celebratory colour or print, or
+        elegant separates, with heels, block heels or dressy flats.
+      avoid: ["white, ivory or cream (the bride's colours)", denim, trainers, casual tees]
+
+  night_out:
+    label: Night Out
+    rule:
+      complete_when:
+        - [top, bottom, shoes]
+        - [dress, shoes]
+      optional: [outerwear, accessory]
+      formality: [smart_casual, formal]
+      guidance: >-
+        Fun and confident: one statement piece, texture or shine, and shoes
+        you can stand in all night.
+      avoid: [office basics worn as they are, gym kit]
+    mens:
+      complete_when:
+        - [top, bottom, shoes]
+      guidance: A sharp shirt or knit, dark tailored trousers or jeans, and clean leather shoes or boots.
+
+  interview:
+    label: Interview
+    rule:
+      complete_when:
+        - [top, bottom, shoes]
+        - [dress, shoes]
+      optional: [outerwear, accessory]
+      formality: [formal, smart_casual]
+      guidance: >-
+        Conservative, well-fitted and one notch smarter than the company's
+        everyday dress code; nothing that distracts from the conversation.
+      avoid: [loud prints, distressed pieces, athletic wear, noisy or oversized accessories]
+    mens:
+      complete_when:
+        - [top, bottom, shoes]
+
+  travel:
+    label: Travel
+    rule:
+      complete_when:
+        - [top, bottom, shoes]
+        - [dress, shoes]
+      optional: [outerwear, accessory]
+      formality: [casual, smart_casual]
+      guidance: Comfortable layers that don't crease, and shoes that slip off easily for security.
+      avoid: [stiff tailoring, fussy fastenings, high heels]
+    mens:
+      complete_when:
+        - [top, bottom, shoes]
+
+  other:
+    label: Other
+    rule:
+      complete_when:
+        - [top, bottom, shoes]
+        - [dress, shoes]
+      optional: [outerwear, accessory]
+      formality: []
+      guidance: A versatile, well-put-together look.
+    mens:
+      complete_when:
+        - [top, bottom, shoes]
