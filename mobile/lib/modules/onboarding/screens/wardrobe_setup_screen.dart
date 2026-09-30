@@ -49,6 +49,10 @@ class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
           .read(onboardingControllerProvider.notifier)
           .assignStarterWardrobe();
       if (!mounted) return;
+      // The cached counts predate the starter items; without a refetch the
+      // Today/Wardrobe "unlock real wardrobe mode" card stays hidden until
+      // the next login.
+      ref.invalidate(wardrobeCapacityProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
