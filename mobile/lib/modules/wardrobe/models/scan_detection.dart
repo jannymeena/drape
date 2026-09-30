@@ -11,6 +11,7 @@ class ScanDetection {
     required this.pattern,
     required this.formality,
     required this.confidence,
+    this.model,
   });
 
   final String category;
@@ -19,8 +20,14 @@ class ScanDetection {
   final String formality;
   final int confidence;
 
+  /// The vision model that produced this detection (null from mocks).
+  final String? model;
+
   /// A sensible default item name from the detection, e.g. "White Tops".
-  String get suggestedName {
+  String get suggestedName => nameFor(color: color, category: category);
+
+  /// Default item name for a colour + category, e.g. "Navy Outerwear".
+  static String nameFor({required String color, required String category}) {
     final words = '$color $category'.trim().split(RegExp(r'\s+'));
     return words
         .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
@@ -34,8 +41,20 @@ class ScanDetection {
       pattern: json['pattern'] as String,
       formality: json['formality'] as String,
       confidence: json['confidence'] as int? ?? 0,
+      model: json['model'] as String?,
     );
   }
+
+  /// Echoed untouched as `ai_detection` when the item is created, so the
+  /// backend can measure how often users correct the AI.
+  Map<String, dynamic> toJson() => {
+        'category': category,
+        'color': color,
+        'pattern': pattern,
+        'formality': formality,
+        'confidence': confidence,
+        if (model != null) 'model': model,
+      };
 }
 
 class ScanItemResult {

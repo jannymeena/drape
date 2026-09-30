@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/modules/wardrobe/models/scan_detection.dart';
 import 'package:mobile/modules/wardrobe/models/wardrobe_mutations.dart';
 
 void main() {
@@ -29,6 +30,38 @@ void main() {
     test('a partial (patch-style) input only serializes what is set', () {
       final json = const WardrobeItemInput(name: 'Renamed').toJson();
       expect(json, {'name': 'Renamed'});
+    });
+
+    test('a corrected scan sends the fixed fields plus the untouched AI answer',
+        () {
+      const detection = ScanDetection(
+        category: 'tops',
+        color: 'navy',
+        pattern: 'solid',
+        formality: 'casual',
+        confidence: 82,
+        model: 'claude-haiku-4-5',
+      );
+      final json = const WardrobeItemInput(
+        name: 'Navy Dress',
+        category: 'dresses', // user corrected "tops"
+        colorName: 'navy',
+        pattern: 'solid',
+        formality: 'casual',
+        addedVia: 'scan',
+        aiDetection: detection,
+      ).toJson();
+
+      expect(json['category'], 'dresses');
+      expect(json['added_via'], 'scan');
+      expect(json['ai_detection'], {
+        'category': 'tops',
+        'color': 'navy',
+        'pattern': 'solid',
+        'formality': 'casual',
+        'confidence': 82,
+        'model': 'claude-haiku-4-5',
+      });
     });
   });
 

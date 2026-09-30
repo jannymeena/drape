@@ -91,4 +91,19 @@ void main() {
     expect(r.results[2].detection, isNull);
     expect(r.results[2].errorCode, 'ai_call_failed');
   });
+
+  test('detection carries the model id and round-trips to JSON', () {
+    final d = ScanDetection.fromJson({
+      'category': 'shoes',
+      'color': 'black',
+      'pattern': 'solid',
+      'formality': 'formal',
+      'confidence': 91,
+      'model': 'claude-haiku-4-5',
+    });
+    expect(d.model, 'claude-haiku-4-5');
+    expect(d.toJson()['model'], 'claude-haiku-4-5');
+    expect(ScanDetection.nameFor(color: 'olive', category: 'outerwear'),
+        'Olive Outerwear');
+  });
 }

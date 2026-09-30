@@ -11,6 +11,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../image_pick.dart';
 import '../models/scan_detection.dart';
+import '../models/wardrobe_item.dart';
 import '../models/wardrobe_mutations.dart';
 import '../wardrobe_controller.dart';
 import '../wardrobe_service.dart';
@@ -20,6 +21,11 @@ import 'manual_entry_screen.dart' as wardrobe_manual;
 /// (AI detection) → review → create the item (and attach the photo). The old
 /// fake viewfinder is gone; `image_picker` owns capture, so this screen is a
 /// capture CTA → preview → result review.
+///
+/// On review every detected attribute is a tappable pill, so a wrong guess is
+/// fixed before it's saved (a mislabelled item skews every later outfit). The
+/// create call sends the corrected values plus the AI's untouched detection;
+/// the backend's scan-accuracy report is the difference between the two.
 class ScannerScreen extends ConsumerStatefulWidget {
   static const path = 'scan';
   static const name = 'wardrobe_scanner';
@@ -35,6 +41,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
 
   PickedImage? _image;
   ScanItemResult? _result;
+  // The user's (possibly corrected) values, seeded from the detection.
+  final Map<ScanField, String> _values = {};
   bool _scanning = false;
   bool _creating = false;
   ApiException? _error;
@@ -70,7 +78,13 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
       );
       if (!mounted) return;
       _nameController.text = result.detection.suggestedName;
+      final d = result.detection;
       setState(() {
+        _values
+          ..[ScanField.category] = d.category
+          ..[ScanField.color] = d.color
+          ..[ScanField.pattern] = d.pattern
+          ..[ScanField.formality] = d.formality;
         _result = result;
         _scanning = false;
       });
@@ -87,21 +101,52 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     }
   }
 
+  String get _suggestedName => ScanDetection.nameFor(
+        color: _values[ScanField.color]!,
+        category: _values[ScanField.category]!,
+      );
+
+  /// Fields the user changed from the AI's answer.
+  List<ScanField> get _corrected {
+    final d = _result?.detection;
+    if (d == null) return const [];
+    return ScanField.values
+        .where((f) =>
+            _values[f]!.trim().toLowerCase() != f.of(d).trim().toLowerCase())
+        .toList();
+  }
+
+  Future<void> _editField(ScanField field) async {
+    final picked = await showScanFieldPicker(
+      context,
+      field: field,
+      current: _values[field]!,
+    );
+    if (picked == null || !mounted) return;
+    // Keep the default name in step with the fix unless the user typed one.
+    final followName = _nameController.text.trim() == _suggestedName;
+    setState(() => _values[field] = picked);
+    if (followName) _nameController.text = _suggestedName;
+  }
+
   Future<void> _addItem() async {
     final result = _result;
     final image = _image;
     if (result == null || image == null) return;
     if (_nameController.text.trim().isEmpty) {
-      _nameController.text = result.detection.suggestedName;
+      _nameController.text = _suggestedName;
     }
     setState(() => _creating = true);
     final detection = result.detection;
+    final corrected = _corrected;
     final input = WardrobeItemInput(
       name: _nameController.text.trim(),
-      category: detection.category,
-      colorName: detection.color,
-      pattern: detection.pattern,
-      formality: detection.formality,
+      category: _values[ScanField.category],
+      colorName: _values[ScanField.color],
+      pattern: _values[ScanField.pattern],
+      formality: _values[ScanField.formality],
+      addedVia: 'scan',
+      aiDetection: detection,
     );
     try {
       final capacityBefore = ref.read(wardrobeCapacityProvider).valueOrNull;
@@ -110,7 +155,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
           .createItemWithImages(input, [image]);
       ref.read(analyticsProvider).capture(
         AnalyticsEvents.scannerItemAdded,
-        {'category': detection.category},
+        {
+          'category': _values[ScanField.category]!,
+          'corrected_fields': corrected.map((f) => f.name).join(','),
+        },
       );
       ref.invalidate(wardrobeCapacityProvider);
       if (!mounted) return;
@@ -200,6 +248,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
                     )
                   : _ResultPanel(
                       result: _result!,
+                      values: _values,
+                      corrected: _corrected,
+                      onEditField: _editField,
                       nameController: _nameController,
                       creating: _creating,
                       onAdd: _addItem,
@@ -352,6 +403,9 @@ class _Analyzing extends StatelessWidget {
 
 class _ResultPanel extends StatelessWidget {
   final ScanItemResult result;
+  final Map<ScanField, String> values;
+  final List<ScanField> corrected;
+  final ValueChanged<ScanField> onEditField;
   final TextEditingController nameController;
   final bool creating;
   final VoidCallback onAdd;
@@ -360,6 +414,9 @@ class _ResultPanel extends StatelessWidget {
 
   const _ResultPanel({
     required this.result,
+    required this.values,
+    required this.corrected,
+    required this.onEditField,
     required this.nameController,
     required this.creating,
     required this.onAdd,
@@ -371,6 +428,10 @@ class _ResultPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = result.detection;
     final label = '${d.confidence}% confident · ${_titleCase(d.category)}';
+    final hint = Theme.of(context)
+        .textTheme
+        .bodySmall
+        ?.copyWith(color: AppColors.brandText.withValues(alpha: 0.7));
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -402,14 +463,23 @@ class _ResultPanel extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          '${_titleCase(d.color)} · ${_titleCase(d.pattern)} · ${_titleCase(d.formality)}',
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: AppColors.brandText.withValues(alpha: 0.7)),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
+          children: [
+            for (final field in ScanField.values)
+              _AttributePill(
+                key: ValueKey('scan-field-${field.name}'),
+                label: field.display(values[field]!),
+                edited: corrected.contains(field),
+                onTap: () => onEditField(field),
+              ),
+          ],
         ),
+        const SizedBox(height: 6),
+        Text('Tap a detail to fix it', style: hint),
         const SizedBox(height: 16),
         _PrimaryButton(
           label: creating ? 'Adding…' : 'Add This Item',
@@ -537,6 +607,197 @@ class _ConfidenceChip extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttributePill extends StatelessWidget {
+  final String label;
+  final bool edited;
+  final VoidCallback onTap;
+  const _AttributePill({
+    super.key,
+    required this.label,
+    required this.edited,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.white.withValues(alpha: 0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(999),
+        side: BorderSide(
+          color: edited ? AppColors.brandText : AppColors.taupe,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                edited ? Icons.check : Icons.edit_outlined,
+                size: 14,
+                color: AppColors.brandText,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The four scanner-detected attributes the user can correct on review.
+/// Option values are the backend literals (`app/schemas/wardrobe.py`); colour
+/// is free text, so its list is only a shortcut and the sheet also accepts
+/// a typed colour.
+enum ScanField {
+  category('Category'),
+  color('Colour'),
+  pattern('Pattern'),
+  formality('Formality');
+
+  const ScanField(this.title);
+  final String title;
+
+  String of(ScanDetection d) => switch (this) {
+        ScanField.category => d.category,
+        ScanField.color => d.color,
+        ScanField.pattern => d.pattern,
+        ScanField.formality => d.formality,
+      };
+
+  List<String> get options => switch (this) {
+        ScanField.category => [
+            for (final f in WardrobeCategoryFilter.values)
+              if (f.query != null) f.query!,
+          ],
+        ScanField.color => const [
+            'white', 'black', 'grey', 'navy', 'blue', 'beige', 'cream', //
+            'brown', 'camel', 'olive', 'green', 'red', 'pink', 'yellow',
+            'orange', 'purple',
+          ],
+        ScanField.pattern => const [
+            'solid', 'striped', 'plaid', 'floral', 'graphic', 'abstract', //
+            'other',
+          ],
+        ScanField.formality => const ['casual', 'smart_casual', 'formal'],
+      };
+
+  String display(String value) => _titleCase(value);
+}
+
+/// Bottom sheet to pick a new value for [field]. Returns null if dismissed.
+Future<String?> showScanFieldPicker(
+  BuildContext context, {
+  required ScanField field,
+  required String current,
+}) {
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF1A130C),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _ScanFieldSheet(field: field, current: current),
+  );
+}
+
+class _ScanFieldSheet extends StatefulWidget {
+  final ScanField field;
+  final String current;
+  const _ScanFieldSheet({required this.field, required this.current});
+
+  @override
+  State<_ScanFieldSheet> createState() => _ScanFieldSheetState();
+}
+
+class _ScanFieldSheetState extends State<_ScanFieldSheet> {
+  final _custom = TextEditingController();
+
+  @override
+  void dispose() {
+    _custom.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final field = widget.field;
+    final current = widget.current.trim().toLowerCase();
+    final options = [
+      // Keep the AI's colour selectable even when it isn't a shortcut.
+      if (field == ScanField.color && !field.options.contains(current)) current,
+      ...field.options,
+    ];
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            field.title.toUpperCase(),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.brandText,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final option in options)
+                ChoiceChip(
+                  label: Text(field.display(option)),
+                  selected: option == current,
+                  onSelected: (_) => Navigator.of(context).pop(option),
+                ),
+            ],
+          ),
+          if (field == ScanField.color) ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _custom,
+              style: const TextStyle(color: AppColors.white),
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: 'Other colour',
+                labelStyle: TextStyle(
+                    color: AppColors.brandText.withValues(alpha: 0.7)),
+                enabledBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.taupe),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.brandText),
+                ),
+              ),
+              onSubmitted: (value) {
+                final typed = value.trim().toLowerCase();
+                if (typed.isNotEmpty) Navigator.of(context).pop(typed);
+              },
+            ),
+          ],
         ],
       ),
     );

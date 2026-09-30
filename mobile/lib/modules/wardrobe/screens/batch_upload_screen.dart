@@ -136,6 +136,8 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
           colorName: d.color,
           pattern: d.pattern,
           formality: d.formality,
+          addedVia: 'batch_upload',
+          aiDetection: d,
         ),
         image: slot.image,
       ));

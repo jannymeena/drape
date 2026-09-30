@@ -3,6 +3,8 @@
 /// (`WardrobeItemUpdate`), `LogWornResponse`, `ToggleFavoriteResponse`.
 library;
 
+import 'scan_detection.dart';
+
 /// Builds the body for `POST /wardrobe/items` (create) and
 /// `PATCH /wardrobe/items/{id}` (partial update). [toJson] omits null fields, so
 /// the same object serves both: create callers set name + category; patch
@@ -24,6 +26,8 @@ class WardrobeItemInput {
     this.description,
     this.primaryImageUrl,
     this.images,
+    this.addedVia,
+    this.aiDetection,
   });
 
   final String? name;
@@ -41,6 +45,14 @@ class WardrobeItemInput {
   final String? description;
   final String? primaryImageUrl;
   final List<String>? images;
+
+  /// Create only: `scan` / `batch_upload` for items that came from the AI
+  /// scanner (omitted = `manual`).
+  final String? addedVia;
+
+  /// Create only: the scanner's untouched detection, sent next to the
+  /// (possibly corrected) fields above.
+  final ScanDetection? aiDetection;
 
   Map<String, dynamic> toJson() {
     final json = <String, dynamic>{};
@@ -63,6 +75,8 @@ class WardrobeItemInput {
     put('description', description);
     put('primary_image_url', primaryImageUrl);
     put('images', images);
+    put('added_via', addedVia);
+    put('ai_detection', aiDetection?.toJson());
     return json;
   }
 
