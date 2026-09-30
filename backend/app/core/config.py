@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import ValidationError, model_validator
+from pydantic import ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["dev", "tbd", "prd"]
@@ -98,9 +98,14 @@ class Settings(BaseSettings):
     weatherkit_private_key: str | None = None
 
     anthropic_api_key: str | None = None
-    # Claude model id for the AI provider. Override per env with ANTHROPIC_MODEL
-    # (e.g. a cheaper model in dev). None falls back to AnthropicProvider.DEFAULT_MODEL.
-    anthropic_model: str | None = None
+    # Two models, split by job. Vision = every photo call (wardrobe scan, avatar
+    # analysis, buy/don't-buy): narrow structured reads, so the cheap model.
+    # Text = the reasoning calls over stored text (outfit building, AI advisor).
+    # AI_TEXT_EFFORT sets output_config.effort on text calls; it must be empty
+    # for a Haiku text model (Haiku 4.5 rejects effort).
+    ai_vision_model: str = "claude-haiku-4-5"
+    ai_text_model: str = "claude-sonnet-5-5"
+    ai_text_effort: Literal["low", "medium", "high"] | None = "low"
 
     # Dev AI usage/cost log (§5.3) — one JSONL line per AI call (model, tokens,
     # cost, latency, image meta, actual output). A dev exploration tool; turn off
@@ -156,8 +161,19 @@ class Settings(BaseSettings):
             raw = "*" if self.environment == "dev" else ""
         return [o.strip() for o in raw.split(",") if o.strip()]
 
+    @field_validator("ai_text_effort", mode="before")
+    @classmethod
+    def _blank_effort_is_none(cls, v: object) -> object:
+        # `AI_TEXT_EFFORT=` in .env means "don't send effort".
+        return None if v == "" else v
+
     @model_validator(mode="after")
     def _validate(self) -> "Settings":
+        if self.ai_text_effort and self.ai_text_model.startswith("claude-haiku"):
+            raise ValueError(
+                "AI_TEXT_EFFORT must be empty when AI_TEXT_MODEL is a Haiku model "
+                "(Haiku 4.5 does not support effort)"
+            )
         unknown = self._disabled_feature_set() - _KNOWN_FEATURES
         if unknown:
             raise ValueError(

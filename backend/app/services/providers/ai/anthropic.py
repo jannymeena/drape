@@ -11,17 +11,26 @@ from app.services.providers.ai.base import AIProvider, AIProviderError
 
 _log = structlog.get_logger("provider.ai.anthropic")
 
-DEFAULT_MODEL = "claude-sonnet-4-6"
-
 
 class AnthropicProvider(AIProvider):
-    # Exposed as a class attribute so config/providers can resolve the fallback
-    # without re-importing the module constant. Kept in sync with DEFAULT_MODEL.
-    DEFAULT_MODEL = DEFAULT_MODEL
+    """`chat` defaults to `text_model` and `analyze_image` to `vision_model`
+    (see Settings.ai_text_model / ai_vision_model). `text_effort` is sent as
+    output_config.effort on default-model chat calls only — a caller that
+    passes its own `model` (the catalog tagger's Haiku) gets no effort, since
+    Haiku 4.5 rejects it."""
 
-    def __init__(self, api_key: str, *, default_model: str = DEFAULT_MODEL) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        text_model: str,
+        vision_model: str,
+        text_effort: str | None = None,
+    ) -> None:
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
-        self._default_model = default_model
+        self._text_model = text_model
+        self.vision_model = vision_model
+        self._text_effort = text_effort
 
     async def chat(
         self,
@@ -32,8 +41,10 @@ class AnthropicProvider(AIProvider):
         max_tokens: int = 1024,
         cache_system: bool = False,
     ) -> str:
-        model_id = model or self._default_model
+        model_id = model or self._text_model
         kwargs: dict = {"model": model_id, "max_tokens": max_tokens, "messages": messages}
+        if model is None and self._text_effort:
+            kwargs["output_config"] = {"effort": self._text_effort}
         if system:
             if cache_system:
                 # Native prompt caching (Tier 1.3): a breakpoint on the last
@@ -56,6 +67,7 @@ class AnthropicProvider(AIProvider):
             _log.warning("ai.chat.failed", model=model_id, error=str(exc))
             raise AIProviderError("ai_call_failed", f"Anthropic chat failed: {exc}") from exc
         latency_ms = int((time.monotonic() - started) * 1000)
+        _check_stop_reason(resp, model_id=model_id, call_type="chat")
         text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
         cache_creation = getattr(resp.usage, "cache_creation_input_tokens", 0) or 0
         cache_read = getattr(resp.usage, "cache_read_input_tokens", 0) or 0
@@ -102,7 +114,7 @@ class AnthropicProvider(AIProvider):
                 ],
             }
         ]
-        model_id = model or self._default_model
+        model_id = model or self.vision_model
         started = time.monotonic()
         try:
             resp = await self._client.messages.create(
@@ -114,6 +126,7 @@ class AnthropicProvider(AIProvider):
                 "ai_call_failed", f"Anthropic analyze_image failed: {exc}"
             ) from exc
         latency_ms = int((time.monotonic() - started) * 1000)
+        _check_stop_reason(resp, model_id=model_id, call_type="analyze_image")
         text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
         _log.info(
             "ai.analyze_image",
@@ -134,3 +147,18 @@ class AnthropicProvider(AIProvider):
             media_type=media_type,
         )
         return text
+
+
+def _check_stop_reason(resp: object, *, model_id: str, call_type: str) -> None:
+    """A safety decline comes back as HTTP 200 with stop_reason "refusal" and
+    no usable text — surface it as a provider error instead of letting callers
+    parse an empty reply. A max_tokens stop is logged (thinking on Sonnet 5.5
+    counts toward max_tokens) and left to the caller's parse fallback."""
+    stop_reason = getattr(resp, "stop_reason", None)
+    if stop_reason == "refusal":
+        details = getattr(resp, "stop_details", None)
+        category = getattr(details, "category", None)
+        _log.warning(f"ai.{call_type}.refused", model=model_id, category=category)
+        raise AIProviderError("refused", f"Anthropic declined the request ({category})")
+    if stop_reason == "max_tokens":
+        _log.warning(f"ai.{call_type}.max_tokens", model=model_id)

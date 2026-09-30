@@ -28,11 +28,11 @@ _log = structlog.get_logger("provider.ai.caching")
 
 
 class CachingAIProvider(AIProvider):
-    def __init__(self, inner: AIProvider, *, default_model: str) -> None:
+    def __init__(self, inner: AIProvider) -> None:
         self._inner = inner
-        # The decorator must resolve `model=None` to the same id the inner
-        # provider would use, so the cache key is stable across calls.
-        self._default_model = default_model
+        # Resolve `model=None` to the id the inner provider would use, so the
+        # cache key names the model that actually produced the answer.
+        self.vision_model = inner.vision_model
 
     async def chat(
         self,
@@ -61,7 +61,7 @@ class CachingAIProvider(AIProvider):
         model: str | None = None,
         max_tokens: int = 1024,
     ) -> str:
-        model_id = model or self._default_model
+        model_id = model or self.vision_model
         key = self._cache_key(model_id, media_type, image_bytes, prompt)
 
         # DB I/O is synchronous (psycopg2); run it off the event loop.

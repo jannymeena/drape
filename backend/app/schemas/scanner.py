@@ -13,22 +13,15 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
-from app.schemas.wardrobe import Category, Formality, Pattern
+from app.schemas.wardrobe import AIDetection
 
 
-class ScanDetection(BaseModel):
+class ScanDetection(AIDetection):
     """The structured-output payload the scanner returns. Mirrors the keys
-    `MockAIProvider.analyze_image` emits so dev runs match real-key runs."""
-
-    model_config = ConfigDict(extra="ignore")
-
-    category: Category
-    color: str = Field(min_length=1, max_length=50)
-    pattern: Pattern
-    formality: Formality
-    confidence: int = Field(ge=0, le=100)
+    `MockAIProvider.analyze_image` emits so dev runs match real-key runs;
+    `model` is stamped by the scanner, not asked of the AI."""
 
 
 class ScanItemResponse(BaseModel):

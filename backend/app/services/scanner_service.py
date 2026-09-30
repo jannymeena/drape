@@ -133,6 +133,7 @@ async def scan_one(
         raise ScannerError("ai_call_failed", str(exc)) from exc
 
     detection = _parse_detection(text)
+    detection.model = ai.vision_model
 
     if detection.confidence < LOW_CONFIDENCE_THRESHOLD:
         _log.info(

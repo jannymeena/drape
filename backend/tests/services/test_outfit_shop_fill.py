@@ -16,7 +16,7 @@ from app.services.providers.weather.base import WeatherProvider, WeatherSnapshot
 from app.schemas.outfit import payload_to_outfit_items
 from tests.factories import make_catalog, make_wardrobe_item
 
-_ID_RE = re.compile(r"id=([0-9a-f-]{36})")
+_ID_RE = re.compile(r"id=(S?\d+)")
 
 
 class _PickAll(AIProvider):
@@ -159,3 +159,45 @@ def test_dashboard_is_ready_with_catalog_but_no_wardrobe(db, make_user):
     make_catalog(db)
     assert outfit_service.wardrobe_ready(db, user=user) is True
     assert outfit_service.pending_occasions(db, user=user) == ["work", "casual", "date_night"]
+
+
+
+class _OnePerCategory(_PickAll):
+    """Picks the first offered item of each category, like a stylist would."""
+
+    _LINE_RE = re.compile(r'id=(\d+) name="[^"]*" \[(\w+)')
+
+    async def chat(self, messages, *, model=None, system=None, max_tokens=1024, cache_system=False):
+        first: dict[str, str] = {}
+        for ref, category in self._LINE_RE.findall(system or ""):
+            first.setdefault(category, ref)
+        return json.dumps(
+            {
+                "occasion": "work",
+                "item_ids": list(first.values()),
+                "reasoning_short": "Sharp.",
+                "reasoning_full": "Sharp and simple.",
+                "compatibility_score": 80,
+            }
+        )
+
+
+async def test_today_sections_get_different_main_pieces(db, make_user):
+    """Work is built first; casual then gets a different top/bottom/coat but
+    may reuse the only pair of shoes."""
+    user = make_user()
+    for n in (1, 2):
+        make_wardrobe_item(db, user, name=f"Top {n}", category="tops")
+        make_wardrobe_item(db, user, name=f"Bottom {n}", category="bottoms")
+        make_wardrobe_item(db, user, name=f"Coat {n}", category="outerwear")
+    make_wardrobe_item(db, user, name="Only shoes", category="shoes")
+
+    weather = _Weather(8.0)  # cold enough that a coat belongs in the look
+    work, work_items, _ = await _generate(db, user, feels=8.0, ai=_OnePerCategory())
+    casual = await outfit_service.generate_one(
+        db=db, user=user, ai=_OnePerCategory(), weather=weather, occasion="casual"
+    )
+    work_names = {i.name for i in work_items}
+    casual_names = {i.name for i in payload_to_outfit_items(casual.items)}
+    assert len(work_names) == 4 and len(casual_names) == 4
+    assert work_names & casual_names == {"Only shoes"}

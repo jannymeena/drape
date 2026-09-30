@@ -12,6 +12,11 @@ class AIProviderError(Exception):
 
 
 class AIProvider(ABC):
+    # Model id `analyze_image` uses when no `model` is passed. Recorded on each
+    # scanned item so scan accuracy can be compared per model. None = not a
+    # real model (mocks, test fakes).
+    vision_model: str | None = None
+
     @abstractmethod
     async def chat(
         self,

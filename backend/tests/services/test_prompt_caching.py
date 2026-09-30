@@ -56,7 +56,9 @@ class _FakeClient:
 
 
 def _provider(usage: _FakeUsage | None = None) -> AnthropicProvider:
-    provider = AnthropicProvider("sk-ant-test", default_model="claude-haiku-4-5")
+    provider = AnthropicProvider(
+        "sk-ant-test", text_model="claude-haiku-4-5", vision_model="claude-haiku-4-5"
+    )
     provider._client = _FakeClient(_FakeResponse(usage or _FakeUsage()))
     return provider
 
@@ -205,7 +207,7 @@ class _RecordingAI:
 
     async def chat(self, messages, *, model=None, system=None, max_tokens=1024, cache_system=False):
         self.calls.append({"system": system, "cache_system": cache_system, "messages": messages})
-        item_ids = [str(uuid.uuid4()), str(uuid.uuid4())]  # minimal valid proposal
+        item_ids = ["1", "2"]  # minimal valid proposal, in prompt refs
         return json.dumps(
             {
                 "occasion": "work",
@@ -228,7 +230,7 @@ def test_outfit_generation_requests_system_caching():
         outfit_service._ask_ai_for_outfit(
             ai,
             occasion="work",
-            items=[_item()],
+            items=[_item(), _item("Grey Chinos")],
             weather=None,
             style_goals=None,
             using_starter_wardrobe=False,

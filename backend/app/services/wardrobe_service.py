@@ -147,12 +147,13 @@ def create_item(
     db: Session, *, user: User, payload: WardrobeItemCreate
 ) -> WardrobeItem:
     _enforce_free_item_limit(db, user=user)
+    detection = payload.ai_detection
     item = WardrobeItem(
         user_id=user.id,
-        added_via="manual",
         worn_count=0,
         is_favorite=False,
         is_starter_wardrobe=False,
+        ai_detection_confidence=detection.confidence if detection else None,
         **payload.model_dump(),
     )
     item.cost_per_wear = _compute_cost_per_wear(payload.purchase_price, 0)

@@ -368,7 +368,7 @@ async def advisor_ask(
     raw = await ai.chat(
         [*_history_for_ai(convo.messages), {"role": "user", "content": question}],
         system=_advisor_system(db, user=user, catalog=catalog),
-        max_tokens=1500,
+        max_tokens=4096,  # headroom for adaptive thinking (counts toward max_tokens)
         cache_system=True,
     )
     parsed = _extract_json(raw) or {}

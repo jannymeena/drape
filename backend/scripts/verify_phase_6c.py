@@ -86,7 +86,8 @@ class _StubWeatherProvider(WeatherProvider):
 class _CannedAIProvider(AIProvider):
     """Returns valid outfit-proposal JSON keyed off the prompt.
 
-    Sniffs the prompt for available item ids (the format is ` id=<uuid> `),
+    Sniffs the prompt for available item refs (the format is ` id=<ref> `,
+    "1".. for wardrobe items, "S1".. for shop products),
     picks the first 4, and returns a structured proposal that names them
     by id. This guarantees `generate_one` never hits the parse-failure
     fallback path during 6c verify.
@@ -115,10 +116,7 @@ class _CannedAIProvider(AIProvider):
         # Extract item ids in the same order the prompt presented them.
         import re
 
-        ids = re.findall(
-            r"id=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
-            prompt,
-        )
+        ids = re.findall(r"id=(S?\d+)", prompt)
         # Pick 4 distinct ids — ensures the AI never "invents" ids and the
         # fallback path stays untouched. If <4 available, take whatever exists.
         chosen = ids[:4] if len(ids) >= 4 else ids

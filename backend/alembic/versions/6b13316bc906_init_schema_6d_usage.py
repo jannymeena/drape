@@ -243,6 +243,7 @@ def upgrade() -> None:
     sa.Column('product_id', sa.UUID(), nullable=True),
     sa.Column('added_via', sa.String(length=20), nullable=False),
     sa.Column('ai_detection_confidence', sa.Integer(), nullable=True),
+    sa.Column('ai_detection', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['product_id'], ['products.id'], ondelete='SET NULL'),

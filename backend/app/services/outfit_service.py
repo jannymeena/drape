@@ -113,6 +113,27 @@ _MAX_CREATIVE_SHOP_ITEMS = 2
 _SHOP_CANDIDATES_PER_ROLE = 4
 _COLD_FEELS_LIKE_C = 12.0  # below: outerwear is part of the outfit
 _HOT_FEELS_LIKE_C = 22.0  # at/above: no heavy pieces
+# Wardrobe slice sent to the AI (see _select_candidates): at most this many
+# items per category, so the prompt stays flat however large the wardrobe grows.
+_CANDIDATES_PER_CATEGORY = {
+    "tops": 8,
+    "bottoms": 6,
+    "dresses": 5,
+    "shoes": 4,
+    "outerwear": 3,
+    "accessories": 4,
+    "bags": 2,
+    "jewelry": 3,
+}
+_DEFAULT_CANDIDATES_PER_CATEGORY = 4
+# Items worn within this many days (today included) are held back for variety.
+_RECENT_WEAR_DAYS = 2
+# Main pieces in today's other Today sections are held back so each section
+# gets its own core look; shoes, bags, jewelry and accessories may repeat
+# (most people own a few pairs of shoes, and reusing them reads as normal).
+_DISTINCT_PER_SECTION = {"tops", "bottoms", "dresses", "outerwear"}
+_COLD_SEASONS = {"fall", "winter"}
+_WARM_SEASONS = {"spring", "summer"}
 _ROLE_BY_WARDROBE_CATEGORY = {
     **catalog_service.ROLE_BY_CATEGORY,
     "bags": "accessory",
@@ -337,7 +358,7 @@ _RESPONSE_FORMAT = (
     "fences. Schema:\n"
     "{\n"
     '  "occasion": "<echo the requested occasion exactly>",\n'
-    '  "item_ids": ["uuid", "uuid", ...]   // 2-6 ids drawn from the available items,\n'
+    '  "item_ids": ["3", "7", ...]   // 2-6 id= values of the items you chose,\n'
     '  "reasoning_short": "1-2 sentence hook for the card",\n'
     '  "reasoning_full": "3-4 sentences, references items by name, '
     'covers color harmony / occasion / weather",\n'
@@ -363,7 +384,7 @@ def _build_system_context(
     weather) lives in the user message — caching is a byte-exact prefix
     match, so anything that varies must come after this block."""
     item_lines = []
-    for it in items:
+    for ref, it in zip(_item_refs(items), items):
         descriptors = [
             it.category,
             it.color_name or "",
@@ -372,7 +393,7 @@ def _build_system_context(
             "starter" if it.is_starter_wardrobe else "",
         ]
         descriptor_str = " | ".join(d for d in descriptors if d)
-        item_lines.append(f'- id={it.id} name="{it.name}" [{descriptor_str}]')
+        item_lines.append(f'- id={ref} name="{it.name}" [{descriptor_str}]')
 
     goals_block = (
         f"Style goals: {', '.join(style_goals)}." if style_goals else "Style goals: none."
@@ -419,9 +440,9 @@ def _build_user_prompt(
             else "only for pieces the user's own items can't cover"
         )
         lines = "\n".join(
-            f'- id={p.id} name="{catalog_service.display_name(p)}" '
+            f'- id={ref} name="{catalog_service.display_name(p)}" '
             f"[{p.role} | {p.color_name or ''} | {p.formality or ''} | {p.warmth or ''} | shop]"
-            for p in shop
+            for ref, p in zip(_shop_refs(shop), shop)
         )
         prompt += (
             f"\n\nShop products (not owned). Use at most {shop_cap}, {why}; "
@@ -430,7 +451,44 @@ def _build_user_prompt(
     return prompt
 
 
-def _parse_proposal(text: str) -> StructuredOutfitProposal:
+def _item_refs(items: Sequence[WardrobeItem]) -> list[str]:
+    """Short prompt ids for wardrobe items ("1", "2", ...). A UUID costs more
+    tokens than the item's whole description; refs map back in _resolve_refs."""
+    return [str(n) for n in range(1, len(items) + 1)]
+
+
+def _shop_refs(shop: Sequence[Product]) -> list[str]:
+    """Short prompt ids for shop products ("S1", "S2", ...)."""
+    return [f"S{n}" for n in range(1, len(shop) + 1)]
+
+
+def _resolve_refs(payload: object, refs: dict[str, UUID]) -> object:
+    """Swap the AI's short refs for real ids in `item_ids` and the
+    `per_item_rationales` keys. Refs the prompt never offered are dropped
+    (the AI invented them); too few left fails validation -> fallback."""
+    if not isinstance(payload, dict):
+        return payload
+    raw_ids = payload.get("item_ids")
+    if isinstance(raw_ids, list):
+        resolved = []
+        for ref in raw_ids:
+            item_id = refs.get(str(ref).strip())
+            if item_id is None:
+                _log.info("outfit.ai_invented_item", ref=str(ref))
+                continue
+            resolved.append(str(item_id))
+        payload["item_ids"] = resolved
+    rationales = payload.get("per_item_rationales")
+    if isinstance(rationales, dict):
+        payload["per_item_rationales"] = {
+            str(refs[str(k).strip()]): v
+            for k, v in rationales.items()
+            if str(k).strip() in refs
+        }
+    return payload
+
+
+def _parse_proposal(text: str, refs: dict[str, UUID]) -> StructuredOutfitProposal:
     candidate = text.strip()
     try:
         payload = json.loads(candidate)
@@ -443,7 +501,7 @@ def _parse_proposal(text: str) -> StructuredOutfitProposal:
         except JSONDecodeError as exc:
             raise OutfitError("parse_failed", f"AI response had malformed JSON: {exc}") from exc
     try:
-        return StructuredOutfitProposal.model_validate(payload)
+        return StructuredOutfitProposal.model_validate(_resolve_refs(payload, refs))
     except ValidationError as exc:
         raise OutfitError(
             "parse_failed", f"AI response failed schema validation: {exc.errors()}"
@@ -581,15 +639,21 @@ async def _ask_ai_for_outfit(
         text = await ai.chat(
             [{"role": "user", "content": prompt}],
             system=system,
-            max_tokens=1200,
+            # Headroom for Sonnet 5.5's adaptive thinking, which counts toward
+            # max_tokens; the JSON reply itself is ~500 tokens. Only generated
+            # tokens are billed.
+            max_tokens=4096,
             cache_system=True,
         )
     except AIProviderError as exc:
         _log.warning("outfit.ai_call_failed", code=exc.code, error=str(exc))
         raise OutfitError("ai_call_failed", str(exc)) from exc
 
-    proposal = _parse_proposal(text)
-    return proposal
+    refs = {
+        **dict(zip(_item_refs(items), (i.id for i in items))),
+        **dict(zip(_shop_refs(shop), (p.id for p in shop))),
+    }
+    return _parse_proposal(text, refs)
 
 
 def _materialize_items(
@@ -699,6 +763,83 @@ def _blend_pool(pool: list[WardrobeItem]) -> list[WardrobeItem]:
     return real + starter
 
 
+def _items_in_other_sections(db: Session, *, user: User, occasion: Occasion) -> frozenset[UUID]:
+    """Item ids in the outfits today's dashboard shows for the *other*
+    occasions (latest generation each), so a new outfit can avoid them."""
+    return frozenset(
+        it.item_id
+        for outfit in _latest_per_occasion(_today_outfits(db, user=user))
+        if outfit.occasion != occasion
+        for it in payload_to_outfit_items(outfit.items)
+    )
+
+
+def _item_suits_weather(item: WardrobeItem, feels_like_c: Optional[float]) -> bool:
+    """Season tags vs the temperature. Untagged items suit any weather."""
+    if feels_like_c is None or not item.season:
+        return True
+    if feels_like_c < _COLD_FEELS_LIKE_C:
+        return bool(_COLD_SEASONS.intersection(item.season))
+    if feels_like_c >= _HOT_FEELS_LIKE_C:
+        return bool(_WARM_SEASONS.intersection(item.season))
+    return True
+
+
+def _select_candidates(
+    pool: list[WardrobeItem],
+    *,
+    occasion: Occasion,
+    weather: Optional[WeatherSnapshot],
+    today: date,
+    used_elsewhere: frozenset[UUID] = frozenset(),
+) -> list[WardrobeItem]:
+    """The wardrobe slice the AI chooses from — narrowed in code so the prompt
+    stays small and the AI never has to ask for more.
+
+    Starter blend and occasion filter first. In hot weather outerwear is left
+    out. Then per category: prefer season-appropriate items, hold back main
+    pieces (`_DISTINCT_PER_SECTION`) already in today's other sections
+    (`used_elsewhere`), and skip anything worn in the last `_RECENT_WEAR_DAYS`
+    days — each filter is dropped when it would empty the category, so a
+    small wardrobe still shares pieces. Finally rank the user's own
+    least-recently-worn pieces first (favorites break ties) and keep at most
+    `_CANDIDATES_PER_CATEGORY` per category."""
+    items = _filter_for_occasion(_blend_pool(pool), occasion)
+    feels = weather.feels_like_c if weather is not None else None
+    if feels is not None and feels >= _HOT_FEELS_LIKE_C:
+        no_outerwear = [i for i in items if i.category != "outerwear"]
+        if len(no_outerwear) >= _MIN_ITEMS_PER_OUTFIT:
+            items = no_outerwear
+
+    worn_cutoff = today - timedelta(days=_RECENT_WEAR_DAYS - 1)
+    by_category: dict[str, list[WardrobeItem]] = {}
+    for it in items:
+        by_category.setdefault(it.category, []).append(it)
+
+    selected: list[WardrobeItem] = []
+    for category, bucket in by_category.items():
+        hold_back = category in _DISTINCT_PER_SECTION
+        for keep in (
+            lambda i: _item_suits_weather(i, feels),
+            lambda i: not hold_back or i.id not in used_elsewhere,
+            lambda i: i.last_worn is None or i.last_worn < worn_cutoff,
+        ):
+            narrowed = [i for i in bucket if keep(i)]
+            if narrowed:
+                bucket = narrowed
+        bucket = sorted(
+            bucket,
+            key=lambda i: (
+                bool(i.is_starter_wardrobe),
+                i.last_worn or date.min,
+                not i.is_favorite,
+            ),
+        )
+        cap = _CANDIDATES_PER_CATEGORY.get(category, _DEFAULT_CANDIDATES_PER_CATEGORY)
+        selected += bucket[:cap]
+    return selected
+
+
 async def generate_one(
     *,
     db: Session,
@@ -731,8 +872,19 @@ async def generate_one(
         # the full wardrobe so we still produce something.
         pool = all_items
 
-    candidates = _filter_for_occasion(_blend_pool(pool), occasion) if pool else []
     snap = await _maybe_weather(weather, lat=lat, lon=lon)
+    today = user_today(user, now_utc=_now())
+    candidates = (
+        _select_candidates(
+            pool,
+            occasion=occasion,
+            weather=snap,
+            today=today,
+            used_elsewhere=_items_in_other_sections(db, user=user, occasion=occasion),
+        )
+        if pool
+        else []
+    )
     shop_roles, shop_cap = _shop_plan(
         candidates, shopping_style=user.shopping_style, weather=snap, creative=creative
     )
@@ -842,10 +994,9 @@ async def generate_for_user(
     lat: Optional[float] = None,
     lon: Optional[float] = None,
 ) -> list[Outfit]:
-    """Sequential generation per occasion. Sequential (not gather) keeps the
-    items used in outfit N out of outfit N+1 only when we explicitly want to
-    diversify; CTO doc shows three different occasions per day so AI chooses
-    independently per call."""
+    """Sequential generation per occasion (not gather): each outfit is
+    persisted before the next is built, so `generate_one` can hold back the
+    main pieces already used in today's earlier sections."""
     outfits: list[Outfit] = []
     for occ in occasions:
         outfit = await generate_one(

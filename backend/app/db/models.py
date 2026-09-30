@@ -568,6 +568,12 @@ class WardrobeItem(Base, TimestampMixin):
     # Provenance
     added_via: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
     ai_detection_confidence: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # The scanner's untouched answer ({category, color, pattern, formality,
+    # confidence, model}) for scanned items. Comparing it with the item's
+    # current fields gives the scan accuracy per field and per model.
+    ai_detection: Mapped[Optional[dict]] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
 
 
 class WardrobeWearLog(Base):

@@ -14,6 +14,8 @@ _PROMPT = "describe this garment"
 class _CountingAIProvider(AIProvider):
     """Inner provider that records how many real calls it received."""
 
+    vision_model = "claude-haiku-4-5"
+
     def __init__(self, reply: str = '{"category": "top"}') -> None:
         self.reply = reply
         self.analyze_calls = 0
@@ -44,7 +46,7 @@ def test_cache_key_is_stable_and_input_sensitive():
 
 def test_miss_then_hit_calls_inner_once(db):
     inner = _CountingAIProvider()
-    provider = CachingAIProvider(inner, default_model="claude-haiku-4-5")
+    provider = CachingAIProvider(inner)
 
     first = asyncio.run(provider.analyze_image(_IMG, _PROMPT))
     second = asyncio.run(provider.analyze_image(_IMG, _PROMPT))
@@ -61,7 +63,7 @@ def test_miss_then_hit_calls_inner_once(db):
 
 def test_different_image_is_a_separate_entry(db):
     inner = _CountingAIProvider()
-    provider = CachingAIProvider(inner, default_model="claude-haiku-4-5")
+    provider = CachingAIProvider(inner)
 
     asyncio.run(provider.analyze_image(_IMG, _PROMPT))
     asyncio.run(provider.analyze_image(b"different-bytes", _PROMPT))
@@ -72,7 +74,7 @@ def test_different_image_is_a_separate_entry(db):
 
 def test_chat_is_not_cached(db):
     inner = _CountingAIProvider()
-    provider = CachingAIProvider(inner, default_model="claude-haiku-4-5")
+    provider = CachingAIProvider(inner)
 
     asyncio.run(provider.chat([{"role": "user", "content": "hi"}]))
     asyncio.run(provider.chat([{"role": "user", "content": "hi"}]))

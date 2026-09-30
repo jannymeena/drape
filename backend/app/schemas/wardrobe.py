@@ -47,9 +47,30 @@ class WardrobeItemBase(BaseModel):
     description: str | None = Field(default=None, max_length=2000)
 
 
+class AIDetection(BaseModel):
+    """What the vision model said about a garment photo (the scanner's reply,
+    plus the model id the backend stamps on it)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    category: Category
+    color: str = Field(min_length=1, max_length=50)
+    pattern: Pattern
+    formality: Formality
+    confidence: int = Field(ge=0, le=100)
+    model: str | None = Field(default=None, max_length=100)
+
+
 class WardrobeItemCreate(WardrobeItemBase):
-    """Manual-entry create. Photos are attached separately via
-    POST /wardrobe/items/{id}/images. Scanner/batch-upload lands in 6b."""
+    """Create from manual entry or a reviewed scan. Photos are attached
+    separately via POST /wardrobe/items/{id}/images.
+
+    A scanned item echoes the scanner's untouched `ai_detection` next to the
+    (possibly user-corrected) fields above; the difference between the two is
+    the scan accuracy signal."""
+
+    added_via: Literal["manual", "scan", "batch_upload"] = "manual"
+    ai_detection: AIDetection | None = None
 
 
 class WardrobeItemUpdate(BaseModel):

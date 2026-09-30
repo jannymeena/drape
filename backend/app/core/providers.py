@@ -165,11 +165,15 @@ class Providers:
     @staticmethod
     def _build_ai(s: Settings) -> AIProvider:
         if s.anthropic_api_key:
-            model = s.anthropic_model or AnthropicProvider.DEFAULT_MODEL
-            base: AIProvider = AnthropicProvider(s.anthropic_api_key, default_model=model)
+            base: AIProvider = AnthropicProvider(
+                s.anthropic_api_key,
+                text_model=s.ai_text_model,
+                vision_model=s.ai_vision_model,
+                text_effort=s.ai_text_effort,
+            )
             # Wrap real Anthropic calls in the analyze_image cache (§5.1).
             if s.ai_cache_enabled:
-                return CachingAIProvider(base, default_model=model)
+                return CachingAIProvider(base)
             return base
         if s.environment == "dev":
             return MockAIProvider()

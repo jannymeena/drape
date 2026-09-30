@@ -16,6 +16,9 @@ PRICING: dict[str, dict[str, float]] = {
     # Opus 4.1 / 4 (older tier — pricier)
     "claude-opus-4-1": {"input": 15, "output": 75, "cache_write_5m": 18.75, "cache_write_1h": 30, "cache_read": 1.50},
     "claude-opus-4-0": {"input": 15, "output": 75, "cache_write_5m": 18.75, "cache_write_1h": 30, "cache_read": 1.50},  # Opus 4 (deprecated)
+    # Sonnet 5.x
+    "claude-sonnet-5-5": {"input": 2, "output": 10, "cache_write_5m": 2.50, "cache_write_1h": 4, "cache_read": 0.20},
+    "claude-sonnet-5": {"input": 2, "output": 10, "cache_write_5m": 2.50, "cache_write_1h": 4, "cache_read": 0.20},
     # Sonnet 4.x
     "claude-sonnet-4-6": {"input": 3, "output": 15, "cache_write_5m": 3.75, "cache_write_1h": 6, "cache_read": 0.30},
     "claude-sonnet-4-5": {"input": 3, "output": 15, "cache_write_5m": 3.75, "cache_write_1h": 6, "cache_read": 0.30},
@@ -28,7 +31,7 @@ PRICING: dict[str, dict[str, float]] = {
 # Default per family when a model id matches no key/prefix (latest/current tier).
 _FAMILY_DEFAULT: dict[str, str] = {
     "opus": "claude-opus-4-8",
-    "sonnet": "claude-sonnet-4-6",
+    "sonnet": "claude-sonnet-5-5",
     "haiku": "claude-haiku-4-5",
 }
 _FALLBACK = "claude-sonnet-4-6"
