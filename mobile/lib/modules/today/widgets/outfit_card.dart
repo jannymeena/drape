@@ -102,8 +102,10 @@ class OutfitCard extends StatelessWidget {
                     ),
                   ),
                 ),
+              // Bottom-left, opposite the heart: the top corners belong to the
+              // items' BUY pills, which a top-left label would cover.
               Positioned(
-                top: 12,
+                bottom: 12,
                 left: 12,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -156,7 +158,9 @@ class OutfitCard extends StatelessWidget {
               Expanded(
                 child: outfit.shopTheLook
                     ? _CardActionButton(
-                        label: 'SHOP THE LOOK',
+                        // Three buttons share the row; the longer label
+                        // got cut off on phone widths.
+                        label: 'SHOP',
                         filled: true,
                         onPressed: _busy ? null : onShopTheLook,
                       )

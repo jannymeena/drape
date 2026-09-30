@@ -15,6 +15,7 @@ class TodayDashboard {
     this.weatherAttribution,
     this.wardrobeReady = false,
     this.pendingOccasions = const [],
+    this.occasions = const [],
   });
 
   final TodayUser user;
@@ -35,6 +36,10 @@ class TodayDashboard {
   /// Occasions that still need a today-outfit — drives the skeleton cards.
   final List<String> pendingOccasions;
 
+  /// Every occasion the backend's rulebook defines, in display order — the
+  /// occasion chips. Empty from an older cached frame.
+  final List<OccasionOption> occasions;
+
   factory TodayDashboard.fromJson(Map<String, dynamic> json) {
     final weather = json['weather'] as Map<String, dynamic>?;
     final attribution = json['weather_attribution'] as Map<String, dynamic>?;
@@ -54,6 +59,9 @@ class TodayDashboard {
           (json['pending_occasions'] as List<dynamic>? ?? const [])
               .map((e) => e as String)
               .toList(),
+      occasions: (json['occasions'] as List<dynamic>? ?? const [])
+          .map((e) => OccasionOption.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -68,6 +76,7 @@ class TodayDashboard {
         'weather_attribution': weatherAttribution?.toJson(),
         'wardrobe_ready': wardrobeReady,
         'pending_occasions': pendingOccasions,
+        'occasions': occasions.map((o) => o.toJson()).toList(),
       };
 
   /// Swaps fields after a per-card action (regenerate / log / occasion fill)
@@ -86,8 +95,31 @@ class TodayDashboard {
       weatherAttribution: weatherAttribution,
       wardrobeReady: wardrobeReady ?? this.wardrobeReady,
       pendingOccasions: pendingOccasions ?? this.pendingOccasions,
+      occasions: occasions,
     );
   }
+}
+
+/// Mirrors the backend `OccasionOption`: an occasion the stylist can dress
+/// for. `daily` ones are filled on Today every day; the rest on demand.
+class OccasionOption {
+  const OccasionOption({
+    required this.key,
+    required this.label,
+    this.daily = false,
+  });
+
+  final String key;
+  final String label;
+  final bool daily;
+
+  factory OccasionOption.fromJson(Map<String, dynamic> json) => OccasionOption(
+        key: json['key'] as String,
+        label: json['label'] as String,
+        daily: json['daily'] as bool? ?? false,
+      );
+
+  Map<String, dynamic> toJson() => {'key': key, 'label': label, 'daily': daily};
 }
 
 /// Mirrors the backend `WeatherAttributionResponse`.

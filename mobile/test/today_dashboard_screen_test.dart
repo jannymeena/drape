@@ -73,6 +73,16 @@ TodayDashboard _frame(List<String> pending,
       'banners': <String, dynamic>{},
       'wardrobe_ready': true,
       'pending_occasions': pending,
+      // What the backend's occasion rulebook sends (a subset is enough here).
+      'occasions': [
+        for (final (key, label, daily) in const [
+          ('work', 'Work', true),
+          ('casual', 'Casual', true),
+          ('date_night', 'Date Night', true),
+          ('gym', 'Gym', false),
+        ])
+          {'key': key, 'label': label, 'daily': daily},
+      ],
     });
 
 /// Backend onboarding-status payload driving the resume banner. [next] null
@@ -162,6 +172,19 @@ void main() {
 
     expect(find.text('WORK'), findsOneWidget);
     expect(find.text('CASUAL'), findsNothing);
+  });
+
+  testWidgets('occasion chips come from the backend rulebook', (tester) async {
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    await tester.pumpWidget(_host(_StubService(_frame([]))));
+    await _settle(tester);
+
+    for (final label in ['All', 'Work', 'Casual', 'Date Night', 'Gym']) {
+      expect(find.text(label), findsWidgets, reason: label);
+    }
+    // Not in this frame's list, so no chip.
+    expect(find.text('Wedding Guest'), findsNothing);
   });
 
   testWidgets('filtering to an occasion with no pick shows the empty message',

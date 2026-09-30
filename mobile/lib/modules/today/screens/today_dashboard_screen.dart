@@ -49,16 +49,10 @@ class TodayDashboardScreen extends ConsumerStatefulWidget {
 
 class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     with WidgetsBindingObserver {
-  /// Chip row: "All" plus the occasions the backend actually generates
-  /// (CTO doc 2, Screen 1). Labels map to the backend literal via
-  /// [_selectedOccasion] (lowercased, spaces → underscores).
-  static const _occasions = ['All', 'Work', 'Casual', 'Gym', 'Date Night'];
-  int _occasionIndex = 0;
-
-  /// Backend occasion literal for the active chip; null when "All".
-  String? get _selectedOccasion => _occasionIndex == 0
-      ? null
-      : _occasions[_occasionIndex].toLowerCase().replaceAll(' ', '_');
+  /// Chip row: "All" plus every occasion the backend's rulebook defines
+  /// (`dashboard.occasions`, in its order). The active chip's occasion key;
+  /// null when "All".
+  String? _selectedOccasion;
 
   @override
   void initState() {
@@ -238,13 +232,16 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
                   height: 40,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: _occasions.length,
+                    itemCount: dashboard.occasions.length + 1,
                     separatorBuilder: (_, _) => const SizedBox(width: 10),
-                    itemBuilder: (_, i) => _OccasionChip(
-                      label: _occasions[i],
-                      selected: i == _occasionIndex,
-                      onTap: () => setState(() => _occasionIndex = i),
-                    ),
+                    itemBuilder: (_, i) {
+                      final key = i == 0 ? null : dashboard.occasions[i - 1].key;
+                      return _OccasionChip(
+                        label: i == 0 ? 'All' : dashboard.occasions[i - 1].label,
+                        selected: key == _selectedOccasion,
+                        onTap: () => setState(() => _selectedOccasion = key),
+                      );
+                    },
                   ),
                 ),
                 ..._resumeBanner(),
@@ -321,11 +318,10 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     );
   }
 
-  static const _occasionOrder = ['work', 'casual', 'date_night', 'gym', 'other'];
-
-  int _occasionRank(String occasion) {
-    final i = _occasionOrder.indexOf(occasion);
-    return i == -1 ? _occasionOrder.length : i;
+  /// Position in the backend's occasion order (unknown ones last).
+  int _occasionRank(TodayDashboard dashboard, String occasion) {
+    final i = dashboard.occasions.indexWhere((o) => o.key == occasion);
+    return i == -1 ? dashboard.occasions.length : i;
   }
 
   String _occasionLabel(String occasion) => occasion
@@ -360,13 +356,15 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     ];
 
     final pending = state.pendingOccasions.where(matches).toList()
-      ..sort((a, b) => _occasionRank(a).compareTo(_occasionRank(b)));
+      ..sort((a, b) =>
+          _occasionRank(dashboard, a).compareTo(_occasionRank(dashboard, b)));
     for (final occasion in pending) {
       widgets.add(OutfitCardSkeleton(occasionLabel: _occasionLabel(occasion)));
     }
 
     final failed = state.failedOccasions.keys.where(matches).toList()
-      ..sort((a, b) => _occasionRank(a).compareTo(_occasionRank(b)));
+      ..sort((a, b) =>
+          _occasionRank(dashboard, a).compareTo(_occasionRank(dashboard, b)));
     for (final occasion in failed) {
       widgets.add(OutfitOccasionRetryCard(
         occasionLabel: _occasionLabel(occasion),

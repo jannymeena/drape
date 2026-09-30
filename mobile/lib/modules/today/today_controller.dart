@@ -172,8 +172,16 @@ class TodayController extends StateNotifier<TodayState> {
     );
     _persist();
 
-    for (final occasion in toFire) {
-      unawaited(_fill(occasion));
+    unawaited(_fillInTurn(toFire));
+  }
+
+  /// Fills [occasions] one after another — still one request per occasion,
+  /// each card updating as it lands. In turn rather than in parallel so each
+  /// later outfit's prompt knows what the earlier ones wear and can avoid
+  /// repeating their main pieces.
+  Future<void> _fillInTurn(Iterable<String> occasions) async {
+    for (final occasion in occasions) {
+      await _fill(occasion);
     }
   }
 

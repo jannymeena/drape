@@ -24,6 +24,9 @@ class _FakeTodayService extends TodayService {
   final Map<String, Outfit> occasionResults = {};
   final Set<String> failOccasions = {};
   int generateCalls = 0;
+  final List<String> generated = [];
+  int _inFlight = 0;
+  int maxInFlight = 0;
 
   Outfit? regenResult;
   ApiException? regenError;
@@ -45,12 +48,19 @@ class _FakeTodayService extends TodayService {
   Future<Outfit> generateOccasion(String occasion,
       {double? lat, double? lon}) async {
     generateCalls++;
-    if (failOccasions.contains(occasion)) {
-      throw const ApiException(
-          code: 'ai_call_failed', message: 'AI failed', statusCode: 502);
+    generated.add(occasion);
+    maxInFlight = ++_inFlight > maxInFlight ? _inFlight : maxInFlight;
+    try {
+      await Future<void>.delayed(Duration.zero); // a real request yields
+      if (failOccasions.contains(occasion)) {
+        throw const ApiException(
+            code: 'ai_call_failed', message: 'AI failed', statusCode: 502);
+      }
+      return occasionResults[occasion] ??
+          Outfit.fromJson(_outfitJson('gen-$occasion', occasion: occasion));
+    } finally {
+      _inFlight--;
     }
-    return occasionResults[occasion] ??
-        Outfit.fromJson(_outfitJson('gen-$occasion', occasion: occasion));
   }
 
   @override
@@ -122,18 +132,21 @@ void main() {
     controller = TodayController(service, cache, DebugAnalyticsService());
   });
 
-  test('loadFrame seeds pending and fills each occasion in parallel', () async {
-    service.frame = _dashboard([], pending: ['work', 'casual']);
+  test('loadFrame seeds pending and fills each occasion in turn', () async {
+    service.frame = _dashboard([], pending: ['work', 'casual', 'date_night']);
 
     await controller.loadFrame();
     await pumpEventQueue();
 
     final occasions =
         controller.state.dashboard!.outfits.map((o) => o.occasion).toSet();
-    expect(occasions, {'work', 'casual'});
+    expect(occasions, {'work', 'casual', 'date_night'});
     expect(controller.state.pendingOccasions, isEmpty);
     expect(controller.state.failedOccasions, isEmpty);
-    expect(service.generateCalls, 2);
+    // One request per occasion, in the frame's order, never two at once — so
+    // each later prompt knows what the earlier outfits wear.
+    expect(service.generated, ['work', 'casual', 'date_night']);
+    expect(service.maxInFlight, 1);
   });
 
   test('refreshIfStale skips before the first load and while fresh', () async {

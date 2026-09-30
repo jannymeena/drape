@@ -74,7 +74,7 @@ void main() {
     await pumpCard(tester, shop: true);
     expect(find.text('WORK'), findsOneWidget); // corner pill
     expect(find.byType(BuyPill), findsOneWidget);
-    expect(find.text('SHOP THE LOOK'), findsOneWidget);
+    expect(find.text('SHOP'), findsOneWidget);
     expect(find.text('WEAR THIS'), findsNothing);
   });
 
