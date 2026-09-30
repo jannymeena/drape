@@ -49,6 +49,8 @@ class _BlueprintIdentityScreenState
     (null, 'Prefer not to say'),
   ];
 
+  final _ageQuestion = GlobalKey();
+
   String? _style;
   int? _ageIndex;
   bool _submitting = false;
@@ -110,13 +112,16 @@ class _BlueprintIdentityScreenState
             selected: _style == value,
             onTap: () {
               if (_submitting) return;
+              final firstAnswer = _style == null;
               setState(() => _style = value);
+              if (firstAnswer) revealNextQuestion(_ageQuestion);
             },
           ),
           const SizedBox(height: 12),
         ],
         const SizedBox(height: 20),
-        const BlueprintQuestion(
+        BlueprintQuestion(
+          key: _ageQuestion,
           title: 'What’s your age range?',
           subtitle: 'Helps us fit styles to your life stage.',
         ),

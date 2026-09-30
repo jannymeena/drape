@@ -48,6 +48,8 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
     ),
   ];
 
+  final _goalsQuestion = GlobalKey();
+
   String? _feeling;
   final _selectedGoals = <String>{};
   bool _submitting = false;
@@ -105,13 +107,16 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
             selected: _feeling == value,
             onTap: () {
               if (_submitting) return;
+              final firstAnswer = _feeling == null;
               setState(() => _feeling = value);
+              if (firstAnswer) revealNextQuestion(_goalsQuestion);
             },
           ),
           const SizedBox(height: 12),
         ],
         const SizedBox(height: 16),
-        const BlueprintQuestion(
+        BlueprintQuestion(
+          key: _goalsQuestion,
           title: 'What matters most to you right now?',
           subtitle: 'Pick as many as you like — this shapes how ZOURA styles you.',
         ),

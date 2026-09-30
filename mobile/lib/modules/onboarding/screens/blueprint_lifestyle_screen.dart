@@ -55,6 +55,9 @@ class _BlueprintLifestyleScreenState
   ];
 
   late final TextEditingController _occupation;
+  final _dressCodeQuestion = GlobalKey();
+  final _impressionQuestion = GlobalKey();
+
   String? _dressCode;
   String? _impression;
   bool _submitting = false;
@@ -153,15 +156,18 @@ class _BlueprintLifestyleScreenState
                 selected: _occupation.text.trim() == s,
                 onTap: () {
                   if (_submitting) return;
+                  final firstAnswer = _occupation.text.trim().isEmpty;
                   setState(() {
                     _occupation.text = _occupation.text.trim() == s ? '' : s;
                   });
+                  if (firstAnswer) revealNextQuestion(_dressCodeQuestion);
                 },
               ),
           ],
         ),
         const SizedBox(height: 28),
         BlueprintQuestion(
+          key: _dressCodeQuestion,
           title: 'What’s the dress code like?',
           subtitle: hasOccupation
               ? 'Pick the one you dress for most often.'
@@ -182,16 +188,19 @@ class _BlueprintLifestyleScreenState
                   selected: _dressCode == value,
                   onTap: () {
                     if (_submitting || !hasOccupation) return;
+                    final firstAnswer = _dressCode == null;
                     setState(
                       () => _dressCode = _dressCode == value ? null : value,
                     );
+                    if (firstAnswer) revealNextQuestion(_impressionQuestion);
                   },
                 ),
             ],
           ),
         ),
         const SizedBox(height: 28),
-        const BlueprintQuestion(
+        BlueprintQuestion(
+          key: _impressionQuestion,
           title: 'Where do you want to make a better impression?',
         ),
         const SizedBox(height: 16),

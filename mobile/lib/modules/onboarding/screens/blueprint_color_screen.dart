@@ -61,6 +61,8 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
     ),
   ];
 
+  final _paletteQuestion = GlobalKey();
+
   String? _undertone;
   final _selectedPalettes = <String>{};
   bool _submitting = false;
@@ -124,7 +126,9 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
                   selected: _undertone == value,
                   onTap: () {
                     if (_submitting) return;
+                    final firstAnswer = _undertone == null;
                     setState(() => _undertone = value);
+                    if (firstAnswer) revealNextQuestion(_paletteQuestion);
                   },
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -143,7 +147,8 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
           ],
         ),
         const SizedBox(height: 28),
-        const BlueprintQuestion(
+        BlueprintQuestion(
+          key: _paletteQuestion,
           title: 'Which colours do you gravitate toward?',
           subtitle: 'Select all that apply.',
         ),

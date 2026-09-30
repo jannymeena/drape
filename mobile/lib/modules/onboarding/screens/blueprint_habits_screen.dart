@@ -61,6 +61,9 @@ class _BlueprintHabitsScreenState extends ConsumerState<BlueprintHabitsScreen> {
     ('mix', 'A high-low mix', 'Vintage · Boutique · Contemporary'),
   ];
 
+  final _accessoryQuestion = GlobalKey();
+  final _tierQuestion = GlobalKey();
+
   String? _feeling;
   String? _accessory;
   String? _tier;
@@ -118,13 +121,18 @@ class _BlueprintHabitsScreenState extends ConsumerState<BlueprintHabitsScreen> {
             selected: _feeling == value,
             onTap: () {
               if (_submitting) return;
+              final firstAnswer = _feeling == null;
               setState(() => _feeling = value);
+              if (firstAnswer) revealNextQuestion(_accessoryQuestion);
             },
           ),
           const SizedBox(height: 12),
         ],
         const SizedBox(height: 16),
-        const BlueprintQuestion(title: 'How do you feel about accessories?'),
+        BlueprintQuestion(
+          key: _accessoryQuestion,
+          title: 'How do you feel about accessories?',
+        ),
         const SizedBox(height: 16),
         for (final (value, label, support) in _accessories) ...[
           _RadioRow(
@@ -133,13 +141,16 @@ class _BlueprintHabitsScreenState extends ConsumerState<BlueprintHabitsScreen> {
             selected: _accessory == value,
             onTap: () {
               if (_submitting) return;
+              final firstAnswer = _accessory == null;
               setState(() => _accessory = value);
+              if (firstAnswer) revealNextQuestion(_tierQuestion);
             },
           ),
           const SizedBox(height: 12),
         ],
         const SizedBox(height: 16),
-        const BlueprintQuestion(
+        BlueprintQuestion(
+          key: _tierQuestion,
           title: 'Which types of brands do you prefer?',
           subtitle: 'This helps us match products to your budget.',
         ),

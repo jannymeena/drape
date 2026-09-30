@@ -412,4 +412,55 @@ void main() {
     expect(find.text('Your Style, Defined'), findsOneWidget);
     expect(find.text('Build My Wardrobe'), findsOneWidget);
   });
+
+  group('answering a one-answer question moves on to the next', () {
+    ScrollPosition stepScroll(WidgetTester tester) => tester
+        .state<ScrollableState>(find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(Scrollable),
+        ))
+        .position;
+
+    Future<void> settleReveal(WidgetTester tester) async {
+      await tester.pump(const Duration(milliseconds: 300)); // the pause
+      await tester.pumpAndSettle(); // the glide
+    }
+
+    testWidgets('the next question scrolls into view', (tester) async {
+      final container = _container(_StubService());
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+          _host(container, initialLocation: BlueprintHabitsScreen.path));
+      await tester.pumpAndSettle();
+      expect(stepScroll(tester).pixels, 0);
+
+      await tester.tap(find.text('Confident and in control'));
+      await settleReveal(tester);
+
+      expect(stepScroll(tester).pixels, greaterThan(0));
+      final question = tester.getRect(find.text('How do you feel about accessories?'));
+      final viewport = tester.getRect(find.byType(SingleChildScrollView));
+      expect(viewport.top <= question.top && question.bottom <= viewport.bottom,
+          isTrue);
+    });
+
+    testWidgets('changing an answer later does not move the page',
+        (tester) async {
+      final container = _container(_StubService());
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+          _host(container, initialLocation: BlueprintHabitsScreen.path));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Confident and in control'));
+      await settleReveal(tester);
+      stepScroll(tester).jumpTo(0); // the user scrolls back up…
+      await tester.pump();
+
+      // …and changes their mind on the first question.
+      await tester.tap(find.text('Often frustrated'));
+      await settleReveal(tester);
+      expect(stepScroll(tester).pixels, 0);
+    });
+  });
 }

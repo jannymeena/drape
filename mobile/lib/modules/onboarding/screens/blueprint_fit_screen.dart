@@ -45,6 +45,8 @@ class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
     ('baggy', 'Baggy'),
   ];
 
+  final _fitQuestion = GlobalKey();
+
   String? _shape;
   // Default both sliders to the middle stop: it's the most common answer and
   // means the user only has to touch a slider they actually disagree with.
@@ -113,13 +115,16 @@ class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
                 selected: _shape == value,
                 onTap: () {
                   if (_submitting) return;
+                  final firstAnswer = _shape == null;
                   setState(() => _shape = value);
+                  if (firstAnswer) revealNextQuestion(_fitQuestion);
                 },
               ),
           ],
         ),
         const SizedBox(height: 28),
-        const BlueprintQuestion(
+        BlueprintQuestion(
+          key: _fitQuestion,
           title: 'How do you prefer your clothes to fit?',
         ),
         const SizedBox(height: 20),

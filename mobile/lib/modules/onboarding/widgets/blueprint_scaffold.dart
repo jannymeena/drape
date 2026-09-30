@@ -77,6 +77,25 @@ class BlueprintQuestion extends StatelessWidget {
   }
 }
 
+/// Brings the question keyed by [next] to the top of the step once a
+/// one-answer question has just been answered, so the user can keep going
+/// without scrolling. Waits a beat first so the pick visibly registers.
+///
+/// Call it only when a single-choice question goes from unanswered to
+/// answered: multi-select questions are still being chosen, sliders fire
+/// while dragging, and re-answering an earlier question shouldn't yank the
+/// page forward.
+Future<void> revealNextQuestion(GlobalKey next) async {
+  await Future<void>.delayed(const Duration(milliseconds: 250));
+  final context = next.currentContext;
+  if (context == null || !context.mounted) return;
+  await Scrollable.ensureVisible(
+    context,
+    duration: const Duration(milliseconds: 400),
+    curve: Curves.easeInOut,
+  );
+}
+
 /// Shared chrome for the seven Style Blueprint steps: a back button and a
 /// "Step n of 7" pill, a progress line, the scrollable question list, and a
 /// sticky Continue button.
@@ -122,9 +141,14 @@ class BlueprintScaffold extends StatelessWidget {
           children: [
             _Header(step: step),
             Expanded(
-              child: ListView(
+              // Not a lazy ListView: every question is built up front so
+              // `revealNextQuestion` can always find the next one.
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-                children: children,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: children,
+                ),
               ),
             ),
             _ContinueBar(
