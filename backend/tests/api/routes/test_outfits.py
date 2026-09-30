@@ -667,3 +667,62 @@ def test_regenerating_supersedes_its_own_card_not_another_occasion(
     casual = next(o for o in shown if o.occasion == "casual")
     others = [o for o in shown if o.occasion != "casual"]
     assert all(casual.created_at > o.created_at for o in others)
+
+
+# ---------------------------------------------------------------------------
+# /today/dashboard weather
+# ---------------------------------------------------------------------------
+
+
+def test_dashboard_weather_is_current_not_the_outfits_snapshot(authed_client, db):
+    """The chip shows live conditions (stub: 14°C) even when today's outfits
+    were styled for different weather — that snapshot stays on the outfit."""
+    items = make_starter_wardrobe(db, authed_client.test_user, count=9)
+    outfit = make_outfit(db, authed_client.test_user, occasion="work", items=items[:4])
+    outfit.weather_context = {"temp_c": 30.0, "feels_like_c": 32.0, "condition": "clear"}
+    db.commit()
+
+    body = authed_client.get("/api/v1/today/dashboard?lat=43.65&lon=-79.38").json()
+    assert body["weather"]["temp_c"] == 14.0
+    assert body["outfits"][0]["weather_context"]["temp_c"] == 30.0
+    assert body["weather_attribution"] is None  # the stub needs no attribution
+
+
+def test_dashboard_carries_provider_attribution(authed_client):
+    from app.api.dependencies.providers import get_weather_provider
+    from app.services.providers.weather.base import WeatherAttribution
+    from scripts.verify_phase_6c import _StubWeatherProvider
+
+    class _Attributed(_StubWeatherProvider):
+        @property
+        def attribution(self) -> WeatherAttribution:
+            return WeatherAttribution(
+                service_name="Apple Weather",
+                logo_light_url="https://example.test/light.png",
+                logo_dark_url="https://example.test/dark.png",
+                legal_url="https://example.test/legal",
+            )
+
+    authed_client.app.dependency_overrides[get_weather_provider] = _Attributed
+    body = authed_client.get("/api/v1/today/dashboard").json()
+    assert body["weather_attribution"] == {
+        "service_name": "Apple Weather",
+        "logo_light_url": "https://example.test/light.png",
+        "logo_dark_url": "https://example.test/dark.png",
+        "legal_url": "https://example.test/legal",
+    }
+
+
+def test_dashboard_without_weather_omits_attribution(authed_client):
+    from app.api.dependencies.providers import get_weather_provider
+    from app.services.providers.weather.base import WeatherProviderError
+    from scripts.verify_phase_6c import _StubWeatherProvider
+
+    class _Down(_StubWeatherProvider):
+        async def current(self, lat, lon):
+            raise WeatherProviderError("weather_auth_failed", "rejected")
+
+    authed_client.app.dependency_overrides[get_weather_provider] = _Down
+    body = authed_client.get("/api/v1/today/dashboard").json()
+    assert body["weather"] is None
+    assert body["weather_attribution"] is None

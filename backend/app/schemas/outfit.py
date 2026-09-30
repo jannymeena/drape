@@ -51,6 +51,16 @@ class WeatherContext(BaseModel):
     wind_kph: float | None = None
 
 
+class WeatherAttributionResponse(BaseModel):
+    """Attribution the provider's terms require next to its data (WeatherKit:
+    the Apple Weather mark + a link to its data-sources page)."""
+
+    service_name: str
+    logo_light_url: str
+    logo_dark_url: str
+    legal_url: str
+
+
 class OutfitResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -139,7 +149,10 @@ class TodayUsage(BaseModel):
 
 class TodayDashboardResponse(BaseModel):
     user: TodayUser
+    # Always the current conditions (cached ~15 min per ~1 km area), not the
+    # snapshot an outfit was styled for — that stays on each outfit.
     weather: WeatherContext | None
+    weather_attribution: WeatherAttributionResponse | None = None
     outfits: list[OutfitResponse]
     usage: TodayUsage
     banners: TodayBanners

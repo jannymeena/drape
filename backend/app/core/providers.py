@@ -28,7 +28,9 @@ from app.services.providers.push.log import LogPushProvider
 from app.services.providers.oauth.base import OAuthVerifier
 from app.services.providers.oauth.real import RealOAuthVerifier
 from app.services.providers.weather.base import WeatherProvider
+from app.services.providers.weather.caching import CachingWeatherProvider
 from app.services.providers.weather.open_meteo import OpenMeteoProvider
+from app.services.providers.weather.weatherkit import WeatherKitProvider
 
 _log = structlog.get_logger("providers")
 
@@ -54,7 +56,7 @@ class Providers:
             encryptor=type(self.encryptor).__name__,
             image_storage=type(self.image_storage).__name__,
             ai=type(self.ai).__name__,
-            weather=type(self.weather).__name__,
+            weather=type(getattr(self.weather, "inner", self.weather)).__name__,
             payment=type(self.payment).__name__ if self.payment else None,
             push=type(self.push).__name__ if self.push else None,
             affiliate=type(self.affiliate).__name__,
@@ -175,8 +177,19 @@ class Providers:
         raise RuntimeError("ANTHROPIC_API_KEY is required outside dev")
 
     @staticmethod
-    def _build_weather(_s: Settings) -> WeatherProvider:
-        return OpenMeteoProvider()
+    def _build_weather(s: Settings) -> WeatherProvider:
+        # Config validator requires WeatherKit outside dev; dev without the keys
+        # uses Open-Meteo (free for non-commercial use only).
+        if s.weatherkit_configured:
+            inner: WeatherProvider = WeatherKitProvider(
+                team_id=s.weatherkit_team_id,  # type: ignore[arg-type]
+                service_id=s.weatherkit_service_id,  # type: ignore[arg-type]
+                key_id=s.weatherkit_key_id,  # type: ignore[arg-type]
+                private_key=s.weatherkit_private_key,  # type: ignore[arg-type]
+            )
+        else:
+            inner = OpenMeteoProvider()
+        return CachingWeatherProvider(inner)
 
 
 providers = Providers(settings)

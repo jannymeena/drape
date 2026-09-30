@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import httpx
-import structlog
 
 from app.services.providers.weather.base import (
     WeatherProvider,
@@ -9,7 +8,6 @@ from app.services.providers.weather.base import (
     WeatherSnapshot,
 )
 
-_log = structlog.get_logger("provider.weather.open_meteo")
 _BASE_URL = "https://api.open-meteo.com/v1/forecast"
 _TIMEOUT_S = 10.0
 
@@ -42,15 +40,25 @@ class OpenMeteoProvider(WeatherProvider):
             "wind_speed_unit": "kmh",
             "temperature_unit": "celsius",
         }
+        # Failures are logged once, loudly, by CachingWeatherProvider.
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT_S) as client:
                 resp = await client.get(_BASE_URL, params=params)
-                resp.raise_for_status()
-                payload = resp.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            _log.warning("weather.current.failed", lat=lat, lon=lon, error=str(exc))
+        except httpx.HTTPError as exc:
             raise WeatherProviderError(
                 "weather_call_failed", f"Open-Meteo lookup failed: {exc}"
+            ) from exc
+        if resp.status_code == 429:
+            raise WeatherProviderError("weather_quota_exceeded", "Open-Meteo rate limit hit")
+        if resp.status_code >= 400:
+            raise WeatherProviderError(
+                "weather_upstream_error", f"Open-Meteo returned HTTP {resp.status_code}"
+            )
+        try:
+            payload = resp.json()
+        except ValueError as exc:
+            raise WeatherProviderError(
+                "weather_bad_payload", f"Open-Meteo returned non-JSON: {exc}"
             ) from exc
 
         current = payload.get("current") or {}

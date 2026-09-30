@@ -88,6 +88,15 @@ class Settings(BaseSettings):
     # Cheap model for the one-line-per-product tagging calls.
     catalog_tag_model: str = "claude-haiku-4-5-20251001"
 
+    # Apple WeatherKit REST (weather). Required in tbd/prd; in dev, all four set
+    # = WeatherKit, none set = Open-Meteo (free, non-commercial — dev only).
+    # PRIVATE_KEY is the .p8 PEM, raw or base64-encoded (base64 survives the
+    # one-line .env format).
+    weatherkit_team_id: str | None = None
+    weatherkit_service_id: str | None = None
+    weatherkit_key_id: str | None = None
+    weatherkit_private_key: str | None = None
+
     anthropic_api_key: str | None = None
     # Claude model id for the AI provider. Override per env with ANTHROPIC_MODEL
     # (e.g. a cheaper model in dev). None falls back to AnthropicProvider.DEFAULT_MODEL.
@@ -124,6 +133,18 @@ class Settings(BaseSettings):
         pairs = (p.split(":", 1) for p in self.awin_advertiser_genders.split(",") if ":" in p)
         return {a.strip(): g.strip().lower() for a, g in pairs if a.strip() and g.strip()}
 
+    def _weatherkit_keys(self) -> dict[str, str | None]:
+        return {
+            "WEATHERKIT_TEAM_ID": self.weatherkit_team_id,
+            "WEATHERKIT_SERVICE_ID": self.weatherkit_service_id,
+            "WEATHERKIT_KEY_ID": self.weatherkit_key_id,
+            "WEATHERKIT_PRIVATE_KEY": self.weatherkit_private_key,
+        }
+
+    @property
+    def weatherkit_configured(self) -> bool:
+        return all(self._weatherkit_keys().values())
+
     def feature_enabled(self, feature: str) -> bool:
         return feature not in self._disabled_feature_set()
 
@@ -150,6 +171,12 @@ class Settings(BaseSettings):
                     "(Phase 5b — measurements encryption). Generate one with: "
                     'python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"'
                 )
+        weatherkit_set = [k for k, v in self._weatherkit_keys().items() if v]
+        if weatherkit_set and not self.weatherkit_configured:
+            missing = [k for k, v in self._weatherkit_keys().items() if not v]
+            raise ValueError(
+                f"WeatherKit is partially configured — also set: {', '.join(missing)}"
+            )
         if self.environment in ("tbd", "prd"):
             if self.auth_rate_limit_per_minute <= 0:
                 self.auth_rate_limit_per_minute = 10
@@ -163,6 +190,7 @@ class Settings(BaseSettings):
                 "SES_FROM_ADDRESS": self.ses_from_address,
                 "KMS_KEY_ID": self.kms_key_id,
                 "IMAGE_BUCKET": self.image_bucket,
+                **self._weatherkit_keys(),
             }
             if self.feature_enabled("apple_login"):
                 required["APPLE_CLIENT_ID"] = self.apple_client_id

@@ -9,6 +9,8 @@ calls when no outfits exist yet, so behaviour is consistent.
 """
 from __future__ import annotations
 
+from dataclasses import asdict
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,7 @@ from app.schemas.outfit import (
     TodayDashboardResponse,
     TodayUsage,
     TodayUser,
+    WeatherAttributionResponse,
     WeatherContext,
     payload_to_outfit_items,
 )
@@ -40,7 +43,7 @@ from app.services.outfit_service import (
     _profile_incomplete,  # type: ignore[attr-defined]
 )
 from app.services.providers.ai.base import AIProvider
-from app.services.providers.weather.base import WeatherProvider, WeatherProviderError
+from app.services.providers.weather.base import WeatherProvider
 from app.services.billing_service import PLAN_SUMMARY
 from app.services.usage_service import UsageError
 
@@ -136,27 +139,8 @@ async def dashboard(
     ready = outfit_service.wardrobe_ready(db, user=user)
     pending = outfit_service.pending_occasions(db, user=user) if ready else []
 
-    weather_ctx = None
-    if outfits and outfits[0].weather_context:
-        weather_ctx = WeatherContext.model_validate(outfits[0].weather_context)
-    else:
-        # No outfit to borrow weather from yet — do a direct lookup so the chip
-        # still shows conditions while the outfit cards generate. Real device
-        # coords personalize it; absent, the service falls back to Toronto.
-        try:
-            snap = await weather.current(
-                lat if lat is not None else 43.65,
-                lon if lon is not None else -79.38,
-            )
-            weather_ctx = WeatherContext(
-                temp_c=snap.temp_c,
-                feels_like_c=snap.feels_like_c,
-                condition=snap.condition,
-                humidity_pct=snap.humidity_pct,
-                wind_kph=snap.wind_kph,
-            )
-        except WeatherProviderError:
-            weather_ctx = None
+    weather_ctx = await outfit_service.current_weather(weather, lat=lat, lon=lon)
+    attribution = weather.attribution if weather_ctx is not None else None
 
     return TodayDashboardResponse(
         user=TodayUser(
@@ -165,6 +149,9 @@ async def dashboard(
             timezone=user.timezone,
         ),
         weather=weather_ctx,
+        weather_attribution=(
+            WeatherAttributionResponse(**asdict(attribution)) if attribution else None
+        ),
         outfits=[_to_outfit_response(o) for o in outfits],
         usage=TodayUsage(
             outfits_generated_today=_outfits_generated_today(db, user=user),

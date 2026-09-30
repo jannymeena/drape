@@ -534,6 +534,13 @@ async def _maybe_weather(
         return None
 
 
+async def current_weather(
+    weather: WeatherProvider, *, lat: Optional[float], lon: Optional[float]
+) -> Optional[WeatherContext]:
+    """Current conditions for the dashboard chip; None when unavailable."""
+    return _to_weather_context(await _maybe_weather(weather, lat=lat, lon=lon))
+
+
 def _to_weather_context(snap: Optional[WeatherSnapshot]) -> Optional[WeatherContext]:
     if snap is None:
         return None

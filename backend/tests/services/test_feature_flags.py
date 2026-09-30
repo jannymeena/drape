@@ -9,12 +9,26 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.core.providers import Providers
 from app.services.providers.oauth.base import OAuthVerificationError
 from app.services.providers.payment.stripe import StripeProvider
+
+
+# Providers() parses the WeatherKit key at construction, so it must be real.
+_WEATHERKIT_PEM = (
+    ec.generate_private_key(ec.SECP256R1())
+    .private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+    .decode()
+)
 
 
 def _tbd_settings(**overrides) -> Settings:
@@ -32,6 +46,10 @@ def _tbd_settings(**overrides) -> Settings:
         ses_from_address="no-reply@zoura.style",
         kms_key_id="arn:aws:kms:ca-central-1:000000000000:key/test",
         image_bucket="drape-test-images",
+        weatherkit_team_id="TEAM123456",
+        weatherkit_service_id="style.zoura.weatherkit",
+        weatherkit_key_id="KEY1234567",
+        weatherkit_private_key=_WEATHERKIT_PEM,
         apple_client_id="style.zoura.mobile",
         google_client_id="ios.apps.googleusercontent.com",
         stripe_api_key="sk_test_x",
