@@ -49,8 +49,8 @@ from sqlalchemy.orm import Session
 
 from app.core.localtime import as_user_day, user_day_start_utc, user_today
 from app.services import catalog_service
-from app.services import fit_profile as fit_profile_mod
 from app.services import measurements_service
+from app.services import stylist_prompt
 from app.db.models import (
     Outfit,
     OutfitHistory,
@@ -326,31 +326,14 @@ def _shop_candidates(
 
 
 _SYSTEM_PROMPT = (
-    "You are Zoura, an AI fashion stylist. You help users build outfits from "
-    "their existing wardrobe. You always ground recommendations in the user's "
-    "own items first; shop products are only offered separately, per request, "
-    "with their own limit. You never invent items. You write in a warm, "
-    "encouraging, second-person voice (\"this top works because…\")."
+    "You are Zoura, the user's personal stylist. You dress them from their own "
+    "wardrobe and make the calls a good stylist would: which pieces go "
+    "together, what flatters this person, and what suits the day. You always "
+    "ground the outfit in the user's own items; shop products are only offered "
+    "separately, per request, with their own limit. You never invent items. "
+    "You write in a warm, confident, second-person voice, like a stylist "
+    "talking to their client (\"the boots toughen up the dress…\")."
 )
-
-
-def _build_wearer_block(body_analysis: Optional[dict]) -> str:
-    """A short '§5.5 Wearer:' line from the avatar-derived body/skin blob, so
-    suggestions account for the person's body type and colouring. Empty when no
-    analysis exists (avatar not uploaded / analysis failed)."""
-    if not body_analysis:
-        return ""
-    bits = []
-    if body_analysis.get("body_type"):
-        bits.append(f"body type {body_analysis['body_type']}")
-    if body_analysis.get("skin_tone"):
-        bits.append(f"skin tone {body_analysis['skin_tone']}")
-    notes = body_analysis.get("styling_notes")
-    if not bits and not notes:
-        return ""
-    head = f"Wearer: {', '.join(bits)}." if bits else "Wearer notes:"
-    tail = f" {notes}" if notes else ""
-    return f"{head}{tail} Favor fits and colours that flatter this.\n"
 
 
 _RESPONSE_FORMAT = (
@@ -360,8 +343,9 @@ _RESPONSE_FORMAT = (
     '  "occasion": "<echo the requested occasion exactly>",\n'
     '  "item_ids": ["3", "7", ...]   // 2-6 id= values of the items you chose,\n'
     '  "reasoning_short": "1-2 sentence hook for the card",\n'
-    '  "reasoning_full": "3-4 sentences, references items by name, '
-    'covers color harmony / occasion / weather",\n'
+    '  "reasoning_full": "3-4 sentences that explain your styling decisions: '
+    'why these pieces work together, how the look flatters the wearer, and '
+    'why it suits the occasion and weather. Refer to pieces by name.",\n'
     '  "per_item_rationales": {"<item_id>": "why this piece fits"},\n'
     '  "compatibility_score": 0-100 integer,\n'
     '  "factors": ["Color harmony", "Occasion appropriateness", ...]\n'
@@ -376,28 +360,29 @@ def _build_system_context(
     using_starter_wardrobe: bool,
     body_analysis: Optional[dict] = None,
     fit: Optional[dict] = None,
+    shopping_style: Optional[str] = None,
+    age_range: Optional[str] = None,
+    style_profile: Optional[dict] = None,
 ) -> str:
-    """The stable, cacheable prefix (Tier 1.3): persona, response format,
-    wardrobe inventory, goals, wearer. Byte-identical across the per-occasion
-    generation burst, so native prompt caching (cache_system=True) can serve
-    it at ~10% of base input price on calls 2..N. Volatile content (occasion,
-    weather) lives in the user message — caching is a byte-exact prefix
-    match, so anything that varies must come after this block."""
+    """The stable, cacheable prefix (Tier 1.3): persona, stylist expertise,
+    response format, who the wearer is, and the wardrobe slice. Volatile
+    content (date, occasion, weather) lives in the user message — caching is
+    a byte-exact prefix match, so anything that varies must come after this
+    block."""
     item_lines = []
     for ref, it in zip(_item_refs(items), items):
         descriptors = [
             it.category,
+            it.subcategory or "",
             it.color_name or "",
             it.formality or "",
             it.pattern or "",
+            it.material or "",
+            "/".join(it.season) if it.season else "",
             "starter" if it.is_starter_wardrobe else "",
         ]
         descriptor_str = " | ".join(d for d in descriptors if d)
         item_lines.append(f'- id={ref} name="{it.name}" [{descriptor_str}]')
-
-    goals_block = (
-        f"Style goals: {', '.join(style_goals)}." if style_goals else "Style goals: none."
-    )
 
     starter_note = ""
     if using_starter_wardrobe:
@@ -406,14 +391,20 @@ def _build_system_context(
             "Encourage them in your reasoning to add their own items.\n"
         )
 
-    wearer_block = _build_wearer_block(body_analysis)
-    # §5.5.1 — consent-gated derived fit summary (coarse categories, never
-    # raw cm; the caller resolves it via measurements_service.fit_profile_for_user).
-    fit_block = fit_profile_mod.to_prompt_block(fit)
-
+    # §5.5.1 — `fit` is the consent-gated derived fit summary (coarse
+    # categories, never raw cm; the caller resolves it via
+    # measurements_service.fit_profile_for_user).
+    about = stylist_prompt.about_the_user(
+        shopping_style=shopping_style,
+        age_range=age_range,
+        style_goals=style_goals,
+        style_profile=style_profile,
+        body_analysis=body_analysis,
+        fit=fit,
+    )
     return (
-        f"{_SYSTEM_PROMPT}\n\n{_RESPONSE_FORMAT}\n"
-        f"{goals_block}\n{starter_note}{wearer_block}{fit_block}"
+        f"{_SYSTEM_PROMPT}\n\n{stylist_prompt.STYLIST_EXPERTISE}\n{_RESPONSE_FORMAT}\n"
+        f"About the wearer:\n{about}{starter_note}\n"
         f"Available items ({len(items)}):\n" + "\n".join(item_lines)
     )
 
@@ -425,6 +416,7 @@ def _build_user_prompt(
     shop: Sequence[Product] = (),
     shop_cap: int = 0,
     creative: bool = False,
+    today: Optional[date] = None,
 ) -> str:
     weather_block = "Weather: not available."
     if weather is not None:
@@ -432,7 +424,10 @@ def _build_user_prompt(
             f"Weather: {weather.temp_c:.0f}°C ({weather.condition}), "
             f"feels like {weather.feels_like_c:.0f}°C."
         )
-    prompt = f"Build ONE outfit for the occasion: {occasion}.\n{weather_block}"
+    prompt = f"Build ONE outfit for the occasion: {occasion}.\n"
+    if today is not None:
+        prompt += f"Today is {today:%A} {today.day} {today:%B %Y}.\n"
+    prompt += weather_block
     if shop and shop_cap:
         why = (
             "to add something new the user doesn't own yet"
@@ -624,6 +619,10 @@ async def _ask_ai_for_outfit(
     shop: Sequence[Product] = (),
     shop_cap: int = 0,
     creative: bool = False,
+    shopping_style: Optional[str] = None,
+    age_range: Optional[str] = None,
+    style_profile: Optional[dict] = None,
+    today: Optional[date] = None,
 ) -> StructuredOutfitProposal:
     system = _build_system_context(
         items=items,
@@ -631,9 +630,17 @@ async def _ask_ai_for_outfit(
         using_starter_wardrobe=using_starter_wardrobe,
         body_analysis=body_analysis,
         fit=fit,
+        shopping_style=shopping_style,
+        age_range=age_range,
+        style_profile=style_profile,
     )
     prompt = _build_user_prompt(
-        occasion=occasion, weather=weather, shop=shop, shop_cap=shop_cap, creative=creative
+        occasion=occasion,
+        weather=weather,
+        shop=shop,
+        shop_cap=shop_cap,
+        creative=creative,
+        today=today,
     )
     try:
         text = await ai.chat(
@@ -689,6 +696,17 @@ def _materialize_items(
     return materialized
 
 
+def _without_bottoms_under_a_dress(items: list[OutfitItem]) -> list[OutfitItem]:
+    """A dress is a complete base; trousers, jeans or a skirt with it read as a
+    mistake. The prompt says so — this enforces it when the AI slips."""
+    if not any(i.category == "dresses" for i in items):
+        return items
+    kept = [i for i in items if i.category != "bottoms"]
+    if len(kept) != len(items):
+        _log.info("outfit.bottoms_with_dress_dropped", dropped=len(items) - len(kept))
+    return kept
+
+
 def _fallback_proposal(
     occasion: Occasion,
     items: Sequence[WardrobeItem | Product],
@@ -714,15 +732,19 @@ def _fallback_proposal(
 
 
 def _heuristic_pick(items: Sequence[WardrobeItem | Product]) -> list[WardrobeItem | Product]:
-    """Best-effort 4-item pick: 1 top, 1 bottom, 1 shoes, 1 outerwear/accessory.
-    Falls back to whatever's available if the wardrobe is missing categories.
-    Callers list wardrobe items before shop products, so owned pieces win."""
+    """Best-effort 4-item pick: a base (top + bottom, or a dress — never both),
+    then shoes and outerwear/accessory. Falls back to whatever's available if
+    the wardrobe is missing categories. Callers list wardrobe items before
+    shop products, so owned pieces win."""
     by_cat: dict[str, list[WardrobeItem | Product]] = {}
     for it in items:
         by_cat.setdefault(it.category, []).append(it)
+    base = ("tops", "bottoms")
+    if not all(by_cat.get(c) for c in base) and by_cat.get("dresses"):
+        base = ("dresses",)
     pick: list[WardrobeItem | Product] = []
     picked_ids: set[UUID] = set()
-    for cat in ("tops", "dresses", "bottoms", "shoes", "outerwear", "accessories"):
+    for cat in (*base, "shoes", "outerwear", "accessories"):
         bucket = by_cat.get(cat) or []
         if bucket:
             pick.append(bucket[0])
@@ -906,8 +928,10 @@ async def generate_one(
     shop_by_id = {p.id: p for p in shop}
 
     def materialize(proposal: StructuredOutfitProposal) -> list[OutfitItem]:
-        return _materialize_items(
-            proposal, user_items_by_id=items_by_id, shop_by_id=shop_by_id, shop_cap=shop_cap
+        return _without_bottoms_under_a_dress(
+            _materialize_items(
+                proposal, user_items_by_id=items_by_id, shop_by_id=shop_by_id, shop_cap=shop_cap
+            )
         )
 
     # Owned pieces first so the heuristic fallback prefers them.
@@ -926,6 +950,10 @@ async def generate_one(
             shop=shop if shop_cap else (),
             shop_cap=shop_cap,
             creative=creative,
+            shopping_style=user.shopping_style,
+            age_range=user.age_range,
+            style_profile=user.style_profile,
+            today=today,
         )
         chosen = materialize(proposal)
     except OutfitError as exc:

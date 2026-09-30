@@ -49,6 +49,7 @@ class MockAIProvider(AIProvider):
         return json.dumps(
             {
                 "category": "tops",
+                "subcategory": "t-shirt",
                 "color": "blue",
                 "pattern": "solid",
                 "formality": "casual",

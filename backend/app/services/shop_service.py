@@ -34,9 +34,7 @@ from app.db.models import (
     WardrobeItem,
     WishlistItem,
 )
-from app.services import catalog_service, measurements_service, usage_service
-from app.services import fit_profile as fit_profile_mod
-from app.services.outfit_service import _build_wearer_block
+from app.services import catalog_service, measurements_service, stylist_prompt, usage_service
 from app.services.providers.affiliate.base import AffiliateProvider
 from app.services.providers.ai.base import AIProvider
 
@@ -193,23 +191,13 @@ def _catalog_for(db: Session, *, user: User) -> list[Product]:
 def _advisor_system(db: Session, *, user: User, catalog: list[Product]) -> str:
     """Persona + format + who the user is and what they own. Stable across a
     conversation's turns, so it's sent as a cacheable system prefix."""
-    about = []
-    shopping_for = {"womens": "womenswear", "mens": "menswear"}.get(
-        user.shopping_style or "", "womenswear and menswear"
-    )
-    about.append(f"Shops for: {shopping_for}.")
-    if user.age_range:
-        about.append(f"Age range: {user.age_range}.")
-    if user.style_goals:
-        about.append(f"Style goals: {', '.join(user.style_goals)}.")
-    for key, value in sorted((user.style_profile or {}).items()):
-        if key == "occupation" or value in (None, "", []):
-            continue
-        shown = ", ".join(map(str, value)) if isinstance(value, list) else value
-        about.append(f"{key.replace('_', ' ')}: {shown}.")
-    wearer = _build_wearer_block(user.profile.body_analysis if user.profile else None)
-    fit = fit_profile_mod.to_prompt_block(
-        measurements_service.fit_profile_for_user(db, user=user)
+    about = stylist_prompt.about_the_user(
+        shopping_style=user.shopping_style,
+        age_range=user.age_range,
+        style_goals=user.style_goals,
+        style_profile=user.style_profile,
+        body_analysis=user.profile.body_analysis if user.profile else None,
+        fit=measurements_service.fit_profile_for_user(db, user=user),
     )
 
     owned = db.scalars(
@@ -231,8 +219,8 @@ def _advisor_system(db: Session, *, user: User, catalog: list[Product]) -> str:
         wardrobe = "The user hasn't added their own clothes yet."
 
     return (
-        f"{_ADVISOR_PERSONA}\n\n{_ADVISOR_FORMAT}\n\n"
-        f"About the user:\n{chr(10).join(about)}\n{wearer}{fit}\n{wardrobe}\n\n"
+        f"{_ADVISOR_PERSONA}\n\n{stylist_prompt.STYLIST_EXPERTISE}\n{_ADVISOR_FORMAT}\n\n"
+        f"About the user:\n{about}\n{wardrobe}\n\n"
         f"The shop's vocabulary (what it carries, by category):\n"
         f"{_shop_vocabulary(catalog)}"
     )

@@ -54,6 +54,8 @@ _SCANNER_PROMPT = (
     "The object MUST match this exact schema:\n"
     "{\n"
     f'  "category": one of {_CATEGORIES},\n'
+    '  "subcategory": the garment type in 1-3 words, as a stylist would name it '
+    '(e.g. "ankle boots", "trainers", "midi dress", "jeans", "blazer"),\n'
     '  "color": short color name (e.g., "blue", "white", "navy"),\n'
     f'  "pattern": one of {_PATTERNS},\n'
     f'  "formality": one of {_FORMALITIES},\n'

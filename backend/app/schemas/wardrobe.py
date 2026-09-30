@@ -10,7 +10,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Category = Literal[
     "tops", "bottoms", "dresses", "shoes", "outerwear", "accessories", "bags", "jewelry"
@@ -54,11 +54,21 @@ class AIDetection(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     category: Category
+    # Garment type within the category, e.g. "ankle boots", "midi dress".
+    subcategory: str | None = None
     color: str = Field(min_length=1, max_length=50)
     pattern: Pattern
     formality: Formality
     confidence: int = Field(ge=0, le=100)
     model: str | None = Field(default=None, max_length=100)
+
+    @field_validator("subcategory", mode="before")
+    @classmethod
+    def _tidy_subcategory(cls, v: object) -> object:
+        # A nice-to-have from the AI: clip it rather than fail the whole scan.
+        if not isinstance(v, str):
+            return None
+        return v.strip().lower()[:50] or None
 
 
 class WardrobeItemCreate(WardrobeItemBase):
