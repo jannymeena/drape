@@ -250,7 +250,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const ManualEntryScreen(),
       ),
 
-      // ─── Onboarding: wardrobe + avatar ────────────────────────
+      // ─── Onboarding: wardrobe setup (ends the flow) ───────────
       GoRoute(
         path: WardrobeSetupScreen.path,
         name: WardrobeSetupScreen.name,
@@ -277,6 +277,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      // Parked: the avatar steps are out of the registration flow for now
+      // (wardrobe setup goes straight to Today). Kept registered so they can
+      // be linked back in later.
       GoRoute(
         path: AvatarRevealScreen.path,
         name: AvatarRevealScreen.name,

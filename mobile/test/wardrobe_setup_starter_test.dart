@@ -5,17 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/modules/onboarding/models/starter_wardrobe.dart';
 import 'package:mobile/modules/onboarding/onboarding_service.dart';
-import 'package:mobile/modules/onboarding/screens/avatar_reveal_screen.dart';
 import 'package:mobile/modules/onboarding/screens/wardrobe_setup_screen.dart';
 import 'package:mobile/modules/today/models/outfit.dart';
 import 'package:mobile/modules/today/models/today_dashboard.dart';
 import 'package:mobile/modules/today/models/usage.dart';
+import 'package:mobile/modules/today/screens/today_dashboard_screen.dart';
 import 'package:mobile/modules/today/today_service.dart';
 import 'package:mobile/modules/wardrobe/models/wardrobe_item.dart';
 import 'package:mobile/modules/wardrobe/wardrobe_service.dart';
 import 'package:mobile/shared/providers/network_provider.dart';
+import 'package:mobile/shared/services/session_store.dart';
 import 'package:mobile/shared/services/dashboard_cache.dart';
 
 /// Server-side wardrobe: starter items appear once the kit is assigned.
@@ -102,59 +104,83 @@ class _NullCache extends DashboardCache {
   Future<void> clear() async {}
 }
 
+/// Pumps wardrobe setup (the last registration step) with Today as the only
+/// other route — so navigating anywhere else, like the parked avatar steps,
+/// would fail the test.
+Future<ProviderContainer> _pumpSetup(WidgetTester tester, _Backend backend) async {
+  SharedPreferences.setMockInitialValues({});
+  tester.view.physicalSize = const Size(1170, 2532);
+  tester.view.devicePixelRatio = 3.0;
+  addTearDown(tester.view.reset);
+
+  final container = ProviderContainer(overrides: [
+    onboardingServiceProvider.overrideWithValue(_StubOnboarding(backend)),
+    wardrobeServiceProvider.overrideWithValue(_StubWardrobe(backend)),
+    todayServiceProvider.overrideWithValue(_StubToday()),
+    dashboardCacheProvider.overrideWithValue(_NullCache()),
+  ]);
+  addTearDown(container.dispose);
+
+  final router = GoRouter(
+    initialLocation: WardrobeSetupScreen.path,
+    routes: [
+      GoRoute(
+        path: WardrobeSetupScreen.path,
+        name: WardrobeSetupScreen.name,
+        builder: (_, _) => const WardrobeSetupScreen(),
+      ),
+      GoRoute(
+        path: TodayDashboardScreen.path,
+        name: TodayDashboardScreen.name,
+        builder: (_, _) => const Scaffold(body: Text('today')),
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+
+  await tester.pumpWidget(UncontrolledProviderScope(
+    container: container,
+    child: MaterialApp.router(routerConfig: router),
+  ));
+  await tester.pumpAndSettle();
+  return container;
+}
+
+Future<void> _startWithStarterWardrobe(WidgetTester tester) async {
+  final button = find.text('START WITH A STARTER WARDROBE');
+  await tester.ensureVisible(button);
+  await tester.tap(button);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
+}
+
 void main() {
   testWidgets(
       'assigning the starter wardrobe refreshes the counts behind the '
       '"unlock real wardrobe mode" card', (tester) async {
-    tester.view.physicalSize = const Size(1170, 2532);
-    tester.view.devicePixelRatio = 3.0;
-    addTearDown(tester.view.reset);
-
-    final backend = _Backend();
-    final container = ProviderContainer(overrides: [
-      onboardingServiceProvider.overrideWithValue(_StubOnboarding(backend)),
-      wardrobeServiceProvider.overrideWithValue(_StubWardrobe(backend)),
-      todayServiceProvider.overrideWithValue(_StubToday()),
-      dashboardCacheProvider.overrideWithValue(_NullCache()),
-    ]);
-    addTearDown(container.dispose);
-
-    final router = GoRouter(
-      initialLocation: WardrobeSetupScreen.path,
-      routes: [
-        GoRoute(
-          path: WardrobeSetupScreen.path,
-          name: WardrobeSetupScreen.name,
-          builder: (_, _) => const WardrobeSetupScreen(),
-        ),
-        GoRoute(
-          path: AvatarRevealScreen.path,
-          name: AvatarRevealScreen.name,
-          builder: (_, _) => const Scaffold(body: Text('avatar reveal')),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp.router(routerConfig: router),
-    ));
-    await tester.pumpAndSettle();
+    final container = await _pumpSetup(tester, _Backend());
 
     // The setup screen cached the pre-assignment counts: no starter items.
     expect(container.read(wardrobeCapacityProvider).value?.activeStarterItems, 0);
 
-    final button = find.text('START WITH A STARTER WARDROBE');
-    await tester.ensureVisible(button);
-    await tester.tap(button);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await _startWithStarterWardrobe(tester);
 
     final capacity = await container.read(wardrobeCapacityProvider.future);
     expect(capacity.activeStarterItems, 12);
 
     // Let the Today prefetch's device-location budget (3 s) run out.
     await tester.pump(const Duration(seconds: 4));
+  });
+
+  testWidgets('registration ends on Today, skipping the parked avatar steps',
+      (tester) async {
+    await _pumpSetup(tester, _Backend());
+
+    await _startWithStarterWardrobe(tester);
+    await tester.pump(const Duration(seconds: 4)); // location budget
+    await tester.pumpAndSettle();
+
+    expect(find.text('today'), findsOneWidget);
+    expect(SessionStore.state.value, isTrue);
   });
 }

@@ -5,12 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
+import '../../../shared/services/session_store.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
+import '../../today/screens/today_dashboard_screen.dart';
 import '../../today/today_controller.dart';
 import '../../wardrobe/wardrobe_service.dart';
 import '../onboarding_controller.dart';
-import 'avatar_reveal_screen.dart';
 
 /// Onboarding wardrobe step. Four forward paths:
 ///   * Upload Photos → onboarding-scoped batch upload (AI detect → bulk add)
@@ -41,6 +42,15 @@ class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
     unawaited(ref.read(todayControllerProvider.notifier).loadFrame());
   }
 
+  /// Registration ends here and lands on Today. The avatar steps
+  /// (`AvatarRevealScreen` → `ProfileCompleteScreen`) are parked out of the
+  /// flow for now — their routes still exist — so this does what the last of
+  /// them did: mark the session logged in, then open Today.
+  Future<void> _finishOnboarding() async {
+    await SessionStore.setLoggedIn(true);
+    if (mounted) context.goNamed(TodayDashboardScreen.name);
+  }
+
   Future<void> _useStarterWardrobe() async {
     if (_assigning) return;
     setState(() => _assigning = true);
@@ -61,7 +71,7 @@ class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
         ),
       );
       _prefetchToday();
-      context.pushNamed(AvatarRevealScreen.name);
+      await _finishOnboarding();
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -199,7 +209,7 @@ class _WardrobeSetupScreenState extends ConsumerState<WardrobeSetupScreen> {
                       ? null
                       : () {
                           _prefetchToday();
-                          context.pushNamed(AvatarRevealScreen.name);
+                          _finishOnboarding();
                         },
                   child: Text(
                     'CONTINUE WITH MY ITEMS',
