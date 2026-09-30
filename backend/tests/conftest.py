@@ -67,6 +67,7 @@ for _awin_key in ("AWIN_PUBLISHER_ID", "AWIN_FEED_API_KEY"):
 # TestClient runs the app lifespan; the catalog worker would sync + AI-tag in
 # the background mid-test. Tests drive catalog_service directly instead.
 os.environ["CATALOG_WORKER_ENABLED"] = "false"
+os.environ["TREND_WORKER_ENABLED"] = "false"
 
 # Now safe to import the app stack.
 from fastapi.testclient import TestClient  # noqa: E402

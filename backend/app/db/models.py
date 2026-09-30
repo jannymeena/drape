@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     Numeric,
@@ -916,6 +917,28 @@ class PasswordResetToken(Base):
     used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
+    )
+
+
+class TrendBrief(Base):
+    """A weekly, web-researched brief of what's in fashion now, per audience
+    ("womens" / "mens"). Written by the trend worker (`trend_service`) and
+    fed to the outfit + advisor prompts so the stylist knows current trends,
+    not just its training data. Rows are kept as history; readers take the
+    newest per audience. `sources` holds the URLs the brief was built from."""
+
+    __tablename__ = "trend_briefs"
+    __table_args__ = (Index("ix_trend_briefs_audience_created", "audience", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    audience: Mapped[str] = mapped_column(String(20), nullable=False)
+    brief: Mapped[str] = mapped_column(Text, nullable=False)
+    sources: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 

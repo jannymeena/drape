@@ -50,7 +50,7 @@ from sqlalchemy.orm import Session
 from app.core.localtime import as_user_day, user_day_start_utc, user_today
 from app.services import catalog_service
 from app.services import measurements_service
-from app.services import stylist_prompt
+from app.services import stylist_prompt, trend_service
 from app.db.models import (
     Outfit,
     OutfitHistory,
@@ -363,9 +363,11 @@ def _build_system_context(
     shopping_style: Optional[str] = None,
     age_range: Optional[str] = None,
     style_profile: Optional[dict] = None,
+    trends: str = "",
 ) -> str:
     """The stable, cacheable prefix (Tier 1.3): persona, stylist expertise,
-    response format, who the wearer is, and the wardrobe slice. Volatile
+    the week's trend brief (`trend_service.prompt_block`), response format,
+    who the wearer is, and the wardrobe slice. Volatile
     content (date, occasion, weather) lives in the user message — caching is
     a byte-exact prefix match, so anything that varies must come after this
     block."""
@@ -403,7 +405,9 @@ def _build_system_context(
         fit=fit,
     )
     return (
-        f"{_SYSTEM_PROMPT}\n\n{stylist_prompt.STYLIST_EXPERTISE}\n{_RESPONSE_FORMAT}\n"
+        f"{_SYSTEM_PROMPT}\n\n{stylist_prompt.STYLIST_EXPERTISE}\n"
+        + (f"{trends}\n" if trends else "")
+        + f"{_RESPONSE_FORMAT}\n"
         f"About the wearer:\n{about}{starter_note}\n"
         f"Available items ({len(items)}):\n" + "\n".join(item_lines)
     )
@@ -623,6 +627,7 @@ async def _ask_ai_for_outfit(
     age_range: Optional[str] = None,
     style_profile: Optional[dict] = None,
     today: Optional[date] = None,
+    trends: str = "",
 ) -> StructuredOutfitProposal:
     system = _build_system_context(
         items=items,
@@ -633,6 +638,7 @@ async def _ask_ai_for_outfit(
         shopping_style=shopping_style,
         age_range=age_range,
         style_profile=style_profile,
+        trends=trends,
     )
     prompt = _build_user_prompt(
         occasion=occasion,
@@ -954,6 +960,9 @@ async def generate_one(
             age_range=user.age_range,
             style_profile=user.style_profile,
             today=today,
+            trends=trend_service.prompt_block(
+                trend_service.briefs_for(db, shopping_style=user.shopping_style)
+            ),
         )
         chosen = materialize(proposal)
     except OutfitError as exc:

@@ -22,7 +22,7 @@ import structlog
 from app.db.models import AIResponseCache
 from app.db.session import SessionLocal
 from app.services import ai_usage_log
-from app.services.providers.ai.base import AIProvider
+from app.services.providers.ai.base import AIProvider, ResearchResult
 
 _log = structlog.get_logger("provider.ai.caching")
 
@@ -51,6 +51,10 @@ class CachingAIProvider(AIProvider):
             max_tokens=max_tokens,
             cache_system=cache_system,
         )
+
+    async def web_research(self, prompt: str, **kwargs) -> ResearchResult:
+        # Not cached: a brief is only worth having if it's fresh.
+        return await self._inner.web_research(prompt, **kwargs)
 
     async def analyze_image(
         self,

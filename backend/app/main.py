@@ -50,17 +50,31 @@ def _start_catalog_worker() -> asyncio.Task | None:
     return asyncio.create_task(worker.run(), name="catalog-worker")
 
 
+def _start_trend_worker() -> asyncio.Task | None:
+    # Web research needs the real provider; the mock can't search.
+    if not settings.trend_worker_enabled or not settings.anthropic_api_key:
+        return None
+    from app.core.providers import providers
+    from app.db.session import SessionLocal
+    from app.workers.trend_worker import TrendWorker
+
+    worker = TrendWorker(
+        session_factory=SessionLocal, ai=providers.ai, model=settings.ai_trend_model
+    )
+    return asyncio.create_task(worker.run(), name="trend-worker")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # uvicorn (re)installs its own log handlers between import-time configure_logging()
     # and the app starting; reset them so all logs flow through structlog.
     bridge_uvicorn_logging()
-    catalog_task = _start_catalog_worker()
+    tasks = [t for t in (_start_catalog_worker(), _start_trend_worker()) if t is not None]
     yield
-    if catalog_task is not None:
-        catalog_task.cancel()
+    for task in tasks:
+        task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
-            await catalog_task
+            await task
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)

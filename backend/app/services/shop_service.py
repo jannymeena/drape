@@ -34,7 +34,13 @@ from app.db.models import (
     WardrobeItem,
     WishlistItem,
 )
-from app.services import catalog_service, measurements_service, stylist_prompt, usage_service
+from app.services import (
+    catalog_service,
+    measurements_service,
+    stylist_prompt,
+    trend_service,
+    usage_service,
+)
 from app.services.providers.affiliate.base import AffiliateProvider
 from app.services.providers.ai.base import AIProvider
 
@@ -191,6 +197,9 @@ def _catalog_for(db: Session, *, user: User) -> list[Product]:
 def _advisor_system(db: Session, *, user: User, catalog: list[Product]) -> str:
     """Persona + format + who the user is and what they own. Stable across a
     conversation's turns, so it's sent as a cacheable system prefix."""
+    trends = trend_service.prompt_block(
+        trend_service.briefs_for(db, shopping_style=user.shopping_style)
+    )
     about = stylist_prompt.about_the_user(
         shopping_style=user.shopping_style,
         age_range=user.age_range,
@@ -219,7 +228,9 @@ def _advisor_system(db: Session, *, user: User, catalog: list[Product]) -> str:
         wardrobe = "The user hasn't added their own clothes yet."
 
     return (
-        f"{_ADVISOR_PERSONA}\n\n{stylist_prompt.STYLIST_EXPERTISE}\n{_ADVISOR_FORMAT}\n\n"
+        f"{_ADVISOR_PERSONA}\n\n{stylist_prompt.STYLIST_EXPERTISE}\n"
+        + (f"{trends}\n" if trends else "")
+        + f"{_ADVISOR_FORMAT}\n\n"
         f"About the user:\n{about}\n{wardrobe}\n\n"
         f"The shop's vocabulary (what it carries, by category):\n"
         f"{_shop_vocabulary(catalog)}"

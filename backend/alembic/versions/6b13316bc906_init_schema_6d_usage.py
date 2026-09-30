@@ -35,6 +35,16 @@ def upgrade() -> None:
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('cache_key')
     )
+    op.create_table('trend_briefs',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('audience', sa.String(length=20), nullable=False),
+    sa.Column('brief', sa.Text(), nullable=False),
+    sa.Column('sources', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column('model', sa.String(length=100), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('ix_trend_briefs_audience_created', 'trend_briefs', ['audience', 'created_at'], unique=False)
     op.create_table('products',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('external_id', sa.String(length=100), nullable=False),
@@ -480,6 +490,8 @@ def downgrade() -> None:
     op.drop_table('feature_request_votes')
     op.drop_index(op.f('ix_banner_dismissals_user_id'), table_name='banner_dismissals')
     op.drop_table('banner_dismissals')
+    op.drop_index('ix_trend_briefs_audience_created', table_name='trend_briefs')
+    op.drop_table('trend_briefs')
     op.drop_table('ai_response_cache')
     op.drop_table('support_tickets')
     op.drop_table('user_settings')

@@ -7,9 +7,14 @@ import anthropic
 import structlog
 
 from app.services import ai_usage_log
-from app.services.providers.ai.base import AIProvider, AIProviderError
+from app.services.providers.ai.base import AIProvider, AIProviderError, ResearchResult
 
 _log = structlog.get_logger("provider.ai.anthropic")
+
+# A server-side search loop pauses (stop_reason "pause_turn") after ~10
+# iterations; resume at most this many times before giving up.
+_MAX_RESEARCH_TURNS = 4
+_NON_TOOL_BLOCKS = {"text", "thinking", "redacted_thinking"}
 
 
 class AnthropicProvider(AIProvider):
@@ -147,6 +152,108 @@ class AnthropicProvider(AIProvider):
             media_type=media_type,
         )
         return text
+
+    async def web_research(
+        self,
+        prompt: str,
+        *,
+        model: str,
+        system: str | None = None,
+        max_searches: int = 6,
+        country: str | None = None,
+    ) -> ResearchResult:
+        # The dynamic-filtering search tool needs Sonnet/Opus 4.6+; Haiku 4.5
+        # gets the basic tool and no effort.
+        haiku = model.startswith("claude-haiku")
+        tool: dict = {
+            "type": "web_search_20250305" if haiku else "web_search_20260209",
+            "name": "web_search",
+            "max_uses": max_searches,
+        }
+        if country:
+            tool["user_location"] = {"type": "approximate", "country": country}
+        kwargs: dict = {"model": model, "max_tokens": 8000, "tools": [tool]}
+        if system:
+            kwargs["system"] = system
+        if not haiku:
+            kwargs["output_config"] = {"effort": "medium"}
+
+        question = {"role": "user", "content": prompt}
+        blocks: list = []
+        input_tokens = output_tokens = searches = 0
+        started = time.monotonic()
+        for _ in range(_MAX_RESEARCH_TURNS):
+            messages = [question] + ([{"role": "assistant", "content": blocks}] if blocks else [])
+            try:
+                resp = await self._client.messages.create(messages=messages, **kwargs)
+            except anthropic.APIError as exc:
+                _log.warning("ai.web_research.failed", model=model, error=str(exc))
+                raise AIProviderError(
+                    "ai_call_failed", f"Anthropic web research failed: {exc}"
+                ) from exc
+            _check_stop_reason(resp, model_id=model, call_type="web_research")
+            blocks = [*blocks, *resp.content]
+            input_tokens += resp.usage.input_tokens
+            output_tokens += resp.usage.output_tokens
+            server_use = getattr(resp.usage, "server_tool_use", None)
+            searches += getattr(server_use, "web_search_requests", 0) or 0
+            if resp.stop_reason != "pause_turn":
+                break
+        else:
+            raise AIProviderError("research_incomplete", "web research kept pausing")
+
+        text, sources = _research_output(blocks)
+        latency_ms = int((time.monotonic() - started) * 1000)
+        _log.info(
+            "ai.web_research",
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            web_searches=searches,
+            sources=len(sources),
+            latency_ms=latency_ms,
+        )
+        ai_usage_log.record(
+            model=model,
+            call_type="web_research",
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            latency_ms=latency_ms,
+            output=text,
+        )
+        return ResearchResult(text=text, model=model, sources=sources)
+
+
+def _research_output(blocks: list) -> tuple[str, list[dict[str, str]]]:
+    """The answer is the text after the last tool block (earlier text is
+    narration between searches); sources are the pages it cites, falling back
+    to everything the searches returned."""
+    last_tool = max(
+        (i for i, b in enumerate(blocks) if getattr(b, "type", None) not in _NON_TOOL_BLOCKS),
+        default=-1,
+    )
+    answer = [b for b in blocks[last_tool + 1 :] if getattr(b, "type", None) == "text"]
+    text = "".join(b.text for b in answer).strip()
+
+    sources: list[dict[str, str]] = []
+    seen: set[str] = set()
+
+    def add(url: object, title: object) -> None:
+        if isinstance(url, str) and url and url not in seen:
+            seen.add(url)
+            sources.append({"url": url, "title": str(title or "")})
+
+    for b in answer:
+        for c in getattr(b, "citations", None) or []:
+            add(getattr(c, "url", None), getattr(c, "title", None))
+    if not sources:
+        for b in blocks:
+            if getattr(b, "type", None) == "web_search_tool_result" and isinstance(
+                getattr(b, "content", None), list
+            ):
+                for r in b.content:
+                    add(getattr(r, "url", None), getattr(r, "title", None))
+    return text, sources
 
 
 def _check_stop_reason(resp: object, *, model_id: str, call_type: str) -> None:

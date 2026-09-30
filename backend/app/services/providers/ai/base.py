@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 
 
 class AIProviderError(Exception):
@@ -9,6 +10,16 @@ class AIProviderError(Exception):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+@dataclass
+class ResearchResult:
+    """`web_research` output: the model's final text and the pages it drew on
+    (`{"url", "title"}`, de-duplicated, in first-cited order)."""
+
+    text: str
+    model: str
+    sources: list[dict[str, str]] = field(default_factory=list)
 
 
 class AIProvider(ABC):
@@ -45,3 +56,17 @@ class AIProvider(ABC):
         max_tokens: int = 1024,
     ) -> str:
         """Multimodal vision. Returns the assistant's text reply (typically JSON for structured output)."""
+
+    async def web_research(
+        self,
+        prompt: str,
+        *,
+        model: str,
+        system: str | None = None,
+        max_searches: int = 6,
+        country: str | None = None,
+    ) -> ResearchResult:
+        """Answer `prompt` after searching the web (server-side search tool).
+        Only real providers can; the default refuses so mocks/fakes never
+        pretend to have researched anything."""
+        raise AIProviderError("unsupported", "web research needs a real AI provider")

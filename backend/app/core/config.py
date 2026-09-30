@@ -107,6 +107,13 @@ class Settings(BaseSettings):
     ai_text_model: str = "claude-sonnet-5-5"
     ai_text_effort: Literal["low", "medium", "high"] | None = "low"
 
+    # Weekly trend brief (trend_service): a web-search research call per
+    # audience, fed into the stylist prompts. The worker only runs with a real
+    # ANTHROPIC_API_KEY; off in tests. Needs web search enabled for the org in
+    # the Claude Console.
+    trend_worker_enabled: bool = True
+    ai_trend_model: str = "claude-sonnet-5-5"
+
     # Dev AI usage/cost log (§5.3) — one JSONL line per AI call (model, tokens,
     # cost, latency, image meta, actual output). A dev exploration tool; turn off
     # in prd (prod analytics get a DB table later).
