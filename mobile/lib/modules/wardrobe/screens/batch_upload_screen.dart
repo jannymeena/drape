@@ -133,6 +133,7 @@ class _BatchUploadScreenState extends ConsumerState<BatchUploadScreen> {
         input: WardrobeItemInput(
           name: d.suggestedName,
           category: d.category,
+          subcategory: d.subcategory,
           colorName: d.color,
           pattern: d.pattern,
           formality: d.formality,

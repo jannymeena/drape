@@ -106,4 +106,22 @@ void main() {
     expect(ScanDetection.nameFor(color: 'olive', category: 'outerwear'),
         'Olive Outerwear');
   });
+
+  test('the garment type names the item and round-trips', () {
+    final d = ScanDetection.fromJson({
+      'category': 'shoes',
+      'subcategory': 'ankle boots',
+      'color': 'black',
+      'pattern': 'solid',
+      'formality': 'casual',
+      'confidence': 88,
+    });
+    expect(d.subcategory, 'ankle boots');
+    expect(d.suggestedName, 'Black Ankle Boots');
+    expect(d.toJson()['subcategory'], 'ankle boots');
+    expect(
+        ScanDetection.nameFor(
+            color: 'navy', category: 'outerwear', subcategory: '  '),
+        'Navy Outerwear');
+  });
 }

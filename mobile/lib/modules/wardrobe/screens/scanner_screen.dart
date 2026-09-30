@@ -101,9 +101,18 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     }
   }
 
+  /// The AI's garment type, kept only while its category stands — "midi
+  /// dress" is wrong once the user re-files the item under tops.
+  String? get _subcategory {
+    final d = _result?.detection;
+    if (d == null || _values[ScanField.category] != d.category) return null;
+    return d.subcategory;
+  }
+
   String get _suggestedName => ScanDetection.nameFor(
         color: _values[ScanField.color]!,
         category: _values[ScanField.category]!,
+        subcategory: _subcategory,
       );
 
   /// Fields the user changed from the AI's answer.
@@ -142,6 +151,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     final input = WardrobeItemInput(
       name: _nameController.text.trim(),
       category: _values[ScanField.category],
+      subcategory: _subcategory,
       colorName: _values[ScanField.color],
       pattern: _values[ScanField.pattern],
       formality: _values[ScanField.formality],

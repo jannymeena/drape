@@ -11,10 +11,15 @@ class ScanDetection {
     required this.pattern,
     required this.formality,
     required this.confidence,
+    this.subcategory,
     this.model,
   });
 
   final String category;
+
+  /// Garment type within the category ("ankle boots", "midi dress"); null
+  /// when the AI didn't say.
+  final String? subcategory;
   final String color;
   final String pattern;
   final String formality;
@@ -23,12 +28,20 @@ class ScanDetection {
   /// The vision model that produced this detection (null from mocks).
   final String? model;
 
-  /// A sensible default item name from the detection, e.g. "White Tops".
-  String get suggestedName => nameFor(color: color, category: category);
+  /// A sensible default item name from the detection, e.g. "Black Ankle
+  /// Boots" (or "White Tops" when there's no garment type).
+  String get suggestedName =>
+      nameFor(color: color, category: category, subcategory: subcategory);
 
-  /// Default item name for a colour + category, e.g. "Navy Outerwear".
-  static String nameFor({required String color, required String category}) {
-    final words = '$color $category'.trim().split(RegExp(r'\s+'));
+  /// Default item name: colour + garment type, falling back to the category,
+  /// e.g. "Navy Blazer" / "Navy Outerwear".
+  static String nameFor({
+    required String color,
+    required String category,
+    String? subcategory,
+  }) {
+    final kind = (subcategory ?? '').trim().isEmpty ? category : subcategory;
+    final words = '$color $kind'.trim().split(RegExp(r'\s+'));
     return words
         .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
         .join(' ');
@@ -41,6 +54,7 @@ class ScanDetection {
       pattern: json['pattern'] as String,
       formality: json['formality'] as String,
       confidence: json['confidence'] as int? ?? 0,
+      subcategory: json['subcategory'] as String?,
       model: json['model'] as String?,
     );
   }
@@ -53,6 +67,7 @@ class ScanDetection {
         'pattern': pattern,
         'formality': formality,
         'confidence': confidence,
+        if (subcategory != null) 'subcategory': subcategory,
         if (model != null) 'model': model,
       };
 }
