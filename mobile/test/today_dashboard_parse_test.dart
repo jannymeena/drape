@@ -77,6 +77,25 @@ void main() {
   test('weather is optional', () {
     final json = Map<String, dynamic>.from(dashboardJson)..['weather'] = null;
     expect(TodayDashboard.fromJson(json).weather, isNull);
+    expect(TodayDashboard.fromJson(json).weatherAttribution, isNull);
+  });
+
+  test('weather_attribution parses and round-trips (cache fidelity)', () {
+    final json = Map<String, dynamic>.from(dashboardJson)
+      ..['weather_attribution'] = {
+        'service_name': 'Apple Weather',
+        'logo_light_url': 'https://x/light.png',
+        'logo_dark_url': 'https://x/dark.png',
+        'legal_url': 'https://x/legal',
+      };
+    final parsed = TodayDashboard.fromJson(json);
+    final roundTripped = TodayDashboard.fromJson(parsed.toJson());
+    for (final d in [parsed, roundTripped]) {
+      expect(d.weatherAttribution!.serviceName, 'Apple Weather');
+      expect(d.weatherAttribution!.logoLightUrl, 'https://x/light.png');
+      expect(d.weatherAttribution!.legalUrl, 'https://x/legal');
+    }
+    expect(parsed.copyWith(pendingOccasions: []).weatherAttribution, isNotNull);
   });
 
   test('CurrentWeekUsage parses counters + tier', () {

@@ -12,6 +12,7 @@ class TodayDashboard {
     required this.usage,
     required this.banners,
     this.weather,
+    this.weatherAttribution,
     this.wardrobeReady = false,
     this.pendingOccasions = const [],
   });
@@ -20,7 +21,12 @@ class TodayDashboard {
   final List<Outfit> outfits;
   final TodayUsage usage;
   final TodayBanners banners;
+  /// Current conditions (not the snapshot an outfit was styled for).
   final WeatherContext? weather;
+
+  /// Required source credit shown on the weather chip (WeatherKit → Apple
+  /// Weather mark + data-sources link); null when the source needs none.
+  final WeatherAttribution? weatherAttribution;
 
   /// Whether the user has enough wardrobe items to generate outfits at all.
   /// Drives the "add items" empty state vs. the generating/skeleton state.
@@ -31,6 +37,7 @@ class TodayDashboard {
 
   factory TodayDashboard.fromJson(Map<String, dynamic> json) {
     final weather = json['weather'] as Map<String, dynamic>?;
+    final attribution = json['weather_attribution'] as Map<String, dynamic>?;
     return TodayDashboard(
       user: TodayUser.fromJson(json['user'] as Map<String, dynamic>),
       outfits: (json['outfits'] as List<dynamic>)
@@ -39,6 +46,9 @@ class TodayDashboard {
       usage: TodayUsage.fromJson(json['usage'] as Map<String, dynamic>),
       banners: TodayBanners.fromJson(json['banners'] as Map<String, dynamic>),
       weather: weather == null ? null : WeatherContext.fromJson(weather),
+      weatherAttribution: attribution == null
+          ? null
+          : WeatherAttribution.fromJson(attribution),
       wardrobeReady: json['wardrobe_ready'] as bool? ?? false,
       pendingOccasions:
           (json['pending_occasions'] as List<dynamic>? ?? const [])
@@ -55,6 +65,7 @@ class TodayDashboard {
         'usage': usage.toJson(),
         'banners': banners.toJson(),
         'weather': weather?.toJson(),
+        'weather_attribution': weatherAttribution?.toJson(),
         'wardrobe_ready': wardrobeReady,
         'pending_occasions': pendingOccasions,
       };
@@ -72,10 +83,41 @@ class TodayDashboard {
       usage: usage,
       banners: banners,
       weather: weather,
+      weatherAttribution: weatherAttribution,
       wardrobeReady: wardrobeReady ?? this.wardrobeReady,
       pendingOccasions: pendingOccasions ?? this.pendingOccasions,
     );
   }
+}
+
+/// Mirrors the backend `WeatherAttributionResponse`.
+class WeatherAttribution {
+  const WeatherAttribution({
+    required this.serviceName,
+    required this.logoLightUrl,
+    required this.logoDarkUrl,
+    required this.legalUrl,
+  });
+
+  final String serviceName;
+  final String logoLightUrl;
+  final String logoDarkUrl;
+  final String legalUrl;
+
+  factory WeatherAttribution.fromJson(Map<String, dynamic> json) =>
+      WeatherAttribution(
+        serviceName: json['service_name'] as String,
+        logoLightUrl: json['logo_light_url'] as String,
+        logoDarkUrl: json['logo_dark_url'] as String,
+        legalUrl: json['legal_url'] as String,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'service_name': serviceName,
+        'logo_light_url': logoLightUrl,
+        'logo_dark_url': logoDarkUrl,
+        'legal_url': legalUrl,
+      };
 }
 
 class TodayUser {

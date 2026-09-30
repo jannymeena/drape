@@ -136,6 +136,23 @@ void main() {
     expect(service.generateCalls, 2);
   });
 
+  test('refreshIfStale skips before the first load and while fresh', () async {
+    service.frame = _dashboard([], pending: []);
+    service.usage = CurrentWeekUsage.fromJson({
+      'outfits': {'used': 0, 'limit': 21, 'remaining': 21, 'percentage': 0.0},
+      'mix_and_match': {'used': 0, 'limit': 3, 'remaining': 3, 'percentage': 0.0},
+      'next_reset': '2026-06-15T05:00:00Z',
+      'subscription_tier': 'free',
+    });
+
+    await controller.refreshIfStale();
+    expect(service.usageCalls, 0); // nothing loaded yet → nothing to refresh
+
+    await controller.loadFrame();
+    await controller.refreshIfStale();
+    expect(service.usageCalls, 1); // just loaded → still fresh, no reload
+  });
+
   test('a failed occasion is isolated; the others still fill', () async {
     service.frame = _dashboard([], pending: ['work', 'casual']);
     service.failOccasions.add('casual');

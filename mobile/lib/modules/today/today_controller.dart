@@ -90,6 +90,13 @@ class TodayController extends StateNotifier<TodayState> {
   /// fill personalizes weather the same way the frame did.
   DeviceCoords? _coords;
 
+  /// When the last frame (and so the weather chip) was loaded successfully.
+  DateTime? _frameLoadedAt;
+
+  /// Matches the backend weather cache window — reloading sooner can't bring
+  /// newer weather.
+  static const frameStaleAfter = Duration(minutes: 15);
+
   /// Loads the read-only frame (fast) and weekly usage (best-effort), then fans
   /// out per-occasion generation in PARALLEL. Keeps any previously loaded
   /// dashboard visible while refreshing (stale-while-revalidate), and never
@@ -154,6 +161,7 @@ class TodayController extends StateNotifier<TodayState> {
           entry.key: entry.value,
     };
 
+    _frameLoadedAt = DateTime.now();
     state = TodayState(
       dashboard: frame,
       usage: usage,
@@ -167,6 +175,16 @@ class TodayController extends StateNotifier<TodayState> {
     for (final occasion in toFire) {
       unawaited(_fill(occasion));
     }
+  }
+
+  /// Called when the app returns to the foreground: reloads the frame if it's
+  /// older than [frameStaleAfter], so a long-open app doesn't show hours-old
+  /// weather. No polling while the screen just sits there.
+  Future<void> refreshIfStale() async {
+    final loadedAt = _frameLoadedAt;
+    if (loadedAt == null || state.frameLoading) return;
+    if (DateTime.now().difference(loadedAt) < frameStaleAfter) return;
+    await loadFrame();
   }
 
   /// Persists the current dashboard (frame + filled outfits) for the next cold

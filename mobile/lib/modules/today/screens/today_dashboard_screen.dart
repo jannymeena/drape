@@ -47,7 +47,8 @@ class TodayDashboardScreen extends ConsumerStatefulWidget {
       _TodayDashboardScreenState();
 }
 
-class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
+class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
+    with WidgetsBindingObserver {
   /// Chip row: "All" plus the occasions the backend actually generates
   /// (CTO doc 2, Screen 1). Labels map to the backend literal via
   /// [_selectedOccasion] (lowercased, spaces → underscores).
@@ -62,6 +63,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     ref.read(analyticsProvider).capture(AnalyticsEvents.todayDashboardViewed);
     // Defer past the first frame so we don't mutate the provider during build.
     Future.microtask(
@@ -70,6 +72,20 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     // home) and not at launch/login — see MOBILE_CHANGES P3. No-op after the
     // first ask, and on platforms where push is off.
     Future.microtask(() => ref.read(pushRegistrarProvider).ensurePermission());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Back from the background: refresh the frame (weather) if it's gone stale.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
+    if (lifecycle == AppLifecycleState.resumed) {
+      ref.read(todayControllerProvider.notifier).refreshIfStale();
+    }
   }
 
   Future<void> _onRegenerate(String outfitId) async {
@@ -416,6 +432,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
       hint: _weatherHint(w.tempC),
       location: dashboard.user.location,
       icon: _weatherIcon(w.condition),
+      attribution: dashboard.weatherAttribution,
     );
   }
 
@@ -519,6 +536,9 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen> {
     if (c.contains('snow')) return Icons.ac_unit;
     if (c.contains('clear') || c.contains('sun')) return Icons.wb_sunny_outlined;
     if (c.contains('cloud')) return Icons.wb_cloudy_outlined;
+    if (c.contains('thunder')) return Icons.thunderstorm_outlined;
+    if (c.contains('fog')) return Icons.foggy;
+    if (c.contains('wind')) return Icons.air;
     return Icons.cloud_outlined;
   }
 }
