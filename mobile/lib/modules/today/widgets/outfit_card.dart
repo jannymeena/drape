@@ -9,9 +9,7 @@ import 'why_this_works_block.dart';
 /// coloured silhouette instead of a blank cell.
 class OutfitCardData {
   final String id;
-
-  /// Section heading for the occasion, e.g. "For work".
-  final String heading;
+  final String occasion;
   final List<GarmentCell> items;
   final String reasoning;
   final bool favorited;
@@ -22,7 +20,7 @@ class OutfitCardData {
 
   const OutfitCardData({
     required this.id,
-    required this.heading,
+    required this.occasion,
     required this.items,
     required this.reasoning,
     this.favorited = false,
@@ -79,14 +77,6 @@ class OutfitCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            outfit.heading,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.espresso,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(height: 12),
           Stack(
             children: [
               OutfitItemGrid(cells: outfit.items),
@@ -112,6 +102,25 @@ class OutfitCard extends StatelessWidget {
                     ),
                   ),
                 ),
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.tanFixed,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    outfit.occasion.toUpperCase(),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.espresso,
+                          letterSpacing: 1.4,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              ),
               Positioned(
                 bottom: 12,
                 right: 12,

@@ -199,16 +199,6 @@ class Outfit {
       .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
       .join(' ');
 
-  /// Heading on the card, e.g. "For work" — reads as a sentence so it doesn't
-  /// echo the title-case occasion filter chips.
-  String get occasionHeading => switch (occasion) {
-        'work' => 'For work',
-        'casual' => 'For a casual day',
-        'date_night' => 'For date night',
-        'gym' => 'For the gym',
-        _ => 'For ${occasionLabel.toLowerCase()}',
-      };
-
   factory Outfit.fromJson(Map<String, dynamic> json) {
     final weather = json['weather_context'] as Map<String, dynamic>?;
     final items = (json['items'] as List<dynamic>)

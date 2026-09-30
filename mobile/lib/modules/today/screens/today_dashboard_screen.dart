@@ -395,7 +395,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     return OutfitCard(
       outfit: OutfitCardData(
         id: outfit.id,
-        heading: outfit.occasionHeading,
+        occasion: outfit.occasionLabel,
         items: [
           for (final i in outfit.items)
             GarmentCell(

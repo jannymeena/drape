@@ -5,7 +5,7 @@ import 'package:mobile/modules/today/widgets/outfit_card.dart';
 import 'package:mobile/modules/today/widgets/outfit_item_grid.dart';
 import 'package:mobile/shared/widgets/buy_pill.dart';
 
-/// AWIN products in outfits: the parsed product fields, the occasion heading,
+/// AWIN products in outfits: the parsed product fields, the occasion pill,
 /// the "Buy" pill on unowned pieces and "Shop the look" replacing "Wear this".
 void main() {
   Map<String, dynamic> outfitJson({bool withShopItem = true}) => {
@@ -39,7 +39,7 @@ void main() {
     expect(shop.priceLabel, r'US$24.00');
     expect(outfit.items.first.isShopItem, isFalse);
     expect(outfit.shopTheLook, isTrue);
-    expect(outfit.occasionHeading, 'For date night');
+    expect(outfit.occasionLabel, 'Date Night');
     // Round-trips through the dashboard cache.
     expect(Outfit.fromJson(outfit.toJson()).items.last.productUrl, shop.productUrl);
   });
@@ -55,7 +55,7 @@ void main() {
           child: OutfitCard(
             outfit: OutfitCardData(
               id: 'out-1',
-              heading: 'For work',
+              occasion: 'Work',
               items: [
                 const GarmentCell(category: 'tops'),
                 GarmentCell(category: 'bottoms', buyUrl: shop ? 'https://www.awin1.com/x' : null),
@@ -72,7 +72,7 @@ void main() {
 
   testWidgets('shop pieces get a Buy pill and the card offers Shop the look', (tester) async {
     await pumpCard(tester, shop: true);
-    expect(find.text('For work'), findsOneWidget);
+    expect(find.text('WORK'), findsOneWidget); // corner pill
     expect(find.byType(BuyPill), findsOneWidget);
     expect(find.text('SHOP THE LOOK'), findsOneWidget);
     expect(find.text('WEAR THIS'), findsNothing);
