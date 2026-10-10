@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'shared/providers/router_provider.dart';
 import 'shared/theme/app_theme.dart';
+import 'shared/widgets/keyboard_dismiss_on_tap_outside.dart';
 
 class DrapeApp extends ConsumerWidget {
   const DrapeApp({super.key});
@@ -15,6 +16,7 @@ class DrapeApp extends ConsumerWidget {
       theme: AppTheme.light,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) => KeyboardDismissOnTapOutside(child: child!),
     );
   }
 }
