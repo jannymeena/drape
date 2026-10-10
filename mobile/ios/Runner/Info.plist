@@ -8,6 +8,10 @@
 		<string>Zoura needs access to your photos to add clothing items to your wardrobe.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Zoura uses your location to tailor outfit suggestions to your local weather.</string>
+		<!-- Export compliance: only standard HTTPS/TLS, which is exempt. Declared
+		     here so App Store Connect does not ask on every upload. -->
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>
