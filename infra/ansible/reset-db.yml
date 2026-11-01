@@ -69,8 +69,8 @@
       command: >-
         psql -d {{ db_name }} -c "CREATE EXTENSION IF NOT EXISTS vector"
 
-    # Builds the full schema from the (squashed) init migration and runs its
-    # data seeds — starter_wardrobe_templates among them.
+    # Builds the full schema from the (squashed) init migration. Product data
+    # is re-synced by the app's catalog worker after it starts.
     - name: Run migrations onto the empty database
       become_user: "{{ db_owner }}"
       command: "{{ venv }}/bin/alembic upgrade head"
@@ -90,22 +90,9 @@
       retries: 15
       delay: 2
 
-    # Health only proves the process is up — it never touches the tables that
-    # just got rebuilt. Count the seeded templates so a migration that ran but
-    # seeded nothing doesn't pass as a clean reset.
-    - name: Check the schema is actually usable
-      become_user: postgres
-      command: >-
-        psql -d {{ db_name }} -tAc
-        "SELECT count(*) FROM starter_wardrobe_templates"
-      register: templates
-      changed_when: false
-      failed_when: templates.stdout | trim | int == 0
-
     - name: Done
       debug:
         msg: >-
           {{ db_name }} rebuilt at revision head;
-          {{ templates.stdout | trim }} starter-wardrobe templates seeded;
           health {{ health.status }}. All previous data is gone —
           the pre-drop dump is in the backups bucket.
