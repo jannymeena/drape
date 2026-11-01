@@ -31,11 +31,12 @@ class BlueprintIdentityScreen extends ConsumerStatefulWidget {
 class _BlueprintIdentityScreenState
     extends ConsumerState<BlueprintIdentityScreen> {
   // (backend literal, label). Parallel lists would drift; tuples don't.
-  static const _styles = <(String, String, IconData)>[
-    ('womens', 'Women’s Fashion', Icons.dry_cleaning_outlined),
-    ('mens', 'Men’s Fashion', Icons.checkroom),
-    ('both', 'Both / All Styles', Icons.style_outlined),
-    ('prefer_not_to_say', 'Prefer not to say', Icons.help_outline),
+  // The backend still accepts 'both'; the redesign no longer offers it, so a
+  // user who picked it earlier resumes with nothing selected.
+  static const _styles = <(String, String)>[
+    ('womens', 'Women’s Fashion'),
+    ('mens', 'Men’s Fashion'),
+    ('prefer_not_to_say', 'Prefer not to say'),
   ];
 
   /// A null value is the explicit "skip this question" signal the backend
@@ -60,7 +61,8 @@ class _BlueprintIdentityScreenState
     super.initState();
     // Prefill from the saved profile when resuming onboarding.
     final saved = ref.read(onboardingControllerProvider);
-    _style = saved.shoppingStyle;
+    final savedStyle = saved.shoppingStyle;
+    if (_styles.any((s) => s.$1 == savedStyle)) _style = savedStyle;
     if (saved.ageRange != null) {
       final i = _ages.indexWhere((a) => a.$1 == saved.ageRange);
       if (i != -1) _ageIndex = i;
@@ -105,10 +107,9 @@ class _BlueprintIdentityScreenState
               'This helps ZOURA suggest the right products and outfit ideas for you.',
         ),
         const SizedBox(height: 16),
-        for (final (value, label, icon) in _styles) ...[
+        for (final (value, label) in _styles) ...[
           OptionCard(
             label: label,
-            icon: icon,
             selected: _style == value,
             onTap: () {
               if (_submitting) return;
@@ -123,12 +124,16 @@ class _BlueprintIdentityScreenState
         BlueprintQuestion(
           key: _ageQuestion,
           title: 'What’s your age range?',
-          subtitle: 'Helps us fit styles to your life stage.',
+          subtitle: 'Helps us fit styles to your life stage',
         ),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
+        GridView.count(
+          crossAxisCount: 2,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          mainAxisExtent: 52,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           children: [
             for (var i = 0; i < _ages.length; i++)
               _AgeChip(
@@ -162,19 +167,21 @@ class _AgeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.ivoryWarm : AppColors.white,
+      color: selected ? AppColors.ivoryHigh : AppColors.white,
       shape: StadiumBorder(
         side: BorderSide(
-          color: selected ? AppColors.espresso : AppColors.taupeSoft,
+          color: selected ? AppColors.espressoDark : AppColors.taupeSoft,
           width: selected ? 2 : 1,
         ),
       ),
       child: InkWell(
         onTap: onTap,
         customBorder: const StadiumBorder(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          child: Text(label, style: BlueprintText.option(context)),
+        child: Center(
+          child: Text(
+            label,
+            style: BlueprintText.option(context).copyWith(fontSize: 14),
+          ),
         ),
       ),
     );

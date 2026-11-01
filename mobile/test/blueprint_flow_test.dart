@@ -221,7 +221,7 @@ void main() {
     );
     expect(find.text('Step 1 of 7'), findsOneWidget);
 
-    await _tap(tester, 'Both / All Styles');
+    await _tap(tester, 'Women’s Fashion');
     await _tap(tester, 'Continue');
     await tester.pumpAndSettle();
 

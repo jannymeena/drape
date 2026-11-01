@@ -13,6 +13,8 @@ class AppColors {
   static const Color ivory = Color(0xFFFDF9F4);
   static const Color ivoryDim = Color(0xFFF7F3EE);
   static const Color ivoryWarm = Color(0xFFF1EDE8);
+  /// Selected-option fill and the step pill (Stitch `surface-container-high`).
+  static const Color ivoryHigh = Color(0xFFEBE8E3);
   static const Color sand = Color(0xFFE6E2DD);
   static const Color tan = Color(0xFFE9B499);
   static const Color tanFixed = Color(0xFFFFDBCA);

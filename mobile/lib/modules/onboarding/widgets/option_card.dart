@@ -24,19 +24,19 @@ class OptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = selected ? AppColors.espresso : AppColors.taupeSoft;
+    final border = selected ? AppColors.espressoDark : AppColors.taupeSoft;
     final width = selected ? 2.0 : 1.0;
     return Material(
-      color: AppColors.white,
+      color: selected ? AppColors.ivoryHigh : AppColors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: border, width: width),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(
             children: [
               if (icon != null) ...[
@@ -89,22 +89,22 @@ class _Selector extends StatelessWidget {
       );
     }
     return Container(
-      width: 22,
-      height: 22,
+      width: 20,
+      height: 20,
       decoration: BoxDecoration(
         border: Border.all(
-          color: selected ? AppColors.espresso : AppColors.taupeSoft,
-          width: 1.5,
+          color: selected ? AppColors.espressoDark : AppColors.taupeSoft,
+          width: 2,
         ),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: selected
           ? Container(
-              width: 12,
-              height: 12,
+              width: 10,
+              height: 10,
               decoration: const BoxDecoration(
-                color: AppColors.espresso,
+                color: AppColors.espressoDark,
                 shape: BoxShape.circle,
               ),
             )

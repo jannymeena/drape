@@ -17,11 +17,12 @@ const int kBlueprintSteps = 7;
 class BlueprintText {
   BlueprintText._();
 
-  /// The question at the top of a section. 22sp semibold.
+  /// The question at the top of a section. Serif, semibold.
   static TextStyle question(BuildContext context) =>
-      Theme.of(context).textTheme.titleLarge!.copyWith(
+      Theme.of(context).textTheme.headlineSmall!.copyWith(
             color: AppColors.ink,
-            height: 1.25,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
           );
 
   /// The explanatory line under a question. 13sp.
@@ -108,7 +109,7 @@ class BlueprintScaffold extends StatelessWidget {
   final int step;
 
   /// The questions, in order. Rendered into a scrolling list with the standard
-  /// 24dp horizontal gutter.
+  /// 16dp horizontal gutter.
   final List<Widget> children;
 
   /// Primary button label.
@@ -144,7 +145,7 @@ class BlueprintScaffold extends StatelessWidget {
               // Not a lazy ListView: every question is built up front so
               // `revealNextQuestion` can always find the next one.
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: children,
@@ -171,7 +172,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 24, 0),
+      padding: const EdgeInsets.fromLTRB(4, 8, 16, 16),
       child: Column(
         children: [
           Row(
@@ -181,7 +182,7 @@ class _Header extends StatelessWidget {
               if (Navigator.of(context).canPop())
                 IconButton(
                   onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                  icon: const Icon(Icons.chevron_left, size: 28),
                   color: AppColors.ink,
                   tooltip: 'Go back',
                 )
@@ -190,16 +191,17 @@ class _Header extends StatelessWidget {
               const Spacer(),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.tanFixed,
+                  color: AppColors.ivoryHigh,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   'Step $step of $kBlueprintSteps',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.espressoDark,
-                        letterSpacing: 0.2,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.ink,
                       ),
                 ),
               ),
@@ -240,7 +242,7 @@ class _ContinueBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
       decoration: const BoxDecoration(
         color: AppColors.ivory,
         border: Border(top: BorderSide(color: AppColors.sand)),
