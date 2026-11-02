@@ -184,6 +184,25 @@ def test_blueprint_goals_requires_at_least_one(authed_client):
     assert r.status_code == 422
 
 
+def test_blueprint_fit_accepts_not_sure_shape(authed_client):
+    """"Not sure" sends an explicit null, which overwrites an earlier pick."""
+    fit = "/api/v1/profile/style-blueprint/fit"
+    body = {"body_shape": "hourglass", "fit_tops": "regular", "fit_bottoms": "relaxed"}
+    assert authed_client.post(fit, json=body).status_code == 200
+    r = authed_client.post(fit, json={**body, "body_shape": None})
+    assert r.status_code == 200
+    body = authed_client.get("/api/v1/profile/onboarding-status").json()
+    assert body["style_profile"]["body_shape"] is None
+
+
+def test_blueprint_fit_requires_the_shape_key(authed_client):
+    r = authed_client.post(
+        "/api/v1/profile/style-blueprint/fit",
+        json={"fit_tops": "regular", "fit_bottoms": "relaxed"},
+    )
+    assert r.status_code == 422
+
+
 def test_blueprint_rejects_unknown_enum_value(authed_client):
     r = authed_client.post(
         "/api/v1/profile/style-blueprint/fit",

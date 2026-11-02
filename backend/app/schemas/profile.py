@@ -107,7 +107,9 @@ class StyleBlueprintIdentityRequest(BaseModel):
 class StyleBlueprintFitRequest(BaseModel):
     """Step 2 — self-reported body shape and how clothes should sit."""
 
-    body_shape: BodyShape
+    # Nullable: "Not sure" is an explicit answer. Measurements entered later
+    # derive a shape of their own (services/fit_profile.py).
+    body_shape: BodyShape | None
     fit_tops: TopsFit
     fit_bottoms: BottomsFit
 
