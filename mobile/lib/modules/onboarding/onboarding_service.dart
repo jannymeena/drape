@@ -34,9 +34,10 @@ class OnboardingService {
     });
   }
 
-  /// Step 2 — `POST /profile/style-blueprint/fit`.
+  /// Step 2 — `POST /profile/style-blueprint/fit`. A null [bodyShape] is
+  /// "Not sure" and is sent as an explicit null.
   Future<String> setBlueprintFit({
-    required String bodyShape,
+    required String? bodyShape,
     required String fitTops,
     required String fitBottoms,
   }) async {
@@ -208,7 +209,8 @@ final onboardingServiceProvider = Provider<OnboardingService>((ref) {
 
 /// Live onboarding/measurement status for the Today resume banner. Invalidate
 /// after saving measurements so the banner's progress updates right away.
-final onboardingStatusProvider =
-    FutureProvider.autoDispose<OnboardingStatus>((ref) {
+final onboardingStatusProvider = FutureProvider.autoDispose<OnboardingStatus>((
+  ref,
+) {
   return ref.read(onboardingServiceProvider).getOnboardingStatus();
 });

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
+import '../models/body_shapes.dart';
 import '../models/style_blueprint_draft.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
@@ -52,15 +53,6 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
     'smart_casual': 'Smart Casual',
     'romantic': 'Romantic',
     'avant_garde': 'Avant-Garde',
-  };
-
-  static const _shapes = {
-    'rectangle': 'Rectangle',
-    'triangle': 'Triangle',
-    'inverted_triangle': 'Inverted triangle',
-    'trapezoid': 'Trapezoid',
-    'oval': 'Oval',
-    'hourglass': 'Hourglass',
   };
 
   static const _tops = {
@@ -243,7 +235,13 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
           ('Age', state.ageRange?.replaceAll('-', '–')),
         ],
       ),
-      ('Shape & fit', [('Body shape', _shapes[b.bodyShape]), ('Prefers', fit)]),
+      (
+        'Shape & fit',
+        [
+          ('Body shape', bodyShapeLabel(b.bodyShape, state.shoppingStyle)),
+          ('Prefers', fit),
+        ],
+      ),
       (
         'Style',
         [

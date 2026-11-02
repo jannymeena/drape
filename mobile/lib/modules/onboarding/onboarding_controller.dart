@@ -79,7 +79,7 @@ class OnboardingState {
 
 class OnboardingController extends StateNotifier<OnboardingState> {
   OnboardingController(this._service, this._analytics)
-      : super(const OnboardingState());
+    : super(const OnboardingState());
 
   final OnboardingService _service;
   final AnalyticsService _analytics;
@@ -109,9 +109,10 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     return next;
   }
 
-  /// Step 2 — body shape and fit preferences.
+  /// Step 2 — body shape and fit preferences. A null [bodyShape] is "Not
+  /// sure", and clears any shape picked earlier.
   Future<String> setBlueprintFit({
-    required String bodyShape,
+    required String? bodyShape,
     required String fitTops,
     required String fitBottoms,
   }) async {
@@ -123,6 +124,7 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     state = state.copyWith(
       blueprint: state.blueprint.copyWith(
         bodyShape: bodyShape,
+        clearBodyShape: bodyShape == null,
         fitTops: fitTops,
         fitBottoms: fitBottoms,
       ),
@@ -311,11 +313,11 @@ class OnboardingController extends StateNotifier<OnboardingState> {
 
 final onboardingControllerProvider =
     StateNotifierProvider<OnboardingController, OnboardingState>((ref) {
-  // User-scoped draft: rebuilt on login/logout so a register → logout →
-  // register cycle never prefills the next account with this one's answers.
-  ref.watch(sessionEpochProvider);
-  return OnboardingController(
-    ref.read(onboardingServiceProvider),
-    ref.read(analyticsProvider),
-  );
-});
+      // User-scoped draft: rebuilt on login/logout so a register → logout →
+      // register cycle never prefills the next account with this one's answers.
+      ref.watch(sessionEpochProvider);
+      return OnboardingController(
+        ref.read(onboardingServiceProvider),
+        ref.read(analyticsProvider),
+      );
+    });

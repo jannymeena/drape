@@ -44,6 +44,20 @@ class _StubService extends OnboardingService {
   }
 
   @override
+  Future<String> setBlueprintFit({
+    required String? bodyShape,
+    required String fitTops,
+    required String fitBottoms,
+  }) async {
+    calls['fit'] = {
+      'body_shape': bodyShape,
+      'fit_tops': fitTops,
+      'fit_bottoms': fitBottoms,
+    };
+    return 'style_blueprint_3';
+  }
+
+  @override
   Future<String> setBlueprintAesthetics(List<String> aesthetics) async {
     calls['aesthetics'] = {'style_aesthetics': aesthetics};
     return 'style_blueprint_4';
@@ -241,6 +255,146 @@ void main() {
     await _tap(tester, '25–34'); // tapping again clears it
     await _tap(tester, 'Continue');
     expect(service.calls['identity']!['age_range'], isNull);
+  });
+
+  Future<(_StubService, ProviderContainer)> fitStep(
+    WidgetTester tester,
+    String shoppingStyle,
+  ) async {
+    final service = _StubService();
+    final container = _container(service);
+    addTearDown(container.dispose);
+    await container
+        .read(onboardingControllerProvider.notifier)
+        .setBlueprintIdentity(shoppingStyle: shoppingStyle, ageRange: null);
+    await tester
+        .pumpWidget(_host(container, initialLocation: BlueprintFitScreen.path));
+    return (service, container);
+  }
+
+  testWidgets('back on a resumed step opens the previous step',
+      (tester) async {
+    await fitStep(tester, 'mens'); // starts at step 2 alone, like a resume
+    await tester.tap(find.byTooltip('Go back'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Step 1 of 7'), findsOneWidget);
+  });
+
+  testWidgets('system back on a resumed step opens the previous step',
+      (tester) async {
+    await fitStep(tester, 'mens');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Step 1 of 7'), findsOneWidget);
+  });
+
+  testWidgets('back after continuing pops to the step underneath',
+      (tester) async {
+    final container = _container(_StubService());
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintIdentityScreen.path),
+    );
+    // Nothing under step 1 here, so it has no back button.
+    expect(find.byTooltip('Go back'), findsNothing);
+
+    await _tap(tester, 'Women’s Fashion');
+    await _tap(tester, 'Continue');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Go back'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Step 1 of 7'), findsOneWidget);
+    expect(find.byTooltip('Go back'), findsNothing);
+  });
+
+  testWidgets('step 2 names women’s shapes and saves the backend value',
+      (tester) async {
+    final (service, _) = await fitStep(tester, 'womens');
+
+    expect(find.text('Which body shape feels closest?'), findsOneWidget);
+    expect(find.text('Trapezoid'), findsNothing);
+    await _tap(tester, 'Pear');
+    await _tap(tester, 'Loose');
+    await _tap(tester, 'Continue');
+
+    expect(service.calls['fit'], {
+      'body_shape': 'triangle',
+      'fit_tops': 'loose',
+      'fit_bottoms': 'relaxed',
+    });
+  });
+
+  testWidgets('step 2 shows the men’s builds and segmented fit',
+      (tester) async {
+    final (service, _) = await fitStep(tester, 'mens');
+
+    expect(find.text('Which build feels closest?'), findsOneWidget);
+    expect(find.text('Trapezoid'), findsOneWidget);
+    expect(find.text('Hourglass'), findsNothing);
+    expect(find.text('Pear'), findsNothing);
+    await _tap(tester, 'Trapezoid');
+    // Trouser fit: Slim / Straight / Relaxed map to skinny / relaxed / baggy.
+    // No value pill: each stop is named once, on its segment.
+    expect(find.text('Straight'), findsOneWidget);
+    final trouserRelaxed = find.text('Relaxed').last;
+    await tester.ensureVisible(trouserRelaxed);
+    await tester.pumpAndSettle();
+    await tester.tap(trouserRelaxed);
+    await tester.pump();
+    await _tap(tester, 'Continue');
+
+    expect(service.calls['fit'], {
+      'body_shape': 'trapezoid',
+      'fit_tops': 'regular',
+      'fit_bottoms': 'baggy',
+    });
+  });
+
+  testWidgets('step 2 is gender-neutral for prefer not to say',
+      (tester) async {
+    final (service, _) = await fitStep(tester, 'prefer_not_to_say');
+
+    expect(find.text('Which shape feels closest?'), findsOneWidget);
+    expect(find.text('Hourglass'), findsNothing);
+    expect(find.text('Oversized'), findsOneWidget);
+    await _tap(tester, 'Fuller hips');
+    await _tap(tester, 'Continue');
+
+    expect(service.calls['fit']!['body_shape'], 'triangle');
+  });
+
+  testWidgets('step 2 fit control follows a drag to the far option',
+      (tester) async {
+    final (service, _) = await fitStep(tester, 'womens');
+
+    await _tap(tester, 'Hourglass');
+    final from = find.text('Slim fitted');
+    await tester.ensureVisible(from);
+    await tester.pumpAndSettle();
+    // Drag the top-fit thumb from the first option across to the last.
+    await tester.drag(from, const Offset(400, 0));
+    await tester.pumpAndSettle();
+    await _tap(tester, 'Continue');
+
+    expect(service.calls['fit']!['fit_tops'], 'loose');
+  });
+
+  testWidgets('step 2 “Not sure” answers the question with a null shape',
+      (tester) async {
+    final (service, container) = await fitStep(tester, 'womens');
+
+    await _tap(tester, 'Hourglass');
+    await _tap(tester, 'Not sure?');
+    await _tap(tester, 'Continue');
+
+    expect(service.calls['fit']!['body_shape'], isNull);
+    expect(
+      container.read(onboardingControllerProvider).blueprint.bodyShape,
+      isNull,
+    );
   });
 
   testWidgets('step 3 shows the men’s card set for a mens shopper',

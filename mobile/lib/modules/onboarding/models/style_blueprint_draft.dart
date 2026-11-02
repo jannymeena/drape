@@ -49,8 +49,11 @@ class StyleBlueprintDraft {
   // Step 7 — aspiration
   final String? threeMonthFeeling;
 
+  /// [clearBodyShape] sets [bodyShape] to null — a null argument alone means
+  /// "unchanged", and "Not sure" has to be able to erase an earlier pick.
   StyleBlueprintDraft copyWith({
     String? bodyShape,
+    bool clearBodyShape = false,
     String? fitTops,
     String? fitBottoms,
     List<String>? styleAesthetics,
@@ -65,7 +68,7 @@ class StyleBlueprintDraft {
     String? threeMonthFeeling,
   }) {
     return StyleBlueprintDraft(
-      bodyShape: bodyShape ?? this.bodyShape,
+      bodyShape: clearBodyShape ? null : bodyShape ?? this.bodyShape,
       fitTops: fitTops ?? this.fitTops,
       fitBottoms: fitBottoms ?? this.fitBottoms,
       styleAesthetics: styleAesthetics ?? this.styleAesthetics,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../resume_route_map.dart';
 
 /// How many steps the Style Blueprint has. Single source of truth for the
 /// "Step n of 7" pill and the progress line.
@@ -18,42 +20,35 @@ class BlueprintText {
   BlueprintText._();
 
   /// The question at the top of a section. Serif, semibold.
-  static TextStyle question(BuildContext context) =>
-      Theme.of(context).textTheme.headlineSmall!.copyWith(
-            color: AppColors.ink,
-            fontWeight: FontWeight.w600,
-            height: 1.2,
-          );
+  static TextStyle question(BuildContext context) => Theme.of(context)
+      .textTheme
+      .headlineSmall!
+      .copyWith(color: AppColors.ink, fontWeight: FontWeight.w600, height: 1.2);
 
   /// The explanatory line under a question. 13sp.
-  static TextStyle subtitle(BuildContext context) =>
-      Theme.of(context).textTheme.bodyMedium!.copyWith(
-            fontSize: 13,
-            height: 1.4,
-            color: AppColors.inkSoft,
-          );
+  static TextStyle subtitle(BuildContext context) => Theme.of(context)
+      .textTheme
+      .bodyMedium!
+      .copyWith(fontSize: 13, height: 1.4, color: AppColors.inkSoft);
 
   /// The label on a selectable option (card, row, radio). 15sp medium.
   static TextStyle option(BuildContext context) =>
       Theme.of(context).textTheme.bodyLarge!.copyWith(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: AppColors.ink,
-          );
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+        color: AppColors.ink,
+      );
 
   /// Secondary copy inside an option, under its label. 13sp.
-  static TextStyle optionSupport(BuildContext context) =>
-      Theme.of(context).textTheme.bodyMedium!.copyWith(
-            fontSize: 13,
-            height: 1.35,
-            color: AppColors.inkSoft,
-          );
+  static TextStyle optionSupport(BuildContext context) => Theme.of(context)
+      .textTheme
+      .bodyMedium!
+      .copyWith(fontSize: 13, height: 1.35, color: AppColors.inkSoft);
 
   /// A compact label: chips, palette captions, slider endpoints. 12sp medium.
-  static TextStyle caption(BuildContext context) =>
-      Theme.of(context).textTheme.labelMedium!.copyWith(
-            color: AppColors.inkSoft,
-          );
+  static TextStyle caption(BuildContext context) => Theme.of(
+    context,
+  ).textTheme.labelMedium!.copyWith(color: AppColors.inkSoft);
 }
 
 /// A question heading plus its optional explanatory line, at the shared scale.
@@ -135,7 +130,7 @@ class BlueprintScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: AppColors.ivory,
       body: SafeArea(
         child: Column(
@@ -162,6 +157,34 @@ class BlueprintScaffold extends StatelessWidget {
         ),
       ),
     );
+    if (step == 1) return scaffold;
+    // Steps 2–7 always have a step behind them, so the system back gesture
+    // goes there too, instead of closing the app on a resumed step.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) goToPreviousStep(context, step);
+      },
+      child: scaffold,
+    );
+  }
+}
+
+/// Whether this screen's own route has one beneath it. Unlike
+/// `Navigator.canPop`, which is about the whole stack, this stays right when a
+/// step rebuilds while the next step is pushed on top of it.
+bool _hasScreenBelow(BuildContext context) =>
+    ModalRoute.of(context)?.canPop ?? false;
+
+/// Back from [step]: pops when the previous step is underneath, otherwise
+/// opens it. A resumed flow starts at the saved step on its own (the splash
+/// `go`es there), so there's often nothing to pop.
+void goToPreviousStep(BuildContext context, int step) {
+  if (_hasScreenBelow(context)) {
+    // `pop`, not `maybePop`: this runs from inside the PopScope above.
+    Navigator.of(context).pop();
+  } else if (step > 1) {
+    context.goNamed(routeForNextStep('style_blueprint_${step - 1}'));
   }
 }
 
@@ -177,11 +200,12 @@ class _Header extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Step 1 is the flow's entry point, so there may be nothing to
-              // pop back to — show the button only when there is.
-              if (Navigator.of(context).canPop())
+              // Steps 2–7 always lead back to the previous step. Step 1 is
+              // the flow's entry point: show back only when there's a screen
+              // underneath it.
+              if (step > 1 || _hasScreenBelow(context))
                 IconButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
+                  onPressed: () => goToPreviousStep(context, step),
                   icon: const Icon(Icons.chevron_left, size: 28),
                   color: AppColors.ink,
                   tooltip: 'Go back',
@@ -190,8 +214,10 @@ class _Header extends StatelessWidget {
                 const SizedBox(width: 48, height: 48),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.ivoryHigh,
                   borderRadius: BorderRadius.circular(999),
@@ -199,10 +225,10 @@ class _Header extends StatelessWidget {
                 child: Text(
                   'Step $step of $kBlueprintSteps',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.ink,
-                      ),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.ink,
+                  ),
                 ),
               ),
             ],
@@ -272,9 +298,9 @@ class _ContinueBar extends StatelessWidget {
               : Text(
                   label,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
         ),
       ),
