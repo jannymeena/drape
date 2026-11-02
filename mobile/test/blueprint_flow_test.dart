@@ -502,21 +502,6 @@ void main() {
     expect(service.calls['fit']!['fit_tops'], 'loose');
   });
 
-  testWidgets('step 2 “Not sure” answers the question with a null shape',
-      (tester) async {
-    final (service, container) = await fitStep(tester, 'womens');
-
-    await _tap(tester, 'Hourglass');
-    await _tap(tester, 'Not sure?');
-    await _tap(tester, 'Continue');
-
-    expect(service.calls['fit']!['body_shape'], isNull);
-    expect(
-      container.read(onboardingControllerProvider).blueprint.bodyShape,
-      isNull,
-    );
-  });
-
   testWidgets('step 3 shows the men’s card set for a mens shopper',
       (tester) async {
     final service = _StubService();

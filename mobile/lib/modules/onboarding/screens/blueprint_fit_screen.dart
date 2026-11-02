@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/body_shapes.dart';
 import '../onboarding_controller.dart';
+import '../shape_finder/shape_finder_controller.dart';
+import '../shape_finder/shape_intro_screen.dart';
 import '../widgets/blueprint_scaffold.dart';
 import '../widgets/line_glyph.dart';
 import 'blueprint_aesthetics_screen.dart';
@@ -16,8 +18,9 @@ import 'blueprint_aesthetics_screen.dart';
 /// What varies is the content, per [_Copy]: the shape set and its drawings
 /// (named shapes for women's, "builds" for men's, silhouette descriptions for
 /// "prefer not to say"), the wording, and — gender-neutral only — a
-/// data-residency note. Every variant stores the same backend values, and
-/// "Not sure" saves the shape as null.
+/// data-residency note. Every variant stores the same backend values.
+/// "Not sure?" opens the shape finder (measurements or a photo), which
+/// finishes this step itself.
 ///
 /// Fit is three stops, never a free range: the backend stores a literal
 /// (`slim`/`regular`/`loose`), so a continuous control would only invite a
@@ -106,24 +109,24 @@ const _copy = {
 class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
   final _fitQuestion = GlobalKey();
 
+  late final BodyShapeSet _set;
   late final _Copy _c;
   late final List<BodyShapeOption> _shapes;
 
   String? _shape;
-  bool _notSure = false;
   // Default both fit questions to the middle stop: it's the most common answer
   // and means the user only has to touch one they actually disagree with.
   int _topsIndex = 1;
   int _bottomsIndex = 1;
   bool _leaving = false;
 
-  bool get _answered => _shape != null || _notSure;
+  bool get _answered => _shape != null;
 
   @override
   void initState() {
     super.initState();
     final state = ref.read(onboardingControllerProvider);
-    final set = bodyShapeSetFor(state.shoppingStyle);
+    final set = _set = bodyShapeSetFor(state.shoppingStyle);
     _c = _copy[set]!;
     _shapes = bodyShapesFor(set);
     final saved = state.blueprint;
@@ -138,15 +141,26 @@ class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
     if (b != -1) _bottomsIndex = b;
   }
 
-  /// [value] null is "Not sure".
-  void _select(String? value) {
+  void _select(String value) {
     if (_leaving) return;
     final firstAnswer = !_answered;
-    setState(() {
-      _shape = value;
-      _notSure = value == null;
-    });
+    setState(() => _shape = value);
     if (firstAnswer) revealNextQuestion(_fitQuestion);
+  }
+
+  /// "Not sure?" — find the shape from measurements or a photo. The sub-flow
+  /// finishes step 2 itself, so it takes this step's fit answers along.
+  void _findShape() {
+    if (_leaving) return;
+    ref
+        .read(shapeFinderProvider.notifier)
+        .start(
+          set: _set,
+          fitTops: _c.tops[_topsIndex].$1,
+          fitBottoms: _c.bottoms[_bottomsIndex].$1,
+          saved: ref.read(onboardingControllerProvider).measurements.values,
+        );
+    context.pushNamed(ShapeIntroScreen.name);
   }
 
   /// Records the answers and moves straight on; the save runs in the
@@ -205,8 +219,8 @@ class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
                 description: s.description,
               ),
             _ShapeCard(
-              selected: _notSure,
-              onTap: () => _select(null),
+              selected: false,
+              onTap: _findShape,
               tinted: true,
               art: const _NotSureArt(),
               label: 'Not sure?',

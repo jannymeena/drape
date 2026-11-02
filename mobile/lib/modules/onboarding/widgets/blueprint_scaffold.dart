@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
@@ -130,30 +131,35 @@ class BlueprintScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scaffold = Scaffold(
-      backgroundColor: AppColors.ivory,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _Header(step: step),
-            Expanded(
-              // Not a lazy ListView: every question is built up front so
-              // `revealNextQuestion` can always find the next one.
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: children,
+    // Dark status-bar icons, set explicitly: the shape finder's dark avatar
+    // reveal hands over to step 3, and would otherwise leave them light.
+    final scaffold = AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: AppColors.ivory,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _Header(step: step),
+              Expanded(
+                // Not a lazy ListView: every question is built up front so
+                // `revealNextQuestion` can always find the next one.
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: children,
+                  ),
                 ),
               ),
-            ),
-            _ContinueBar(
-              label: buttonLabel,
-              enabled: canContinue,
-              loading: loading,
-              onPressed: onContinue,
-            ),
-          ],
+              _ContinueBar(
+                label: buttonLabel,
+                enabled: canContinue,
+                loading: loading,
+                onPressed: onContinue,
+              ),
+            ],
+          ),
         ),
       ),
     );

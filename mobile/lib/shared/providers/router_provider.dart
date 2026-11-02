@@ -29,6 +29,14 @@ import '../../modules/onboarding/screens/splash_screen.dart';
 import '../../modules/onboarding/screens/thigh_measurement_screen.dart';
 import '../../modules/onboarding/screens/waist_measurement_screen.dart';
 import '../../modules/onboarding/screens/wardrobe_setup_screen.dart';
+import '../../modules/onboarding/shape_finder/shape_intro_screen.dart';
+import '../../modules/onboarding/shape_finder/shape_measure_screen.dart';
+import '../../modules/onboarding/shape_finder/shape_photo_tips_screen.dart';
+import '../../modules/onboarding/shape_finder/shape_photo_review_screen.dart';
+import '../../modules/onboarding/shape_finder/shape_analyzing_screen.dart';
+import '../../modules/onboarding/shape_finder/shape_photo_error_screen.dart';
+import '../../modules/onboarding/shape_finder/shape_result_screen.dart';
+import '../../modules/onboarding/shape_finder/shape_avatar_reveal_screen.dart';
 import '../../modules/onboarding/screens/weight_input_screen.dart';
 import '../../modules/profile/screens/account_settings_screen.dart';
 import '../../modules/profile/screens/appearance_settings_screen.dart';
@@ -192,6 +200,48 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: BlueprintRevealScreen.path,
         name: BlueprintRevealScreen.name,
         builder: (_, _) => const BlueprintRevealScreen(),
+      ),
+
+      // ─── Onboarding: step 2's "Not sure?" shape finder ─────────
+      GoRoute(
+        path: ShapeIntroScreen.path,
+        name: ShapeIntroScreen.name,
+        builder: (_, _) => const ShapeIntroScreen(),
+      ),
+      GoRoute(
+        path: ShapeMeasureScreen.path,
+        name: ShapeMeasureScreen.name,
+        builder: (_, _) => const ShapeMeasureScreen(),
+      ),
+      GoRoute(
+        path: ShapePhotoTipsScreen.path,
+        name: ShapePhotoTipsScreen.name,
+        builder: (_, _) => const ShapePhotoTipsScreen(),
+      ),
+      GoRoute(
+        path: ShapePhotoReviewScreen.path,
+        name: ShapePhotoReviewScreen.name,
+        builder: (_, _) => const ShapePhotoReviewScreen(),
+      ),
+      GoRoute(
+        path: ShapeAnalyzingScreen.path,
+        name: ShapeAnalyzingScreen.name,
+        builder: (_, _) => const ShapeAnalyzingScreen(),
+      ),
+      GoRoute(
+        path: ShapePhotoErrorScreen.path,
+        name: ShapePhotoErrorScreen.name,
+        builder: (_, _) => const ShapePhotoErrorScreen(),
+      ),
+      GoRoute(
+        path: ShapeResultScreen.path,
+        name: ShapeResultScreen.name,
+        builder: (_, _) => const ShapeResultScreen(),
+      ),
+      GoRoute(
+        path: ShapeAvatarRevealScreen.path,
+        name: ShapeAvatarRevealScreen.name,
+        builder: (_, _) => const ShapeAvatarRevealScreen(),
       ),
 
       // ─── Measurements ─────────────────────────────────────────
