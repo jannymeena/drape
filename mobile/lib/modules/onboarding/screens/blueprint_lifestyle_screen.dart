@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
@@ -60,7 +59,7 @@ class _BlueprintLifestyleScreenState
 
   String? _dressCode;
   String? _impression;
-  bool _submitting = false;
+  bool _leaving = false;
 
   @override
   void initState() {
@@ -77,31 +76,28 @@ class _BlueprintLifestyleScreenState
     super.dispose();
   }
 
-  Future<void> _onContinue() async {
+  /// Records the answers and moves straight on; the save runs in the
+  /// background, and a failure is retried with the next step's save.
+  void _onContinue() {
     final impression = _impression;
-    if (impression == null || _submitting) return;
+    if (impression == null || _leaving) return;
 
     final occupation = _occupation.text.trim();
-    setState(() => _submitting = true);
-    try {
-      await ref
-          .read(onboardingControllerProvider.notifier)
-          .setBlueprintLifestyle(
-            occupation: occupation.isEmpty ? null : occupation,
-            // A dress code without a job is meaningless — drop it rather than
-            // storing an answer to a question the user never saw.
-            dressCode: occupation.isEmpty ? null : _dressCode,
-            impressionGoal: impression,
-          );
-      if (!mounted) return;
-      context.pushNamed(BlueprintHabitsScreen.name);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    // Saved in the background; see OnboardingController._save.
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .setBlueprintLifestyle(
+          occupation: occupation.isEmpty ? null : occupation,
+          // A dress code without a job is meaningless — drop it rather than
+          // storing an answer to a question the user never saw.
+          dressCode: occupation.isEmpty ? null : _dressCode,
+          impressionGoal: impression,
+        );
+    // Ignore further taps until the user comes back to this step.
+    setState(() => _leaving = true);
+    context.pushNamed(BlueprintHabitsScreen.name).whenComplete(() {
+      if (mounted) setState(() => _leaving = false);
+    });
   }
 
   @override
@@ -110,7 +106,6 @@ class _BlueprintLifestyleScreenState
     return BlueprintScaffold(
       step: 5,
       canContinue: _impression != null,
-      loading: _submitting,
       onContinue: _onContinue,
       children: [
         const BlueprintQuestion(
@@ -125,8 +120,9 @@ class _BlueprintLifestyleScreenState
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: 'Search your occupation…',
-            hintStyle: BlueprintText.option(context)
-                .copyWith(color: AppColors.taupe),
+            hintStyle: BlueprintText.option(
+              context,
+            ).copyWith(color: AppColors.taupe),
             prefixIcon: const Icon(Icons.search, color: AppColors.taupe),
             filled: true,
             fillColor: AppColors.white,
@@ -155,7 +151,7 @@ class _BlueprintLifestyleScreenState
                 label: s,
                 selected: _occupation.text.trim() == s,
                 onTap: () {
-                  if (_submitting) return;
+                  if (_leaving) return;
                   final firstAnswer = _occupation.text.trim().isEmpty;
                   setState(() {
                     _occupation.text = _occupation.text.trim() == s ? '' : s;
@@ -187,7 +183,7 @@ class _BlueprintLifestyleScreenState
                   label: label,
                   selected: _dressCode == value,
                   onTap: () {
-                    if (_submitting || !hasOccupation) return;
+                    if (_leaving || !hasOccupation) return;
                     final firstAnswer = _dressCode == null;
                     setState(
                       () => _dressCode = _dressCode == value ? null : value,
@@ -209,7 +205,7 @@ class _BlueprintLifestyleScreenState
             label: label,
             selected: _impression == value,
             onTap: () {
-              if (_submitting) return;
+              if (_leaving) return;
               setState(() => _impression = value);
             },
           ),
@@ -247,9 +243,9 @@ class _Pill extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Text(
             label,
-            style: BlueprintText.option(context).copyWith(
-              color: selected ? AppColors.white : AppColors.ink,
-            ),
+            style: BlueprintText.option(
+              context,
+            ).copyWith(color: selected ? AppColors.white : AppColors.ink),
           ),
         ),
       ),

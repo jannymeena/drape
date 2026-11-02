@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +17,7 @@ import 'package:mobile/modules/onboarding/screens/blueprint_lifestyle_screen.dar
 import 'package:mobile/modules/onboarding/screens/blueprint_reveal_screen.dart';
 import 'package:mobile/modules/onboarding/screens/wardrobe_setup_screen.dart';
 import 'package:mobile/modules/shop/shop_service.dart';
+import 'package:mobile/shared/models/api_error.dart';
 import 'package:mobile/shared/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
 
@@ -31,15 +34,30 @@ class _StubService extends OnboardingService {
 
   final calls = <String, Map<String, dynamic>>{};
 
+  /// Every call, in order — to check step 1 is saved before step 2.
+  final order = <String>[];
+
+  /// Fails this many step 1 saves before succeeding.
+  int identityFailures = 0;
+
+  /// When set, step 1's save waits on it (an in-flight request).
+  Completer<void>? identityGate;
+
   @override
   Future<String> setBlueprintIdentity({
     required String shoppingStyle,
     required String? ageRange,
   }) async {
+    order.add('identity');
     calls['identity'] = {
       'shopping_style': shoppingStyle,
       'age_range': ageRange,
     };
+    await identityGate?.future;
+    if (identityFailures > 0) {
+      identityFailures--;
+      throw const ApiException(code: 'network', message: 'offline');
+    }
     return 'style_blueprint_2';
   }
 
@@ -49,12 +67,20 @@ class _StubService extends OnboardingService {
     required String fitTops,
     required String fitBottoms,
   }) async {
+    order.add('fit');
     calls['fit'] = {
       'body_shape': bodyShape,
       'fit_tops': fitTops,
       'fit_bottoms': fitBottoms,
     };
     return 'style_blueprint_3';
+  }
+
+  @override
+  Future<String> completeBlueprint() async {
+    order.add('complete');
+    calls['complete'] = {};
+    return 'today_dashboard';
   }
 
   @override
@@ -241,6 +267,100 @@ void main() {
 
     expect(find.text('Step 2 of 7'), findsOneWidget);
     expect(find.text('Which body shape feels closest?'), findsOneWidget);
+  });
+
+  testWidgets('steps move on without waiting, and save in order', (tester) async {
+    final service = _StubService()..identityGate = Completer<void>();
+    final container = _container(service);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintIdentityScreen.path),
+    );
+
+    await _tap(tester, 'Men’s Fashion');
+    await _tap(tester, 'Continue');
+    await tester.pumpAndSettle();
+
+    // The save is still in flight, yet step 2 is up — and already knows the
+    // answer, so it shows the men's set.
+    expect(find.text('Step 2 of 7'), findsOneWidget);
+    expect(find.text('Which build feels closest?'), findsOneWidget);
+
+    // Step 2 moves on too, but its save queues behind step 1's.
+    await _tap(tester, 'Trapezoid');
+    await _tap(tester, 'Continue');
+    await tester.pumpAndSettle();
+    expect(find.text('Step 3 of 7'), findsOneWidget);
+    expect(service.order, ['identity']);
+
+    service.identityGate!.complete();
+    await tester.pumpAndSettle();
+    expect(service.order, ['identity', 'fit']);
+  });
+
+  testWidgets('a failed step 1 save is retried before step 2 saves',
+      (tester) async {
+    final service = _StubService()..identityFailures = 1;
+    final container = _container(service);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintIdentityScreen.path),
+    );
+
+    await _tap(tester, 'Women’s Fashion');
+    await _tap(tester, 'Continue');
+    await tester.pumpAndSettle();
+    expect(find.text('Step 2 of 7'), findsOneWidget);
+
+    await _tap(tester, 'Hourglass');
+    await _tap(tester, 'Continue');
+    await tester.pumpAndSettle();
+
+    expect(service.order, ['identity', 'identity', 'fit']);
+    expect(find.text('Step 3 of 7'), findsOneWidget);
+  });
+
+  testWidgets('steps move on while saving; a stuck save surfaces at the end',
+      (tester) async {
+    final service = _StubService()..identityFailures = 99;
+    final container = _container(service);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintIdentityScreen.path),
+    );
+
+    await _tap(tester, 'Women’s Fashion');
+    await _tap(tester, 'Continue');
+    await tester.pumpAndSettle();
+    await _tap(tester, 'Hourglass');
+    await _tap(tester, 'Continue');
+    await tester.pumpAndSettle();
+
+    // Step 1 can't be saved, so step 2's save is held back behind it — but
+    // the user still moved on, and neither answer is lost.
+    expect(find.text('Step 3 of 7'), findsOneWidget);
+    expect(service.order, ['identity', 'identity']);
+    final draft = container.read(onboardingControllerProvider);
+    expect(draft.shoppingStyle, 'womens');
+    expect(draft.blueprint.bodyShape, 'hourglass');
+
+    // Completing the blueprint waits for every save, so that's where it fails.
+    await expectLater(
+      container.read(onboardingControllerProvider.notifier).completeBlueprint(),
+      throwsA(isA<ApiException>()),
+    );
+    expect(service.calls.containsKey('complete'), isFalse);
+
+    // Once step 1 goes through, the held-back save follows it, in order.
+    service.identityFailures = 0;
+    await container
+        .read(onboardingControllerProvider.notifier)
+        .completeBlueprint();
+    expect(service.order.sublist(service.order.length - 3), [
+      'identity',
+      'fit',
+      'complete',
+    ]);
   });
 
   testWidgets('step 1 age chips toggle off so the question stays skippable',

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
@@ -43,14 +42,18 @@ class _BlueprintAestheticsScreenState
   static const _womens = <_Aesthetic>[
     (value: 'minimalist', label: 'Minimalist', asset: 'female/minimalist'),
     (value: 'bohemian', label: 'Bohemian', asset: 'female/bohemian'),
-    (value: 'professional', label: 'Professional', asset: 'female/professional'),
+    (
+      value: 'professional',
+      label: 'Professional',
+      asset: 'female/professional',
+    ),
     (value: 'streetwear', label: 'Streetwear', asset: 'female/streetwear'),
     (value: 'romantic', label: 'Romantic', asset: 'female/romantic'),
     (value: 'avant_garde', label: 'Avant-Garde', asset: 'female/avant_garde'),
   ];
 
   final _selected = <String>{};
-  bool _submitting = false;
+  bool _leaving = false;
 
   @override
   void initState() {
@@ -65,29 +68,26 @@ class _BlueprintAestheticsScreenState
     return style == 'mens' ? _mens : _womens;
   }
 
-  Future<void> _onContinue() async {
-    if (_selected.isEmpty || _submitting) return;
+  /// Records the answers and moves straight on; the save runs in the
+  /// background, and a failure is retried with the next step's save.
+  void _onContinue() {
+    if (_selected.isEmpty || _leaving) return;
 
-    setState(() => _submitting = true);
-    try {
-      // Send in card order rather than tap order so the stored list is stable
-      // across sessions.
-      final ordered = [
-        for (final card in _cards)
-          if (_selected.contains(card.value)) card.value,
-      ];
-      await ref
-          .read(onboardingControllerProvider.notifier)
-          .setBlueprintAesthetics(ordered);
-      if (!mounted) return;
-      context.pushNamed(BlueprintColorScreen.name);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    // Send in card order rather than tap order so the stored list is stable
+    // across sessions.
+    final ordered = [
+      for (final card in _cards)
+        if (_selected.contains(card.value)) card.value,
+    ];
+    // Saved in the background; see OnboardingController._save.
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .setBlueprintAesthetics(ordered);
+    // Ignore further taps until the user comes back to this step.
+    setState(() => _leaving = true);
+    context.pushNamed(BlueprintColorScreen.name).whenComplete(() {
+      if (mounted) setState(() => _leaving = false);
+    });
   }
 
   @override
@@ -95,7 +95,6 @@ class _BlueprintAestheticsScreenState
     return BlueprintScaffold(
       step: 3,
       canContinue: _selected.isNotEmpty,
-      loading: _submitting,
       onContinue: _onContinue,
       children: [
         const BlueprintQuestion(
@@ -117,7 +116,7 @@ class _BlueprintAestheticsScreenState
                 asset: 'assets/onboarding/styles/${card.asset}.jpg',
                 selected: _selected.contains(card.value),
                 onTap: () {
-                  if (_submitting) return;
+                  if (_leaving) return;
                   setState(() {
                     if (!_selected.add(card.value)) {
                       _selected.remove(card.value);
@@ -180,10 +179,9 @@ class _StyleCard extends StatelessWidget {
               bottom: 10,
               child: Text(
                 label,
-                style: BlueprintText.option(context).copyWith(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: BlueprintText.option(
+                  context,
+                ).copyWith(color: AppColors.white, fontWeight: FontWeight.w700),
               ),
             ),
             if (selected)

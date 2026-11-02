@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/body_shapes.dart';
 import '../onboarding_controller.dart';
@@ -116,7 +115,7 @@ class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
   // and means the user only has to touch one they actually disagree with.
   int _topsIndex = 1;
   int _bottomsIndex = 1;
-  bool _submitting = false;
+  bool _leaving = false;
 
   bool get _answered => _shape != null || _notSure;
 
@@ -141,7 +140,7 @@ class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
 
   /// [value] null is "Not sure".
   void _select(String? value) {
-    if (_submitting) return;
+    if (_leaving) return;
     final firstAnswer = !_answered;
     setState(() {
       _shape = value;
@@ -150,28 +149,24 @@ class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
     if (firstAnswer) revealNextQuestion(_fitQuestion);
   }
 
-  Future<void> _onContinue() async {
-    if (!_answered || _submitting) return;
+  /// Records the answers and moves straight on; the save runs in the
+  /// background, and a failure is retried with the next step's save.
+  void _onContinue() {
+    if (!_answered || _leaving) return;
 
-    setState(() => _submitting = true);
-    try {
-      await ref
-          .read(onboardingControllerProvider.notifier)
-          .setBlueprintFit(
-            bodyShape: _shape,
-            fitTops: _c.tops[_topsIndex].$1,
-            fitBottoms: _c.bottoms[_bottomsIndex].$1,
-          );
-      if (!mounted) return;
-      context.pushNamed(BlueprintAestheticsScreen.name);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    // Saved in the background; see OnboardingController._save.
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .setBlueprintFit(
+          bodyShape: _shape,
+          fitTops: _c.tops[_topsIndex].$1,
+          fitBottoms: _c.bottoms[_bottomsIndex].$1,
+        );
+    // Ignore further taps until the user comes back to this step.
+    setState(() => _leaving = true);
+    context.pushNamed(BlueprintAestheticsScreen.name).whenComplete(() {
+      if (mounted) setState(() => _leaving = false);
+    });
   }
 
   @override
@@ -179,7 +174,6 @@ class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
     return BlueprintScaffold(
       step: 2,
       canContinue: _answered,
-      loading: _submitting,
       onContinue: _onContinue,
       children: [
         BlueprintQuestion(

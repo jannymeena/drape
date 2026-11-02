@@ -54,7 +54,7 @@ class _BlueprintIdentityScreenState
 
   String? _style;
   int? _ageIndex;
-  bool _submitting = false;
+  bool _leaving = false;
 
   @override
   void initState() {
@@ -69,28 +69,31 @@ class _BlueprintIdentityScreenState
     }
   }
 
-  Future<void> _onContinue() async {
+  /// Records the answers and moves straight on; the save runs in the
+  /// background, and a failure is retried with the next step's save (see
+  /// OnboardingController._save) — the answers aren't lost.
+  void _onContinue() {
     final style = _style;
-    if (style == null || _submitting) return;
+    if (style == null || _leaving) return;
 
-    setState(() => _submitting = true);
-    try {
-      await ref.read(onboardingControllerProvider.notifier).setBlueprintIdentity(
-            shoppingStyle: style,
-            ageRange: _ageIndex == null ? null : _ages[_ageIndex!].$1,
-          );
-      // Shopping style is saved, so the gender-filtered shop feed is final:
-      // warm its cache while the rest of onboarding runs.
-      unawaited(ref.read(shopServiceProvider).prefetchFeed());
-      if (!mounted) return;
-      context.pushNamed(BlueprintFitScreen.name);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    final shop = ref.read(shopServiceProvider);
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .setBlueprintIdentity(
+          shoppingStyle: style,
+          ageRange: _ageIndex == null ? null : _ages[_ageIndex!].$1,
+        )
+        // Shopping style is saved, so the gender-filtered shop feed is final:
+        // warm its cache while the rest of onboarding runs.
+        .then((_) => unawaited(shop.prefetchFeed()))
+        // A failure needs no message here: it's retried with the next save.
+        .catchError((_) {}, test: (e) => e is ApiException);
+
+    // Ignore further taps until the user comes back to this step.
+    setState(() => _leaving = true);
+    context.pushNamed(BlueprintFitScreen.name).whenComplete(() {
+      if (mounted) setState(() => _leaving = false);
+    });
   }
 
   @override
@@ -98,7 +101,6 @@ class _BlueprintIdentityScreenState
     return BlueprintScaffold(
       step: 1,
       canContinue: _style != null,
-      loading: _submitting,
       onContinue: _onContinue,
       children: [
         const BlueprintQuestion(
@@ -112,7 +114,7 @@ class _BlueprintIdentityScreenState
             label: label,
             selected: _style == value,
             onTap: () {
-              if (_submitting) return;
+              if (_leaving) return;
               final firstAnswer = _style == null;
               setState(() => _style = value);
               if (firstAnswer) revealNextQuestion(_ageQuestion);
@@ -140,7 +142,7 @@ class _BlueprintIdentityScreenState
                 label: _ages[i].$2,
                 selected: _ageIndex == i,
                 onTap: () {
-                  if (_submitting) return;
+                  if (_leaving) return;
                   // Tapping the selected chip clears it — the question is
                   // optional, so there has to be a way back to "unanswered".
                   setState(() => _ageIndex = _ageIndex == i ? null : i);

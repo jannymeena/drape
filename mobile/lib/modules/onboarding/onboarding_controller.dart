@@ -84,29 +84,78 @@ class OnboardingController extends StateNotifier<OnboardingState> {
   final OnboardingService _service;
   final AnalyticsService _analytics;
 
-  /// Step 1 — persists shopping style + age range ([range] null = the user
-  /// skipped that question). Returns the backend `next_step`. Throws
-  /// [ApiException] (the screen shows it).
+  // ─── Background saves ──────────────────────────────────────────────────
+  //
+  // Each step updates the draft at once and the screen moves straight on; the
+  // step's save runs in the background. Saves go out one at a time, in step
+  // order, so the backend's resume pointer only ever moves the way the user
+  // did. A save that fails is kept and retried ahead of the next one; the
+  // reveal's [completeBlueprint] waits for every save, and is where a save
+  // that keeps failing finally surfaces.
+
+  /// The tail of the save queue. Never errors, so the next save always runs.
+  Future<void> _queue = Future.value();
+
+  /// Failed saves awaiting a retry, keyed by step, oldest first. Re-answering
+  /// a step replaces its entry.
+  final _failed = <String, Future<String> Function()>{};
+
+  /// Queues [send] as [step]'s save. The returned future completes with the
+  /// backend `next_step`, or throws [ApiException] if this save — or an
+  /// earlier failed one it retried first — couldn't be made. Callers that
+  /// move on without waiting can ignore it: failures are kept for a retry.
+  Future<String> _save(String step, Future<String> Function() send) {
+    _failed.remove(step);
+    final done = _queue.then((_) async {
+      try {
+        await _retryFailed();
+        final next = await send();
+        state = state.copyWith(nextStep: next);
+        return next;
+      } on ApiException {
+        _failed[step] = send;
+        rethrow;
+      }
+    });
+    _queue = done.then((_) {}, onError: (Object _) {});
+    return done;
+  }
+
+  Future<void> _retryFailed() async {
+    for (final MapEntry(key: step, value: send) in [..._failed.entries]) {
+      final next = await send(); // stops at the first that still fails
+      _failed.remove(step);
+      state = state.copyWith(nextStep: next);
+    }
+  }
+
+  /// Waits until every answer so far is saved, retrying any that failed.
+  /// Throws [ApiException] if one still can't be saved.
+  Future<void> _allSaved() => _queue.then((_) => _retryFailed());
+
+  // ─── Steps ─────────────────────────────────────────────────────────────
+
+  /// Step 1 — shopping style + age range ([ageRange] null = the user skipped
+  /// that question). The draft updates at once, so step 2 can render the
+  /// right shape set before the save lands. See [_save] for the future.
   Future<String> setBlueprintIdentity({
     required String shoppingStyle,
     required String? ageRange,
-  }) async {
-    final next = await _service.setBlueprintIdentity(
-      shoppingStyle: shoppingStyle,
-      ageRange: ageRange,
-    );
-    state = state.copyWith(
-      shoppingStyle: shoppingStyle,
-      ageRange: ageRange,
-      nextStep: next,
-    );
+  }) {
+    state = state.copyWith(shoppingStyle: shoppingStyle, ageRange: ageRange);
     _analytics.capture(AnalyticsEvents.shoppingStyleSelected, {
       'style': shoppingStyle,
     });
     _analytics.capture(AnalyticsEvents.ageRangeSelected, {
       'range': ageRange ?? 'skipped',
     });
-    return next;
+    return _save(
+      'identity',
+      () => _service.setBlueprintIdentity(
+        shoppingStyle: shoppingStyle,
+        ageRange: ageRange,
+      ),
+    );
   }
 
   /// Step 2 — body shape and fit preferences. A null [bodyShape] is "Not
@@ -115,12 +164,7 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     required String? bodyShape,
     required String fitTops,
     required String fitBottoms,
-  }) async {
-    final next = await _service.setBlueprintFit(
-      bodyShape: bodyShape,
-      fitTops: fitTops,
-      fitBottoms: fitBottoms,
-    );
+  }) {
     state = state.copyWith(
       blueprint: state.blueprint.copyWith(
         bodyShape: bodyShape,
@@ -128,41 +172,47 @@ class OnboardingController extends StateNotifier<OnboardingState> {
         fitTops: fitTops,
         fitBottoms: fitBottoms,
       ),
-      nextStep: next,
     );
-    return next;
+    return _save(
+      'fit',
+      () => _service.setBlueprintFit(
+        bodyShape: bodyShape,
+        fitTops: fitTops,
+        fitBottoms: fitBottoms,
+      ),
+    );
   }
 
   /// Step 3 — the style card grid. [aesthetics] must be non-empty.
-  Future<String> setBlueprintAesthetics(List<String> aesthetics) async {
-    final next = await _service.setBlueprintAesthetics(aesthetics);
+  Future<String> setBlueprintAesthetics(List<String> aesthetics) {
     state = state.copyWith(
       blueprint: state.blueprint.copyWith(styleAesthetics: aesthetics),
-      nextStep: next,
     );
     _analytics.capture(AnalyticsEvents.styleAestheticsSelected, {
       'count': aesthetics.length,
     });
-    return next;
+    return _save(
+      'aesthetics',
+      () => _service.setBlueprintAesthetics(aesthetics),
+    );
   }
 
   /// Step 4 — undertone and colour palettes. [palettes] must be non-empty.
   Future<String> setBlueprintColor({
     required String undertone,
     required List<String> palettes,
-  }) async {
-    final next = await _service.setBlueprintColor(
-      undertone: undertone,
-      palettes: palettes,
-    );
+  }) {
     state = state.copyWith(
       blueprint: state.blueprint.copyWith(
         undertone: undertone,
         colorPalettes: palettes,
       ),
-      nextStep: next,
     );
-    return next;
+    return _save(
+      'color',
+      () =>
+          _service.setBlueprintColor(undertone: undertone, palettes: palettes),
+    );
   }
 
   /// Step 5 — work context. [occupation] and [dressCode] may both be null.
@@ -170,21 +220,22 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     required String? occupation,
     required String? dressCode,
     required String impressionGoal,
-  }) async {
-    final next = await _service.setBlueprintLifestyle(
-      occupation: occupation,
-      dressCode: dressCode,
-      impressionGoal: impressionGoal,
-    );
+  }) {
     state = state.copyWith(
       blueprint: state.blueprint.copyWith(
         occupation: occupation,
         dressCode: dressCode,
         impressionGoal: impressionGoal,
       ),
-      nextStep: next,
     );
-    return next;
+    return _save(
+      'lifestyle',
+      () => _service.setBlueprintLifestyle(
+        occupation: occupation,
+        dressCode: dressCode,
+        impressionGoal: impressionGoal,
+      ),
+    );
   }
 
   /// Step 6 — shopping attitude, accessories, brand tier.
@@ -192,45 +243,50 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     required String shoppingFeeling,
     required String accessories,
     required String brandTier,
-  }) async {
-    final next = await _service.setBlueprintHabits(
-      shoppingFeeling: shoppingFeeling,
-      accessories: accessories,
-      brandTier: brandTier,
-    );
+  }) {
     state = state.copyWith(
       blueprint: state.blueprint.copyWith(
         shoppingFeeling: shoppingFeeling,
         accessories: accessories,
         brandTier: brandTier,
       ),
-      nextStep: next,
     );
-    return next;
+    return _save(
+      'habits',
+      () => _service.setBlueprintHabits(
+        shoppingFeeling: shoppingFeeling,
+        accessories: accessories,
+        brandTier: brandTier,
+      ),
+    );
   }
 
   /// Step 7 — the three-month aspiration plus the (non-empty) style goals.
   Future<String> setBlueprintGoals({
     required String threeMonthFeeling,
     required List<String> goals,
-  }) async {
-    final next = await _service.setBlueprintGoals(
-      threeMonthFeeling: threeMonthFeeling,
-      goals: goals,
-    );
+  }) {
     state = state.copyWith(
       styleGoals: goals,
       blueprint: state.blueprint.copyWith(threeMonthFeeling: threeMonthFeeling),
-      nextStep: next,
     );
     _analytics.capture(AnalyticsEvents.styleGoalsSelected, {
       'goals_count': goals.length,
     });
-    return next;
+    return _save(
+      'goals',
+      () => _service.setBlueprintGoals(
+        threeMonthFeeling: threeMonthFeeling,
+        goals: goals,
+      ),
+    );
   }
 
-  /// The reveal's "Build My Wardrobe" — closes out the blueprint.
+  /// The reveal's "Build My Wardrobe" — closes out the blueprint, once every
+  /// step's answers are saved. Throws [ApiException] if one still can't be
+  /// saved, or the completion itself fails.
   Future<String> completeBlueprint() async {
+    await _allSaved();
     final next = await _service.completeBlueprint();
     state = state.copyWith(nextStep: next);
     _analytics.capture(AnalyticsEvents.styleBlueprintCompleted);
@@ -240,6 +296,7 @@ class OnboardingController extends StateNotifier<OnboardingState> {
   /// Records where the user paused (an `OnboardingStep` literal) so the next
   /// session can resume there. Throws [ApiException].
   Future<String> saveProgress(String step) async {
+    await _allSaved(); // keep the resume pointer behind any queued saves
     final next = await _service.saveProgress(step);
     state = state.copyWith(nextStep: next);
     return next;

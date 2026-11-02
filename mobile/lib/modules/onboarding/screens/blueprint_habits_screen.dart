@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
@@ -27,22 +26,22 @@ class _BlueprintHabitsScreenState extends ConsumerState<BlueprintHabitsScreen> {
     (
       'confident',
       'Confident and in control',
-      'I know what works for me and enjoy the process.'
+      'I know what works for me and enjoy the process.',
     ),
     (
       'necessity',
       'It’s just a necessity',
-      'I want to look good but don’t want to spend time on it.'
+      'I want to look good but don’t want to spend time on it.',
     ),
     (
       'frustrated',
       'Often frustrated',
-      'I struggle to find things that fit or look right.'
+      'I struggle to find things that fit or look right.',
     ),
     (
       'exploring',
       'Ready for a change',
-      'I want to elevate my style but don’t know where to start.'
+      'I want to elevate my style but don’t know where to start.',
     ),
   ];
 
@@ -67,7 +66,7 @@ class _BlueprintHabitsScreenState extends ConsumerState<BlueprintHabitsScreen> {
   String? _feeling;
   String? _accessory;
   String? _tier;
-  bool _submitting = false;
+  bool _leaving = false;
 
   @override
   void initState() {
@@ -78,28 +77,26 @@ class _BlueprintHabitsScreenState extends ConsumerState<BlueprintHabitsScreen> {
     _tier = saved.brandTier;
   }
 
-  bool get _complete =>
-      _feeling != null && _accessory != null && _tier != null;
+  bool get _complete => _feeling != null && _accessory != null && _tier != null;
 
-  Future<void> _onContinue() async {
-    if (!_complete || _submitting) return;
+  /// Records the answers and moves straight on; the save runs in the
+  /// background, and a failure is retried with the next step's save.
+  void _onContinue() {
+    if (!_complete || _leaving) return;
 
-    setState(() => _submitting = true);
-    try {
-      await ref.read(onboardingControllerProvider.notifier).setBlueprintHabits(
-            shoppingFeeling: _feeling!,
-            accessories: _accessory!,
-            brandTier: _tier!,
-          );
-      if (!mounted) return;
-      context.pushNamed(BlueprintGoalsScreen.name);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    // Saved in the background; see OnboardingController._save.
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .setBlueprintHabits(
+          shoppingFeeling: _feeling!,
+          accessories: _accessory!,
+          brandTier: _tier!,
+        );
+    // Ignore further taps until the user comes back to this step.
+    setState(() => _leaving = true);
+    context.pushNamed(BlueprintGoalsScreen.name).whenComplete(() {
+      if (mounted) setState(() => _leaving = false);
+    });
   }
 
   @override
@@ -107,7 +104,6 @@ class _BlueprintHabitsScreenState extends ConsumerState<BlueprintHabitsScreen> {
     return BlueprintScaffold(
       step: 6,
       canContinue: _complete,
-      loading: _submitting,
       onContinue: _onContinue,
       children: [
         const BlueprintQuestion(
@@ -120,7 +116,7 @@ class _BlueprintHabitsScreenState extends ConsumerState<BlueprintHabitsScreen> {
             support: support,
             selected: _feeling == value,
             onTap: () {
-              if (_submitting) return;
+              if (_leaving) return;
               final firstAnswer = _feeling == null;
               setState(() => _feeling = value);
               if (firstAnswer) revealNextQuestion(_accessoryQuestion);
@@ -140,7 +136,7 @@ class _BlueprintHabitsScreenState extends ConsumerState<BlueprintHabitsScreen> {
             support: support,
             selected: _accessory == value,
             onTap: () {
-              if (_submitting) return;
+              if (_leaving) return;
               final firstAnswer = _accessory == null;
               setState(() => _accessory = value);
               if (firstAnswer) revealNextQuestion(_tierQuestion);
@@ -161,7 +157,7 @@ class _BlueprintHabitsScreenState extends ConsumerState<BlueprintHabitsScreen> {
             support: support,
             selected: _tier == value,
             onTap: () {
-              if (_submitting) return;
+              if (_leaving) return;
               setState(() => _tier = value);
             },
           ),
@@ -212,8 +208,7 @@ class _RadioRow extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color:
-                        selected ? AppColors.espresso : AppColors.taupeSoft,
+                    color: selected ? AppColors.espresso : AppColors.taupeSoft,
                     width: 1.5,
                   ),
                 ),
@@ -237,8 +232,10 @@ class _RadioRow extends StatelessWidget {
                     Text(label, style: BlueprintText.option(context)),
                     if (support.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Text(support,
-                          style: BlueprintText.optionSupport(context)),
+                      Text(
+                        support,
+                        style: BlueprintText.optionSupport(context),
+                      ),
                     ],
                   ],
                 ),

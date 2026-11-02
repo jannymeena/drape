@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
@@ -65,7 +64,7 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
 
   String? _undertone;
   final _selectedPalettes = <String>{};
-  bool _submitting = false;
+  bool _leaving = false;
 
   @override
   void initState() {
@@ -75,29 +74,25 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
     _selectedPalettes.addAll(saved.colorPalettes);
   }
 
-  Future<void> _onContinue() async {
+  /// Records the answers and moves straight on; the save runs in the
+  /// background, and a failure is retried with the next step's save.
+  void _onContinue() {
     final undertone = _undertone;
-    if (undertone == null || _selectedPalettes.isEmpty || _submitting) return;
+    if (undertone == null || _selectedPalettes.isEmpty || _leaving) return;
 
-    setState(() => _submitting = true);
-    try {
-      final ordered = [
-        for (final p in _palettes)
-          if (_selectedPalettes.contains(p.$1)) p.$1,
-      ];
-      await ref
-          .read(onboardingControllerProvider.notifier)
-          .setBlueprintColor(undertone: undertone, palettes: ordered);
-      if (!mounted) return;
-      context.pushNamed(BlueprintLifestyleScreen.name);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
+    final ordered = [
+      for (final p in _palettes)
+        if (_selectedPalettes.contains(p.$1)) p.$1,
+    ];
+    // Saved in the background; see OnboardingController._save.
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .setBlueprintColor(undertone: undertone, palettes: ordered);
+    // Ignore further taps until the user comes back to this step.
+    setState(() => _leaving = true);
+    context.pushNamed(BlueprintLifestyleScreen.name).whenComplete(() {
+      if (mounted) setState(() => _leaving = false);
+    });
   }
 
   @override
@@ -105,7 +100,6 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
     return BlueprintScaffold(
       step: 4,
       canContinue: _undertone != null && _selectedPalettes.isNotEmpty,
-      loading: _submitting,
       onContinue: _onContinue,
       children: [
         const BlueprintQuestion(
@@ -125,7 +119,7 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
                   captionHeight: 18,
                   selected: _undertone == value,
                   onTap: () {
-                    if (_submitting) return;
+                    if (_leaving) return;
                     final firstAnswer = _undertone == null;
                     setState(() => _undertone = value);
                     if (firstAnswer) revealNextQuestion(_paletteQuestion);
@@ -172,7 +166,7 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
                 height: _paletteSwatchHeight,
                 selected: _selectedPalettes.contains(value),
                 onTap: () {
-                  if (_submitting) return;
+                  if (_leaving) return;
                   setState(() {
                     if (!_selectedPalettes.add(value)) {
                       _selectedPalettes.remove(value);
