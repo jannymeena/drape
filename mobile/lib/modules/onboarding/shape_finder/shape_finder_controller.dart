@@ -7,14 +7,15 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/body_shapes.dart';
 import '../models/measurements_draft.dart';
+import 'measurement_shape.dart';
 import 'shape_photo_render.dart';
 
 /// The "Not sure?" sub-flow of Style Blueprint step 2: the user either enters
 /// four measurements or takes/uploads a full-body photo, and we suggest a body
 /// shape from it.
 ///
-/// How a shape is actually identified is still open, so it sits behind
-/// [BodyShapeEstimator]; [PlaceholderBodyShapeEstimator] stands in for now.
+/// Shapes are identified behind [BodyShapeEstimator]; [LocalBodyShapeEstimator]
+/// works measurements out on the device and still stands in for photos.
 
 /// The measurements the measurements path asks for.
 const shapeMeasurements = [
@@ -145,19 +146,21 @@ abstract class BodyShapeEstimator {
   Future<ShapeEstimate> fromPhoto(BodyShapeSet set, ShapePhoto photo);
 }
 
-/// Stand-in until shape detection is designed: suggests the shape each set's
-/// mockup shows, whatever the input. A landscape photo is reported as
-/// unreadable — a full body rarely fits one — which is also how to reach the
-/// error screen while this is in place.
-class PlaceholderBodyShapeEstimator implements BodyShapeEstimator {
-  const PlaceholderBodyShapeEstimator({
+/// Measurements go through [shapeFromMeasurements], on the device.
+///
+/// Photos: a stand-in until photo detection is built — suggests the shape
+/// each set's mockup shows, whatever the photo. A landscape photo is
+/// reported as unreadable (a full body rarely fits one), which is also how to
+/// reach the error screen while this is in place.
+class LocalBodyShapeEstimator implements BodyShapeEstimator {
+  const LocalBodyShapeEstimator({
     this.analysisTime = const Duration(seconds: 3),
   });
 
   /// How long the photo "analysis" takes, so the analyzing screen is seen.
   final Duration analysisTime;
 
-  static const _suggestions = {
+  static const _photoSuggestions = {
     BodyShapeSet.mens: ShapeEstimate(
       best: 'inverted_triangle',
       alternatives: ['trapezoid', 'rectangle'],
@@ -176,7 +179,7 @@ class PlaceholderBodyShapeEstimator implements BodyShapeEstimator {
   Future<ShapeEstimate> fromMeasurements(
     BodyShapeSet set,
     Map<MeasurementField, double> cm,
-  ) async => _suggestions[set]!;
+  ) async => shapeFromMeasurements(set, cm);
 
   @override
   Future<ShapeEstimate> fromPhoto(BodyShapeSet set, ShapePhoto photo) async {
@@ -184,7 +187,7 @@ class PlaceholderBodyShapeEstimator implements BodyShapeEstimator {
     final landscape = size.width > size.height;
     await Future<void>.delayed(analysisTime);
     if (landscape) throw const PhotoUnreadableException();
-    return _suggestions[set]!;
+    return _photoSuggestions[set]!;
   }
 }
 
@@ -199,7 +202,7 @@ Future<Size> photoSize(XFile photo) async {
 }
 
 final bodyShapeEstimatorProvider = Provider<BodyShapeEstimator>(
-  (ref) => const PlaceholderBodyShapeEstimator(),
+  (ref) => const LocalBodyShapeEstimator(),
 );
 
 class ShapeFinderState {
