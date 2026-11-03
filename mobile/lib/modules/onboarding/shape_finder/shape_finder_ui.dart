@@ -166,11 +166,9 @@ class ShapeFinderHeading extends StatelessWidget {
         Text(
           title,
           textAlign: align,
-          style: Theme.of(context).textTheme.headlineMedium!.copyWith(
-            color: AppColors.espressoDark,
-            fontWeight: FontWeight.w700,
-            height: 1.15,
-          ),
+          style: BlueprintText.heading(
+            context,
+          ).copyWith(color: AppColors.espressoDark),
         ),
         if (body != null) ...[
           const SizedBox(height: 8),

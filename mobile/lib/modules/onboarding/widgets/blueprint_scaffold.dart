@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../resume_route_map.dart';
@@ -19,6 +20,17 @@ const int kBlueprintSteps = 7;
 /// place.
 class BlueprintText {
   BlueprintText._();
+
+  /// A Style Blueprint question heading (steps 1–7 and the shape finder):
+  /// Newsreader 26 semibold, tight, as the blueprint mockups set it. The
+  /// rest of the app's headings are Cormorant Garamond ([question]).
+  static TextStyle heading(BuildContext context) => GoogleFonts.newsreader(
+    fontSize: 26,
+    fontWeight: FontWeight.w600,
+    height: 1.25,
+    letterSpacing: -0.65,
+    color: AppColors.ink,
+  );
 
   /// The question at the top of a section. Serif, semibold.
   static TextStyle question(BuildContext context) => Theme.of(context)
@@ -64,7 +76,7 @@ class BlueprintQuestion extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: BlueprintText.question(context)),
+        Text(title, style: BlueprintText.heading(context)),
         if (subtitle != null) ...[
           const SizedBox(height: 6),
           Text(subtitle!, style: BlueprintText.subtitle(context)),

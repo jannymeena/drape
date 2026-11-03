@@ -561,7 +561,7 @@ class _MeasureCard extends StatelessWidget {
             children: [
               Text(
                 'How to measure your ${title.toLowerCase()}',
-                style: BlueprintText.question(ctx),
+                style: BlueprintText.heading(ctx).copyWith(fontSize: 22),
               ),
               const SizedBox(height: 16),
               MeasurementGuide(bodyPart: spec.field.name),
