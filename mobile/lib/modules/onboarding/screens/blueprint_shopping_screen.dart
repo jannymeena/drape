@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
+import '../widgets/blueprint_choice_card.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'blueprint_goals_screen.dart';
 
@@ -122,11 +123,7 @@ class _BlueprintShoppingScreenState
   void initState() {
     super.initState();
     final saved = ref.read(onboardingControllerProvider).blueprint;
-    // The earlier habits step stored one feeling; it carries over.
-    final feelings = saved.shoppingFeelings.isNotEmpty
-        ? saved.shoppingFeelings
-        : [?saved.shoppingFeeling];
-    _picked.addAll(feelings.take(_maxFeelings));
+    _picked.addAll(saved.shoppingFeelings.take(_maxFeelings));
     _accessory = saved.accessories;
     _brand = saved.brandTier;
   }
@@ -176,10 +173,11 @@ class _BlueprintShoppingScreenState
         ),
         const SizedBox(height: 24),
         for (final f in _feelings) ...[
-          _CheckRow(
+          BlueprintChoiceCard(
+            control: ChoiceControl.checkbox,
             label: f.label,
             detail: f.detail,
-            checked: _picked.contains(f.value),
+            selected: _picked.contains(f.value),
             onTap: () => _toggleFeeling(f.value),
           ),
           const SizedBox(height: 12),
@@ -218,10 +216,13 @@ class _BlueprintShoppingScreenState
         ),
         const SizedBox(height: 16),
         for (final a in _accessories) ...[
-          _AccessoryRow(
+          BlueprintChoiceCard(
             label: a.label,
-            icons: a.icons,
-            badge: a.badge,
+            trailing: _AccessoryBadge(
+              icons: a.icons,
+              text: a.badge,
+              selected: _accessory == a.value,
+            ),
             selected: _accessory == a.value,
             onTap: () {
               if (!_leaving) setState(() => _accessory = a.value);
@@ -265,11 +266,10 @@ class _BlueprintShoppingScreenState
         ),
         const SizedBox(height: 16),
         for (final b in _brands) ...[
-          _BrandCard(
+          BlueprintChoiceCard(
             label: b.label,
-            price: b.price,
-            examples: b.examples,
-            note: b.note,
+            detail: b.price,
+            footer: _BrandExamples(examples: b.examples, note: b.note),
             selected: _brand == b.value,
             onTap: () {
               if (!_leaving) setState(() => _brand = b.value);
@@ -341,346 +341,97 @@ class _BlueprintShoppingScreenState
 }
 
 // The mockup's own warm tones.
-const _ink = Color(0xFF2A1810);
-const _soft = Color(0xFF6B5848);
-const _line = Color(0xFFE8D8C8);
-const _cream = Color(0xFFFDF5EE);
-const _sandSelected = Color(0xFFF5E8D8);
+const _soft = BlueprintChoiceCard.soft;
+const _line = BlueprintChoiceCard.line;
+const _cream = BlueprintChoiceCard.radioFill;
+const _sand = BlueprintChoiceCard.checkedFill;
 
-/// A bordered option card: espresso border and a warm fill when selected.
-class _OptionShell extends StatelessWidget {
-  const _OptionShell({
+/// An accessories answer's badge: its icons and a word for the look.
+class _AccessoryBadge extends StatelessWidget {
+  const _AccessoryBadge({
+    required this.icons,
+    required this.text,
     required this.selected,
-    required this.selectedColor,
-    required this.onTap,
-    required this.child,
-    this.padding = const EdgeInsets.all(15),
   });
 
-  final bool selected;
-  final Color selectedColor;
-  final VoidCallback onTap;
-  final Widget child;
-  final EdgeInsets padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? selectedColor : AppColors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: selected ? AppColors.espresso : _line,
-          width: selected ? 1.5 : 1,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(padding: padding, child: child),
-      ),
-    );
-  }
-}
-
-class _CheckRow extends StatelessWidget {
-  const _CheckRow({
-    required this.label,
-    required this.detail,
-    required this.checked,
-    required this.onTap,
-  });
-
-  final String label;
-  final String detail;
-  final bool checked;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final body = BlueprintText.optionSupport(context);
-    return Semantics(
-      checked: checked,
-      child: _OptionShell(
-        selected: checked,
-        selectedColor: _sandSelected,
-        onTap: onTap,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 2),
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: checked ? AppColors.espresso : AppColors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: checked ? null : Border.all(color: AppColors.taupeSoft),
-              ),
-              child: checked
-                  ? const Icon(Icons.check, size: 16, color: AppColors.white)
-                  : null,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: body.copyWith(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: checked ? _ink : AppColors.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    detail,
-                    style: body.copyWith(
-                      fontSize: 12,
-                      height: 1.6,
-                      color: _soft,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A round radio: empty ring, or espresso with a white dot.
-class _Radio extends StatelessWidget {
-  const _Radio({required this.selected});
-
+  final List<IconData> icons;
+  final String text;
   final bool selected;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 20,
-      height: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: selected ? AppColors.espresso : Colors.transparent,
-        shape: BoxShape.circle,
-        border: selected ? null : Border.all(color: AppColors.taupeSoft),
+        color: selected
+            ? AppColors.tanFixed.withValues(alpha: 0.6)
+            : AppColors.sand.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(999),
       ),
-      alignment: Alignment.center,
-      child: selected
-          ? Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: AppColors.white,
-                shape: BoxShape.circle,
-              ),
-            )
-          : null,
-    );
-  }
-}
-
-class _AccessoryRow extends StatelessWidget {
-  const _AccessoryRow({
-    required this.label,
-    required this.icons,
-    required this.badge,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final List<IconData> icons;
-  final String badge;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final body = BlueprintText.optionSupport(context);
-    final tint = selected ? AppColors.espresso : AppColors.inkSoft;
-    return Semantics(
-      inMutuallyExclusiveGroup: true,
-      checked: selected,
-      child: _OptionShell(
-        selected: selected,
-        selectedColor: _cream,
-        onTap: onTap,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 32),
-          child: Row(
-            children: [
-              _Radio(selected: selected),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  label,
-                  style: body.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: selected ? AppColors.espresso : AppColors.ink,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? AppColors.tanFixed.withValues(alpha: 0.6)
-                      : AppColors.sand.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final icon in icons)
-                      Icon(
-                        icon,
-                        size: 15,
-                        color: selected ? AppColors.espresso : AppColors.taupe,
-                      ),
-                    const SizedBox(width: 6),
-                    Text(
-                      badge,
-                      style: body.copyWith(
-                        fontSize: 11,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        color: tint,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final icon in icons)
+            Icon(
+              icon,
+              size: 15,
+              color: selected ? AppColors.espresso : AppColors.taupe,
+            ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: BlueprintText.optionSupport(context).copyWith(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? AppColors.espresso : AppColors.inkSoft,
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-class _BrandCard extends StatelessWidget {
-  const _BrandCard({
-    required this.label,
-    required this.price,
-    required this.examples,
-    required this.note,
-    required this.selected,
-    required this.onTap,
-  });
+/// A brand type's examples ("e.g." and name chips), or a note instead.
+class _BrandExamples extends StatelessWidget {
+  const _BrandExamples({required this.examples, required this.note});
 
-  final String label;
-  final String price;
   final List<String> examples;
   final String? note;
-  final bool selected;
-  final VoidCallback onTap;
-
-  /// Lines the examples up under the label: the radio and its gap.
-  static const _indent = 34.0;
 
   @override
   Widget build(BuildContext context) {
     final body = BlueprintText.optionSupport(context);
-    return Semantics(
-      inMutuallyExclusiveGroup: true,
-      checked: selected,
-      child: _OptionShell(
-        selected: selected,
-        selectedColor: _cream,
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: _Radio(selected: selected),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: body.copyWith(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: selected ? AppColors.espresso : AppColors.ink,
-                        ),
-                      ),
-                      Text(
-                        price,
-                        style: body.copyWith(
-                          fontSize: 11,
-                          color: selected ? _soft : AppColors.taglineGrey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.only(left: _indent),
-              child: examples.isEmpty
-                  ? Text(
-                      note ?? '',
-                      style: body.copyWith(fontSize: 12, color: _soft),
-                    )
-                  : Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          'e.g.',
-                          style: body.copyWith(
-                            fontSize: 11,
-                            color: AppColors.taglineGrey,
-                          ),
-                        ),
-                        for (final name in examples)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _sandSelected,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              name,
-                              style: body.copyWith(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.3,
-                                color: AppColors.espresso,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-            ),
-          ],
+    if (examples.isEmpty) {
+      return Text(note ?? '', style: body.copyWith(fontSize: 12, color: _soft));
+    }
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          'e.g.',
+          style: body.copyWith(fontSize: 11, color: AppColors.taglineGrey),
         ),
-      ),
+        for (final name in examples)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: _sand,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              name,
+              style: body.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+                color: AppColors.espresso,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

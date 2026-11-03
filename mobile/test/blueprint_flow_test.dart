@@ -148,13 +148,10 @@ class _StubService extends OnboardingService {
 
   @override
   Future<String> setBlueprintGoals({
-    required String threeMonthFeeling,
+    required List<String> feelings,
     required List<String> goals,
   }) async {
-    calls['goals'] = {
-      'three_month_feeling': threeMonthFeeling,
-      'style_goals': goals,
-    };
+    calls['goals'] = {'three_month_feelings': feelings, 'style_goals': goals};
     return 'style_blueprint_reveal';
   }
 }
@@ -940,6 +937,35 @@ void main() {
     expect(find.text('Step 8 of 8'), findsOneWidget);
   });
 
+  testWidgets('step 8 takes several feelings and goals', (tester) async {
+    final service = _StubService();
+    final container = _container(service);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintGoalsScreen.path),
+    );
+    final cta = find.widgetWithText(FilledButton, 'See My Style Blueprint');
+
+    expect(
+      find.text('Takes about 10 seconds. No card required.'),
+      findsOneWidget,
+    );
+    expect(tester.widget<FilledButton>(cta).onPressed, isNull);
+
+    await _tap(tester, 'Excited to get dressed, not stressed');
+    await _tap(tester, 'Confident wherever I go');
+    await _tap(tester, 'Discover my personal style');
+    await _tap(tester, 'Spend less time choosing outfits');
+    expect(find.text('2 SELECTED'), findsOneWidget);
+    await _tap(tester, 'See My Style Blueprint');
+
+    expect(service.calls['goals'], {
+      // In list order.
+      'three_month_feelings': ['confident_anywhere', 'excited_not_stressed'],
+      'style_goals': ['time_saving', 'discover_style'],
+    });
+  });
+
   testWidgets('the reveal plays back what the steps captured', (tester) async {
     final container = _container(_StubService());
     addTearDown(container.dispose);
@@ -957,13 +983,13 @@ void main() {
         styleAesthetics: ['minimalist', 'romantic'],
         undertone: 'warm',
         colorPalettes: ['earth_tones'],
-        occupation: 'Marketing',
+        occupations: ['marketing'],
         dressCode: 'business_casual',
         impressionGoal: 'both',
-        shoppingFeeling: 'confident',
+        shoppingFeelings: ['confident'],
         accessories: 'minimal',
         brandTier: 'premium',
-        threeMonthFeeling: 'confident_anywhere',
+        threeMonthFeelings: ['confident_anywhere'],
       ),
     );
 
@@ -1067,10 +1093,13 @@ void main() {
   group('answering a one-answer question moves on to the next', () {
     ScrollPosition stepScroll(WidgetTester tester) => tester
         .state<ScrollableState>(
-          find.descendant(
-            of: find.byType(SingleChildScrollView),
-            matching: find.byType(Scrollable),
-          ),
+          // The page's own; step 2's shape grid has one inside it.
+          find
+              .descendant(
+                of: find.byType(SingleChildScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
         )
         .position;
 
@@ -1080,20 +1109,16 @@ void main() {
     }
 
     testWidgets('the next question scrolls into view', (tester) async {
-      final container = _container(_StubService());
-      addTearDown(container.dispose);
-      await tester.pumpWidget(
-        _host(container, initialLocation: BlueprintGoalsScreen.path),
-      );
+      await fitStep(tester, 'womens');
       await tester.pumpAndSettle();
       expect(stepScroll(tester).pixels, 0);
 
-      await tester.tap(find.text('Confident wherever I go'));
+      await tester.tap(find.text('Hourglass'));
       await settleReveal(tester);
 
       expect(stepScroll(tester).pixels, greaterThan(0));
       final question = tester.getRect(
-        find.text('What matters most to you right now?'),
+        find.text('How do you prefer your clothes to fit?'),
       );
       final viewport = tester.getRect(find.byType(SingleChildScrollView));
       expect(
@@ -1105,20 +1130,16 @@ void main() {
     testWidgets('changing an answer later does not move the page', (
       tester,
     ) async {
-      final container = _container(_StubService());
-      addTearDown(container.dispose);
-      await tester.pumpWidget(
-        _host(container, initialLocation: BlueprintGoalsScreen.path),
-      );
+      await fitStep(tester, 'womens');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Confident wherever I go'));
+      await tester.tap(find.text('Hourglass'));
       await settleReveal(tester);
       stepScroll(tester).jumpTo(0); // the user scrolls back up…
       await tester.pump();
 
       // …and changes their mind on the first question.
-      await tester.tap(find.text('Like I’ve finally found my look'));
+      await tester.tap(find.text('Pear'));
       await settleReveal(tester);
       expect(stepScroll(tester).pixels, 0);
     });

@@ -105,34 +105,6 @@ class OnboardingService {
     });
   }
 
-  /// The earlier step 5 — `POST /profile/style-blueprint/lifestyle`. [occupation] and
-  /// [dressCode] are both null-able: the dress-code question is skipped for
-  /// users who aren't currently working.
-  Future<String> setBlueprintLifestyle({
-    required String? occupation,
-    required String? dressCode,
-    required String impressionGoal,
-  }) async {
-    return _postStep('/profile/style-blueprint/lifestyle', {
-      'occupation': occupation,
-      'dress_code': dressCode,
-      'impression_goal': impressionGoal,
-    });
-  }
-
-  /// Step 6 — `POST /profile/style-blueprint/habits`.
-  Future<String> setBlueprintHabits({
-    required String shoppingFeeling,
-    required String accessories,
-    required String brandTier,
-  }) async {
-    return _postStep('/profile/style-blueprint/habits', {
-      'shopping_feeling': shoppingFeeling,
-      'accessories': accessories,
-      'brand_tier': brandTier,
-    });
-  }
-
   /// Step 7 — `POST /profile/style-blueprint/shopping`. [feelings]: one to
   /// three.
   Future<String> setBlueprintShopping({
@@ -149,11 +121,11 @@ class OnboardingService {
 
   /// Step 8 — `POST /profile/style-blueprint/goals`. [goals] must be non-empty.
   Future<String> setBlueprintGoals({
-    required String threeMonthFeeling,
+    required List<String> feelings,
     required List<String> goals,
   }) async {
     return _postStep('/profile/style-blueprint/goals', {
-      'three_month_feeling': threeMonthFeeling,
+      'three_month_feelings': feelings,
       'style_goals': goals,
     });
   }

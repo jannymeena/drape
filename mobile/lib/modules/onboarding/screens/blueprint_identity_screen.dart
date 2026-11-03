@@ -8,8 +8,8 @@ import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../shop/shop_service.dart';
 import '../onboarding_controller.dart';
+import '../widgets/blueprint_choice_card.dart';
 import '../widgets/blueprint_scaffold.dart';
-import '../widgets/option_card.dart';
 import 'blueprint_fit_screen.dart';
 
 /// Step 1 of 8 — who we're shopping for, and life stage.
@@ -110,7 +110,7 @@ class _BlueprintIdentityScreenState
         ),
         const SizedBox(height: 16),
         for (final (value, label) in _styles) ...[
-          OptionCard(
+          BlueprintChoiceCard(
             label: label,
             selected: _style == value,
             onTap: () {

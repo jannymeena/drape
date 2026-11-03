@@ -64,7 +64,8 @@ class BlueprintText {
   ).textTheme.labelMedium!.copyWith(color: AppColors.inkSoft);
 }
 
-/// A second question on a step, under the main one: DM Sans 18 semibold,
+/// A second question on a step, under the main one: DM Sans semibold (18 by
+/// default),
 /// with an optional line under it ([italic] for an aside).
 class BlueprintSubQuestion extends StatelessWidget {
   const BlueprintSubQuestion(
@@ -72,11 +73,13 @@ class BlueprintSubQuestion extends StatelessWidget {
     super.key,
     this.note,
     this.italic = true,
+    this.size = 18,
   });
 
   final String text;
   final String? note;
   final bool italic;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +90,7 @@ class BlueprintSubQuestion extends StatelessWidget {
         Text(
           text,
           style: body.copyWith(
-            fontSize: 18,
+            fontSize: size,
             fontWeight: FontWeight.w600,
             height: 1.375,
             color: AppColors.ink,
@@ -165,8 +168,11 @@ class BlueprintScaffold extends StatelessWidget {
   /// 16dp horizontal gutter.
   final List<Widget> children;
 
-  /// Primary button label.
+  /// Primary button label, with an optional [buttonIcon] after it and a
+  /// [footnote] under the button.
   final String buttonLabel;
+  final IconData? buttonIcon;
+  final String? footnote;
 
   /// False disables the button (an unanswered required question).
   final bool canContinue;
@@ -182,6 +188,8 @@ class BlueprintScaffold extends StatelessWidget {
     required this.children,
     required this.onContinue,
     this.buttonLabel = 'Continue',
+    this.buttonIcon,
+    this.footnote,
     this.canContinue = true,
     this.loading = false,
   });
@@ -211,6 +219,8 @@ class BlueprintScaffold extends StatelessWidget {
               ),
               _ContinueBar(
                 label: buttonLabel,
+                icon: buttonIcon,
+                footnote: footnote,
                 enabled: canContinue,
                 loading: loading,
                 onPressed: onContinue,
@@ -317,6 +327,8 @@ class _Header extends StatelessWidget {
 
 class _ContinueBar extends StatelessWidget {
   final String label;
+  final IconData? icon;
+  final String? footnote;
   final bool enabled;
   final bool loading;
   final VoidCallback onPressed;
@@ -326,46 +338,74 @@ class _ContinueBar extends StatelessWidget {
     required this.enabled,
     required this.loading,
     required this.onPressed,
+    this.icon,
+    this.footnote,
   });
 
   @override
   Widget build(BuildContext context) {
+    final text = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        color: AppColors.white,
+        fontWeight: FontWeight.w600,
+      ),
+    );
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, footnote == null ? 20 : 12),
       decoration: const BoxDecoration(
         color: AppColors.ivory,
         border: Border(top: BorderSide(color: AppColors.sand)),
       ),
-      child: SizedBox(
-        height: 56,
-        width: double.infinity,
-        child: FilledButton(
-          onPressed: enabled && !loading ? onPressed : null,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.espresso,
-            disabledBackgroundColor: AppColors.taupeSoft,
-            foregroundColor: AppColors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 56,
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: enabled && !loading ? onPressed : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.espresso,
+                disabledBackgroundColor: AppColors.taupeSoft,
+                foregroundColor: AppColors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: loading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(AppColors.white),
+                      ),
+                    )
+                  : icon == null
+                  ? text
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(child: text),
+                        const SizedBox(width: 8),
+                        Icon(icon, size: 20, color: AppColors.white),
+                      ],
+                    ),
             ),
           ),
-          child: loading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(AppColors.white),
-                  ),
-                )
-              : Text(
-                  label,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-        ),
+          if (footnote case final note?) ...[
+            const SizedBox(height: 8),
+            Text(
+              note,
+              style: BlueprintText.optionSupport(
+                context,
+              ).copyWith(fontSize: 11, color: AppColors.taupe),
+            ),
+          ],
+        ],
       ),
     );
   }

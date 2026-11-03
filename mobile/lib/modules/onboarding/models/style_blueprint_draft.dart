@@ -18,17 +18,15 @@ class StyleBlueprintDraft {
     this.undertone,
     this.colorPalettes = const [],
     this.avoidColors = const [],
-    this.occupation,
     this.occupations = const [],
     this.occupationOther,
     this.dressCode,
     this.dayFormality,
     this.impressionGoal,
     this.shoppingFeelings = const [],
-    this.shoppingFeeling,
     this.accessories,
     this.brandTier,
-    this.threeMonthFeeling,
+    this.threeMonthFeelings = const [],
   });
 
   // Step 2 — fit
@@ -59,20 +57,14 @@ class StyleBlueprintDraft {
   final String? dayFormality;
   final String? impressionGoal;
 
-  /// Free-text occupation from the earlier lifestyle step; read back only.
-  final String? occupation;
-
   // Step 7 — how the user feels about shopping (one to three), accessories,
   // and the type of brands they buy.
   final List<String> shoppingFeelings;
   final String? accessories;
   final String? brandTier;
 
-  /// The single feeling from the earlier habits step; read back only.
-  final String? shoppingFeeling;
-
   // Step 8 — aspiration
-  final String? threeMonthFeeling;
+  final List<String> threeMonthFeelings;
 
   /// [clearBodyShape] sets [bodyShape] to null — a null argument alone means
   /// "unchanged", and "Not sure" has to be able to erase an earlier pick.
@@ -90,7 +82,6 @@ class StyleBlueprintDraft {
     String? undertone,
     List<String>? colorPalettes,
     List<String>? avoidColors,
-    String? occupation,
     List<String>? occupations,
     String? occupationOther,
     bool clearOccupationOther = false,
@@ -99,10 +90,9 @@ class StyleBlueprintDraft {
     String? dayFormality,
     String? impressionGoal,
     List<String>? shoppingFeelings,
-    String? shoppingFeeling,
     String? accessories,
     String? brandTier,
-    String? threeMonthFeeling,
+    List<String>? threeMonthFeelings,
   }) {
     return StyleBlueprintDraft(
       bodyShape: clearBodyShape ? null : bodyShape ?? this.bodyShape,
@@ -114,7 +104,6 @@ class StyleBlueprintDraft {
       undertone: clearSkinTone ? null : undertone ?? this.undertone,
       colorPalettes: colorPalettes ?? this.colorPalettes,
       avoidColors: avoidColors ?? this.avoidColors,
-      occupation: occupation ?? this.occupation,
       occupations: occupations ?? this.occupations,
       occupationOther: clearOccupationOther
           ? null
@@ -123,10 +112,9 @@ class StyleBlueprintDraft {
       dayFormality: dayFormality ?? this.dayFormality,
       impressionGoal: impressionGoal ?? this.impressionGoal,
       shoppingFeelings: shoppingFeelings ?? this.shoppingFeelings,
-      shoppingFeeling: shoppingFeeling ?? this.shoppingFeeling,
       accessories: accessories ?? this.accessories,
       brandTier: brandTier ?? this.brandTier,
-      threeMonthFeeling: threeMonthFeeling ?? this.threeMonthFeeling,
+      threeMonthFeelings: threeMonthFeelings ?? this.threeMonthFeelings,
     );
   }
 
@@ -143,17 +131,15 @@ class StyleBlueprintDraft {
       undertone: json['undertone'] as String?,
       colorPalettes: list('color_palettes'),
       avoidColors: list('avoid_colors'),
-      occupation: json['occupation'] as String?,
       occupations: list('occupations'),
       occupationOther: json['occupation_other'] as String?,
       dressCode: json['dress_code'] as String?,
       dayFormality: json['day_formality'] as String?,
       impressionGoal: json['impression_goal'] as String?,
       shoppingFeelings: list('shopping_feelings'),
-      shoppingFeeling: json['shopping_feeling'] as String?,
       accessories: json['accessories'] as String?,
       brandTier: json['brand_tier'] as String?,
-      threeMonthFeeling: json['three_month_feeling'] as String?,
+      threeMonthFeelings: list('three_month_feelings'),
     );
   }
 }

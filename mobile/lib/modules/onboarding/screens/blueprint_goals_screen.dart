@@ -4,12 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
+import '../widgets/blueprint_choice_card.dart';
 import '../widgets/blueprint_scaffold.dart';
-import '../widgets/option_card.dart';
 import 'blueprint_reveal_screen.dart';
 
-/// Step 8 of 8 — the three-month aspiration, plus the style goals that drive
-/// starter-wardrobe matching and outfit generation.
+/// Step 8 of 8 — how the user wants to feel about their style in three
+/// months, and what matters most right now (the style goals that drive
+/// starter-wardrobe matching and outfit generation). Both pick-any, at least
+/// one each.
 class BlueprintGoalsScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/blueprint/goals';
   static const name = 'blueprint_goals';
@@ -32,24 +34,22 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
   // The backend `StyleGoal` literals.
   static const _goals = <(String, String, IconData)>[
     ('time_saving', 'Spend less time choosing outfits', Icons.schedule),
-    ('polished', 'Look more polished and put-together', Icons.auto_awesome),
+    ('polished', 'Look more polished & put-together', Icons.flare),
     (
       'maximize_wardrobe',
-      'Make the most of the clothes I already own',
-      Icons.inventory_2_outlined,
+      'Make the most of clothes I already own',
+      Icons.checkroom,
     ),
     ('discover_style', 'Discover my personal style', Icons.explore_outlined),
     ('confidence', 'Feel more confident in what I wear', Icons.favorite_border),
     (
       'reduce_clutter',
-      'Reduce closet clutter and decision fatigue',
-      Icons.delete_outline,
+      'Reduce closet clutter & decision fatigue',
+      Icons.cleaning_services_outlined,
     ),
   ];
 
-  final _goalsQuestion = GlobalKey();
-
-  String? _feeling;
+  final _selectedFeelings = <String>{};
   final _selectedGoals = <String>{};
   bool _leaving = false;
 
@@ -57,25 +57,37 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
   void initState() {
     super.initState();
     final saved = ref.read(onboardingControllerProvider);
-    _feeling = saved.blueprint.threeMonthFeeling;
+    _selectedFeelings.addAll(saved.blueprint.threeMonthFeelings);
     _selectedGoals.addAll(saved.styleGoals);
   }
 
-  bool get _complete => _feeling != null && _selectedGoals.isNotEmpty;
+  bool get _complete =>
+      _selectedFeelings.isNotEmpty && _selectedGoals.isNotEmpty;
+
+  void _toggle(Set<String> set, String value) {
+    if (_leaving) return;
+    setState(() {
+      if (!set.add(value)) set.remove(value);
+    });
+  }
 
   /// Records the answers and moves straight on; the save runs in the
   /// background, and a failure is retried with the next step's save.
   void _onContinue() {
     if (!_complete || _leaving) return;
-
-    final ordered = [
-      for (final g in _goals)
-        if (_selectedGoals.contains(g.$1)) g.$1,
-    ];
-    // Saved in the background; see OnboardingController._save.
+    // In list order rather than tap order.
     ref
         .read(onboardingControllerProvider.notifier)
-        .setBlueprintGoals(threeMonthFeeling: _feeling!, goals: ordered);
+        .setBlueprintGoals(
+          feelings: [
+            for (final f in _feelings)
+              if (_selectedFeelings.contains(f.$1)) f.$1,
+          ],
+          goals: [
+            for (final g in _goals)
+              if (_selectedGoals.contains(g.$1)) g.$1,
+          ],
+        );
     // Ignore further taps until the user comes back to this step.
     setState(() => _leaving = true);
     context.pushNamed(BlueprintRevealScreen.name).whenComplete(() {
@@ -85,62 +97,133 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = BlueprintText.optionSupport(context);
     return BlueprintScaffold(
       step: 8,
       buttonLabel: 'See My Style Blueprint',
+      buttonIcon: Icons.auto_awesome,
+      footnote: 'Takes about 10 seconds. No card required.',
       canContinue: _complete,
       onContinue: _onContinue,
       children: [
         const BlueprintQuestion(
           title: 'In three months, how do you want to feel about your style?',
+          subtitle: 'Pick as many as you like.',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         for (final (value, label) in _feelings) ...[
-          OptionCard(
+          BlueprintChoiceCard(
+            control: ChoiceControl.checkbox,
             label: label,
-            selected: _feeling == value,
-            onTap: () {
-              if (_leaving) return;
-              final firstAnswer = _feeling == null;
-              setState(() => _feeling = value);
-              if (firstAnswer) revealNextQuestion(_goalsQuestion);
-            },
+            selected: _selectedFeelings.contains(value),
+            onTap: () => _toggle(_selectedFeelings, value),
           ),
-          const SizedBox(height: 12),
+          if (value != _feelings.last.$1) const SizedBox(height: 12),
         ],
-        const SizedBox(height: 16),
-        BlueprintQuestion(
-          key: _goalsQuestion,
-          title: 'What matters most to you right now?',
-          subtitle:
-              'Pick as many as you like — this shapes how ZOURA styles you.',
+        const SizedBox(height: 28),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.ivoryDim,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  size: 20,
+                  color: AppColors.espresso,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ATELIER SYNTHESIS',
+                      style: body.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.55,
+                        color: AppColors.taupe,
+                      ),
+                    ),
+                    Text(
+                      'Curating tailored silhouettes for your exact '
+                      'proportions',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: body.copyWith(
+                        fontSize: 13,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 28),
+        const BlueprintSubQuestion(
+          'What matters most to you right now?',
+          note: 'Pick as many as you like. This shapes how Zoura styles you.',
+          italic: false,
+          size: 20,
         ),
         const SizedBox(height: 16),
         for (final (value, label, icon) in _goals) ...[
-          OptionCard(
+          BlueprintChoiceCard(
+            control: ChoiceControl.checkbox,
             label: label,
             icon: icon,
-            selector: OptionSelector.checkbox,
             selected: _selectedGoals.contains(value),
-            onTap: () {
-              if (_leaving) return;
-              setState(() {
-                if (!_selectedGoals.add(value)) _selectedGoals.remove(value);
-              });
-            },
+            onTap: () => _toggle(_selectedGoals, value),
           ),
-          const SizedBox(height: 12),
+          if (value != _goals.last.$1) const SizedBox(height: 12),
         ],
-        const SizedBox(height: 4),
+        const SizedBox(height: 14),
         Center(
-          child: Text(
-            _selectedGoals.isEmpty
-                ? 'Select at least one'
-                : '${_selectedGoals.length} selected',
-            style: BlueprintText.caption(
-              context,
-            ).copyWith(letterSpacing: 1.4, color: AppColors.taupe),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.ivoryWarm,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              _selectedGoals.isEmpty
+                  ? 'SELECT AT LEAST ONE'
+                  : '${_selectedGoals.length} SELECTED',
+              style: body.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.55,
+                color: AppColors.taupe,
+              ),
+            ),
           ),
+        ),
+        const SizedBox(height: 18),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lock, size: 15, color: AppColors.taupe),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                'Stored securely in Canada. 🇨🇦',
+                style: body.copyWith(fontSize: 12, color: AppColors.taupe),
+              ),
+            ),
+          ],
         ),
       ],
     );

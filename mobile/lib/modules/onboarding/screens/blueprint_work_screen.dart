@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
+import '../widgets/blueprint_choice_card.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'blueprint_shopping_screen.dart';
 
@@ -237,14 +238,14 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
         ),
         const SizedBox(height: 12),
         for (final i in _impressions) ...[
-          _RadioRow(
+          BlueprintChoiceCard(
             label: i.label,
             selected: _impression == i.value,
             onTap: () {
               if (!_leaving) setState(() => _impression = i.value);
             },
           ),
-          if (i != _impressions.last) const SizedBox(height: 10),
+          if (i != _impressions.last) const SizedBox(height: 12),
         ],
         const SizedBox(height: 28),
         Center(
@@ -593,72 +594,6 @@ class _FormalitySlider extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-/// One of the "better impression" answers, with a radio at the right.
-class _RadioRow extends StatelessWidget {
-  const _RadioRow({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      inMutuallyExclusiveGroup: true,
-      checked: selected,
-      child: Material(
-        color: selected ? AppColors.ivoryDim : AppColors.white,
-        elevation: 0.5,
-        shadowColor: AppColors.black.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            height: 56,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    label,
-                    style: BlueprintText.optionSupport(context).copyWith(
-                      fontSize: 14,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: selected ? AppColors.espresso : AppColors.sand,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Container(
-                    width: selected ? 8 : 14,
-                    height: selected ? 8 : 14,
-                    decoration: BoxDecoration(
-                      color: selected ? AppColors.ivory : AppColors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

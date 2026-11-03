@@ -247,10 +247,9 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
     }
   }
 
-  /// Step 6's occupations, "Other" in the user's words; or the free text
-  /// from the earlier lifestyle step.
+  /// Step 6's occupations, "Other" in the user's words.
   String? _work(StyleBlueprintDraft b) {
-    if (b.occupations.isEmpty) return b.occupation;
+    if (b.occupations.isEmpty) return null;
     return [
       for (final o in b.occupations)
         if (o == 'other')
@@ -308,12 +307,7 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
       (
         'Shopping',
         [
-          (
-            'Shopping feels',
-            b.shoppingFeelings.isNotEmpty
-                ? _join(b.shoppingFeelings, _feelings)
-                : _feelings[b.shoppingFeeling],
-          ),
+          ('Shopping feels', _join(b.shoppingFeelings, _feelings)),
           ('Accessories', _accessories[b.accessories]),
           ('Brands', _brandTiers[b.brandTier]),
         ],
@@ -321,7 +315,7 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
       (
         'Goals',
         [
-          ('In three months', _threeMonth[b.threeMonthFeeling]),
+          ('In three months', _join(b.threeMonthFeelings, _threeMonth)),
           ('Matters most', _join(state.styleGoals, _goals)),
         ],
       ),
@@ -382,7 +376,7 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _feelingLines[b.threeMonthFeeling] ??
+                    _feelingLines[b.threeMonthFeelings.firstOrNull] ??
                         'Here’s what we learned about how you want to dress.',
                     textAlign: TextAlign.center,
                     style: BlueprintText.subtitle(context),

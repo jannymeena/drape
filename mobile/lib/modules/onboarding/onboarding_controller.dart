@@ -248,30 +248,6 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
-  /// The earlier step 5 — work context. Its screen was replaced by the
-  /// palettes step; kept for when the API is reconnected. [occupation] and [dressCode] may both be null.
-  Future<String> setBlueprintLifestyle({
-    required String? occupation,
-    required String? dressCode,
-    required String impressionGoal,
-  }) {
-    state = state.copyWith(
-      blueprint: state.blueprint.copyWith(
-        occupation: occupation,
-        dressCode: dressCode,
-        impressionGoal: impressionGoal,
-      ),
-    );
-    return _save(
-      'lifestyle',
-      () => _service.setBlueprintLifestyle(
-        occupation: occupation,
-        dressCode: dressCode,
-        impressionGoal: impressionGoal,
-      ),
-    );
-  }
-
   /// Step 6 — work and lifestyle. See [OnboardingService.setBlueprintWork]
   /// for the fields, and [_save] for the future.
   Future<String> setBlueprintWork({
@@ -329,48 +305,22 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
-  /// The earlier step 6 — shopping attitude, accessories, brand tier. Its
-  /// screen was replaced; step 7 asks these (with up to three feelings).
-  Future<String> setBlueprintHabits({
-    required String shoppingFeeling,
-    required String accessories,
-    required String brandTier,
-  }) {
-    state = state.copyWith(
-      blueprint: state.blueprint.copyWith(
-        shoppingFeeling: shoppingFeeling,
-        accessories: accessories,
-        brandTier: brandTier,
-      ),
-    );
-    return _save(
-      'habits',
-      () => _service.setBlueprintHabits(
-        shoppingFeeling: shoppingFeeling,
-        accessories: accessories,
-        brandTier: brandTier,
-      ),
-    );
-  }
-
-  /// Step 8 — the three-month aspiration plus the (non-empty) style goals.
+  /// Step 8 — how the user wants to feel in three months ([feelings],
+  /// non-empty) plus the (non-empty) style goals.
   Future<String> setBlueprintGoals({
-    required String threeMonthFeeling,
+    required List<String> feelings,
     required List<String> goals,
   }) {
     state = state.copyWith(
       styleGoals: goals,
-      blueprint: state.blueprint.copyWith(threeMonthFeeling: threeMonthFeeling),
+      blueprint: state.blueprint.copyWith(threeMonthFeelings: feelings),
     );
     _analytics.capture(AnalyticsEvents.styleGoalsSelected, {
       'goals_count': goals.length,
     });
     return _save(
       'goals',
-      () => _service.setBlueprintGoals(
-        threeMonthFeeling: threeMonthFeeling,
-        goals: goals,
-      ),
+      () => _service.setBlueprintGoals(feelings: feelings, goals: goals),
     );
   }
 
