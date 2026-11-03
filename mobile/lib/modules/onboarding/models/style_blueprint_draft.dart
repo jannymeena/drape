@@ -13,6 +13,7 @@ class StyleBlueprintDraft {
     this.fitTops,
     this.fitBottoms,
     this.styleAesthetics = const [],
+    this.microAesthetics = const [],
     this.undertone,
     this.colorPalettes = const [],
     this.occupation,
@@ -29,8 +30,9 @@ class StyleBlueprintDraft {
   final String? fitTops;
   final String? fitBottoms;
 
-  // Step 3 — aesthetics
+  // Step 3 — aesthetics, and the optional "Want to get more specific?" tags
   final List<String> styleAesthetics;
+  final List<String> microAesthetics;
 
   // Step 4 — colour
   final String? undertone;
@@ -57,6 +59,7 @@ class StyleBlueprintDraft {
     String? fitTops,
     String? fitBottoms,
     List<String>? styleAesthetics,
+    List<String>? microAesthetics,
     String? undertone,
     List<String>? colorPalettes,
     String? occupation,
@@ -72,6 +75,7 @@ class StyleBlueprintDraft {
       fitTops: fitTops ?? this.fitTops,
       fitBottoms: fitBottoms ?? this.fitBottoms,
       styleAesthetics: styleAesthetics ?? this.styleAesthetics,
+      microAesthetics: microAesthetics ?? this.microAesthetics,
       undertone: undertone ?? this.undertone,
       colorPalettes: colorPalettes ?? this.colorPalettes,
       occupation: occupation ?? this.occupation,
@@ -92,6 +96,7 @@ class StyleBlueprintDraft {
       fitTops: json['fit_tops'] as String?,
       fitBottoms: json['fit_bottoms'] as String?,
       styleAesthetics: list('style_aesthetics'),
+      microAesthetics: list('micro_aesthetics'),
       undertone: json['undertone'] as String?,
       colorPalettes: list('color_palettes'),
       occupation: json['occupation'] as String?,

@@ -185,17 +185,25 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
-  /// Step 3 — the style card grid. [aesthetics] must be non-empty.
-  Future<String> setBlueprintAesthetics(List<String> aesthetics) {
+  /// Step 3 — the style card grid ([aesthetics], non-empty) and the optional
+  /// micro-aesthetic tags ([micro]).
+  Future<String> setBlueprintAesthetics(
+    List<String> aesthetics, {
+    List<String> micro = const [],
+  }) {
     state = state.copyWith(
-      blueprint: state.blueprint.copyWith(styleAesthetics: aesthetics),
+      blueprint: state.blueprint.copyWith(
+        styleAesthetics: aesthetics,
+        microAesthetics: micro,
+      ),
     );
     _analytics.capture(AnalyticsEvents.styleAestheticsSelected, {
       'count': aesthetics.length,
+      'micro_count': micro.length,
     });
     return _save(
       'aesthetics',
-      () => _service.setBlueprintAesthetics(aesthetics),
+      () => _service.setBlueprintAesthetics(aesthetics, micro: micro),
     );
   }
 

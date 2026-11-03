@@ -84,8 +84,14 @@ class _StubService extends OnboardingService {
   }
 
   @override
-  Future<String> setBlueprintAesthetics(List<String> aesthetics) async {
-    calls['aesthetics'] = {'style_aesthetics': aesthetics};
+  Future<String> setBlueprintAesthetics(
+    List<String> aesthetics, {
+    List<String> micro = const [],
+  }) async {
+    calls['aesthetics'] = {
+      'style_aesthetics': aesthetics,
+      'micro_aesthetics': micro,
+    };
     return 'style_blueprint_4';
   }
 
@@ -117,10 +123,7 @@ ProviderContainer _container(_StubService service) {
 /// The real seven-step router, so a step's `pushNamed` onward actually
 /// resolves — plus a stub for wardrobe setup, which the reveal hands off to
 /// and which needs providers this test doesn't stand up.
-Widget _host(
-  ProviderContainer container, {
-  required String initialLocation,
-}) {
+Widget _host(ProviderContainer container, {required String initialLocation}) {
   final router = GoRouter(
     initialLocation: initialLocation,
     routes: [
@@ -174,10 +177,7 @@ Widget _host(
   addTearDown(router.dispose);
   return UncontrolledProviderScope(
     container: container,
-    child: MaterialApp.router(
-      theme: AppTheme.light,
-      routerConfig: router,
-    ),
+    child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
   );
 }
 
@@ -195,18 +195,25 @@ void main() {
   // A realistic phone viewport: the steps are long forms and several would
   // otherwise report overflow purely from the small default test window.
   setUp(() {
-    final view = TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher.views.first;
+    final view = TestWidgetsFlutterBinding.ensureInitialized()
+        .platformDispatcher
+        .views
+        .first;
     view.physicalSize = const Size(1170, 2532);
     view.devicePixelRatio = 3.0;
   });
   tearDown(() {
-    final view = TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher.views.first;
+    final view = TestWidgetsFlutterBinding.ensureInitialized()
+        .platformDispatcher
+        .views
+        .first;
     view.resetPhysicalSize();
     view.resetDevicePixelRatio();
   });
 
-  testWidgets('every step renders without overflowing or throwing',
-      (tester) async {
+  testWidgets('every step renders without overflowing or throwing', (
+    tester,
+  ) async {
     final container = _container(_StubService());
     addTearDown(container.dispose);
 
@@ -224,18 +231,24 @@ void main() {
     for (final location in locations) {
       await tester.pumpWidget(_host(container, initialLocation: location));
       await tester.pump();
-      expect(tester.takeException(), isNull,
-          reason: '$location failed to build');
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: '$location failed to build',
+      );
     }
   });
 
-  testWidgets('step 1 requires a shopping style but not an age range',
-      (tester) async {
+  testWidgets('step 1 requires a shopping style but not an age range', (
+    tester,
+  ) async {
     final service = _StubService();
     final container = _container(service);
     addTearDown(container.dispose);
 
-    await tester.pumpWidget(_host(container, initialLocation: BlueprintIdentityScreen.path));
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintIdentityScreen.path),
+    );
 
     // Nothing selected: Continue is inert.
     await _tap(tester, 'Continue');
@@ -269,7 +282,9 @@ void main() {
     expect(find.text('Which body shape feels closest?'), findsOneWidget);
   });
 
-  testWidgets('steps move on without waiting, and save in order', (tester) async {
+  testWidgets('steps move on without waiting, and save in order', (
+    tester,
+  ) async {
     final service = _StubService()..identityGate = Completer<void>();
     final container = _container(service);
     addTearDown(container.dispose);
@@ -298,8 +313,9 @@ void main() {
     expect(service.order, ['identity', 'fit']);
   });
 
-  testWidgets('a failed step 1 save is retried before step 2 saves',
-      (tester) async {
+  testWidgets('a failed step 1 save is retried before step 2 saves', (
+    tester,
+  ) async {
     final service = _StubService()..identityFailures = 1;
     final container = _container(service);
     addTearDown(container.dispose);
@@ -320,8 +336,9 @@ void main() {
     expect(find.text('Step 3 of 7'), findsOneWidget);
   });
 
-  testWidgets('steps move on while saving; a stuck save surfaces at the end',
-      (tester) async {
+  testWidgets('steps move on while saving; a stuck save surfaces at the end', (
+    tester,
+  ) async {
     final service = _StubService()..identityFailures = 99;
     final container = _container(service);
     addTearDown(container.dispose);
@@ -363,13 +380,16 @@ void main() {
     ]);
   });
 
-  testWidgets('step 1 age chips toggle off so the question stays skippable',
-      (tester) async {
+  testWidgets('step 1 age chips toggle off so the question stays skippable', (
+    tester,
+  ) async {
     final service = _StubService();
     final container = _container(service);
     addTearDown(container.dispose);
 
-    await tester.pumpWidget(_host(container, initialLocation: BlueprintIdentityScreen.path));
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintIdentityScreen.path),
+    );
     await _tap(tester, 'Women’s Fashion');
     await _tap(tester, '25–34');
     await _tap(tester, '25–34'); // tapping again clears it
@@ -387,13 +407,13 @@ void main() {
     await container
         .read(onboardingControllerProvider.notifier)
         .setBlueprintIdentity(shoppingStyle: shoppingStyle, ageRange: null);
-    await tester
-        .pumpWidget(_host(container, initialLocation: BlueprintFitScreen.path));
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintFitScreen.path),
+    );
     return (service, container);
   }
 
-  testWidgets('back on a resumed step opens the previous step',
-      (tester) async {
+  testWidgets('back on a resumed step opens the previous step', (tester) async {
     await fitStep(tester, 'mens'); // starts at step 2 alone, like a resume
     await tester.tap(find.byTooltip('Go back'));
     await tester.pumpAndSettle();
@@ -401,8 +421,9 @@ void main() {
     expect(find.text('Step 1 of 7'), findsOneWidget);
   });
 
-  testWidgets('system back on a resumed step opens the previous step',
-      (tester) async {
+  testWidgets('system back on a resumed step opens the previous step', (
+    tester,
+  ) async {
     await fitStep(tester, 'mens');
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -410,8 +431,9 @@ void main() {
     expect(find.text('Step 1 of 7'), findsOneWidget);
   });
 
-  testWidgets('back after continuing pops to the step underneath',
-      (tester) async {
+  testWidgets('back after continuing pops to the step underneath', (
+    tester,
+  ) async {
     final container = _container(_StubService());
     addTearDown(container.dispose);
     await tester.pumpWidget(
@@ -430,8 +452,9 @@ void main() {
     expect(find.byTooltip('Go back'), findsNothing);
   });
 
-  testWidgets('step 2 names women’s shapes and saves the backend value',
-      (tester) async {
+  testWidgets('step 2 names women’s shapes and saves the backend value', (
+    tester,
+  ) async {
     final (service, _) = await fitStep(tester, 'womens');
 
     expect(find.text('Which body shape feels closest?'), findsOneWidget);
@@ -447,8 +470,9 @@ void main() {
     });
   });
 
-  testWidgets('step 2 shows the men’s builds and segmented fit',
-      (tester) async {
+  testWidgets('step 2 shows the men’s builds and segmented fit', (
+    tester,
+  ) async {
     final (service, _) = await fitStep(tester, 'mens');
 
     expect(find.text('Which build feels closest?'), findsOneWidget);
@@ -473,8 +497,7 @@ void main() {
     });
   });
 
-  testWidgets('step 2 is gender-neutral for prefer not to say',
-      (tester) async {
+  testWidgets('step 2 is gender-neutral for prefer not to say', (tester) async {
     final (service, _) = await fitStep(tester, 'prefer_not_to_say');
 
     expect(find.text('Which shape feels closest?'), findsOneWidget);
@@ -486,8 +509,9 @@ void main() {
     expect(service.calls['fit']!['body_shape'], 'triangle');
   });
 
-  testWidgets('step 2 fit control follows a drag to the far option',
-      (tester) async {
+  testWidgets('step 2 fit control follows a drag to the far option', (
+    tester,
+  ) async {
     final (service, _) = await fitStep(tester, 'womens');
 
     await _tap(tester, 'Hourglass');
@@ -502,8 +526,9 @@ void main() {
     expect(service.calls['fit']!['fit_tops'], 'loose');
   });
 
-  testWidgets('step 3 shows the men’s card set for a mens shopper',
-      (tester) async {
+  testWidgets('step 3 shows the men’s card set for a mens shopper', (
+    tester,
+  ) async {
     final service = _StubService();
     final container = _container(service);
     addTearDown(container.dispose);
@@ -511,8 +536,9 @@ void main() {
         .read(onboardingControllerProvider.notifier)
         .setBlueprintIdentity(shoppingStyle: 'mens', ageRange: null);
 
-    await tester
-        .pumpWidget(_host(container, initialLocation: BlueprintAestheticsScreen.path));
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintAestheticsScreen.path),
+    );
 
     expect(find.text('Rugged'), findsOneWidget);
     expect(find.text('Smart Casual'), findsOneWidget);
@@ -528,22 +554,25 @@ void main() {
         .read(onboardingControllerProvider.notifier)
         .setBlueprintIdentity(shoppingStyle: 'both', ageRange: null);
 
-    await tester
-        .pumpWidget(_host(container, initialLocation: BlueprintAestheticsScreen.path));
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintAestheticsScreen.path),
+    );
 
     expect(find.text('Bohemian'), findsOneWidget);
     expect(find.text('Romantic'), findsOneWidget);
     expect(find.text('Rugged'), findsNothing);
   });
 
-  testWidgets('step 3 sends selections in card order, not tap order',
-      (tester) async {
+  testWidgets('step 3 sends selections in card order, not tap order', (
+    tester,
+  ) async {
     final service = _StubService();
     final container = _container(service);
     addTearDown(container.dispose);
 
-    await tester
-        .pumpWidget(_host(container, initialLocation: BlueprintAestheticsScreen.path));
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintAestheticsScreen.path),
+    );
 
     await _tap(tester, 'Avant-Garde');
     await _tap(tester, 'Minimalist');
@@ -551,7 +580,43 @@ void main() {
 
     expect(service.calls['aesthetics'], {
       'style_aesthetics': ['minimalist', 'avant_garde'],
+      'micro_aesthetics': <String>[],
     });
+  });
+
+  testWidgets('step 3’s “Want to get more specific?” tags are saved too', (
+    tester,
+  ) async {
+    final service = _StubService();
+    final container = _container(service);
+    addTearDown(container.dispose);
+    // Men's card set: the same tags show.
+    await container
+        .read(onboardingControllerProvider.notifier)
+        .setBlueprintIdentity(shoppingStyle: 'mens', ageRange: null);
+
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintAestheticsScreen.path),
+    );
+
+    // Closed at first.
+    expect(find.text('Quiet Luxury'), findsNothing);
+    await _tap(tester, 'Want to get more specific?');
+    await tester.pumpAndSettle(); // let it finish opening
+    await _tap(tester, '90s Slouch');
+    await _tap(tester, 'Quiet Luxury');
+    await _tap(tester, 'Minimalist');
+    await _tap(tester, 'Continue');
+
+    // In tag order, not tap order.
+    expect(service.calls['aesthetics'], {
+      'style_aesthetics': ['minimalist'],
+      'micro_aesthetics': ['quiet_luxury', '90s_slouch'],
+    });
+    expect(
+      container.read(onboardingControllerProvider).blueprint.microAesthetics,
+      ['quiet_luxury', '90s_slouch'],
+    );
   });
 
   testWidgets('the reveal plays back what the steps captured', (tester) async {
@@ -581,7 +646,9 @@ void main() {
       ),
     );
 
-    await tester.pumpWidget(_host(container, initialLocation: BlueprintRevealScreen.path));
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintRevealScreen.path),
+    );
 
     expect(find.textContaining('Minimalist, Romantic'), findsOneWidget);
     expect(find.textContaining('confident wherever you go'), findsOneWidget);
@@ -630,8 +697,9 @@ void main() {
     expect(find.text('Dress code'), findsNothing);
   });
 
-  testWidgets('the reveal can go back to step 7 with answers intact',
-      (tester) async {
+  testWidgets('the reveal can go back to step 7 with answers intact', (
+    tester,
+  ) async {
     final container = _container(_StubService());
     addTearDown(container.dispose);
 
@@ -660,12 +728,15 @@ void main() {
     expect(cta.onPressed, isNotNull);
   });
 
-  testWidgets('the reveal degrades gracefully with an empty draft',
-      (tester) async {
+  testWidgets('the reveal degrades gracefully with an empty draft', (
+    tester,
+  ) async {
     final container = _container(_StubService());
     addTearDown(container.dispose);
 
-    await tester.pumpWidget(_host(container, initialLocation: BlueprintRevealScreen.path));
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintRevealScreen.path),
+    );
 
     expect(tester.takeException(), isNull);
     expect(find.text('Your Style, Defined'), findsOneWidget);
@@ -674,10 +745,12 @@ void main() {
 
   group('answering a one-answer question moves on to the next', () {
     ScrollPosition stepScroll(WidgetTester tester) => tester
-        .state<ScrollableState>(find.descendant(
-          of: find.byType(SingleChildScrollView),
-          matching: find.byType(Scrollable),
-        ))
+        .state<ScrollableState>(
+          find.descendant(
+            of: find.byType(SingleChildScrollView),
+            matching: find.byType(Scrollable),
+          ),
+        )
         .position;
 
     Future<void> settleReveal(WidgetTester tester) async {
@@ -689,7 +762,8 @@ void main() {
       final container = _container(_StubService());
       addTearDown(container.dispose);
       await tester.pumpWidget(
-          _host(container, initialLocation: BlueprintHabitsScreen.path));
+        _host(container, initialLocation: BlueprintHabitsScreen.path),
+      );
       await tester.pumpAndSettle();
       expect(stepScroll(tester).pixels, 0);
 
@@ -697,18 +771,24 @@ void main() {
       await settleReveal(tester);
 
       expect(stepScroll(tester).pixels, greaterThan(0));
-      final question = tester.getRect(find.text('How do you feel about accessories?'));
+      final question = tester.getRect(
+        find.text('How do you feel about accessories?'),
+      );
       final viewport = tester.getRect(find.byType(SingleChildScrollView));
-      expect(viewport.top <= question.top && question.bottom <= viewport.bottom,
-          isTrue);
+      expect(
+        viewport.top <= question.top && question.bottom <= viewport.bottom,
+        isTrue,
+      );
     });
 
-    testWidgets('changing an answer later does not move the page',
-        (tester) async {
+    testWidgets('changing an answer later does not move the page', (
+      tester,
+    ) async {
       final container = _container(_StubService());
       addTearDown(container.dispose);
       await tester.pumpWidget(
-          _host(container, initialLocation: BlueprintHabitsScreen.path));
+        _host(container, initialLocation: BlueprintHabitsScreen.path),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Confident and in control'));

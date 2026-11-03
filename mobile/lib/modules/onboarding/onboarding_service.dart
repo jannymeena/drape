@@ -49,10 +49,15 @@ class OnboardingService {
   }
 
   /// Step 3 — `POST /profile/style-blueprint/aesthetics`. [aesthetics] must be
-  /// non-empty (the backend rejects an empty list with 422).
-  Future<String> setBlueprintAesthetics(List<String> aesthetics) async {
+  /// non-empty (the backend rejects an empty list with 422); [micro] are the
+  /// optional "Want to get more specific?" tags, none clearing earlier ones.
+  Future<String> setBlueprintAesthetics(
+    List<String> aesthetics, {
+    List<String> micro = const [],
+  }) async {
     return _postStep('/profile/style-blueprint/aesthetics', {
       'style_aesthetics': aesthetics,
+      'micro_aesthetics': micro,
     });
   }
 

@@ -10,7 +10,9 @@ import 'blueprint_color_screen.dart';
 /// One style card: the backend literal, its label, and the art to show.
 typedef _Aesthetic = ({String value, String label, String asset});
 
-/// Step 3 of 7 — "Which styles do you like?", a multi-select card grid.
+/// Step 3 of 7 — "Which styles do you like?", a multi-select card grid, and
+/// an optional "Want to get more specific?" card of micro-aesthetic tags
+/// (the same tags whatever the card set).
 ///
 /// The card set is gendered: four aesthetics are shared, and two differ per
 /// set — men see Rugged and Smart Casual, women see Bohemian and Romantic.
@@ -52,15 +54,31 @@ class _BlueprintAestheticsScreenState
     (value: 'avant_garde', label: 'Avant-Garde', asset: 'female/avant_garde'),
   ];
 
+  /// The "Want to get more specific?" tags, the same for every card set.
+  static const _microTags = <({String value, String label})>[
+    (value: 'quiet_luxury', label: 'Quiet Luxury'),
+    (value: 'french_chic', label: 'French Chic'),
+    (value: 'monochrome', label: 'Monochrome'),
+    (value: 'coastal_grandmother', label: 'Coastal Grandmother'),
+    (value: 'artisanal_folk', label: 'Artisanal Folk'),
+    (value: '90s_slouch', label: '90s Slouch'),
+  ];
+
   final _selected = <String>{};
+  final _micro = <String>{};
+
+  /// Whether the "Want to get more specific?" card is open: closed at
+  /// first, unless tags were picked before.
+  late bool _specificsOpen;
   bool _leaving = false;
 
   @override
   void initState() {
     super.initState();
-    _selected.addAll(
-      ref.read(onboardingControllerProvider).blueprint.styleAesthetics,
-    );
+    final blueprint = ref.read(onboardingControllerProvider).blueprint;
+    _selected.addAll(blueprint.styleAesthetics);
+    _micro.addAll(blueprint.microAesthetics);
+    _specificsOpen = _micro.isNotEmpty;
   }
 
   List<_Aesthetic> get _cards {
@@ -79,10 +97,14 @@ class _BlueprintAestheticsScreenState
       for (final card in _cards)
         if (_selected.contains(card.value)) card.value,
     ];
+    final micro = [
+      for (final tag in _microTags)
+        if (_micro.contains(tag.value)) tag.value,
+    ];
     // Saved in the background; see OnboardingController._save.
     ref
         .read(onboardingControllerProvider.notifier)
-        .setBlueprintAesthetics(ordered);
+        .setBlueprintAesthetics(ordered, micro: micro);
     // Ignore further taps until the user comes back to this step.
     setState(() => _leaving = true);
     context.pushNamed(BlueprintColorScreen.name).whenComplete(() {
@@ -126,7 +148,188 @@ class _BlueprintAestheticsScreenState
               ),
           ],
         ),
+        const SizedBox(height: 16),
+        _SpecificsCard(
+          open: _specificsOpen,
+          onToggle: () => setState(() => _specificsOpen = !_specificsOpen),
+          tags: [
+            for (final tag in _microTags)
+              (
+                label: tag.label,
+                selected: _micro.contains(tag.value),
+                onTap: () {
+                  if (_leaving) return;
+                  setState(() {
+                    if (!_micro.add(tag.value)) _micro.remove(tag.value);
+                  });
+                },
+              ),
+          ],
+        ),
       ],
+    );
+  }
+}
+
+/// "Optional details — Want to get more specific?": a card that opens to
+/// micro-aesthetic tags, any number of which can be picked.
+class _SpecificsCard extends StatelessWidget {
+  const _SpecificsCard({
+    required this.open,
+    required this.onToggle,
+    required this.tags,
+  });
+
+  final bool open;
+  final VoidCallback onToggle;
+  final List<({String label, bool selected, VoidCallback onTap})> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    final caption = BlueprintText.caption(context);
+    return Material(
+      color: AppColors.white,
+      elevation: 0.5,
+      shadowColor: AppColors.black.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        alignment: Alignment.topCenter,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              expanded: open,
+              button: true,
+              child: InkWell(
+                onTap: onToggle,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'OPTIONAL DETAILS',
+                              style: caption.copyWith(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.5,
+                                color: AppColors.taupe,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Want to get more specific?',
+                              style: BlueprintText.option(context).copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.ink,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: const BoxDecoration(
+                          color: AppColors.ivoryWarm,
+                          shape: BoxShape.circle,
+                        ),
+                        child: AnimatedRotation(
+                          turns: open ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 200),
+                          child: const Icon(
+                            Icons.expand_more,
+                            size: 20,
+                            color: AppColors.espressoDark,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (open)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Select micro-aesthetics and fit nuances to refine your '
+                      'digital wardrobe capsule.',
+                      style: BlueprintText.optionSupport(context).copyWith(
+                        fontSize: 12,
+                        height: 1.5,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final tag in tags)
+                          _MicroTag(
+                            label: tag.label,
+                            selected: tag.selected,
+                            onTap: tag.onTap,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MicroTag extends StatelessWidget {
+  const _MicroTag({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? AppColors.espressoDark : AppColors.ivoryWarm,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Text(
+              label,
+              style: BlueprintText.optionSupport(context).copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: selected ? AppColors.white : AppColors.inkSoft,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
