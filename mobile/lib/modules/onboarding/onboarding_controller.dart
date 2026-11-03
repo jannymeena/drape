@@ -229,7 +229,16 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
-  /// Step 5 — work context. [occupation] and [dressCode] may both be null.
+  /// Step 5 — the colour palettes the user gravitates to. Draft only for now:
+  /// the step's API isn't connected yet, so nothing is sent.
+  void setBlueprintPalettes(List<String> palettes) {
+    state = state.copyWith(
+      blueprint: state.blueprint.copyWith(colorPalettes: palettes),
+    );
+  }
+
+  /// The earlier step 5 — work context. Its screen was replaced by the
+  /// palettes step; kept for when the API is reconnected. [occupation] and [dressCode] may both be null.
   Future<String> setBlueprintLifestyle({
     required String? occupation,
     required String? dressCode,

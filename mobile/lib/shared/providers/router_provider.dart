@@ -15,7 +15,7 @@ import '../../modules/onboarding/screens/blueprint_fit_screen.dart';
 import '../../modules/onboarding/screens/blueprint_goals_screen.dart';
 import '../../modules/onboarding/screens/blueprint_habits_screen.dart';
 import '../../modules/onboarding/screens/blueprint_identity_screen.dart';
-import '../../modules/onboarding/screens/blueprint_lifestyle_screen.dart';
+import '../../modules/onboarding/screens/blueprint_palettes_screen.dart';
 import '../../modules/onboarding/screens/blueprint_reveal_screen.dart';
 import '../../modules/onboarding/screens/chest_measurement_screen.dart';
 import '../../modules/onboarding/screens/height_input_screen.dart';
@@ -87,7 +87,8 @@ import '../../modules/today/screens/today_dashboard_screen.dart';
 import '../../modules/wardrobe/screens/batch_upload_screen.dart';
 import '../../modules/wardrobe/screens/intelligence_report_screen.dart';
 import '../../modules/wardrobe/screens/item_detail_screen.dart';
-import '../../modules/wardrobe/screens/manual_entry_screen.dart' as wardrobe_manual;
+import '../../modules/wardrobe/screens/manual_entry_screen.dart'
+    as wardrobe_manual;
 import '../../modules/wardrobe/screens/scanner_screen.dart';
 import '../../modules/wardrobe/screens/wardrobe_screen.dart';
 import '../../modules/wardrobe/screens/weekly_recap_screen.dart';
@@ -182,9 +183,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const BlueprintColorScreen(),
       ),
       GoRoute(
-        path: BlueprintLifestyleScreen.path,
-        name: BlueprintLifestyleScreen.name,
-        builder: (_, _) => const BlueprintLifestyleScreen(),
+        path: BlueprintPalettesScreen.path,
+        name: BlueprintPalettesScreen.name,
+        builder: (_, _) => const BlueprintPalettesScreen(),
       ),
       GoRoute(
         path: BlueprintHabitsScreen.path,
@@ -248,7 +249,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       // No longer part of onboarding: these are the guided alternative to the
       // Profile tab's single-page editor, entered from the Shop tab's fit
       // prompts. Left registered so those entry points keep working.
-
       GoRoute(
         path: PreMeasurementScreen.path,
         name: PreMeasurementScreen.name,
@@ -369,13 +369,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                       fullscreenDialog: true,
                       transitionsBuilder: (_, animation, _, child) {
                         return SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, 1),
-                            end: Offset.zero,
-                          ).animate(CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOutCubic,
-                          )),
+                          position:
+                              Tween<Offset>(
+                                begin: const Offset(0, 1),
+                                end: Offset.zero,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOutCubic,
+                                ),
+                              ),
                           child: child,
                         );
                       },
@@ -428,9 +431,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: ItemDetailScreen.path,
                     name: ItemDetailScreen.name,
-                    builder: (_, state) => ItemDetailScreen(
-                      itemId: state.pathParameters['id']!,
-                    ),
+                    builder: (_, state) =>
+                        ItemDetailScreen(itemId: state.pathParameters['id']!),
                   ),
                 ],
               ),
@@ -601,7 +603,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: FinalCancellationConfirmationScreen.path,
                     name: FinalCancellationConfirmationScreen.name,
-                    builder: (_, _) => const FinalCancellationConfirmationScreen(),
+                    builder: (_, _) =>
+                        const FinalCancellationConfirmationScreen(),
                   ),
                   GoRoute(
                     path: ComparePlansScreen.path,

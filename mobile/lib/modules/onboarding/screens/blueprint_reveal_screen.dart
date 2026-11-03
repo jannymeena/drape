@@ -176,8 +176,8 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
     return '${names.join(', ')},\nWorn with Confidence';
   }
 
-  /// The colours that flatter the user's skin shade; for someone who answered
-  /// the earlier step 4 instead, the palettes they liked.
+  /// The colours that flatter the user's skin shade; without a shade (step 4
+  /// skipped), the palettes they picked at step 5.
   List<Color> _palette(StyleBlueprintDraft b) {
     if (skinShade(b.skinShade) case final shade?) return shade.flattering;
     final colors = <Color>[];
@@ -255,7 +255,6 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
             b.skinShade == null ? null : 'Shade ${b.skinShade} of 10',
           ),
           ('Undertone', _undertones[b.undertone]),
-          // Only for users who answered the earlier step 4.
           ('Colours', _join(b.colorPalettes, _paletteNames)),
         ],
       ),

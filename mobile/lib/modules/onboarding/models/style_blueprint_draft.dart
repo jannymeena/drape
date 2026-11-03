@@ -40,8 +40,7 @@ class StyleBlueprintDraft {
   final int? skinShade;
   final String? undertone;
 
-  /// From the earlier step 4 (palettes the user liked); no longer asked,
-  /// still read back for users who answered it.
+  // Step 5 — the colour palettes the user gravitates to.
   final List<String> colorPalettes;
 
   // Step 5 — lifestyle

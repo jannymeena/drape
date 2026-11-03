@@ -13,7 +13,7 @@ import 'package:mobile/modules/onboarding/screens/blueprint_fit_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_goals_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_habits_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_identity_screen.dart';
-import 'package:mobile/modules/onboarding/screens/blueprint_lifestyle_screen.dart';
+import 'package:mobile/modules/onboarding/screens/blueprint_palettes_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_reveal_screen.dart';
 import 'package:mobile/modules/onboarding/screens/wardrobe_setup_screen.dart';
 import 'package:mobile/modules/shop/shop_service.dart';
@@ -157,9 +157,9 @@ Widget _host(ProviderContainer container, {required String initialLocation}) {
         builder: (_, _) => const BlueprintColorScreen(),
       ),
       GoRoute(
-        path: BlueprintLifestyleScreen.path,
-        name: BlueprintLifestyleScreen.name,
-        builder: (_, _) => const BlueprintLifestyleScreen(),
+        path: BlueprintPalettesScreen.path,
+        name: BlueprintPalettesScreen.name,
+        builder: (_, _) => const BlueprintPalettesScreen(),
       ),
       GoRoute(
         path: BlueprintHabitsScreen.path,
@@ -231,7 +231,7 @@ void main() {
       BlueprintFitScreen.path,
       BlueprintAestheticsScreen.path,
       BlueprintColorScreen.path,
-      BlueprintLifestyleScreen.path,
+      BlueprintPalettesScreen.path,
       BlueprintHabitsScreen.path,
       BlueprintGoalsScreen.path,
       BlueprintRevealScreen.path,
@@ -682,6 +682,35 @@ void main() {
     final blueprint = container.read(onboardingControllerProvider).blueprint;
     expect(blueprint.skinShade, isNull);
     expect(blueprint.undertone, isNull);
+  });
+
+  testWidgets('step 5 keeps the picked palettes in card order', (tester) async {
+    final service = _StubService();
+    final container = _container(service);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintPalettesScreen.path),
+    );
+    InkWell continueButton() => tester.widget<InkWell>(
+      find.ancestor(of: find.text('Continue'), matching: find.byType(InkWell)),
+    );
+
+    expect(find.text('Which colours do you gravitate toward?'), findsOneWidget);
+    expect(continueButton().onTap, isNull);
+
+    await _tap(tester, 'BOLD & BRIGHT');
+    await _tap(tester, 'NEUTRALS');
+    await _tap(tester, 'Continue');
+
+    expect(
+      container.read(onboardingControllerProvider).blueprint.colorPalettes,
+      ['neutrals', 'bold_bright'],
+    );
+    // Draft only: the step's API isn't connected yet.
+    expect(service.calls.keys, isNot(contains('lifestyle')));
+    await tester.pumpAndSettle();
+    expect(find.byType(BlueprintHabitsScreen), findsOneWidget);
   });
 
   testWidgets('the reveal plays back what the steps captured', (tester) async {
