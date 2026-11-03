@@ -10,7 +10,13 @@ from __future__ import annotations
 
 from typing import Optional
 
+from app.schemas.profile import StyleProfileResponse
 from app.services import fit_profile as fit_profile_mod
+
+# The style-blueprint answers the prompt may show: the current ones, by name,
+# so keys left in a profile by earlier versions of the flow never reach the
+# model. The free-text occupation stays out (it's the user's own words).
+_PROMPT_FIELDS = frozenset(StyleProfileResponse.model_fields) - {"occupation_other"}
 
 STYLIST_EXPERTISE = (
     "How you style. These are the principles a good personal stylist works "
@@ -85,8 +91,8 @@ def about_the_user(
     fit: Optional[dict] = None,
 ) -> str:
     """Who the stylist is dressing: shopping style, age range, goals, the
-    style-blueprint answers (the free-text occupations left out; the coarse
-    step 6 categories go in), the avatar analysis and
+    current style-blueprint answers (the free-text occupation left out; the
+    coarse step 6 categories go in), the avatar analysis and
     the consent-gated fit summary (§5.5.1; `None` unless the user opted in).
     One fact per line, ending in a newline."""
     lines = [
@@ -102,7 +108,7 @@ def about_the_user(
         f"Style goals: {', '.join(style_goals)}." if style_goals else "Style goals: none."
     )
     for key, value in sorted((style_profile or {}).items()):
-        if key in ("occupation", "occupation_other") or value in (None, "", []):
+        if key not in _PROMPT_FIELDS or value in (None, "", []):
             continue
         if key == "avoid_colors":
             shown = ", ".join(str(v).replace("_", " ") for v in value)

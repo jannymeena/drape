@@ -97,7 +97,7 @@ Occupation = Literal[
     "other",
 ]
 DayFormality = Literal["athleisure", "casual", "smart_casual", "business", "formal"]
-ImpressionGoal = Literal["work", "dating", "both", "content"]
+ImpressionGoal = Literal["work", "dating", "both"]
 ShoppingFeeling = Literal["confident", "necessity", "frustrated", "exploring"]
 Accessories = Literal["none", "minimal", "statement"]
 BrandTier = Literal["fast_fashion", "premium", "luxury", "mix"]
@@ -172,16 +172,10 @@ class StyleBlueprintAestheticsRequest(BaseModel):
 
 class StyleBlueprintColorRequest(BaseModel):
     """Step 4 — skin tone: a shade on a 1 (fairest) to 10 (deepest) scale and
-    the undertone. Both null when the user skips the step ("Skip for now").
-
-    `color_palettes` is from the earlier step 4, which asked which palettes
-    the user liked; they're step 5's now (StyleBlueprintPalettesRequest).
-    Older clients may still send them here; leaving them out keeps whatever
-    was saved."""
+    the undertone. Both null when the user skips the step ("Skip for now")."""
 
     skin_shade: int | None = Field(default=None, ge=1, le=10)
     undertone: Undertone | None = None
-    color_palettes: list[ColorPalette] | None = Field(default=None, max_length=6)
 
 
 class StyleBlueprintPalettesRequest(BaseModel):
@@ -219,15 +213,6 @@ class StyleBlueprintWorkRequest(BaseModel):
         return self
 
 
-class StyleBlueprintLifestyleRequest(BaseModel):
-    """The earlier step 5 — work context, superseded by step 6's
-    StyleBlueprintWorkRequest. `dress_code` is null when not working."""
-
-    occupation: str | None = Field(default=None, max_length=120)
-    dress_code: DressCode | None = None
-    impression_goal: ImpressionGoal
-
-
 class StyleBlueprintShoppingRequest(BaseModel):
     """Step 7 — how the user feels about shopping and getting dressed (one
     to three), their accessories, and the type of brands they buy."""
@@ -237,19 +222,11 @@ class StyleBlueprintShoppingRequest(BaseModel):
     brand_tier: BrandTier
 
 
-class StyleBlueprintHabitsRequest(BaseModel):
-    """The earlier step 6 — attitude to shopping, accessories, and price
-    bracket. The app no longer asks it."""
-
-    shopping_feeling: ShoppingFeeling
-    accessories: Accessories
-    brand_tier: BrandTier
-
-
 class StyleBlueprintGoalsRequest(BaseModel):
-    """Step 7 — the aspiration plus the (pre-existing) style goals."""
+    """Step 8 — how the user wants to feel in three months (pick any, at
+    least one) plus the (pre-existing) style goals."""
 
-    three_month_feeling: ThreeMonthFeeling
+    three_month_feelings: list[ThreeMonthFeeling] = Field(min_length=1, max_length=4)
     style_goals: list[StyleGoal] = Field(min_length=1, max_length=10)
 
 
@@ -272,17 +249,15 @@ class StyleProfileResponse(BaseModel):
     undertone: Undertone | None = None
     color_palettes: list[ColorPalette] | None = None
     avoid_colors: list[AvoidColor] | None = None
-    occupation: str | None = None
     occupations: list[Occupation] | None = None
     occupation_other: str | None = None
     dress_code: DressCode | None = None
     day_formality: DayFormality | None = None
     impression_goal: ImpressionGoal | None = None
-    shopping_feeling: ShoppingFeeling | None = None
     shopping_feelings: list[ShoppingFeeling] | None = None
     accessories: Accessories | None = None
     brand_tier: BrandTier | None = None
-    three_month_feeling: ThreeMonthFeeling | None = None
+    three_month_feelings: list[ThreeMonthFeeling] | None = None
 
 
 class OnboardingStatusResponse(BaseModel):

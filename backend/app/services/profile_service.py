@@ -17,6 +17,7 @@ via `_merge_style_profile`; step 1 and step 8 also write the dedicated
 from __future__ import annotations
 
 import structlog
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.db.models import Profile, User
@@ -31,9 +32,7 @@ from app.schemas.profile import (
     StyleBlueprintColorRequest,
     StyleBlueprintFitRequest,
     StyleBlueprintGoalsRequest,
-    StyleBlueprintHabitsRequest,
     StyleBlueprintIdentityRequest,
-    StyleBlueprintLifestyleRequest,
     StyleBlueprintPalettesRequest,
     StyleBlueprintShoppingRequest,
     StyleBlueprintWorkRequest,
@@ -122,6 +121,23 @@ def _dedup(values: list[str]) -> list[str]:
     return list(seen.keys())
 
 
+def _style_profile(blob: dict | None) -> StyleProfileResponse:
+    """The saved answers, as the current step screens ask them. Keys from
+    earlier versions of the flow are ignored, and a value that no longer
+    validates (an option since retired) reads as unanswered rather than
+    failing the whole status."""
+    values = dict(blob or {})
+    while True:
+        try:
+            return StyleProfileResponse(**values)
+        except ValidationError as e:
+            bad = {err["loc"][0] for err in e.errors() if err["loc"]}
+            if not bad & values.keys():
+                raise
+            for key in bad:
+                values.pop(key, None)
+
+
 def set_blueprint_identity(
     db: Session, *, user: User, payload: StyleBlueprintIdentityRequest
 ) -> OnboardingStep:
@@ -181,12 +197,10 @@ def set_blueprint_aesthetics(
 def set_blueprint_color(
     db: Session, *, user: User, payload: StyleBlueprintColorRequest
 ) -> OnboardingStep:
-    """Step 4 — skin shade + undertone (both null when skipped). Palettes
-    are only written when sent (older clients)."""
-    answers: dict = {"skin_shade": payload.skin_shade, "undertone": payload.undertone}
-    if payload.color_palettes is not None:
-        answers["color_palettes"] = _dedup(payload.color_palettes)
-    _merge_style_profile(user, answers)
+    """Step 4 — skin shade + undertone (both null when skipped)."""
+    _merge_style_profile(
+        user, {"skin_shade": payload.skin_shade, "undertone": payload.undertone}
+    )
     nxt = _advance(user, "style_blueprint_4")
     db.commit()
     _log.info(
@@ -266,64 +280,22 @@ def set_blueprint_shopping(
     return nxt
 
 
-def set_blueprint_lifestyle(
-    db: Session, *, user: User, payload: StyleBlueprintLifestyleRequest
-) -> OnboardingStep:
-    """Step 5 — work context. Occupation is free text; blank means "not given"."""
-    occupation = (payload.occupation or "").strip() or None
-    _merge_style_profile(
-        user,
-        {
-            "occupation": occupation,
-            "dress_code": payload.dress_code,
-            "impression_goal": payload.impression_goal,
-        },
-    )
-    nxt = _advance(user, "style_blueprint_5")
-    db.commit()
-    _log.info(
-        "profile.blueprint.lifestyle",
-        user_id=str(user.id),
-        impression_goal=payload.impression_goal,
-    )
-    return nxt
-
-
-def set_blueprint_habits(
-    db: Session, *, user: User, payload: StyleBlueprintHabitsRequest
-) -> OnboardingStep:
-    """Step 6 — shopping attitude, accessories, brand tier."""
-    _merge_style_profile(
-        user,
-        {
-            "shopping_feeling": payload.shopping_feeling,
-            "accessories": payload.accessories,
-            "brand_tier": payload.brand_tier,
-        },
-    )
-    nxt = _advance(user, "style_blueprint_6")
-    db.commit()
-    _log.info(
-        "profile.blueprint.habits", user_id=str(user.id), brand_tier=payload.brand_tier
-    )
-    return nxt
-
-
 def set_blueprint_goals(
     db: Session, *, user: User, payload: StyleBlueprintGoalsRequest
 ) -> OnboardingStep:
-    """Step 7 — the 3-month aspiration plus style goals. Goals keep their own
+    """Step 8 — the 3-month aspirations plus style goals. Goals keep their own
     column (they predate the blueprint and are read by starter-wardrobe
-    matching); the aspiration joins the blob."""
+    matching); the aspirations join the blob."""
     user.style_goals = _dedup(payload.style_goals)
-    _merge_style_profile(user, {"three_month_feeling": payload.three_month_feeling})
+    feelings = _dedup(payload.three_month_feelings)
+    _merge_style_profile(user, {"three_month_feelings": feelings})
     nxt = _advance(user, "style_blueprint_8")
     db.commit()
     _log.info(
         "profile.blueprint.goals",
         user_id=str(user.id),
         count=len(user.style_goals),
-        feeling=payload.three_month_feeling,
+        feelings=feelings,
     )
     return nxt
 
@@ -403,7 +375,7 @@ def get_status(
         shopping_style=user.shopping_style,
         age_range=user.age_range,
         style_goals=user.style_goals,
-        style_profile=StyleProfileResponse(**(user.style_profile or {})),
+        style_profile=_style_profile(user.style_profile),
         measurement_steps_completed=steps_done,
         next_incomplete_step=next_incomplete,
     )

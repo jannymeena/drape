@@ -26,9 +26,7 @@ from app.schemas.profile import (
     StyleBlueprintColorRequest,
     StyleBlueprintFitRequest,
     StyleBlueprintGoalsRequest,
-    StyleBlueprintHabitsRequest,
     StyleBlueprintIdentityRequest,
-    StyleBlueprintLifestyleRequest,
     StyleBlueprintPalettesRequest,
     StyleBlueprintShoppingRequest,
     StyleBlueprintWorkRequest,
@@ -122,31 +120,6 @@ def set_blueprint_shopping(
 ) -> ProfileStepResponse:
     """Step 7 of 8 — shopping feelings (up to three), accessories, brand type."""
     nxt = profile_service.set_blueprint_shopping(db, user=user, payload=payload)
-    return ProfileStepResponse(next_step=nxt)
-
-
-@router.post("/style-blueprint/lifestyle", response_model=ProfileStepResponse)
-def set_blueprint_lifestyle(
-    payload: StyleBlueprintLifestyleRequest,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-) -> ProfileStepResponse:
-    """The earlier step 5 (work, dress code, where you want to impress). The
-    app no longer asks it; kept so saved answers and older clients work.
-    Like step 5, it marks style_blueprint_5 done."""
-    nxt = profile_service.set_blueprint_lifestyle(db, user=user, payload=payload)
-    return ProfileStepResponse(next_step=nxt)
-
-
-@router.post("/style-blueprint/habits", response_model=ProfileStepResponse)
-def set_blueprint_habits(
-    payload: StyleBlueprintHabitsRequest,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-) -> ProfileStepResponse:
-    """The earlier step 6 (shopping attitude, accessories, brand tier). The
-    app no longer asks it; kept so saved answers and older clients work."""
-    nxt = profile_service.set_blueprint_habits(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 
 

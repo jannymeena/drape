@@ -34,31 +34,38 @@ call POST /profile/style-blueprint/aesthetics \
 expect_status "POST /profile/style-blueprint/aesthetics" 200
 expect_body_field "  → next_step advanced" '.next_step' "style_blueprint_4"
 
-# --- 5) blueprint step 4: undertone + palettes ------------------------------
+# --- 5) blueprint step 4: skin tone ----------------------------------------
 
 call POST /profile/style-blueprint/color \
-  '{"undertone":"warm","color_palettes":["earth_tones","neutrals"]}'
+  '{"skin_shade":5,"undertone":"warm"}'
 expect_status "POST /profile/style-blueprint/color" 200
 expect_body_field "  → next_step advanced" '.next_step' "style_blueprint_5"
 
-# --- 6) blueprint step 5: work + dress code ---------------------------------
+# --- 6) blueprint step 5: palettes ------------------------------------------
 
-call POST /profile/style-blueprint/lifestyle \
-  '{"occupation":"Marketing","dress_code":"business_casual","impression_goal":"both"}'
-expect_status "POST /profile/style-blueprint/lifestyle" 200
+call POST /profile/style-blueprint/palettes \
+  '{"color_palettes":["earth_tones","neutrals"],"avoid_colors":["magenta"]}'
+expect_status "POST /profile/style-blueprint/palettes" 200
 expect_body_field "  → next_step advanced" '.next_step' "style_blueprint_6"
 
-# --- 7) blueprint step 6: habits --------------------------------------------
+# --- 7) blueprint step 6: work + lifestyle ----------------------------------
 
-call POST /profile/style-blueprint/habits \
-  '{"shopping_feeling":"confident","accessories":"minimal","brand_tier":"premium"}'
-expect_status "POST /profile/style-blueprint/habits" 200
+call POST /profile/style-blueprint/work \
+  '{"occupations":["marketing"],"dress_code":"business_casual","day_formality":"smart_casual","impression_goal":"both"}'
+expect_status "POST /profile/style-blueprint/work" 200
 expect_body_field "  → next_step advanced" '.next_step' "style_blueprint_7"
 
-# --- 8) blueprint step 7: goals ---------------------------------------------
+# --- 8) blueprint step 7: shopping + brands ---------------------------------
+
+call POST /profile/style-blueprint/shopping \
+  '{"shopping_feelings":["confident"],"accessories":"minimal","brand_tier":"premium"}'
+expect_status "POST /profile/style-blueprint/shopping" 200
+expect_body_field "  → next_step advanced" '.next_step' "style_blueprint_8"
+
+# --- 8b) blueprint step 8: goals --------------------------------------------
 
 call POST /profile/style-blueprint/goals \
-  '{"three_month_feeling":"confident_anywhere","style_goals":["polished","maximize_wardrobe"]}'
+  '{"three_month_feelings":["confident_anywhere"],"style_goals":["polished","maximize_wardrobe"]}'
 expect_status "POST /profile/style-blueprint/goals" 200
 expect_body_field "  → next_step advanced" '.next_step' "style_blueprint_reveal"
 

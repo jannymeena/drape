@@ -109,7 +109,7 @@ _BLUEPRINT_STEPS = [
     (
         "goals",
         {
-            "three_month_feeling": "confident_anywhere",
+            "three_month_feelings": ["confident_anywhere", "excited_not_stressed"],
             "style_goals": ["polished", "maximize_wardrobe"],
         },
     ),
@@ -163,7 +163,10 @@ def test_blueprint_answers_accumulate_in_style_profile(authed_client):
     assert profile["occupation_other"] == "Brand Strategist"
     assert profile["dress_code"] == "smart_casual"
     assert profile["day_formality"] == "smart_casual"
-    assert profile["three_month_feeling"] == "confident_anywhere"
+    assert profile["three_month_feelings"] == [
+        "confident_anywhere",
+        "excited_not_stressed",
+    ]
     # Step 1 and 7 still write their dedicated columns.
     assert body["shopping_style"] == "womens"
     assert body["age_range"] == "25-34"
@@ -223,19 +226,6 @@ def test_blueprint_color_skip_saves_nothing_and_moves_on(authed_client):
         "style_profile"
     ]
     assert profile["skin_shade"] is None and profile["undertone"] is None
-
-
-def test_blueprint_color_keeps_palettes_unless_sent(authed_client):
-    """Palettes came from the old step 4: an older client may still send
-    them; the new one doesn't, and that mustn't wipe them."""
-    url = "/api/v1/profile/style-blueprint/color"
-    authed_client.post(url, json={"undertone": "warm", "color_palettes": ["pastels"]})
-    authed_client.post(url, json={"skin_shade": 3, "undertone": "warm"})
-    profile = authed_client.get("/api/v1/profile/onboarding-status").json()[
-        "style_profile"
-    ]
-    assert profile["color_palettes"] == ["pastels"]
-    assert profile["skin_shade"] == 3
 
 
 def test_blueprint_color_rejects_a_shade_off_the_scale(authed_client):
@@ -400,10 +390,55 @@ def test_blueprint_shopping_saves_up_to_three_feelings(authed_client):
 def test_goals_is_step_8_and_leads_to_the_reveal(authed_client):
     r = authed_client.post(
         "/api/v1/profile/style-blueprint/goals",
-        json={"three_month_feeling": "found_my_look", "style_goals": ["polished"]},
+        json={"three_month_feelings": ["found_my_look"], "style_goals": ["polished"]},
     )
     assert r.status_code == 200, r.text
     assert r.json()["next_step"] == "style_blueprint_reveal"
+
+
+def test_goals_needs_a_list_of_feelings(authed_client):
+    url = "/api/v1/profile/style-blueprint/goals"
+    for bad in (
+        {"style_goals": ["polished"]},  # no feelings
+        {"three_month_feeling": "found_my_look", "style_goals": ["polished"]},
+        {"three_month_feelings": [], "style_goals": ["polished"]},
+        {"three_month_feelings": ["meh"], "style_goals": ["polished"]},
+    ):
+        assert authed_client.post(url, json=bad).status_code == 422, bad
+
+
+def test_retired_endpoints_are_gone(authed_client):
+    for path in ("lifestyle", "habits"):
+        r = authed_client.post(f"/api/v1/profile/style-blueprint/{path}", json={})
+        assert r.status_code in (404, 405), path
+
+
+def test_status_skips_answers_from_earlier_versions(authed_client, db):
+    """Keys the flow no longer asks, and a value whose option was retired,
+    read as unanswered; the rest still comes through."""
+    user = authed_client.test_user
+    user.style_profile = {
+        "occupation": "Marketing",
+        "shopping_feeling": "confident",
+        "impression_goal": "content",  # retired option
+        "undertone": "warm",
+    }
+    db.commit()
+    r = authed_client.get("/api/v1/profile/onboarding-status")
+    assert r.status_code == 200, r.text
+    profile = r.json()["style_profile"]
+    assert profile["undertone"] == "warm"
+    assert profile["impression_goal"] is None
+    assert "occupation" not in profile and "shopping_feeling" not in profile
+
+
+def test_prompt_only_shows_current_answers():
+    from app.services.stylist_prompt import about_the_user
+
+    block = about_the_user(
+        style_profile={"occupation": "Nurse", "shopping_feeling": "confident"}
+    )
+    assert "Nurse" not in block and "shopping feeling" not in block
 
 
 def test_blueprint_identity_accepts_null_age_skip(authed_client):
@@ -416,19 +451,10 @@ def test_blueprint_identity_accepts_null_age_skip(authed_client):
     assert r.json()["next_step"] == "style_blueprint_2"
 
 
-def test_blueprint_lifestyle_allows_no_dress_code(authed_client):
-    """`dress_code` is skipped automatically when the user isn't working."""
-    r = authed_client.post(
-        "/api/v1/profile/style-blueprint/lifestyle",
-        json={"occupation": None, "dress_code": None, "impression_goal": "content"},
-    )
-    assert r.status_code == 200
-
-
 def test_blueprint_goals_requires_at_least_one(authed_client):
     r = authed_client.post(
         "/api/v1/profile/style-blueprint/goals",
-        json={"three_month_feeling": "found_my_look", "style_goals": []},
+        json={"three_month_feelings": ["found_my_look"], "style_goals": []},
     )
     assert r.status_code == 422
 
