@@ -134,10 +134,16 @@ class StyleBlueprintAestheticsRequest(BaseModel):
 
 
 class StyleBlueprintColorRequest(BaseModel):
-    """Step 4 — skin undertone plus the palettes the user gravitates toward."""
+    """Step 4 — skin tone: a shade on a 1 (fairest) to 10 (deepest) scale and
+    the undertone. Both null when the user skips the step ("Skip for now").
 
-    undertone: Undertone
-    color_palettes: list[ColorPalette] = Field(min_length=1, max_length=6)
+    `color_palettes` is from the earlier step 4, which asked which palettes
+    the user liked; today's app doesn't send it, and leaving it out keeps
+    whatever was saved."""
+
+    skin_shade: int | None = Field(default=None, ge=1, le=10)
+    undertone: Undertone | None = None
+    color_palettes: list[ColorPalette] | None = Field(default=None, max_length=6)
 
 
 class StyleBlueprintLifestyleRequest(BaseModel):
@@ -178,6 +184,7 @@ class StyleProfileResponse(BaseModel):
     fit_bottoms: BottomsFit | None = None
     style_aesthetics: list[StyleAesthetic] | None = None
     micro_aesthetics: list[MicroAesthetic] | None = None
+    skin_shade: int | None = None
     undertone: Undertone | None = None
     color_palettes: list[ColorPalette] | None = None
     occupation: str | None = None

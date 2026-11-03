@@ -177,15 +177,19 @@ def set_blueprint_aesthetics(
 def set_blueprint_color(
     db: Session, *, user: User, payload: StyleBlueprintColorRequest
 ) -> OnboardingStep:
-    """Step 4 — undertone + preferred palettes."""
-    palettes = _dedup(payload.color_palettes)
-    _merge_style_profile(
-        user, {"undertone": payload.undertone, "color_palettes": palettes}
-    )
+    """Step 4 — skin shade + undertone (both null when skipped). Palettes
+    are only written when sent (older clients)."""
+    answers: dict = {"skin_shade": payload.skin_shade, "undertone": payload.undertone}
+    if payload.color_palettes is not None:
+        answers["color_palettes"] = _dedup(payload.color_palettes)
+    _merge_style_profile(user, answers)
     nxt = _advance(user, "style_blueprint_4")
     db.commit()
     _log.info(
-        "profile.blueprint.color", user_id=str(user.id), undertone=payload.undertone
+        "profile.blueprint.color",
+        user_id=str(user.id),
+        skin_shade=payload.skin_shade,
+        undertone=payload.undertone,
     )
     return nxt
 

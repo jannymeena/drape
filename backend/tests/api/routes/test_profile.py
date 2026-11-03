@@ -83,7 +83,7 @@ _BLUEPRINT_STEPS = [
     ("identity", {"shopping_style": "womens", "age_range": "25-34"}),
     ("fit", {"body_shape": "hourglass", "fit_tops": "regular", "fit_bottoms": "relaxed"}),
     ("aesthetics", {"style_aesthetics": ["minimalist", "romantic"]}),
-    ("color", {"undertone": "warm", "color_palettes": ["earth_tones", "neutrals"]}),
+    ("color", {"skin_shade": 5, "undertone": "warm"}),
     (
         "lifestyle",
         {
@@ -148,6 +148,7 @@ def test_blueprint_answers_accumulate_in_style_profile(authed_client):
     assert profile["body_shape"] == "hourglass"
     assert profile["style_aesthetics"] == ["minimalist", "romantic"]
     assert profile["undertone"] == "warm"
+    assert profile["skin_shade"] == 5
     assert profile["occupation"] == "Marketing"
     assert profile["brand_tier"] == "premium"
     assert profile["three_month_feeling"] == "confident_anywhere"
@@ -196,6 +197,48 @@ def test_micro_aesthetics_reach_the_stylist_prompt():
         style_profile={"micro_aesthetics": ["quiet_luxury", "french_chic"]}
     )
     assert "micro aesthetics: quiet_luxury, french_chic." in block
+
+
+def test_blueprint_color_skip_saves_nothing_and_moves_on(authed_client):
+    """"Skip for now": no shade, no undertone; the step still completes, and
+    an earlier answer is cleared."""
+    url = "/api/v1/profile/style-blueprint/color"
+    authed_client.post(url, json={"skin_shade": 7, "undertone": "cool"})
+    r = authed_client.post(url, json={})
+    assert r.status_code == 200, r.text
+    assert r.json()["next_step"] == "style_blueprint_5"
+    profile = authed_client.get("/api/v1/profile/onboarding-status").json()[
+        "style_profile"
+    ]
+    assert profile["skin_shade"] is None and profile["undertone"] is None
+
+
+def test_blueprint_color_keeps_palettes_unless_sent(authed_client):
+    """Palettes came from the old step 4: an older client may still send
+    them; the new one doesn't, and that mustn't wipe them."""
+    url = "/api/v1/profile/style-blueprint/color"
+    authed_client.post(url, json={"undertone": "warm", "color_palettes": ["pastels"]})
+    authed_client.post(url, json={"skin_shade": 3, "undertone": "warm"})
+    profile = authed_client.get("/api/v1/profile/onboarding-status").json()[
+        "style_profile"
+    ]
+    assert profile["color_palettes"] == ["pastels"]
+    assert profile["skin_shade"] == 3
+
+
+def test_blueprint_color_rejects_a_shade_off_the_scale(authed_client):
+    url = "/api/v1/profile/style-blueprint/color"
+    for shade in (0, 11):
+        r = authed_client.post(url, json={"skin_shade": shade, "undertone": "warm"})
+        assert r.status_code == 422, shade
+
+
+def test_skin_shade_reaches_the_prompt_with_its_scale():
+    from app.services.stylist_prompt import about_the_user
+
+    block = about_the_user(style_profile={"skin_shade": 8, "undertone": "warm"})
+    assert "skin shade: 8 on a 1 (fairest) to 10 (deepest) scale." in block
+    assert "undertone: warm." in block
 
 
 def test_blueprint_identity_accepts_null_age_skip(authed_client):

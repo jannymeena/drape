@@ -83,7 +83,7 @@ def set_blueprint_color(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    """Step 4 of 7 — undertone + colour palettes."""
+    """Step 4 of 7 — skin shade + undertone (null when skipped)."""
     nxt = profile_service.set_blueprint_color(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 

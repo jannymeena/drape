@@ -28,9 +28,10 @@ STYLIST_EXPERTISE = (
     "fuller hips, define the waist on an hourglass, create one on a straighter "
     "frame with a belt or wrap), and lengthen with a tonal column, a V-neck or "
     "shoes in a similar tone to the legs or trousers. Flatter, never lecture.\n"
-    "- Colour: favour shades that suit the wearer's undertone and the palettes "
-    "they like. Keep to two or three colours, let a neutral carry a statement "
-    "piece, and repeat a colour to tie the look together.\n"
+    "- Colour: favour shades that suit the wearer's skin shade and undertone "
+    "(and the palettes they like, when given). Keep to two or three colours, "
+    "let a neutral carry a statement piece, and repeat a colour to tie the "
+    "look together.\n"
     "- Age: style for the wearer's age range with a modern eye. Clean fit, one "
     "current silhouette, updated footwear and fresh accessories keep a look "
     "youthful; avoid what reads dated (head-to-toe matching sets, tired "
@@ -101,6 +102,10 @@ def about_the_user(
     )
     for key, value in sorted((style_profile or {}).items()):
         if key == "occupation" or value in (None, "", []):
+            continue
+        if key == "skin_shade":
+            # A bare number means nothing to the model without its scale.
+            lines.append(f"skin shade: {value} on a 1 (fairest) to 10 (deepest) scale.")
             continue
         shown = ", ".join(map(str, value)) if isinstance(value, list) else value
         lines.append(f"{key.replace('_', ' ')}: {shown}.")
