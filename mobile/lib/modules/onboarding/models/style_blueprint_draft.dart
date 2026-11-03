@@ -17,6 +17,7 @@ class StyleBlueprintDraft {
     this.skinShade,
     this.undertone,
     this.colorPalettes = const [],
+    this.avoidColors = const [],
     this.occupation,
     this.dressCode,
     this.impressionGoal,
@@ -40,8 +41,10 @@ class StyleBlueprintDraft {
   final int? skinShade;
   final String? undertone;
 
-  // Step 5 — the colour palettes the user gravitates to.
+  // Step 5 — the colour palettes the user gravitates to, and the colours
+  // they'd rather avoid (optional).
   final List<String> colorPalettes;
+  final List<String> avoidColors;
 
   // Step 5 — lifestyle
   final String? occupation;
@@ -71,6 +74,7 @@ class StyleBlueprintDraft {
     List<String>? microAesthetics,
     String? undertone,
     List<String>? colorPalettes,
+    List<String>? avoidColors,
     String? occupation,
     String? dressCode,
     String? impressionGoal,
@@ -88,6 +92,7 @@ class StyleBlueprintDraft {
       skinShade: clearSkinTone ? null : skinShade ?? this.skinShade,
       undertone: clearSkinTone ? null : undertone ?? this.undertone,
       colorPalettes: colorPalettes ?? this.colorPalettes,
+      avoidColors: avoidColors ?? this.avoidColors,
       occupation: occupation ?? this.occupation,
       dressCode: dressCode ?? this.dressCode,
       impressionGoal: impressionGoal ?? this.impressionGoal,
@@ -110,6 +115,7 @@ class StyleBlueprintDraft {
       skinShade: (json['skin_shade'] as num?)?.toInt(),
       undertone: json['undertone'] as String?,
       colorPalettes: list('color_palettes'),
+      avoidColors: list('avoid_colors'),
       occupation: json['occupation'] as String?,
       dressCode: json['dress_code'] as String?,
       impressionGoal: json['impression_goal'] as String?,

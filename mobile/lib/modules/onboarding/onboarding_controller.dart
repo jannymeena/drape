@@ -229,11 +229,18 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
-  /// Step 5 — the colour palettes the user gravitates to. Draft only for now:
-  /// the step's API isn't connected yet, so nothing is sent.
-  void setBlueprintPalettes(List<String> palettes) {
+  /// Step 5 — the colour palettes the user gravitates to, and the colours
+  /// they'd rather avoid. Draft only for now: the step's API isn't connected
+  /// yet, so nothing is sent.
+  void setBlueprintPalettes(
+    List<String> palettes, {
+    List<String> avoid = const [],
+  }) {
     state = state.copyWith(
-      blueprint: state.blueprint.copyWith(colorPalettes: palettes),
+      blueprint: state.blueprint.copyWith(
+        colorPalettes: palettes,
+        avoidColors: avoid,
+      ),
     );
   }
 

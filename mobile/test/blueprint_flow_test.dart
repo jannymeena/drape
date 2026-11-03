@@ -713,6 +713,45 @@ void main() {
     expect(find.byType(BlueprintHabitsScreen), findsOneWidget);
   });
 
+  testWidgets('step 5’s “Colours I avoid” picks are kept', (tester) async {
+    final container = _container(_StubService());
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintPalettesScreen.path),
+    );
+
+    expect(
+      find.text('e.g., bright orange, neon yellows, magenta'),
+      findsOneWidget,
+    );
+    await _tap(tester, 'Add');
+    await tester.pumpAndSettle();
+    await _tap(tester, 'Magenta');
+    await _tap(tester, 'Bright orange');
+    await _tap(tester, 'Mustard');
+    await _tap(tester, 'Done');
+    await tester.pumpAndSettle();
+
+    // The picks show as chips instead of the example; one is taken off.
+    expect(
+      find.text('e.g., bright orange, neon yellows, magenta'),
+      findsNothing,
+    );
+    expect(find.text('Mustard'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Remove Mustard'));
+    await tester.pump();
+    expect(find.text('Mustard'), findsNothing);
+
+    await _tap(tester, 'EARTH TONES');
+    await _tap(tester, 'Continue');
+    // In list order, not pick order.
+    expect(container.read(onboardingControllerProvider).blueprint.avoidColors, [
+      'bright_orange',
+      'magenta',
+    ]);
+  });
+
   testWidgets('the reveal plays back what the steps captured', (tester) async {
     final container = _container(_StubService());
     addTearDown(container.dispose);
