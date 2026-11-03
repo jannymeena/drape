@@ -9,18 +9,43 @@ import '../widgets/blueprint_scaffold.dart';
 import 'shape_analyzing_screen.dart';
 import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
+import 'shape_photo_error_screen.dart';
 import 'shape_photo_frame.dart';
 
 /// The photo framing check: the shot with shoulder / waist / hip guides, and
-/// the option to blur the face before it's analyzed.
-class ShapePhotoReviewScreen extends ConsumerWidget {
+/// the option to blur the face before it's analyzed. "Use This Photo" draws
+/// both into a new image, which the rest of the flow uses instead.
+class ShapePhotoReviewScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/blueprint/shape/photo/review';
   static const name = 'shape_photo_review';
 
   const ShapePhotoReviewScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ShapePhotoReviewScreen> createState() =>
+      _ShapePhotoReviewScreenState();
+}
+
+class _ShapePhotoReviewScreenState
+    extends ConsumerState<ShapePhotoReviewScreen> {
+  bool _framing = false;
+
+  Future<void> _usePhoto() async {
+    if (_framing) return;
+    setState(() => _framing = true);
+    String next;
+    try {
+      await ref.read(shapeFinderProvider.notifier).framePhoto();
+      next = ShapeAnalyzingScreen.name;
+    } on PhotoUnreadableException {
+      next = ShapePhotoErrorScreen.name;
+    }
+    if (!mounted) return;
+    context.pushReplacementNamed(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final finder = ref.watch(shapeFinderProvider);
     final edit = ref.read(shapeFinderProvider.notifier);
     final photo = finder.photo;
@@ -129,17 +154,17 @@ class ShapePhotoReviewScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         ShapeFinderPrimaryButton(
-          label: 'Use This Photo',
-          trailing: Icons.arrow_forward,
-          onPressed: photo == null
-              ? null
-              : () => context.pushReplacementNamed(ShapeAnalyzingScreen.name),
+          label: _framing ? 'Preparing photo…' : 'Use This Photo',
+          trailing: _framing ? null : Icons.arrow_forward,
+          onPressed: photo == null || _framing ? null : _usePhoto,
         ),
         const SizedBox(height: 4),
         ShapeFinderLink(
           label: 'Retake photo',
           leading: Icons.photo_camera_outlined,
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            if (!_framing) Navigator.of(context).pop();
+          },
         ),
       ],
     );

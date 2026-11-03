@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart' show Offset, Size;
@@ -6,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/body_shapes.dart';
 import '../models/measurements_draft.dart';
+import 'shape_photo_render.dart';
 
 /// The "Not sure?" sub-flow of Style Blueprint step 2: the user either enters
 /// four measurements or takes/uploads a full-body photo, and we suggest a body
@@ -117,10 +119,14 @@ class FaceBlur {
 class ShapePhoto {
   const ShapePhoto({required this.file, required this.guides, this.faceBlur});
 
+  /// The framed photo: the face blur and the guide lines are already drawn
+  /// into it (see [ShapePhotoRenderer]).
   final XFile file;
+
+  /// Where the lines were drawn, for the analysis to use as a starting point.
   final FramingGuides guides;
 
-  /// Where to blur before analysis; null when the user turned blurring off.
+  /// Where the face was blurred; null when the user turned blurring off.
   final FaceBlur? faceBlur;
 }
 
@@ -204,6 +210,7 @@ class ShapeFinderState {
     this.imperial = false,
     this.cm = const {},
     this.photo,
+    this.framed = false,
     this.photoSize,
     this.guides = const FramingGuides(),
     this.faceBlur = const FaceBlur(),
@@ -226,7 +233,13 @@ class ShapeFinderState {
   /// Entered measurements, always in centimetres.
   final Map<MeasurementField, double> cm;
 
+  /// The photo being checked; after "Use This Photo", the framed copy that
+  /// replaces it (see [framed]).
   final XFile? photo;
+
+  /// [photo] has the face blur and the guide lines drawn into it, and the
+  /// original is gone. The blur and the lines can no longer be edited.
+  final bool framed;
 
   /// [photo]'s pixel size, once read; the review screen frames it at this
   /// aspect ratio so nothing is cropped.
@@ -243,6 +256,7 @@ class ShapeFinderState {
     bool? imperial,
     Map<MeasurementField, double>? cm,
     XFile? photo,
+    bool? framed,
     Size? photoSize,
     FramingGuides? guides,
     FaceBlur? faceBlur,
@@ -256,6 +270,7 @@ class ShapeFinderState {
     imperial: imperial ?? this.imperial,
     cm: cm ?? this.cm,
     photo: photo ?? this.photo,
+    framed: framed ?? this.framed,
     photoSize: photoSize ?? this.photoSize,
     guides: guides ?? this.guides,
     faceBlur: faceBlur ?? this.faceBlur,
@@ -266,9 +281,11 @@ class ShapeFinderState {
 }
 
 class ShapeFinderController extends StateNotifier<ShapeFinderState> {
-  ShapeFinderController(this._estimator) : super(const ShapeFinderState());
+  ShapeFinderController(this._estimator, this._renderer)
+    : super(const ShapeFinderState());
 
   final BodyShapeEstimator _estimator;
+  final ShapePhotoRenderer _renderer;
 
   /// Starts afresh from step 2, remembering its fit answers. [saved] are
   /// measurements entered earlier (in cm); they prefill the measurements path.
@@ -343,6 +360,37 @@ class ShapeFinderController extends StateNotifier<ShapeFinderState> {
 
   void setBlurFace(bool blur) => state = state.copyWith(blurFace: blur);
 
+  /// "Use This Photo": draws the face blur (if on) and the guide lines into a
+  /// new image, which replaces [ShapeFinderState.photo] from here on, and
+  /// deletes the original. Throws [PhotoUnreadableException].
+  Future<XFile> framePhoto() async {
+    final original = state.photo;
+    if (original == null) throw const PhotoUnreadableException();
+    if (state.framed) return original;
+    final framed = await _renderer.render(
+      original,
+      guides: state.guides,
+      faceBlur: state.blurFace ? state.faceBlur : null,
+    );
+    if (mounted && state.photo == original) {
+      state = state.copyWith(photo: framed, framed: true);
+    }
+    await _deletePicked(original);
+    return framed;
+  }
+
+  /// image_picker hands over a copy in the app's cache on Android and iOS,
+  /// so deleting it never touches the user's own gallery. Elsewhere the path
+  /// may be the user's file, so it's left alone.
+  static Future<void> _deletePicked(XFile photo) async {
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    try {
+      await File(photo.path).delete();
+    } on FileSystemException {
+      // Already gone.
+    }
+  }
+
   Future<ShapeEstimate> estimateFromMeasurements() async {
     final estimate = await _estimator.fromMeasurements(state.set, state.cm);
     state = state.copyWith(
@@ -354,8 +402,7 @@ class ShapeFinderController extends StateNotifier<ShapeFinderState> {
 
   /// Throws [PhotoUnreadableException].
   Future<ShapeEstimate> estimateFromPhoto() async {
-    final photo = state.photo;
-    if (photo == null) throw const PhotoUnreadableException();
+    final photo = state.framed ? state.photo! : await framePhoto();
     final estimate = await _estimator.fromPhoto(
       state.set,
       ShapePhoto(
@@ -378,5 +425,8 @@ class ShapeFinderController extends StateNotifier<ShapeFinderState> {
 
 final shapeFinderProvider =
     StateNotifierProvider<ShapeFinderController, ShapeFinderState>(
-      (ref) => ShapeFinderController(ref.read(bodyShapeEstimatorProvider)),
+      (ref) => ShapeFinderController(
+        ref.read(bodyShapeEstimatorProvider),
+        ref.read(shapePhotoRendererProvider),
+      ),
     );

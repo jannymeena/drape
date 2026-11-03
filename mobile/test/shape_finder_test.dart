@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile/modules/onboarding/models/body_shapes.dart';
 import 'package:mobile/modules/onboarding/models/measurements_draft.dart';
@@ -17,6 +20,7 @@ import 'package:mobile/modules/onboarding/shape_finder/shape_intro_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_measure_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_error_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_frame.dart';
+import 'package:mobile/modules/onboarding/shape_finder/shape_photo_render.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_review_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_tips_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_result_screen.dart';
@@ -71,6 +75,30 @@ class _FakeEstimator implements BodyShapeEstimator {
     lastPhoto = photo;
     if (photoUnreadable) throw const PhotoUnreadableException();
     return _estimate;
+  }
+}
+
+/// Hands back a fixed "framed" file without drawing anything.
+class _FakeRenderer implements ShapePhotoRenderer {
+  static final framedFile = XFile('/nonexistent/framed.jpg');
+
+  /// What the last render was asked to draw.
+  XFile? original;
+  FramingGuides? guides;
+  FaceBlur? faceBlur;
+  int renders = 0;
+
+  @override
+  Future<XFile> render(
+    XFile original, {
+    required FramingGuides guides,
+    FaceBlur? faceBlur,
+  }) async {
+    renders++;
+    this.original = original;
+    this.guides = guides;
+    this.faceBlur = faceBlur;
+    return framedFile;
   }
 }
 
@@ -167,14 +195,17 @@ void main() {
 
   late _StubService service;
   late _FakeEstimator estimator;
+  late _FakeRenderer renderer;
 
   Future<ProviderContainer> womenAtStep2(WidgetTester tester) async {
     service = _StubService();
     estimator = _FakeEstimator();
+    renderer = _FakeRenderer();
     final container = ProviderContainer(
       overrides: [
         onboardingServiceProvider.overrideWithValue(service),
         bodyShapeEstimatorProvider.overrideWithValue(estimator),
+        shapePhotoRendererProvider.overrideWithValue(renderer),
       ],
     );
     addTearDown(container.dispose);
@@ -375,13 +406,76 @@ void main() {
     await tester.pumpAndSettle();
     expect(finder().faceBlur.radius, greaterThan(radiusBefore));
 
-    // Turned off, the disc goes and the analysis isn't asked to blur.
+    // Turned off, the disc goes and nothing is blurred.
     await _tap(tester, find.byType(Switch));
     expect(find.bySemanticsLabel(RegExp(r'^Face blur\.')), findsNothing);
+    final guides = finder().guides;
     await _tap(tester, find.text('Use This Photo'));
-    expect(estimator.lastPhoto!.faceBlur, isNull);
-    expect(estimator.lastPhoto!.guides.waist, finder().guides.waist);
+    expect(renderer.faceBlur, isNull);
+    expect(renderer.guides!.waist, guides.waist);
+
+    // The framed image replaces the original for the rest of the flow, and
+    // isn't framed a second time.
+    expect(finder().framed, isTrue);
+    expect(finder().photo, _FakeRenderer.framedFile);
+    expect(estimator.lastPhoto!.file, _FakeRenderer.framedFile);
+    expect(renderer.renders, 1);
   });
+
+  testWidgets(
+    '“Use This Photo” draws the blur and the lines into a new image',
+    (tester) async {
+      // Left half black, right half white: the face circle sits on the seam.
+      const w = 720, h = 960;
+      final source = img.Image(width: w, height: h);
+      img.fillRect(
+        source,
+        x1: w ~/ 2,
+        y1: 0,
+        x2: w - 1,
+        y2: h - 1,
+        color: img.ColorRgb8(255, 255, 255),
+      );
+      final dir = Directory.systemTemp.createTempSync('shape_photo_render');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final original = File('${dir.path}/original.png')
+        ..writeAsBytesSync(img.encodePng(source));
+
+      const guides = FramingGuides(shoulders: 0.25, waist: 0.45, hips: 0.6);
+      const blur = FaceBlur(center: Offset(0.5, 0.12), radius: 0.1);
+      final out = await tester.runAsync(
+        () => CanvasShapePhotoRenderer(
+          directory: () async => dir,
+        ).render(XFile(original.path), guides: guides, faceBlur: blur),
+      );
+      final framed = img.decodeJpg(File(out!.path).readAsBytesSync())!;
+
+      // A new file, the same size; the original is untouched.
+      expect(out.path, isNot(original.path));
+      expect((framed.width, framed.height), (w, h));
+      expect(original.existsSync(), isTrue);
+
+      num lum(int x, int y) => framed.getPixel(x, y).luminance;
+      // Across the seam inside the circle, black and white are blurred to grey.
+      final cy = (0.12 * h).round();
+      expect(lum(w ~/ 2 - 6, cy), inInclusiveRange(60, 220));
+      expect(lum(w ~/ 2 + 6, cy), inInclusiveRange(60, 220));
+      // Outside it, the seam stays sharp.
+      final below = (0.9 * h).round();
+      expect(lum(w ~/ 2 - 6, below), lessThan(20));
+      expect(lum(w ~/ 2 + 6, below), greaterThan(235));
+      // Each line ends in a gold dot (#EBC07D) on the black half's left edge
+      // and the white half's right edge (20 pt in from the sides, x2 here).
+      for (final y in [guides.shoulders, guides.waist, guides.hips]) {
+        for (final x in [40, w - 40]) {
+          final p = framed.getPixel(x, (y * h).round());
+          expect(p.r, closeTo(0xEB, 24), reason: 'red at $x,$y');
+          expect(p.g, closeTo(0xC0, 24), reason: 'green at $x,$y');
+          expect(p.b, closeTo(0x7D, 24), reason: 'blue at $x,$y');
+        }
+      }
+    },
+  );
 
   testWidgets('photo buttons wait for consent', (tester) async {
     await womenAtStep2(tester);

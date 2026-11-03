@@ -14,8 +14,8 @@ import 'shape_photo_frame.dart';
 import 'shape_photo_error_screen.dart';
 import 'shape_result_screen.dart';
 
-/// While the photo is analyzed: the shot, greyed, with a scan passing over an
-/// outline. Hands over to the result, or to the error screen.
+/// While the photo is analyzed: the framed shot (face blur and guide lines
+/// drawn in), greyed, with a scan passing over an outline. Hands over to the result, or to the error screen.
 class ShapeAnalyzingScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/blueprint/shape/photo/analyzing';
   static const name = 'shape_analyzing';
@@ -88,7 +88,6 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
                 photoSize: finder.photoSize,
                 maxHeight: 340,
                 greyscale: true,
-                faceBlur: finder.blurFace ? finder.faceBlur : null,
                 overlays: [
                   Padding(
                     padding: const EdgeInsets.all(16),
