@@ -89,11 +89,13 @@ _BLUEPRINT_STEPS = [
         {"color_palettes": ["earth_tones", "neutrals"], "avoid_colors": ["magenta"]},
     ),
     (
-        "habits",
+        "work",
         {
-            "shopping_feeling": "confident",
-            "accessories": "minimal",
-            "brand_tier": "premium",
+            "occupations": ["marketing", "other"],
+            "occupation_other": "Brand Strategist",
+            "dress_code": "smart_casual",
+            "day_formality": "smart_casual",
+            "impression_goal": "dating",
         },
     ),
     (
@@ -147,7 +149,10 @@ def test_blueprint_answers_accumulate_in_style_profile(authed_client):
     assert profile["skin_shade"] == 5
     assert profile["color_palettes"] == ["earth_tones", "neutrals"]
     assert profile["avoid_colors"] == ["magenta"]
-    assert profile["brand_tier"] == "premium"
+    assert profile["occupations"] == ["marketing", "other"]
+    assert profile["occupation_other"] == "Brand Strategist"
+    assert profile["dress_code"] == "smart_casual"
+    assert profile["day_formality"] == "smart_casual"
     assert profile["three_month_feeling"] == "confident_anywhere"
     # Step 1 and 7 still write their dedicated columns.
     assert body["shopping_style"] == "womens"
@@ -287,6 +292,75 @@ def test_avoided_colours_reach_the_prompt_in_words():
         style_profile={"avoid_colors": ["bright_orange", "hot_pink"]}
     )
     assert "colours they avoid: bright orange, hot pink." in block
+
+
+_WORK = {
+    "occupations": ["healthcare"],
+    "dress_code": "uniform_other",
+    "day_formality": "casual",
+    "impression_goal": "work",
+}
+
+
+def test_blueprint_work_marks_step_6_done(authed_client):
+    r = authed_client.post("/api/v1/profile/style-blueprint/work", json=_WORK)
+    assert r.status_code == 200, r.text
+    assert r.json()["next_step"] == "style_blueprint_7"
+
+
+def test_blueprint_work_not_working_drops_the_dress_code(authed_client):
+    r = authed_client.post(
+        "/api/v1/profile/style-blueprint/work",
+        json=dict(_WORK, occupations=["not_working"], dress_code="casual"),
+    )
+    assert r.status_code == 200, r.text
+    profile = authed_client.get("/api/v1/profile/onboarding-status").json()[
+        "style_profile"
+    ]
+    assert profile["occupations"] == ["not_working"]
+    assert profile["dress_code"] is None
+
+
+def test_blueprint_work_keeps_other_text_only_with_other(authed_client):
+    authed_client.post(
+        "/api/v1/profile/style-blueprint/work",
+        json=dict(_WORK, occupation_other="  Florist  "),
+    )
+    profile = authed_client.get("/api/v1/profile/onboarding-status").json()[
+        "style_profile"
+    ]
+    assert profile["occupation_other"] is None
+
+
+def test_blueprint_work_rejects_inconsistent_answers(authed_client):
+    url = "/api/v1/profile/style-blueprint/work"
+    for bad in (
+        dict(_WORK, occupations=[]),
+        dict(_WORK, occupations=["business", "student", "education"]),  # > 2
+        dict(_WORK, occupations=["not_working", "student"]),
+        dict(_WORK, occupations=["other"]),  # no occupation_other
+        dict(_WORK, occupations=["other"], occupation_other="   "),
+        dict(_WORK, occupation_other="x" * 41, occupations=["other"]),
+        dict(_WORK, dress_code=None),  # working, so required
+        dict(_WORK, day_formality="black_tie"),
+        dict(_WORK, occupations=["astronaut"]),
+    ):
+        r = authed_client.post(url, json=bad)
+        assert r.status_code == 422, bad
+
+
+def test_free_text_occupation_stays_out_of_the_prompt():
+    from app.services.stylist_prompt import about_the_user
+
+    block = about_the_user(
+        style_profile={
+            "occupations": ["other"],
+            "occupation_other": "Brand Strategist",
+            "day_formality": "business",
+        }
+    )
+    assert "Brand Strategist" not in block
+    assert "day formality: business." in block
 
 
 def test_blueprint_identity_accepts_null_age_skip(authed_client):

@@ -35,6 +35,7 @@ from app.schemas.profile import (
     StyleBlueprintIdentityRequest,
     StyleBlueprintLifestyleRequest,
     StyleBlueprintPalettesRequest,
+    StyleBlueprintWorkRequest,
     StyleProfileResponse,
 )
 
@@ -209,6 +210,32 @@ def set_blueprint_palettes(
         user_id=str(user.id),
         palettes=len(palettes),
         avoid=len(avoid),
+    )
+    return nxt
+
+
+def set_blueprint_work(
+    db: Session, *, user: User, payload: StyleBlueprintWorkRequest
+) -> OnboardingStep:
+    """Step 6 — work and lifestyle (the request model keeps it consistent:
+    no dress code when not working, `occupation_other` only with `other`)."""
+    _merge_style_profile(
+        user,
+        {
+            "occupations": _dedup(payload.occupations),
+            "occupation_other": payload.occupation_other,
+            "dress_code": payload.dress_code,
+            "day_formality": payload.day_formality,
+            "impression_goal": payload.impression_goal,
+        },
+    )
+    nxt = _advance(user, "style_blueprint_6")
+    db.commit()
+    _log.info(
+        "profile.blueprint.work",
+        user_id=str(user.id),
+        occupations=payload.occupations,
+        day_formality=payload.day_formality,
     )
     return nxt
 

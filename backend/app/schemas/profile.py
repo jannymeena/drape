@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ShoppingStyle = Literal["womens", "mens", "both", "prefer_not_to_say"]
 AgeRange = Literal["18-24", "25-34", "35-44", "45-54", "55+", "prefer_not_to_say"]
@@ -75,7 +75,28 @@ AvoidColor = Literal[
 ColorPalette = Literal[
     "neutrals", "earth_tones", "jewel_tones", "pastels", "black_white", "bold_bright"
 ]
-DressCode = Literal["casual", "business_casual", "business_formal", "uniform_other"]
+DressCode = Literal[
+    "casual", "smart_casual", "business_casual", "business_formal", "uniform_other"
+]
+# Step 6 — what the user does (pick up to two) and how dressed up a typical
+# day is.
+Occupation = Literal[
+    "office_corporate",
+    "business",
+    "marketing",
+    "media_communications",
+    "tech_remote",
+    "creative_design",
+    "healthcare",
+    "education",
+    "trades_outdoor",
+    "hospitality_retail",
+    "student",
+    "self_employed",
+    "not_working",
+    "other",
+]
+DayFormality = Literal["athleisure", "casual", "smart_casual", "business", "formal"]
 ImpressionGoal = Literal["work", "dating", "both", "content"]
 ShoppingFeeling = Literal["confident", "necessity", "frustrated", "exploring"]
 Accessories = Literal["none", "minimal", "statement"]
@@ -170,8 +191,36 @@ class StyleBlueprintPalettesRequest(BaseModel):
     avoid_colors: list[AvoidColor] = Field(default_factory=list, max_length=12)
 
 
+class StyleBlueprintWorkRequest(BaseModel):
+    """Step 6 — work and lifestyle: one or two occupations (`other` with its
+    own words in `occupation_other`), the dress code (none when not working),
+    how dressed up a typical day is, and where the user wants to impress."""
+
+    occupations: list[Occupation] = Field(min_length=1, max_length=2)
+    occupation_other: str | None = Field(default=None, max_length=40)
+    dress_code: DressCode | None = None
+    day_formality: DayFormality
+    impression_goal: ImpressionGoal
+
+    @model_validator(mode="after")
+    def _consistent(self) -> "StyleBlueprintWorkRequest":
+        if "not_working" in self.occupations and len(self.occupations) > 1:
+            raise ValueError("not_working can't be combined with an occupation")
+        other = (self.occupation_other or "").strip()
+        if "other" in self.occupations and not other:
+            raise ValueError("occupation_other is required with other")
+        # Only kept when it describes the user's "other".
+        self.occupation_other = other if "other" in self.occupations else None
+        if "not_working" in self.occupations:
+            self.dress_code = None
+        elif self.dress_code is None:
+            raise ValueError("dress_code is required unless not_working")
+        return self
+
+
 class StyleBlueprintLifestyleRequest(BaseModel):
-    """Step 5 — work context. `dress_code` is null when the user isn't working."""
+    """The earlier step 5 — work context, superseded by step 6's
+    StyleBlueprintWorkRequest. `dress_code` is null when not working."""
 
     occupation: str | None = Field(default=None, max_length=120)
     dress_code: DressCode | None = None
@@ -179,7 +228,8 @@ class StyleBlueprintLifestyleRequest(BaseModel):
 
 
 class StyleBlueprintHabitsRequest(BaseModel):
-    """Step 6 — attitude to shopping, accessories, and price bracket."""
+    """The earlier step 6 — attitude to shopping, accessories, and price
+    bracket. The app no longer asks it."""
 
     shopping_feeling: ShoppingFeeling
     accessories: Accessories
@@ -213,7 +263,10 @@ class StyleProfileResponse(BaseModel):
     color_palettes: list[ColorPalette] | None = None
     avoid_colors: list[AvoidColor] | None = None
     occupation: str | None = None
+    occupations: list[Occupation] | None = None
+    occupation_other: str | None = None
     dress_code: DressCode | None = None
+    day_formality: DayFormality | None = None
     impression_goal: ImpressionGoal | None = None
     shopping_feeling: ShoppingFeeling | None = None
     accessories: Accessories | None = None

@@ -30,6 +30,7 @@ from app.schemas.profile import (
     StyleBlueprintIdentityRequest,
     StyleBlueprintLifestyleRequest,
     StyleBlueprintPalettesRequest,
+    StyleBlueprintWorkRequest,
 )
 from app.schemas.user import UserResponse
 from app.services import avatar_analysis, profile_service
@@ -100,6 +101,18 @@ def set_blueprint_palettes(
     return ProfileStepResponse(next_step=nxt)
 
 
+@router.post("/style-blueprint/work", response_model=ProfileStepResponse)
+def set_blueprint_work(
+    payload: StyleBlueprintWorkRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ProfileStepResponse:
+    """Step 6 of 7 — occupations, dress code, typical-day formality, and
+    where the user wants to impress."""
+    nxt = profile_service.set_blueprint_work(db, user=user, payload=payload)
+    return ProfileStepResponse(next_step=nxt)
+
+
 @router.post("/style-blueprint/lifestyle", response_model=ProfileStepResponse)
 def set_blueprint_lifestyle(
     payload: StyleBlueprintLifestyleRequest,
@@ -119,7 +132,8 @@ def set_blueprint_habits(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    """Step 6 of 7 — shopping attitude, accessories, brand tier."""
+    """The earlier step 6 (shopping attitude, accessories, brand tier). The
+    app no longer asks it; kept so saved answers and older clients work."""
     nxt = profile_service.set_blueprint_habits(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 
