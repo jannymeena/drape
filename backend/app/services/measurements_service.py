@@ -7,6 +7,7 @@ read; an operator with raw DB access cannot infer measurements without the DEK.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 import structlog
 from sqlalchemy import select
@@ -30,6 +31,9 @@ _PLAINTEXT_FIELDS = (
     "hips_cm",
 )
 
+# Everything but weight, which is optional: with these the set is complete.
+_REQUIRED_FIELDS = tuple(f for f in _PLAINTEXT_FIELDS if f != "weight_kg")
+
 
 class MeasurementsError(Exception):
     """Domain-level measurements failure. Routes translate to 4xx."""
@@ -39,8 +43,8 @@ class MeasurementsError(Exception):
         self.code = code
 
 
-def _serialize(payload: MeasurementsRequest) -> bytes:
-    body = {f: getattr(payload, f) for f in _PLAINTEXT_FIELDS}
+def _serialize(values: dict[str, float | None]) -> bytes:
+    body = {f: values.get(f) for f in _PLAINTEXT_FIELDS}
     return json.dumps(body, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
 
@@ -62,46 +66,104 @@ def submit(
     entered from the Shop/Profile tabs, so writing a step pointer here would
     rewind a user who has already finished the blueprint.
     """
-    plaintext = _serialize(payload)
-    ciphertext = encryptor.encrypt(plaintext, user_id=user.id)
-    # Derive the coarse fit profile now, while the plaintext is in hand —
-    # outfit generation then never needs to decrypt (§5.5.1).
-    derived = fit_profile.derive({f: getattr(payload, f) for f in _PLAINTEXT_FIELDS})
+    row = _row(db, user)
+    values = {f: getattr(payload, f) for f in _PLAINTEXT_FIELDS}
+    result = _store(
+        db, encryptor=encryptor, user=user, row=row, values=values,
+        unit_system=payload.unit_system,
+    )
+    _log.info("measurements.submit", user_id=str(user.id), unit_system=payload.unit_system)
+    return result
 
-    row = db.scalar(
+
+def update(
+    db: Session,
+    *,
+    encryptor: Encryptor,
+    user: User,
+    changes: dict[str, float | None],
+    unit_system: str | None = None,
+) -> MeasurementsResponse:
+    """Merge [changes] into the saved measurements (None clears a field) and
+    re-encrypt. Works with none saved yet; the set is marked complete once
+    every required field is in. Like [submit], leaves onboarding alone.
+
+    Raises MeasurementsError("decrypt_failed") when the saved set can't be
+    read: merging into it would silently wipe the rest.
+    """
+    unknown = set(changes) - set(_PLAINTEXT_FIELDS)
+    if unknown:
+        raise MeasurementsError("unknown_field", f"Unknown measurements: {sorted(unknown)}")
+    row = _row(db, user)
+    values: dict[str, float | None] = dict.fromkeys(_PLAINTEXT_FIELDS)
+    if row is not None:
+        values.update(_decrypt(row, encryptor=encryptor, user=user))
+    values.update(changes)
+    result = _store(
+        db, encryptor=encryptor, user=user, row=row, values=values,
+        unit_system=unit_system or (row.unit_system if row else "metric"),
+    )
+    _log.info(
+        "measurements.update",
+        user_id=str(user.id),
+        fields=sorted(changes),
+        is_complete=result.is_complete,
+    )
+    return result
+
+
+def _row(db: Session, user: User) -> UserMeasurements | None:
+    return db.scalar(
         select(UserMeasurements).where(UserMeasurements.user_id == user.id)
     )
-    from datetime import datetime, timezone
 
-    now = datetime.now(timezone.utc)
+
+def _decrypt(row: UserMeasurements, *, encryptor: Encryptor, user: User) -> dict:
+    try:
+        plaintext = encryptor.decrypt(row.ciphertext, user_id=user.id)
+    except Exception:
+        # AAD mismatch / tag failure / DEK rotation gone wrong. Logged but
+        # surfaced as a domain error so the route returns 500 with no detail.
+        _log.exception("measurements.decrypt_failed", user_id=str(user.id))
+        raise MeasurementsError("decrypt_failed", "Measurements could not be decrypted")
+    return _deserialize(plaintext)
+
+
+def _store(
+    db: Session,
+    *,
+    encryptor: Encryptor,
+    user: User,
+    row: UserMeasurements | None,
+    values: dict[str, float | None],
+    unit_system: str,
+) -> MeasurementsResponse:
+    """Encrypt [values] onto the user's row (created if needed) and commit."""
+    ciphertext = encryptor.encrypt(_serialize(values), user_id=user.id)
+    # Derive the coarse fit profile now, while the plaintext is in hand —
+    # outfit generation then never needs to decrypt (§5.5.1).
+    derived = fit_profile.derive(values)
+    complete = all(values.get(f) is not None for f in _REQUIRED_FIELDS)
+
     if row is None:
-        row = UserMeasurements(
-            user_id=user.id,
-            ciphertext=ciphertext,
-            unit_system=payload.unit_system,
-            is_complete=True,
-            completed_at=now,
-            fit_profile=derived,
-        )
+        row = UserMeasurements(user_id=user.id)
         db.add(row)
-    else:
-        row.ciphertext = ciphertext
-        row.unit_system = payload.unit_system
-        row.is_complete = True
-        row.completed_at = now
-        row.fit_profile = derived
+    row.ciphertext = ciphertext
+    row.unit_system = unit_system
+    # completed_at: when the set first became complete; cleared if it stops
+    # being complete (a required field was cleared).
+    if not complete:
+        row.completed_at = None
+    elif not row.is_complete or row.completed_at is None:
+        row.completed_at = datetime.now(timezone.utc)
+    row.is_complete = complete
+    row.fit_profile = derived
 
     db.commit()
-    _log.info(
-        "measurements.submit",
-        user_id=str(user.id),
-        unit_system=payload.unit_system,
-        ciphertext_bytes=len(ciphertext),
-    )
     return MeasurementsResponse(
-        **{f: getattr(payload, f) for f in _PLAINTEXT_FIELDS},
-        unit_system=payload.unit_system,
-        is_complete=True,
+        **{f: values.get(f) for f in _PLAINTEXT_FIELDS},
+        unit_system=unit_system,
+        is_complete=complete,
     )
 
 
@@ -161,19 +223,10 @@ def get_for_user(
     db: Session, *, encryptor: Encryptor, user: User
 ) -> MeasurementsResponse | None:
     """Fetch + decrypt the user's measurements, or None if they haven't submitted."""
-    row = db.scalar(
-        select(UserMeasurements).where(UserMeasurements.user_id == user.id)
-    )
+    row = _row(db, user)
     if row is None:
         return None
-    try:
-        plaintext = encryptor.decrypt(row.ciphertext, user_id=user.id)
-    except Exception:
-        # AAD mismatch / tag failure / DEK rotation gone wrong. Logged but
-        # surfaced as a domain error so the route returns 500 with no detail.
-        _log.exception("measurements.decrypt_failed", user_id=str(user.id))
-        raise MeasurementsError("decrypt_failed", "Measurements could not be decrypted")
-    body = _deserialize(plaintext)
+    body = _decrypt(row, encryptor=encryptor, user=user)
     return MeasurementsResponse(
         **body,
         unit_system=row.unit_system,

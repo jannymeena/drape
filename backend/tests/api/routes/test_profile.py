@@ -275,6 +275,109 @@ def test_measurements_rejects_implausible_values(authed_client):
 
 
 # ---------------------------------------------------------------------------
+# Measurements — partial save (PATCH)
+# ---------------------------------------------------------------------------
+
+# The four the Style Blueprint shape finder asks for.
+_SHAPE_FINDER = {
+    "chest_cm": 92.0,
+    "waist_cm": 72.0,
+    "hips_cm": 98.0,
+    "shoulders_cm": 40.0,
+}
+
+
+def _row(db, user):
+    db.expire_all()
+    return db.scalar(select(UserMeasurements).where(UserMeasurements.user_id == user.id))
+
+
+def test_patch_saves_a_partial_set_with_none_before(authed_client, db):
+    r = authed_client.patch("/api/v1/profile/measurements", json=_SHAPE_FINDER)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["is_complete"] is False
+    assert body["waist_cm"] == 72.0
+    assert body["height_cm"] is None
+    assert body["unit_system"] == "metric"
+
+    # GET reads the partial set back, the missing ones as null.
+    r = authed_client.get("/api/v1/profile/measurements")
+    assert r.status_code == 200
+    got = r.json()
+    for key, value in _SHAPE_FINDER.items():
+        assert got[key] == value
+    assert got["inseam_cm"] is None and got["is_complete"] is False
+
+    row = _row(db, authed_client.test_user)
+    assert row.is_complete is False and row.completed_at is None
+    # Encrypted like a full set.
+    assert b"waist_cm" not in bytes(row.ciphertext)
+    # Bust, waist and hips are enough for the fit profile's shape.
+    assert row.fit_profile and "body_shape" in row.fit_profile
+
+
+def test_patch_merges_into_a_full_set(authed_client, db):
+    authed_client.post("/api/v1/profile/measurements", json=_MEAS)
+    completed_at = _row(db, authed_client.test_user).completed_at
+
+    r = authed_client.patch(
+        "/api/v1/profile/measurements", json={"waist_cm": 80.0, "unit_system": "imperial"}
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["waist_cm"] == 80.0
+    # Everything else as it was; still complete, completed_at unchanged.
+    for key in ("height_cm", "weight_kg", "inseam_cm", "thigh_cm", "hips_cm"):
+        assert body[key] == _MEAS[key]
+    assert body["is_complete"] is True and body["unit_system"] == "imperial"
+    assert _row(db, authed_client.test_user).completed_at == completed_at
+
+
+def test_patch_completes_the_set_once_every_required_field_is_in(authed_client, db):
+    authed_client.patch("/api/v1/profile/measurements", json=_SHAPE_FINDER)
+    r = authed_client.patch(
+        "/api/v1/profile/measurements",
+        json={"height_cm": 165.0, "inseam_cm": 76.0, "thigh_cm": 54.0},
+    )
+    assert r.json()["is_complete"] is True  # weight is optional
+    assert _row(db, authed_client.test_user).completed_at is not None
+
+    status = authed_client.get("/api/v1/profile/onboarding-status").json()
+    assert status["measurement_steps_completed"] == 7
+    assert status["next_incomplete_step"] is None
+
+
+def test_patch_null_clears_a_field(authed_client, db):
+    authed_client.post("/api/v1/profile/measurements", json=_MEAS)
+    r = authed_client.patch("/api/v1/profile/measurements", json={"thigh_cm": None})
+    assert r.status_code == 200, r.text
+    assert r.json()["thigh_cm"] is None
+    assert r.json()["is_complete"] is False
+    assert _row(db, authed_client.test_user).completed_at is None
+
+
+def test_patch_partial_progress_shows_on_onboarding_status(authed_client):
+    authed_client.patch("/api/v1/profile/measurements", json=_SHAPE_FINDER)
+    status = authed_client.get("/api/v1/profile/onboarding-status").json()
+    assert status["measurement_steps_completed"] == 4
+    assert status["next_incomplete_step"] == "measurements_step_1"  # height
+
+
+def test_patch_rejects_nothing_unknown_and_implausible(authed_client):
+    for bad in (
+        {},
+        {"unit_system": "imperial"},  # no measurement in it
+        {"neck_cm": 38.0},
+        {"waist_cm": 500.0},
+    ):
+        r = authed_client.patch("/api/v1/profile/measurements", json=bad)
+        assert r.status_code == 422, (bad, r.text)
+    # Nothing was saved.
+    assert authed_client.get("/api/v1/profile/measurements").status_code == 404
+
+
+# ---------------------------------------------------------------------------
 # Save progress
 # ---------------------------------------------------------------------------
 
