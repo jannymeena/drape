@@ -57,6 +57,21 @@ MicroAesthetic = Literal[
     "90s_slouch",
 ]
 Undertone = Literal["warm", "cool", "neutral"]
+# Step 5's "Colours I avoid" picker.
+AvoidColor = Literal[
+    "bright_orange",
+    "neon_yellow",
+    "magenta",
+    "hot_pink",
+    "lime_green",
+    "mustard",
+    "red",
+    "purple",
+    "olive",
+    "beige",
+    "grey",
+    "black",
+]
 ColorPalette = Literal[
     "neutrals", "earth_tones", "jewel_tones", "pastels", "black_white", "bold_bright"
 ]
@@ -138,12 +153,21 @@ class StyleBlueprintColorRequest(BaseModel):
     the undertone. Both null when the user skips the step ("Skip for now").
 
     `color_palettes` is from the earlier step 4, which asked which palettes
-    the user liked; today's app doesn't send it, and leaving it out keeps
-    whatever was saved."""
+    the user liked; they're step 5's now (StyleBlueprintPalettesRequest).
+    Older clients may still send them here; leaving them out keeps whatever
+    was saved."""
 
     skin_shade: int | None = Field(default=None, ge=1, le=10)
     undertone: Undertone | None = None
     color_palettes: list[ColorPalette] | None = Field(default=None, max_length=6)
+
+
+class StyleBlueprintPalettesRequest(BaseModel):
+    """Step 5 — the palettes the user gravitates to (at least one), and the
+    colours they'd rather avoid (optional; none clears earlier picks)."""
+
+    color_palettes: list[ColorPalette] = Field(min_length=1, max_length=6)
+    avoid_colors: list[AvoidColor] = Field(default_factory=list, max_length=12)
 
 
 class StyleBlueprintLifestyleRequest(BaseModel):
@@ -187,6 +211,7 @@ class StyleProfileResponse(BaseModel):
     skin_shade: int | None = None
     undertone: Undertone | None = None
     color_palettes: list[ColorPalette] | None = None
+    avoid_colors: list[AvoidColor] | None = None
     occupation: str | None = None
     dress_code: DressCode | None = None
     impression_goal: ImpressionGoal | None = None

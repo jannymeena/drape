@@ -29,6 +29,7 @@ from app.schemas.profile import (
     StyleBlueprintHabitsRequest,
     StyleBlueprintIdentityRequest,
     StyleBlueprintLifestyleRequest,
+    StyleBlueprintPalettesRequest,
 )
 from app.schemas.user import UserResponse
 from app.services import avatar_analysis, profile_service
@@ -88,13 +89,26 @@ def set_blueprint_color(
     return ProfileStepResponse(next_step=nxt)
 
 
+@router.post("/style-blueprint/palettes", response_model=ProfileStepResponse)
+def set_blueprint_palettes(
+    payload: StyleBlueprintPalettesRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ProfileStepResponse:
+    """Step 5 of 7 — colour palettes, and colours the user avoids."""
+    nxt = profile_service.set_blueprint_palettes(db, user=user, payload=payload)
+    return ProfileStepResponse(next_step=nxt)
+
+
 @router.post("/style-blueprint/lifestyle", response_model=ProfileStepResponse)
 def set_blueprint_lifestyle(
     payload: StyleBlueprintLifestyleRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    """Step 5 of 7 — work, dress code, where you want to impress."""
+    """The earlier step 5 (work, dress code, where you want to impress). The
+    app no longer asks it; kept so saved answers and older clients work.
+    Like step 5, it marks style_blueprint_5 done."""
     nxt = profile_service.set_blueprint_lifestyle(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 

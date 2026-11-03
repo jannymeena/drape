@@ -85,12 +85,8 @@ _BLUEPRINT_STEPS = [
     ("aesthetics", {"style_aesthetics": ["minimalist", "romantic"]}),
     ("color", {"skin_shade": 5, "undertone": "warm"}),
     (
-        "lifestyle",
-        {
-            "occupation": "Marketing",
-            "dress_code": "business_casual",
-            "impression_goal": "both",
-        },
+        "palettes",
+        {"color_palettes": ["earth_tones", "neutrals"], "avoid_colors": ["magenta"]},
     ),
     (
         "habits",
@@ -149,7 +145,8 @@ def test_blueprint_answers_accumulate_in_style_profile(authed_client):
     assert profile["style_aesthetics"] == ["minimalist", "romantic"]
     assert profile["undertone"] == "warm"
     assert profile["skin_shade"] == 5
-    assert profile["occupation"] == "Marketing"
+    assert profile["color_palettes"] == ["earth_tones", "neutrals"]
+    assert profile["avoid_colors"] == ["magenta"]
     assert profile["brand_tier"] == "premium"
     assert profile["three_month_feeling"] == "confident_anywhere"
     # Step 1 and 7 still write their dedicated columns.
@@ -239,6 +236,57 @@ def test_skin_shade_reaches_the_prompt_with_its_scale():
     block = about_the_user(style_profile={"skin_shade": 8, "undertone": "warm"})
     assert "skin shade: 8 on a 1 (fairest) to 10 (deepest) scale." in block
     assert "undertone: warm." in block
+
+
+def test_blueprint_palettes_saves_palettes_and_avoided_colours(authed_client):
+    """Step 5: both saved (de-duplicated, in the order sent) without touching
+    step 4's answers; re-answering without avoided colours clears them."""
+    authed_client.post(
+        "/api/v1/profile/style-blueprint/color",
+        json={"skin_shade": 6, "undertone": "warm"},
+    )
+    url = "/api/v1/profile/style-blueprint/palettes"
+    r = authed_client.post(
+        url,
+        json={
+            "color_palettes": ["pastels", "pastels", "neutrals"],
+            "avoid_colors": ["neon_yellow", "red"],
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["next_step"] == "style_blueprint_6"
+    profile = authed_client.get("/api/v1/profile/onboarding-status").json()[
+        "style_profile"
+    ]
+    assert profile["color_palettes"] == ["pastels", "neutrals"]
+    assert profile["avoid_colors"] == ["neon_yellow", "red"]
+    assert profile["skin_shade"] == 6 and profile["undertone"] == "warm"
+
+    authed_client.post(url, json={"color_palettes": ["pastels"]})
+    profile = authed_client.get("/api/v1/profile/onboarding-status").json()[
+        "style_profile"
+    ]
+    assert profile["avoid_colors"] == []
+
+
+def test_blueprint_palettes_rejects_bad_input(authed_client):
+    url = "/api/v1/profile/style-blueprint/palettes"
+    for bad in (
+        {"color_palettes": []},  # at least one
+        {"color_palettes": ["sepia"]},
+        {"color_palettes": ["pastels"], "avoid_colors": ["chartreuse"]},
+    ):
+        r = authed_client.post(url, json=bad)
+        assert r.status_code == 422, bad
+
+
+def test_avoided_colours_reach_the_prompt_in_words():
+    from app.services.stylist_prompt import about_the_user
+
+    block = about_the_user(
+        style_profile={"avoid_colors": ["bright_orange", "hot_pink"]}
+    )
+    assert "colours they avoid: bright orange, hot pink." in block
 
 
 def test_blueprint_identity_accepts_null_age_skip(authed_client):

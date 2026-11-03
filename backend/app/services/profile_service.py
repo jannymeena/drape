@@ -34,6 +34,7 @@ from app.schemas.profile import (
     StyleBlueprintHabitsRequest,
     StyleBlueprintIdentityRequest,
     StyleBlueprintLifestyleRequest,
+    StyleBlueprintPalettesRequest,
     StyleProfileResponse,
 )
 
@@ -190,6 +191,24 @@ def set_blueprint_color(
         user_id=str(user.id),
         skin_shade=payload.skin_shade,
         undertone=payload.undertone,
+    )
+    return nxt
+
+
+def set_blueprint_palettes(
+    db: Session, *, user: User, payload: StyleBlueprintPalettesRequest
+) -> OnboardingStep:
+    """Step 5 — palettes the user likes, and colours to keep away from."""
+    palettes = _dedup(payload.color_palettes)
+    avoid = _dedup(payload.avoid_colors)
+    _merge_style_profile(user, {"color_palettes": palettes, "avoid_colors": avoid})
+    nxt = _advance(user, "style_blueprint_5")
+    db.commit()
+    _log.info(
+        "profile.blueprint.palettes",
+        user_id=str(user.id),
+        palettes=len(palettes),
+        avoid=len(avoid),
     )
     return nxt
 
