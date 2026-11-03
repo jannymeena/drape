@@ -207,21 +207,25 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
-  /// Step 4 — undertone and colour palettes. [palettes] must be non-empty.
+  /// Step 4 — skin shade (1–10) and undertone; both null when the user
+  /// skips the step.
   Future<String> setBlueprintColor({
-    required String undertone,
-    required List<String> palettes,
+    required int? skinShade,
+    required String? undertone,
   }) {
     state = state.copyWith(
       blueprint: state.blueprint.copyWith(
+        skinShade: skinShade,
         undertone: undertone,
-        colorPalettes: palettes,
+        clearSkinTone: skinShade == null && undertone == null,
       ),
     );
     return _save(
       'color',
-      () =>
-          _service.setBlueprintColor(undertone: undertone, palettes: palettes),
+      () => _service.setBlueprintColor(
+        skinShade: skinShade,
+        undertone: undertone,
+      ),
     );
   }
 

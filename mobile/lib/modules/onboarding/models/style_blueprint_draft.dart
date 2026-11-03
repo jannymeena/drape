@@ -14,6 +14,7 @@ class StyleBlueprintDraft {
     this.fitBottoms,
     this.styleAesthetics = const [],
     this.microAesthetics = const [],
+    this.skinShade,
     this.undertone,
     this.colorPalettes = const [],
     this.occupation,
@@ -34,8 +35,13 @@ class StyleBlueprintDraft {
   final List<String> styleAesthetics;
   final List<String> microAesthetics;
 
-  // Step 4 — colour
+  // Step 4 — skin tone: shade 1 (fairest) to 10 (deepest), and undertone.
+  // Both null when the step was skipped.
+  final int? skinShade;
   final String? undertone;
+
+  /// From the earlier step 4 (palettes the user liked); no longer asked,
+  /// still read back for users who answered it.
   final List<String> colorPalettes;
 
   // Step 5 — lifestyle
@@ -53,9 +59,13 @@ class StyleBlueprintDraft {
 
   /// [clearBodyShape] sets [bodyShape] to null — a null argument alone means
   /// "unchanged", and "Not sure" has to be able to erase an earlier pick.
+  /// [clearSkinTone] likewise nulls [skinShade] and [undertone], for step 4's
+  /// "Skip for now".
   StyleBlueprintDraft copyWith({
     String? bodyShape,
     bool clearBodyShape = false,
+    int? skinShade,
+    bool clearSkinTone = false,
     String? fitTops,
     String? fitBottoms,
     List<String>? styleAesthetics,
@@ -76,7 +86,8 @@ class StyleBlueprintDraft {
       fitBottoms: fitBottoms ?? this.fitBottoms,
       styleAesthetics: styleAesthetics ?? this.styleAesthetics,
       microAesthetics: microAesthetics ?? this.microAesthetics,
-      undertone: undertone ?? this.undertone,
+      skinShade: clearSkinTone ? null : skinShade ?? this.skinShade,
+      undertone: clearSkinTone ? null : undertone ?? this.undertone,
       colorPalettes: colorPalettes ?? this.colorPalettes,
       occupation: occupation ?? this.occupation,
       dressCode: dressCode ?? this.dressCode,
@@ -97,6 +108,7 @@ class StyleBlueprintDraft {
       fitBottoms: json['fit_bottoms'] as String?,
       styleAesthetics: list('style_aesthetics'),
       microAesthetics: list('micro_aesthetics'),
+      skinShade: (json['skin_shade'] as num?)?.toInt(),
       undertone: json['undertone'] as String?,
       colorPalettes: list('color_palettes'),
       occupation: json['occupation'] as String?,

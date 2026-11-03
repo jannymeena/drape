@@ -96,6 +96,15 @@ class _StubService extends OnboardingService {
   }
 
   @override
+  Future<String> setBlueprintColor({
+    required int? skinShade,
+    required String? undertone,
+  }) async {
+    calls['color'] = {'skin_shade': skinShade, 'undertone': undertone};
+    return 'style_blueprint_5';
+  }
+
+  @override
   Future<String> setBlueprintGoals({
     required String threeMonthFeeling,
     required List<String> goals,
@@ -617,6 +626,62 @@ void main() {
       container.read(onboardingControllerProvider).blueprint.microAesthetics,
       ['quiet_luxury', '90s_slouch'],
     );
+  });
+
+  testWidgets('step 4 needs a shade and an undertone, then saves both', (
+    tester,
+  ) async {
+    final service = _StubService();
+    final container = _container(service);
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintColorScreen.path),
+    );
+    InkWell continueButton() => tester.widget<InkWell>(
+      find.ancestor(of: find.text('Continue'), matching: find.byType(InkWell)),
+    );
+
+    expect(find.text('What’s your skin tone?'), findsOneWidget);
+    // Nothing picked yet: no palette, and Continue is off.
+    expect(find.text('Colours that flatter you'), findsNothing);
+    expect(continueButton().onTap, isNull);
+
+    await tester.tap(find.bySemanticsLabel('Shade 7 of 10'));
+    await tester.pump();
+    expect(find.text('Tone 07 Selected'), findsOneWidget);
+    expect(find.text('Colours that flatter you'), findsOneWidget);
+    expect(continueButton().onTap, isNull);
+
+    await _tap(tester, 'Cool');
+    await _tap(tester, 'Continue');
+    expect(service.calls['color'], {'skin_shade': 7, 'undertone': 'cool'});
+    expect(container.read(onboardingControllerProvider).blueprint.skinShade, 7);
+  });
+
+  testWidgets('step 4’s “Skip for now” moves on without an answer', (
+    tester,
+  ) async {
+    final service = _StubService();
+    final container = _container(service);
+    addTearDown(container.dispose);
+    // An earlier answer, cleared by skipping.
+    final notifier = container.read(onboardingControllerProvider.notifier);
+    notifier.state = notifier.state.copyWith(
+      blueprint: const StyleBlueprintDraft(skinShade: 4, undertone: 'warm'),
+    );
+
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintColorScreen.path),
+    );
+    // Prefilled from the draft.
+    expect(find.text('Tone 04 Selected'), findsOneWidget);
+
+    await _tap(tester, 'Skip for now');
+    expect(service.calls['color'], {'skin_shade': null, 'undertone': null});
+    final blueprint = container.read(onboardingControllerProvider).blueprint;
+    expect(blueprint.skinShade, isNull);
+    expect(blueprint.undertone, isNull);
   });
 
   testWidgets('the reveal plays back what the steps captured', (tester) async {

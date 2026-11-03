@@ -61,15 +61,15 @@ class OnboardingService {
     });
   }
 
-  /// Step 4 — `POST /profile/style-blueprint/color`. [palettes] must be
-  /// non-empty.
+  /// Step 4 — `POST /profile/style-blueprint/color`: skin shade (1–10) and
+  /// undertone, both null for "Skip for now".
   Future<String> setBlueprintColor({
-    required String undertone,
-    required List<String> palettes,
+    required int? skinShade,
+    required String? undertone,
   }) async {
     return _postStep('/profile/style-blueprint/color', {
+      'skin_shade': skinShade,
       'undertone': undertone,
-      'color_palettes': palettes,
     });
   }
 

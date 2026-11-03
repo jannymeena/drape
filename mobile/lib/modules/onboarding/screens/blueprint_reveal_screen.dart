@@ -6,6 +6,7 @@ import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/drape_app_bar.dart';
 import '../models/body_shapes.dart';
+import '../models/skin_shades.dart';
 import '../models/style_blueprint_draft.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
@@ -175,7 +176,10 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
     return '${names.join(', ')},\nWorn with Confidence';
   }
 
+  /// The colours that flatter the user's skin shade; for someone who answered
+  /// the earlier step 4 instead, the palettes they liked.
   List<Color> _palette(StyleBlueprintDraft b) {
+    if (skinShade(b.skinShade) case final shade?) return shade.flattering;
     final colors = <Color>[];
     for (final p in b.colorPalettes) {
       colors.addAll(_paletteSwatches[p] ?? const []);
@@ -246,7 +250,12 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
         'Style',
         [
           ('Aesthetics', _join(b.styleAesthetics, _aesthetics)),
+          (
+            'Skin tone',
+            b.skinShade == null ? null : 'Shade ${b.skinShade} of 10',
+          ),
           ('Undertone', _undertones[b.undertone]),
+          // Only for users who answered the earlier step 4.
           ('Colours', _join(b.colorPalettes, _paletteNames)),
         ],
       ),
