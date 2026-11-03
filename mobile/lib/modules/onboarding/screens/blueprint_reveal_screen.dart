@@ -219,7 +219,7 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
 
   /// Back always goes to step 7, even when there's nothing on the stack to pop
   /// — a session resumed straight to the reveal (the splash routes here by
-  /// name) would otherwise have no way to change an answer. Step 7 and every
+  /// name) would otherwise have no way to change an answer. Step 8 and every
   /// step behind it prefill from the draft, which `loadAndHydrate` seeds on
   /// launch, so the answers are there either way.
   void _onBack() {
@@ -305,11 +305,15 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
           ('Dressing to impress', _impressions[b.impressionGoal]),
         ],
       ),
-      // From the earlier step 6, for users who answered it.
       (
-        'Habits',
+        'Shopping',
         [
-          ('Shopping feels', _feelings[b.shoppingFeeling]),
+          (
+            'Shopping feels',
+            b.shoppingFeelings.isNotEmpty
+                ? _join(b.shoppingFeelings, _feelings)
+                : _feelings[b.shoppingFeeling],
+          ),
           ('Accessories', _accessories[b.accessories]),
           ('Brands', _brandTiers[b.brandTier]),
         ],

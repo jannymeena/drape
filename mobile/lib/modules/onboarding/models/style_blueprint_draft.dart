@@ -24,6 +24,7 @@ class StyleBlueprintDraft {
     this.dressCode,
     this.dayFormality,
     this.impressionGoal,
+    this.shoppingFeelings = const [],
     this.shoppingFeeling,
     this.accessories,
     this.brandTier,
@@ -61,12 +62,16 @@ class StyleBlueprintDraft {
   /// Free-text occupation from the earlier lifestyle step; read back only.
   final String? occupation;
 
-  // The earlier step 6 (habits); no longer asked, read back only.
-  final String? shoppingFeeling;
+  // Step 7 — how the user feels about shopping (one to three), accessories,
+  // and the type of brands they buy.
+  final List<String> shoppingFeelings;
   final String? accessories;
   final String? brandTier;
 
-  // Step 7 — aspiration
+  /// The single feeling from the earlier habits step; read back only.
+  final String? shoppingFeeling;
+
+  // Step 8 — aspiration
   final String? threeMonthFeeling;
 
   /// [clearBodyShape] sets [bodyShape] to null — a null argument alone means
@@ -93,6 +98,7 @@ class StyleBlueprintDraft {
     bool clearDressCode = false,
     String? dayFormality,
     String? impressionGoal,
+    List<String>? shoppingFeelings,
     String? shoppingFeeling,
     String? accessories,
     String? brandTier,
@@ -116,6 +122,7 @@ class StyleBlueprintDraft {
       dressCode: clearDressCode ? null : dressCode ?? this.dressCode,
       dayFormality: dayFormality ?? this.dayFormality,
       impressionGoal: impressionGoal ?? this.impressionGoal,
+      shoppingFeelings: shoppingFeelings ?? this.shoppingFeelings,
       shoppingFeeling: shoppingFeeling ?? this.shoppingFeeling,
       accessories: accessories ?? this.accessories,
       brandTier: brandTier ?? this.brandTier,
@@ -142,6 +149,7 @@ class StyleBlueprintDraft {
       dressCode: json['dress_code'] as String?,
       dayFormality: json['day_formality'] as String?,
       impressionGoal: json['impression_goal'] as String?,
+      shoppingFeelings: list('shopping_feelings'),
       shoppingFeeling: json['shopping_feeling'] as String?,
       accessories: json['accessories'] as String?,
       brandTier: json['brand_tier'] as String?,

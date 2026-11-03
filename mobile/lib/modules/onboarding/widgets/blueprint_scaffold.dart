@@ -7,8 +7,8 @@ import '../../../shared/theme/app_colors.dart';
 import '../resume_route_map.dart';
 
 /// How many steps the Style Blueprint has. Single source of truth for the
-/// "Step n of 7" pill and the progress line.
-const int kBlueprintSteps = 7;
+/// "Step n of 8" pill and the progress line.
+const int kBlueprintSteps = 8;
 
 /// The one type scale every onboarding screen uses.
 ///
@@ -64,6 +64,51 @@ class BlueprintText {
   ).textTheme.labelMedium!.copyWith(color: AppColors.inkSoft);
 }
 
+/// A second question on a step, under the main one: DM Sans 18 semibold,
+/// with an optional line under it ([italic] for an aside).
+class BlueprintSubQuestion extends StatelessWidget {
+  const BlueprintSubQuestion(
+    this.text, {
+    super.key,
+    this.note,
+    this.italic = true,
+  });
+
+  final String text;
+  final String? note;
+  final bool italic;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = BlueprintText.optionSupport(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          text,
+          style: body.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            height: 1.375,
+            color: AppColors.ink,
+          ),
+        ),
+        if (note case final n?) ...[
+          const SizedBox(height: 2),
+          Text(
+            n,
+            style: body.copyWith(
+              fontSize: 12,
+              fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+              color: AppColors.inkSoft,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 /// A question heading plus its optional explanatory line, at the shared scale.
 class BlueprintQuestion extends StatelessWidget {
   final String title;
@@ -106,7 +151,7 @@ Future<void> revealNextQuestion(GlobalKey next) async {
 }
 
 /// Shared chrome for the seven Style Blueprint steps: a back button and a
-/// "Step n of 7" pill, a progress line, the scrollable question list, and a
+/// "Step n of 8" pill, a progress line, the scrollable question list, and a
 /// sticky Continue button.
 ///
 /// Screens supply only [children] and their own submit handling. Keeping the

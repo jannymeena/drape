@@ -8,7 +8,7 @@ import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'blueprint_palettes_screen.dart';
 
-/// Step 4 of 7 — "What's your skin tone?": a shade on a 1–10 scale, with the
+/// Step 4 of 8 — "What's your skin tone?": a shade on a 1–10 scale, with the
 /// colours that flatter it, and the undertone. Both are needed to continue;
 /// "Skip for now" moves on without either.
 class BlueprintColorScreen extends ConsumerStatefulWidget {

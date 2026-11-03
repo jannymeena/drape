@@ -304,8 +304,33 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
+  /// Step 7 — how the user feels about shopping and getting dressed (one to
+  /// three), their accessories, and the type of brands they buy. See [_save]
+  /// for the future.
+  Future<String> setBlueprintShopping({
+    required List<String> feelings,
+    required String accessories,
+    required String brandTier,
+  }) {
+    state = state.copyWith(
+      blueprint: state.blueprint.copyWith(
+        shoppingFeelings: feelings,
+        accessories: accessories,
+        brandTier: brandTier,
+      ),
+    );
+    return _save(
+      'shopping',
+      () => _service.setBlueprintShopping(
+        feelings: feelings,
+        accessories: accessories,
+        brandTier: brandTier,
+      ),
+    );
+  }
+
   /// The earlier step 6 — shopping attitude, accessories, brand tier. Its
-  /// screen was replaced by the work step; kept with the backend endpoint.
+  /// screen was replaced; step 7 asks these (with up to three feelings).
   Future<String> setBlueprintHabits({
     required String shoppingFeeling,
     required String accessories,
@@ -328,7 +353,7 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
-  /// Step 7 — the three-month aspiration plus the (non-empty) style goals.
+  /// Step 8 — the three-month aspiration plus the (non-empty) style goals.
   Future<String> setBlueprintGoals({
     required String threeMonthFeeling,
     required List<String> goals,

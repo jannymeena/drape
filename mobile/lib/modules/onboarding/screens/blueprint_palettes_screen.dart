@@ -7,7 +7,7 @@ import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'blueprint_work_screen.dart';
 
-/// Step 5 of 7 — "Which colours do you gravitate toward?": six palette cards,
+/// Step 5 of 8 — "Which colours do you gravitate toward?": six palette cards,
 /// any number of which can be picked, and an optional "Colours I avoid" row.
 ///
 /// Continue saves in the background (see OnboardingController._save) and

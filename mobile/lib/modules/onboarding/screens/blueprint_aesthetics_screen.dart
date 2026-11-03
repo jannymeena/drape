@@ -10,7 +10,7 @@ import 'blueprint_color_screen.dart';
 /// One style card: the backend literal, its label, and the art to show.
 typedef _Aesthetic = ({String value, String label, String asset});
 
-/// Step 3 of 7 — "Which styles do you like?", a multi-select card grid, and
+/// Step 3 of 8 — "Which styles do you like?", a multi-select card grid, and
 /// an optional "Want to get more specific?" card of micro-aesthetic tags
 /// (the same tags whatever the card set).
 ///

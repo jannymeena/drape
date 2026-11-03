@@ -16,6 +16,7 @@ import '../../modules/onboarding/screens/blueprint_goals_screen.dart';
 import '../../modules/onboarding/screens/blueprint_identity_screen.dart';
 import '../../modules/onboarding/screens/blueprint_palettes_screen.dart';
 import '../../modules/onboarding/screens/blueprint_reveal_screen.dart';
+import '../../modules/onboarding/screens/blueprint_shopping_screen.dart';
 import '../../modules/onboarding/screens/blueprint_work_screen.dart';
 import '../../modules/onboarding/screens/chest_measurement_screen.dart';
 import '../../modules/onboarding/screens/height_input_screen.dart';
@@ -191,6 +192,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: BlueprintWorkScreen.path,
         name: BlueprintWorkScreen.name,
         builder: (_, _) => const BlueprintWorkScreen(),
+      ),
+      GoRoute(
+        path: BlueprintShoppingScreen.path,
+        name: BlueprintShoppingScreen.name,
+        builder: (_, _) => const BlueprintShoppingScreen(),
       ),
       GoRoute(
         path: BlueprintGoalsScreen.path,

@@ -133,7 +133,21 @@ class OnboardingService {
     });
   }
 
-  /// Step 7 — `POST /profile/style-blueprint/goals`. [goals] must be non-empty.
+  /// Step 7 — `POST /profile/style-blueprint/shopping`. [feelings]: one to
+  /// three.
+  Future<String> setBlueprintShopping({
+    required List<String> feelings,
+    required String accessories,
+    required String brandTier,
+  }) async {
+    return _postStep('/profile/style-blueprint/shopping', {
+      'shopping_feelings': feelings,
+      'accessories': accessories,
+      'brand_tier': brandTier,
+    });
+  }
+
+  /// Step 8 — `POST /profile/style-blueprint/goals`. [goals] must be non-empty.
   Future<String> setBlueprintGoals({
     required String threeMonthFeeling,
     required List<String> goals,

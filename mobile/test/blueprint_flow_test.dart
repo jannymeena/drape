@@ -14,6 +14,7 @@ import 'package:mobile/modules/onboarding/screens/blueprint_goals_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_identity_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_palettes_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_reveal_screen.dart';
+import 'package:mobile/modules/onboarding/screens/blueprint_shopping_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_work_screen.dart';
 import 'package:mobile/modules/onboarding/screens/wardrobe_setup_screen.dart';
 import 'package:mobile/modules/shop/shop_service.dart';
@@ -132,6 +133,20 @@ class _StubService extends OnboardingService {
   }
 
   @override
+  Future<String> setBlueprintShopping({
+    required List<String> feelings,
+    required String accessories,
+    required String brandTier,
+  }) async {
+    calls['shopping'] = {
+      'shopping_feelings': feelings,
+      'accessories': accessories,
+      'brand_tier': brandTier,
+    };
+    return 'style_blueprint_8';
+  }
+
+  @override
   Future<String> setBlueprintGoals({
     required String threeMonthFeeling,
     required List<String> goals,
@@ -192,6 +207,11 @@ Widget _host(ProviderContainer container, {required String initialLocation}) {
         path: BlueprintWorkScreen.path,
         name: BlueprintWorkScreen.name,
         builder: (_, _) => const BlueprintWorkScreen(),
+      ),
+      GoRoute(
+        path: BlueprintShoppingScreen.path,
+        name: BlueprintShoppingScreen.name,
+        builder: (_, _) => const BlueprintShoppingScreen(),
       ),
       GoRoute(
         path: BlueprintGoalsScreen.path,
@@ -260,6 +280,7 @@ void main() {
       BlueprintColorScreen.path,
       BlueprintPalettesScreen.path,
       BlueprintWorkScreen.path,
+      BlueprintShoppingScreen.path,
       BlueprintGoalsScreen.path,
       BlueprintRevealScreen.path,
     ];
@@ -308,13 +329,13 @@ void main() {
     await tester.pumpWidget(
       _host(container, initialLocation: BlueprintIdentityScreen.path),
     );
-    expect(find.text('Step 1 of 7'), findsOneWidget);
+    expect(find.text('Step 1 of 8'), findsOneWidget);
 
     await _tap(tester, 'Women’s Fashion');
     await _tap(tester, 'Continue');
     await tester.pumpAndSettle();
 
-    expect(find.text('Step 2 of 7'), findsOneWidget);
+    expect(find.text('Step 2 of 8'), findsOneWidget);
     expect(find.text('Which body shape feels closest?'), findsOneWidget);
   });
 
@@ -334,14 +355,14 @@ void main() {
 
     // The save is still in flight, yet step 2 is up — and already knows the
     // answer, so it shows the men's set.
-    expect(find.text('Step 2 of 7'), findsOneWidget);
+    expect(find.text('Step 2 of 8'), findsOneWidget);
     expect(find.text('Which build feels closest?'), findsOneWidget);
 
     // Step 2 moves on too, but its save queues behind step 1's.
     await _tap(tester, 'Trapezoid');
     await _tap(tester, 'Continue');
     await tester.pumpAndSettle();
-    expect(find.text('Step 3 of 7'), findsOneWidget);
+    expect(find.text('Step 3 of 8'), findsOneWidget);
     expect(service.order, ['identity']);
 
     service.identityGate!.complete();
@@ -362,14 +383,14 @@ void main() {
     await _tap(tester, 'Women’s Fashion');
     await _tap(tester, 'Continue');
     await tester.pumpAndSettle();
-    expect(find.text('Step 2 of 7'), findsOneWidget);
+    expect(find.text('Step 2 of 8'), findsOneWidget);
 
     await _tap(tester, 'Hourglass');
     await _tap(tester, 'Continue');
     await tester.pumpAndSettle();
 
     expect(service.order, ['identity', 'identity', 'fit']);
-    expect(find.text('Step 3 of 7'), findsOneWidget);
+    expect(find.text('Step 3 of 8'), findsOneWidget);
   });
 
   testWidgets('steps move on while saving; a stuck save surfaces at the end', (
@@ -391,7 +412,7 @@ void main() {
 
     // Step 1 can't be saved, so step 2's save is held back behind it — but
     // the user still moved on, and neither answer is lost.
-    expect(find.text('Step 3 of 7'), findsOneWidget);
+    expect(find.text('Step 3 of 8'), findsOneWidget);
     expect(service.order, ['identity', 'identity']);
     final draft = container.read(onboardingControllerProvider);
     expect(draft.shoppingStyle, 'womens');
@@ -454,7 +475,7 @@ void main() {
     await tester.tap(find.byTooltip('Go back'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Step 1 of 7'), findsOneWidget);
+    expect(find.text('Step 1 of 8'), findsOneWidget);
   });
 
   testWidgets('system back on a resumed step opens the previous step', (
@@ -464,7 +485,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
-    expect(find.text('Step 1 of 7'), findsOneWidget);
+    expect(find.text('Step 1 of 8'), findsOneWidget);
   });
 
   testWidgets('back after continuing pops to the step underneath', (
@@ -484,7 +505,7 @@ void main() {
     await tester.tap(find.byTooltip('Go back'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Step 1 of 7'), findsOneWidget);
+    expect(find.text('Step 1 of 8'), findsOneWidget);
     expect(find.byTooltip('Go back'), findsNothing);
   });
 
@@ -883,6 +904,42 @@ void main() {
     });
   });
 
+  testWidgets('step 7 takes up to three feelings, accessories and a brand '
+      'type', (tester) async {
+    final service = _StubService();
+    final container = _container(service);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintShoppingScreen.path),
+    );
+    InkWell continueButton() => tester.widget<InkWell>(
+      find.ancestor(of: find.text('Continue'), matching: find.byType(InkWell)),
+    );
+
+    expect(find.text('Step 7 of 8'), findsOneWidget);
+    expect(find.text('0 of 3 selected'), findsOneWidget);
+    await _tap(tester, 'Ready for a change');
+    await _tap(tester, 'Often frustrated');
+    await _tap(tester, 'Confident and in control');
+    await _tap(tester, 'It’s just a necessity'); // a fourth: ignored
+    expect(find.text('3 of 3 selected'), findsOneWidget);
+    expect(continueButton().onTap, isNull);
+
+    await _tap(tester, 'Statement pieces');
+    await _tap(tester, 'A high-low mix');
+    await _tap(tester, 'Continue');
+
+    expect(service.calls['shopping'], {
+      // In list order.
+      'shopping_feelings': ['confident', 'frustrated', 'exploring'],
+      'accessories': 'statement',
+      'brand_tier': 'mix',
+    });
+    await tester.pumpAndSettle();
+    expect(find.byType(BlueprintGoalsScreen), findsOneWidget);
+    expect(find.text('Step 8 of 8'), findsOneWidget);
+  });
+
   testWidgets('the reveal plays back what the steps captured', (tester) async {
     final container = _container(_StubService());
     addTearDown(container.dispose);
@@ -961,7 +1018,7 @@ void main() {
     expect(find.text('Dress code'), findsNothing);
   });
 
-  testWidgets('the reveal can go back to step 7 with answers intact', (
+  testWidgets('the reveal can go back to step 8 with answers intact', (
     tester,
   ) async {
     final container = _container(_StubService());
@@ -972,18 +1029,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Answer step 7 and advance to the reveal.
+    // Answer step 8 and advance to the reveal.
     await _tap(tester, 'Confident wherever I go');
     await _tap(tester, 'Spend less time choosing outfits');
     await _tap(tester, 'See My Style Blueprint');
     await tester.pumpAndSettle();
     expect(find.text('Build My Wardrobe'), findsOneWidget);
 
-    // Back lands on step 7 with the same answers still selected.
+    // Back lands on step 8 with the same answers still selected.
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
-    expect(find.text('Step 7 of 7'), findsOneWidget);
-    // The CTA only enables once both of step 7's questions are answered, so an
+    expect(find.text('Step 8 of 8'), findsOneWidget);
+    // The CTA only enables once both of step 8's questions are answered, so an
     // enabled button proves the earlier answers survived the round trip. (The
     // "n selected" counter is below the fold in this lazy list.)
     final cta = tester.widget<FilledButton>(

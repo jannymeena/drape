@@ -12,7 +12,7 @@ import '../widgets/blueprint_scaffold.dart';
 import '../widgets/option_card.dart';
 import 'blueprint_fit_screen.dart';
 
-/// Step 1 of 7 — who we're shopping for, and life stage.
+/// Step 1 of 8 — who we're shopping for, and life stage.
 ///
 /// Merges what used to be two screens (shopping style, age range). Shopping
 /// style is required; age range is skippable via its own "Prefer not to say"

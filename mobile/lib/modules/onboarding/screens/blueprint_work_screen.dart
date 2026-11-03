@@ -5,11 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
-import 'blueprint_goals_screen.dart';
+import 'blueprint_shopping_screen.dart';
 
 typedef _Option = ({String value, String label});
 
-/// Step 6 of 7 — work and lifestyle: what the user does (up to two, searchable,
+/// Step 6 of 8 — work and lifestyle: what the user does (up to two, searchable,
 /// "Other" in their own words), the dress code, how dressed up a typical day
 /// is, and where they want to make a better impression.
 ///
@@ -148,7 +148,7 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
         );
     // Ignore further taps until the user comes back to this step.
     setState(() => _leaving = true);
-    context.pushNamed(BlueprintGoalsScreen.name).whenComplete(() {
+    context.pushNamed(BlueprintShoppingScreen.name).whenComplete(() {
       if (mounted) setState(() => _leaving = false);
     });
   }
@@ -195,7 +195,7 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           _OtherField(controller: _otherText, max: _otherMax),
         ],
         const SizedBox(height: 24),
-        _SubQuestion(
+        BlueprintSubQuestion(
           'What’s the dress code like?',
           note: 'Skipped automatically if you’re not currently working',
         ),
@@ -222,7 +222,7 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           ),
         ),
         const SizedBox(height: 28),
-        const _SubQuestion('How dressed up is a typical day?'),
+        const BlueprintSubQuestion('How dressed up is a typical day?'),
         const SizedBox(height: 16),
         _FormalitySlider(
           labels: [for (final f in _formality) f.label],
@@ -232,7 +232,9 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           },
         ),
         const SizedBox(height: 28),
-        const _SubQuestion('Where do you want to make a better impression?'),
+        const BlueprintSubQuestion(
+          'Where do you want to make a better impression?',
+        ),
         const SizedBox(height: 12),
         for (final i in _impressions) ...[
           _RadioRow(
@@ -276,45 +278,6 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
 const _softShadow = [
   BoxShadow(color: Color(0x0D000000), blurRadius: 2, offset: Offset(0, 1)),
 ];
-
-/// A section question under the main one: DM Sans 18 semibold, with an
-/// optional italic note.
-class _SubQuestion extends StatelessWidget {
-  const _SubQuestion(this.text, {this.note});
-
-  final String text;
-  final String? note;
-
-  @override
-  Widget build(BuildContext context) {
-    final body = BlueprintText.optionSupport(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          text,
-          style: body.copyWith(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            height: 1.375,
-            color: AppColors.ink,
-          ),
-        ),
-        if (note case final n?) ...[
-          const SizedBox(height: 2),
-          Text(
-            n,
-            style: body.copyWith(
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-              color: AppColors.inkSoft,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
 
 class _SearchField extends StatelessWidget {
   const _SearchField({required this.controller});

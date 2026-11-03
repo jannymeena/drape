@@ -5,6 +5,7 @@ import 'screens/blueprint_goals_screen.dart';
 import 'screens/blueprint_identity_screen.dart';
 import 'screens/blueprint_palettes_screen.dart';
 import 'screens/blueprint_reveal_screen.dart';
+import 'screens/blueprint_shopping_screen.dart';
 import 'screens/blueprint_work_screen.dart';
 
 /// Maps the backend's `next_step` (`OnboardingStep`, returned by
@@ -24,7 +25,8 @@ const Map<String, String> _nextStepRoutes = {
   'style_blueprint_4': BlueprintColorScreen.name,
   'style_blueprint_5': BlueprintPalettesScreen.name,
   'style_blueprint_6': BlueprintWorkScreen.name,
-  'style_blueprint_7': BlueprintGoalsScreen.name,
+  'style_blueprint_7': BlueprintShoppingScreen.name,
+  'style_blueprint_8': BlueprintGoalsScreen.name,
   'style_blueprint_reveal': BlueprintRevealScreen.name,
 };
 

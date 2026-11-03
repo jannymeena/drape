@@ -5,6 +5,7 @@ import 'package:mobile/modules/onboarding/screens/blueprint_aesthetics_screen.da
 import 'package:mobile/modules/onboarding/screens/blueprint_goals_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_identity_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_reveal_screen.dart';
+import 'package:mobile/modules/onboarding/screens/blueprint_shopping_screen.dart';
 
 /// Guards the `next_step` → route mapping against backend step renames: every
 /// `OnboardingStep` the backend can return must resolve to a known screen.
@@ -18,6 +19,7 @@ void main() {
     'style_blueprint_5',
     'style_blueprint_6',
     'style_blueprint_7',
+    'style_blueprint_8',
     'style_blueprint_reveal',
     'today_dashboard',
   ];
@@ -36,7 +38,8 @@ void main() {
       routeForNextStep('style_blueprint_3'),
       BlueprintAestheticsScreen.name,
     );
-    expect(routeForNextStep('style_blueprint_7'), BlueprintGoalsScreen.name);
+    expect(routeForNextStep('style_blueprint_7'), BlueprintShoppingScreen.name);
+    expect(routeForNextStep('style_blueprint_8'), BlueprintGoalsScreen.name);
     expect(
       routeForNextStep('style_blueprint_reveal'),
       BlueprintRevealScreen.name,
@@ -56,7 +59,10 @@ void main() {
       routeForNextStep('shopping_style_selection'),
       BlueprintIdentityScreen.name,
     );
-    expect(routeForNextStep('measurements_step_4'), BlueprintIdentityScreen.name);
+    expect(
+      routeForNextStep('measurements_step_4'),
+      BlueprintIdentityScreen.name,
+    );
     expect(routeForNextStep('something_new'), BlueprintIdentityScreen.name);
     expect(routeForNextStep(null), BlueprintIdentityScreen.name);
   });

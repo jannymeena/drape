@@ -11,7 +11,7 @@ import '../widgets/blueprint_scaffold.dart';
 import '../widgets/line_glyph.dart';
 import 'blueprint_aesthetics_screen.dart';
 
-/// Step 2 of 7 — body shape and how clothes should sit.
+/// Step 2 of 8 — body shape and how clothes should sit.
 ///
 /// One layout for every step 1 answer: a grid of shape cards ending in a
 /// "Not sure?" card, then two fit questions as three-way segmented controls.

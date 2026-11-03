@@ -36,7 +36,7 @@ void finishShapeFinder(BuildContext context, WidgetRef ref, String? shape) {
 
 // ─── Chrome ─────────────────────────────────────────────────────────────────
 
-/// The sub-flow's page: back button, a centred "Step 2 of 7 · [section]"
+/// The sub-flow's page: back button, a centred "Step 2 of 8 · [section]"
 /// overline with an optional italic [title], the step 2 progress line, a
 /// scrolling body, and an optional pinned [bottom].
 class ShapeFinderScaffold extends StatelessWidget {

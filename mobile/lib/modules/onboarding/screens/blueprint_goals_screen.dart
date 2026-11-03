@@ -8,7 +8,7 @@ import '../widgets/blueprint_scaffold.dart';
 import '../widgets/option_card.dart';
 import 'blueprint_reveal_screen.dart';
 
-/// Step 7 of 7 — the three-month aspiration, plus the style goals that drive
+/// Step 8 of 8 — the three-month aspiration, plus the style goals that drive
 /// starter-wardrobe matching and outfit generation.
 class BlueprintGoalsScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/blueprint/goals';
@@ -86,7 +86,7 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
   @override
   Widget build(BuildContext context) {
     return BlueprintScaffold(
-      step: 7,
+      step: 8,
       buttonLabel: 'See My Style Blueprint',
       canContinue: _complete,
       onContinue: _onContinue,
