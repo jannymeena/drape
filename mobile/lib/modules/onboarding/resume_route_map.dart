@@ -2,10 +2,10 @@ import 'screens/blueprint_aesthetics_screen.dart';
 import 'screens/blueprint_color_screen.dart';
 import 'screens/blueprint_fit_screen.dart';
 import 'screens/blueprint_goals_screen.dart';
-import 'screens/blueprint_habits_screen.dart';
 import 'screens/blueprint_identity_screen.dart';
 import 'screens/blueprint_palettes_screen.dart';
 import 'screens/blueprint_reveal_screen.dart';
+import 'screens/blueprint_work_screen.dart';
 
 /// Maps the backend's `next_step` (`OnboardingStep`, returned by
 /// `GET /profile/onboarding-status`) to the route to resume at on launch.
@@ -23,7 +23,7 @@ const Map<String, String> _nextStepRoutes = {
   'style_blueprint_3': BlueprintAestheticsScreen.name,
   'style_blueprint_4': BlueprintColorScreen.name,
   'style_blueprint_5': BlueprintPalettesScreen.name,
-  'style_blueprint_6': BlueprintHabitsScreen.name,
+  'style_blueprint_6': BlueprintWorkScreen.name,
   'style_blueprint_7': BlueprintGoalsScreen.name,
   'style_blueprint_reveal': BlueprintRevealScreen.name,
 };

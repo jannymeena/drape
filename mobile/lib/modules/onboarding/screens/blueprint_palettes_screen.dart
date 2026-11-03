@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
-import 'blueprint_habits_screen.dart';
+import 'blueprint_work_screen.dart';
 
 /// Step 5 of 7 — "Which colours do you gravitate toward?": six palette cards,
 /// any number of which can be picked, and an optional "Colours I avoid" row.
@@ -109,7 +109,7 @@ class _BlueprintPalettesScreenState
         .setBlueprintPalettes(ordered, avoid: avoid);
     // Ignore further taps until the user comes back to this step.
     setState(() => _leaving = true);
-    context.pushNamed(BlueprintHabitsScreen.name).whenComplete(() {
+    context.pushNamed(BlueprintWorkScreen.name).whenComplete(() {
       if (mounted) setState(() => _leaving = false);
     });
   }

@@ -86,6 +86,25 @@ class OnboardingService {
     });
   }
 
+  /// Step 6 — `POST /profile/style-blueprint/work`. [occupations]: one or
+  /// two; [occupationOther] describes `other`; [dressCode] null when
+  /// `not_working`.
+  Future<String> setBlueprintWork({
+    required List<String> occupations,
+    required String? occupationOther,
+    required String? dressCode,
+    required String dayFormality,
+    required String impressionGoal,
+  }) async {
+    return _postStep('/profile/style-blueprint/work', {
+      'occupations': occupations,
+      'occupation_other': occupationOther,
+      'dress_code': dressCode,
+      'day_formality': dayFormality,
+      'impression_goal': impressionGoal,
+    });
+  }
+
   /// The earlier step 5 — `POST /profile/style-blueprint/lifestyle`. [occupation] and
   /// [dressCode] are both null-able: the dress-code question is skipped for
   /// users who aren't currently working.

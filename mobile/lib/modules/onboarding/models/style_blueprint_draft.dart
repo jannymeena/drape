@@ -19,7 +19,10 @@ class StyleBlueprintDraft {
     this.colorPalettes = const [],
     this.avoidColors = const [],
     this.occupation,
+    this.occupations = const [],
+    this.occupationOther,
     this.dressCode,
+    this.dayFormality,
     this.impressionGoal,
     this.shoppingFeeling,
     this.accessories,
@@ -46,12 +49,19 @@ class StyleBlueprintDraft {
   final List<String> colorPalettes;
   final List<String> avoidColors;
 
-  // Step 5 — lifestyle
-  final String? occupation;
+  // Step 6 — work and lifestyle: up to two occupations (`other` described in
+  // [occupationOther]), the dress code (null when not working), how dressed
+  // up a typical day is, and where the user wants to impress.
+  final List<String> occupations;
+  final String? occupationOther;
   final String? dressCode;
+  final String? dayFormality;
   final String? impressionGoal;
 
-  // Step 6 — habits
+  /// Free-text occupation from the earlier lifestyle step; read back only.
+  final String? occupation;
+
+  // The earlier step 6 (habits); no longer asked, read back only.
   final String? shoppingFeeling;
   final String? accessories;
   final String? brandTier;
@@ -76,7 +86,12 @@ class StyleBlueprintDraft {
     List<String>? colorPalettes,
     List<String>? avoidColors,
     String? occupation,
+    List<String>? occupations,
+    String? occupationOther,
+    bool clearOccupationOther = false,
     String? dressCode,
+    bool clearDressCode = false,
+    String? dayFormality,
     String? impressionGoal,
     String? shoppingFeeling,
     String? accessories,
@@ -94,7 +109,12 @@ class StyleBlueprintDraft {
       colorPalettes: colorPalettes ?? this.colorPalettes,
       avoidColors: avoidColors ?? this.avoidColors,
       occupation: occupation ?? this.occupation,
-      dressCode: dressCode ?? this.dressCode,
+      occupations: occupations ?? this.occupations,
+      occupationOther: clearOccupationOther
+          ? null
+          : occupationOther ?? this.occupationOther,
+      dressCode: clearDressCode ? null : dressCode ?? this.dressCode,
+      dayFormality: dayFormality ?? this.dayFormality,
       impressionGoal: impressionGoal ?? this.impressionGoal,
       shoppingFeeling: shoppingFeeling ?? this.shoppingFeeling,
       accessories: accessories ?? this.accessories,
@@ -117,7 +137,10 @@ class StyleBlueprintDraft {
       colorPalettes: list('color_palettes'),
       avoidColors: list('avoid_colors'),
       occupation: json['occupation'] as String?,
+      occupations: list('occupations'),
+      occupationOther: json['occupation_other'] as String?,
       dressCode: json['dress_code'] as String?,
+      dayFormality: json['day_formality'] as String?,
       impressionGoal: json['impression_goal'] as String?,
       shoppingFeeling: json['shopping_feeling'] as String?,
       accessories: json['accessories'] as String?,

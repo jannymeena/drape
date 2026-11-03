@@ -13,10 +13,10 @@ import '../../modules/onboarding/screens/blueprint_aesthetics_screen.dart';
 import '../../modules/onboarding/screens/blueprint_color_screen.dart';
 import '../../modules/onboarding/screens/blueprint_fit_screen.dart';
 import '../../modules/onboarding/screens/blueprint_goals_screen.dart';
-import '../../modules/onboarding/screens/blueprint_habits_screen.dart';
 import '../../modules/onboarding/screens/blueprint_identity_screen.dart';
 import '../../modules/onboarding/screens/blueprint_palettes_screen.dart';
 import '../../modules/onboarding/screens/blueprint_reveal_screen.dart';
+import '../../modules/onboarding/screens/blueprint_work_screen.dart';
 import '../../modules/onboarding/screens/chest_measurement_screen.dart';
 import '../../modules/onboarding/screens/height_input_screen.dart';
 import '../../modules/onboarding/screens/hips_measurement_screen.dart';
@@ -188,9 +188,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const BlueprintPalettesScreen(),
       ),
       GoRoute(
-        path: BlueprintHabitsScreen.path,
-        name: BlueprintHabitsScreen.name,
-        builder: (_, _) => const BlueprintHabitsScreen(),
+        path: BlueprintWorkScreen.path,
+        name: BlueprintWorkScreen.name,
+        builder: (_, _) => const BlueprintWorkScreen(),
       ),
       GoRoute(
         path: BlueprintGoalsScreen.path,

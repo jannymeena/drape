@@ -272,7 +272,40 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
-  /// Step 6 — shopping attitude, accessories, brand tier.
+  /// Step 6 — work and lifestyle. See [OnboardingService.setBlueprintWork]
+  /// for the fields, and [_save] for the future.
+  Future<String> setBlueprintWork({
+    required List<String> occupations,
+    required String? occupationOther,
+    required String? dressCode,
+    required String dayFormality,
+    required String impressionGoal,
+  }) {
+    state = state.copyWith(
+      blueprint: state.blueprint.copyWith(
+        occupations: occupations,
+        occupationOther: occupationOther,
+        clearOccupationOther: occupationOther == null,
+        dressCode: dressCode,
+        clearDressCode: dressCode == null,
+        dayFormality: dayFormality,
+        impressionGoal: impressionGoal,
+      ),
+    );
+    return _save(
+      'work',
+      () => _service.setBlueprintWork(
+        occupations: occupations,
+        occupationOther: occupationOther,
+        dressCode: dressCode,
+        dayFormality: dayFormality,
+        impressionGoal: impressionGoal,
+      ),
+    );
+  }
+
+  /// The earlier step 6 — shopping attitude, accessories, brand tier. Its
+  /// screen was replaced by the work step; kept with the backend endpoint.
   Future<String> setBlueprintHabits({
     required String shoppingFeeling,
     required String accessories,

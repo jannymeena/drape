@@ -83,8 +83,33 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
     'bold_bright': 'Bold & bright',
   };
 
+  static const _occupations = {
+    'office_corporate': 'Office / corporate',
+    'business': 'Business',
+    'marketing': 'Marketing',
+    'media_communications': 'Media / communications',
+    'tech_remote': 'Tech / remote',
+    'creative_design': 'Creative / design',
+    'healthcare': 'Healthcare',
+    'education': 'Education',
+    'trades_outdoor': 'Trades / outdoor',
+    'hospitality_retail': 'Hospitality / retail',
+    'student': 'Student',
+    'self_employed': 'Self-employed',
+    'not_working': 'Not currently working',
+  };
+
+  static const _dayFormality = {
+    'athleisure': 'Athleisure',
+    'casual': 'Casual',
+    'smart_casual': 'Smart casual',
+    'business': 'Business',
+    'formal': 'Formal',
+  };
+
   static const _dressCodes = {
     'casual': 'Casual',
+    'smart_casual': 'Smart casual',
     'business_casual': 'Business casual',
     'business_formal': 'Business formal',
     'uniform_other': 'Uniform / other',
@@ -222,6 +247,19 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
     }
   }
 
+  /// Step 6's occupations, "Other" in the user's words; or the free text
+  /// from the earlier lifestyle step.
+  String? _work(StyleBlueprintDraft b) {
+    if (b.occupations.isEmpty) return b.occupation;
+    return [
+      for (final o in b.occupations)
+        if (o == 'other')
+          (b.occupationOther ?? 'Other')
+        else
+          _occupations[o] ?? o,
+    ].join(' · ');
+  }
+
   /// Every answer the seven steps collected, grouped the way they were asked.
   /// A row whose value is null is dropped rather than shown empty — the age,
   /// occupation and dress-code questions are all skippable.
@@ -261,11 +299,13 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
       (
         'Day to day',
         [
-          ('Work', b.occupation),
+          ('Work', _work(b)),
           ('Dress code', _dressCodes[b.dressCode]),
+          ('Typical day', _dayFormality[b.dayFormality]),
           ('Dressing to impress', _impressions[b.impressionGoal]),
         ],
       ),
+      // From the earlier step 6, for users who answered it.
       (
         'Habits',
         [

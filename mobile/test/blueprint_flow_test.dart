@@ -11,10 +11,10 @@ import 'package:mobile/modules/onboarding/screens/blueprint_aesthetics_screen.da
 import 'package:mobile/modules/onboarding/screens/blueprint_color_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_fit_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_goals_screen.dart';
-import 'package:mobile/modules/onboarding/screens/blueprint_habits_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_identity_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_palettes_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_reveal_screen.dart';
+import 'package:mobile/modules/onboarding/screens/blueprint_work_screen.dart';
 import 'package:mobile/modules/onboarding/screens/wardrobe_setup_screen.dart';
 import 'package:mobile/modules/shop/shop_service.dart';
 import 'package:mobile/shared/models/api_error.dart';
@@ -114,6 +114,24 @@ class _StubService extends OnboardingService {
   }
 
   @override
+  Future<String> setBlueprintWork({
+    required List<String> occupations,
+    required String? occupationOther,
+    required String? dressCode,
+    required String dayFormality,
+    required String impressionGoal,
+  }) async {
+    calls['work'] = {
+      'occupations': occupations,
+      'occupation_other': occupationOther,
+      'dress_code': dressCode,
+      'day_formality': dayFormality,
+      'impression_goal': impressionGoal,
+    };
+    return 'style_blueprint_7';
+  }
+
+  @override
   Future<String> setBlueprintGoals({
     required String threeMonthFeeling,
     required List<String> goals,
@@ -171,9 +189,9 @@ Widget _host(ProviderContainer container, {required String initialLocation}) {
         builder: (_, _) => const BlueprintPalettesScreen(),
       ),
       GoRoute(
-        path: BlueprintHabitsScreen.path,
-        name: BlueprintHabitsScreen.name,
-        builder: (_, _) => const BlueprintHabitsScreen(),
+        path: BlueprintWorkScreen.path,
+        name: BlueprintWorkScreen.name,
+        builder: (_, _) => const BlueprintWorkScreen(),
       ),
       GoRoute(
         path: BlueprintGoalsScreen.path,
@@ -241,7 +259,7 @@ void main() {
       BlueprintAestheticsScreen.path,
       BlueprintColorScreen.path,
       BlueprintPalettesScreen.path,
-      BlueprintHabitsScreen.path,
+      BlueprintWorkScreen.path,
       BlueprintGoalsScreen.path,
       BlueprintRevealScreen.path,
     ];
@@ -721,7 +739,7 @@ void main() {
       'avoid_colors': <String>[],
     });
     await tester.pumpAndSettle();
-    expect(find.byType(BlueprintHabitsScreen), findsOneWidget);
+    expect(find.byType(BlueprintWorkScreen), findsOneWidget);
   });
 
   testWidgets('step 5’s “Colours I avoid” picks are kept', (tester) async {
@@ -765,6 +783,103 @@ void main() {
     expect(service.calls['palettes'], {
       'color_palettes': ['earth_tones'],
       'avoid_colors': ['bright_orange', 'magenta'],
+    });
+  });
+
+  group('step 6', () {
+    Future<(_StubService, ProviderContainer)> open(WidgetTester tester) async {
+      final service = _StubService();
+      final container = _container(service);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        _host(container, initialLocation: BlueprintWorkScreen.path),
+      );
+      return (service, container);
+    }
+
+    InkWell continueButton(WidgetTester tester) => tester.widget<InkWell>(
+      find.ancestor(of: find.text('Continue'), matching: find.byType(InkWell)),
+    );
+
+    testWidgets('saves up to two occupations, the dress code, the typical '
+        'day and the impression', (tester) async {
+      final (service, _) = await open(tester);
+      expect(continueButton(tester).onTap, isNull);
+
+      await _tap(tester, 'Healthcare');
+      await _tap(tester, 'Marketing');
+      await _tap(tester, 'Student'); // a third: ignored
+      await _tap(tester, 'Smart Casual');
+      // The typical day starts on smart casual; move it to Business (the
+      // slider's label, not the occupation chip above it).
+      final business = find.text('Business').last;
+      await tester.ensureVisible(business);
+      await tester.pumpAndSettle();
+      await tester.tap(business);
+      await tester.pump();
+      await _tap(tester, 'Both equally');
+      await _tap(tester, 'Continue');
+
+      expect(service.calls['work'], {
+        // In list order.
+        'occupations': ['marketing', 'healthcare'],
+        'occupation_other': null,
+        'dress_code': 'smart_casual',
+        'day_formality': 'business',
+        'impression_goal': 'both',
+      });
+    });
+
+    testWidgets('“Not currently working” stands alone and skips the dress '
+        'code', (tester) async {
+      final (service, _) = await open(tester);
+      // The dress-code chip, not the slider's label.
+      final casual = find.text('Casual').first;
+      await tester.ensureVisible(casual);
+      await tester.pumpAndSettle();
+      await tester.tap(casual);
+      await tester.pump();
+      await _tap(tester, 'Education');
+      await _tap(tester, 'Not currently working');
+      await _tap(tester, 'Dating / Social situations');
+      await _tap(tester, 'Continue');
+
+      expect(service.calls['work']?['occupations'], ['not_working']);
+      expect(service.calls['work']?['dress_code'], isNull);
+    });
+
+    testWidgets('“Other” needs a description', (tester) async {
+      final (service, _) = await open(tester);
+      await _tap(tester, 'Other');
+      await _tap(tester, 'Uniform');
+      await _tap(tester, 'Work / Professional settings');
+      expect(continueButton(tester).onTap, isNull);
+
+      await tester.enterText(
+        find.widgetWithText(
+          TextField,
+          'e.g. Architectural Restoration, '
+          'Brand Strategist',
+        ),
+        'Florist',
+      );
+      await tester.pump();
+      expect(find.text('7 / 40'), findsOneWidget);
+      await _tap(tester, 'Continue');
+      expect(service.calls['work']?['occupations'], ['other']);
+      expect(service.calls['work']?['occupation_other'], 'Florist');
+    });
+
+    testWidgets('search narrows the occupations', (tester) async {
+      await open(tester);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search or pick below'),
+        'tech',
+      );
+      await tester.pump();
+      expect(find.text('Tech / Remote'), findsOneWidget);
+      expect(find.text('Healthcare'), findsNothing);
+      expect(find.text('Other'), findsOneWidget); // always offered
     });
   });
 
@@ -911,17 +1026,17 @@ void main() {
       final container = _container(_StubService());
       addTearDown(container.dispose);
       await tester.pumpWidget(
-        _host(container, initialLocation: BlueprintHabitsScreen.path),
+        _host(container, initialLocation: BlueprintGoalsScreen.path),
       );
       await tester.pumpAndSettle();
       expect(stepScroll(tester).pixels, 0);
 
-      await tester.tap(find.text('Confident and in control'));
+      await tester.tap(find.text('Confident wherever I go'));
       await settleReveal(tester);
 
       expect(stepScroll(tester).pixels, greaterThan(0));
       final question = tester.getRect(
-        find.text('How do you feel about accessories?'),
+        find.text('What matters most to you right now?'),
       );
       final viewport = tester.getRect(find.byType(SingleChildScrollView));
       expect(
@@ -936,17 +1051,17 @@ void main() {
       final container = _container(_StubService());
       addTearDown(container.dispose);
       await tester.pumpWidget(
-        _host(container, initialLocation: BlueprintHabitsScreen.path),
+        _host(container, initialLocation: BlueprintGoalsScreen.path),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Confident and in control'));
+      await tester.tap(find.text('Confident wherever I go'));
       await settleReveal(tester);
       stepScroll(tester).jumpTo(0); // the user scrolls back up…
       await tester.pump();
 
       // …and changes their mind on the first question.
-      await tester.tap(find.text('Often frustrated'));
+      await tester.tap(find.text('Like I’ve finally found my look'));
       await settleReveal(tester);
       expect(stepScroll(tester).pixels, 0);
     });
