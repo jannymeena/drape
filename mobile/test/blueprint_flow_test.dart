@@ -171,6 +171,9 @@ ProviderContainer _container(_StubService service) {
 /// The real seven-step router, so a step's `pushNamed` onward actually
 /// resolves — plus a stub for wardrobe setup, which the reveal hands off to
 /// and which needs providers this test doesn't stand up.
+/// How long the reveal's building state shows in the host below.
+Duration _revealBuilding = Duration.zero;
+
 Widget _host(ProviderContainer container, {required String initialLocation}) {
   final router = GoRouter(
     initialLocation: initialLocation,
@@ -218,7 +221,8 @@ Widget _host(ProviderContainer container, {required String initialLocation}) {
       GoRoute(
         path: BlueprintRevealScreen.path,
         name: BlueprintRevealScreen.name,
-        builder: (_, _) => const BlueprintRevealScreen(),
+        // No pause on "building" in tests unless one asks for it.
+        builder: (_, _) => BlueprintRevealScreen(minBuilding: _revealBuilding),
       ),
       GoRoute(
         path: WardrobeSetupScreen.path,
@@ -996,29 +1000,21 @@ void main() {
     await tester.pumpWidget(
       _host(container, initialLocation: BlueprintRevealScreen.path),
     );
+    await tester.pumpAndSettle();
 
     expect(find.textContaining('Minimalist, Romantic'), findsOneWidget);
     expect(find.textContaining('confident wherever you go'), findsOneWidget);
     expect(find.text('Build My Wardrobe'), findsOneWidget);
-
-    // Every answer the flow collected is played back, under the heading it was
-    // asked beneath.
-    for (final (label, value) in const [
-      ('Shopping for', 'Women’s fashion'),
-      ('Age', '25–34'),
-      ('Body shape', 'Hourglass'),
-      ('Prefers', 'regular tops · relaxed bottoms'),
-      ('Aesthetics', 'Minimalist · Romantic'),
-      ('Undertone', 'Warm undertone'),
-      ('Colours', 'Earth tones'),
-      ('Work', 'Marketing'),
-      ('Dress code', 'Business casual'),
-      ('Shopping feels', 'Confident and in control'),
-      ('Brands', 'Premium brands'),
-      ('In three months', 'Confident wherever I go'),
+    expect(find.text('Tailored to your warm undertone'), findsOneWidget);
+    // The snapshot: aesthetics, body shape, tone and dress code.
+    for (final tag in const [
+      'Minimalist',
+      'Romantic',
+      'Hourglass',
+      'Warm',
+      'Business casual',
     ]) {
-      expect(find.text(label), findsOneWidget, reason: label);
-      expect(find.text(value), findsOneWidget, reason: value);
+      expect(find.text(tag), findsOneWidget, reason: tag);
     }
   });
 
@@ -1036,12 +1032,13 @@ void main() {
       _host(container, initialLocation: BlueprintRevealScreen.path),
     );
 
-    // Age, occupation and dress code are all skippable — an unanswered one
-    // must not leave an empty row behind.
-    expect(find.text('Body shape'), findsOneWidget);
-    expect(find.text('Age'), findsNothing);
-    expect(find.text('Work'), findsNothing);
-    expect(find.text('Dress code'), findsNothing);
+    await tester.pumpAndSettle();
+
+    // No tone or dress code was given, so there's no tag for them.
+    expect(find.text('ATELIER PROFILE SNAPSHOT'), findsOneWidget);
+    expect(find.textContaining('Tone'), findsNothing);
+    expect(find.text('Business casual'), findsNothing);
+    expect(find.text('A warm starting palette'), findsOneWidget);
   });
 
   testWidgets('the reveal can go back to step 8 with answers intact', (
@@ -1063,7 +1060,7 @@ void main() {
     expect(find.text('Build My Wardrobe'), findsOneWidget);
 
     // Back lands on step 8 with the same answers still selected.
-    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('Step 8 of 8'), findsOneWidget);
     // The CTA only enables once both of step 8's questions are answered, so an
@@ -1085,8 +1082,46 @@ void main() {
       _host(container, initialLocation: BlueprintRevealScreen.path),
     );
 
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('Your Style, Defined'), findsOneWidget);
+    expect(find.text('Build My Wardrobe'), findsOneWidget);
+  });
+
+  testWidgets('the reveal builds while saves land, and offers a retry when '
+      'one fails', (tester) async {
+    final service = _StubService()..identityFailures = 99;
+    final container = _container(service);
+    addTearDown(container.dispose);
+    _revealBuilding = const Duration(milliseconds: 500);
+    addTearDown(() => _revealBuilding = Duration.zero);
+    // Step 1's save fails and is kept for a retry.
+    unawaited(
+      container
+          .read(onboardingControllerProvider.notifier)
+          .setBlueprintIdentity(shoppingStyle: 'womens', ageRange: null)
+          .catchError((_) => ''),
+    );
+
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintRevealScreen.path),
+    );
+    await tester.pump();
+    expect(find.text('Reading your answers…'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(
+      find.text('We couldn’t build your blueprint just now.'),
+      findsOneWidget,
+    );
+    expect(find.text('7 of 8 inputs recorded'), findsOneWidget);
+
+    // The connection's back: Try Again builds it.
+    service.identityFailures = 0;
+    await tester.tap(find.text('Try Again'));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Build My Wardrobe'), findsOneWidget);
   });
 

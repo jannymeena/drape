@@ -135,6 +135,15 @@ class OnboardingController extends StateNotifier<OnboardingState> {
   /// Throws [ApiException] if one still can't be saved.
   Future<void> _allSaved() => _queue.then((_) => _retryFailed());
 
+  /// [_allSaved], for the reveal: it waits on this while it "builds" the
+  /// blueprint, and offers it again from its error state. Throws
+  /// [ApiException].
+  Future<void> ensureSaved() => _allSaved();
+
+  /// How many steps' answers haven't reached the backend yet (their saves
+  /// failed and wait for a retry).
+  int get unsavedSteps => _failed.length;
+
   // ─── Steps ─────────────────────────────────────────────────────────────
 
   /// Step 1 — shopping style + age range ([ageRange] null = the user skipped
