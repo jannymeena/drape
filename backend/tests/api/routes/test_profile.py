@@ -157,6 +157,47 @@ def test_blueprint_answers_accumulate_in_style_profile(authed_client):
     assert body["style_goals"] == ["polished", "maximize_wardrobe"]
 
 
+def test_blueprint_aesthetics_saves_micro_aesthetics(authed_client):
+    """Step 3's optional tags are saved with the cards, in the order sent,
+    de-duplicated; re-answering without them clears them."""
+    url = "/api/v1/profile/style-blueprint/aesthetics"
+    r = authed_client.post(
+        url,
+        json={
+            "style_aesthetics": ["minimalist"],
+            "micro_aesthetics": ["quiet_luxury", "90s_slouch", "quiet_luxury"],
+        },
+    )
+    assert r.status_code == 200, r.text
+    profile = authed_client.get("/api/v1/profile/onboarding-status").json()[
+        "style_profile"
+    ]
+    assert profile["micro_aesthetics"] == ["quiet_luxury", "90s_slouch"]
+
+    authed_client.post(url, json={"style_aesthetics": ["minimalist"]})
+    profile = authed_client.get("/api/v1/profile/onboarding-status").json()[
+        "style_profile"
+    ]
+    assert profile["micro_aesthetics"] == []
+
+
+def test_blueprint_aesthetics_rejects_unknown_micro_aesthetic(authed_client):
+    r = authed_client.post(
+        "/api/v1/profile/style-blueprint/aesthetics",
+        json={"style_aesthetics": ["minimalist"], "micro_aesthetics": ["goth"]},
+    )
+    assert r.status_code == 422
+
+
+def test_micro_aesthetics_reach_the_stylist_prompt():
+    from app.services.stylist_prompt import about_the_user
+
+    block = about_the_user(
+        style_profile={"micro_aesthetics": ["quiet_luxury", "french_chic"]}
+    )
+    assert "micro aesthetics: quiet_luxury, french_chic." in block
+
+
 def test_blueprint_identity_accepts_null_age_skip(authed_client):
     """Doc 1 says the age question is skippable."""
     r = authed_client.post(

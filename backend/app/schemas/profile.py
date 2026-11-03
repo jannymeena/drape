@@ -46,6 +46,16 @@ StyleAesthetic = Literal[
     "romantic",
     "avant_garde",
 ]
+# Step 3's optional "Want to get more specific?" tags — the same six for
+# every shopping style.
+MicroAesthetic = Literal[
+    "quiet_luxury",
+    "french_chic",
+    "monochrome",
+    "coastal_grandmother",
+    "artisanal_folk",
+    "90s_slouch",
+]
 Undertone = Literal["warm", "cool", "neutral"]
 ColorPalette = Literal[
     "neutrals", "earth_tones", "jewel_tones", "pastels", "black_white", "bold_bright"
@@ -115,9 +125,12 @@ class StyleBlueprintFitRequest(BaseModel):
 
 
 class StyleBlueprintAestheticsRequest(BaseModel):
-    """Step 3 — the style card grid (gendered art, shared value set)."""
+    """Step 3 — the style card grid (gendered art, shared value set), plus
+    the optional micro-aesthetic tags. Sending none (or leaving the field
+    out) clears any picked before."""
 
     style_aesthetics: list[StyleAesthetic] = Field(min_length=1, max_length=8)
+    micro_aesthetics: list[MicroAesthetic] = Field(default_factory=list, max_length=6)
 
 
 class StyleBlueprintColorRequest(BaseModel):
@@ -164,6 +177,7 @@ class StyleProfileResponse(BaseModel):
     fit_tops: TopsFit | None = None
     fit_bottoms: BottomsFit | None = None
     style_aesthetics: list[StyleAesthetic] | None = None
+    micro_aesthetics: list[MicroAesthetic] | None = None
     undertone: Undertone | None = None
     color_palettes: list[ColorPalette] | None = None
     occupation: str | None = None

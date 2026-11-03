@@ -156,13 +156,20 @@ def set_blueprint_fit(
 def set_blueprint_aesthetics(
     db: Session, *, user: User, payload: StyleBlueprintAestheticsRequest
 ) -> OnboardingStep:
-    """Step 3 — the style card grid."""
+    """Step 3 — the style card grid and the optional micro-aesthetic tags.
+    Both reach the stylist prompt with the rest of the style profile."""
     aesthetics = _dedup(payload.style_aesthetics)
-    _merge_style_profile(user, {"style_aesthetics": aesthetics})
+    micro = _dedup(payload.micro_aesthetics)
+    _merge_style_profile(
+        user, {"style_aesthetics": aesthetics, "micro_aesthetics": micro}
+    )
     nxt = _advance(user, "style_blueprint_3")
     db.commit()
     _log.info(
-        "profile.blueprint.aesthetics", user_id=str(user.id), count=len(aesthetics)
+        "profile.blueprint.aesthetics",
+        user_id=str(user.id),
+        count=len(aesthetics),
+        micro_count=len(micro),
     )
     return nxt
 
