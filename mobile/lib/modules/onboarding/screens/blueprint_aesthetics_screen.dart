@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
+import '../widgets/blueprint_chip.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'blueprint_color_screen.dart';
 
@@ -278,7 +279,7 @@ class _SpecificsCard extends StatelessWidget {
                       runSpacing: 6,
                       children: [
                         for (final tag in tags)
-                          _MicroTag(
+                          BlueprintChip(
                             label: tag.label,
                             selected: tag.selected,
                             onTap: tag.onTap,
@@ -289,45 +290,6 @@ class _SpecificsCard extends StatelessWidget {
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MicroTag extends StatelessWidget {
-  const _MicroTag({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      selected: selected,
-      button: true,
-      child: Material(
-        color: selected ? AppColors.espressoDark : AppColors.ivoryWarm,
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Text(
-              label,
-              style: BlueprintText.optionSupport(context).copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: selected ? AppColors.white : AppColors.inkSoft,
-              ),
-            ),
-          ),
         ),
       ),
     );

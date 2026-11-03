@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
+import '../widgets/blueprint_chip.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'blueprint_work_screen.dart';
 
@@ -567,9 +568,9 @@ class _AvoidSheetState extends State<_AvoidSheet> {
               runSpacing: 8,
               children: [
                 for (final c in avoidColours)
-                  _PickChip(
+                  BlueprintChip(
                     label: c.label,
-                    color: c.color,
+                    leading: _ColourDot(c.color, size: 14),
                     selected: _picked.contains(c.value),
                     onTap: () => setState(() {
                       if (!_picked.add(c.value)) _picked.remove(c.value);
@@ -600,58 +601,6 @@ class _AvoidSheetState extends State<_AvoidSheet> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PickChip extends StatelessWidget {
-  const _PickChip({
-    required this.label,
-    required this.color,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: Material(
-        color: selected ? AppColors.espressoDark : AppColors.white,
-        shape: StadiumBorder(
-          side: BorderSide(
-            color: selected ? AppColors.espressoDark : AppColors.taupeSoft,
-          ),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ColourDot(color, size: 14),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: BlueprintText.optionSupport(context).copyWith(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: selected ? AppColors.white : _cardInk,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );

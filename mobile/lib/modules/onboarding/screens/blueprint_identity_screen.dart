@@ -5,9 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/models/api_error.dart';
-import '../../../shared/theme/app_colors.dart';
 import '../../shop/shop_service.dart';
 import '../onboarding_controller.dart';
+import '../widgets/blueprint_chip.dart';
 import '../widgets/blueprint_choice_card.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'blueprint_fit_screen.dart';
@@ -138,7 +138,8 @@ class _BlueprintIdentityScreenState
           physics: const NeverScrollableScrollPhysics(),
           children: [
             for (var i = 0; i < _ages.length; i++)
-              _AgeChip(
+              BlueprintChip(
+                expand: true,
                 label: _ages[i].$2,
                 selected: _ageIndex == i,
                 onTap: () {
@@ -151,41 +152,6 @@ class _BlueprintIdentityScreenState
           ],
         ),
       ],
-    );
-  }
-}
-
-class _AgeChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _AgeChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.ivoryHigh : AppColors.white,
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: selected ? AppColors.espressoDark : AppColors.taupeSoft,
-          width: selected ? 2 : 1,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const StadiumBorder(),
-        child: Center(
-          child: Text(
-            label,
-            style: BlueprintText.option(context).copyWith(fontSize: 14),
-          ),
-        ),
-      ),
     );
   }
 }

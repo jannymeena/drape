@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
+import '../widgets/blueprint_chip.dart';
 import '../widgets/blueprint_choice_card.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'blueprint_shopping_screen.dart';
@@ -184,7 +185,7 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           runSpacing: 8,
           children: [
             for (final o in shown)
-              _Chip(
+              BlueprintChip(
                 label: o.label,
                 selected: _picked.contains(o.value),
                 onTap: () => _toggleOccupation(o.value),
@@ -211,7 +212,7 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
               runSpacing: 8,
               children: [
                 for (final d in _dressCodes)
-                  _Chip(
+                  BlueprintChip(
                     label: d.label,
                     selected: !_notWorkingPicked && _dressCode == d.value,
                     onTap: () {
@@ -319,58 +320,6 @@ class _SearchField extends StatelessWidget {
             style: body.copyWith(fontSize: 11, color: AppColors.taupe),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// A pill choice: white, or espresso with a check when picked.
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: Material(
-        color: selected ? AppColors.espresso : AppColors.white,
-        elevation: selected ? 2 : 0.5,
-        shadowColor: AppColors.black.withValues(alpha: 0.3),
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: BlueprintText.optionSupport(context).copyWith(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: selected ? AppColors.white : AppColors.ink,
-                  ),
-                ),
-                if (selected) ...[
-                  const SizedBox(width: 6),
-                  const Icon(Icons.check, size: 15, color: AppColors.white),
-                ],
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
