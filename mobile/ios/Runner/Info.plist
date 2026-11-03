@@ -3,9 +3,9 @@
 <plist version="1.0">
 	<dict>
 		<key>NSCameraUsageDescription</key>
-		<string>Zoura uses the camera to scan and photograph your clothing items.</string>
+		<string>Zoura uses the camera to photograph your clothing items, and to take a full-body photo if you ask it to suggest your body shape. That photo is read on your phone and isn't uploaded.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
-		<string>Zoura needs access to your photos to add clothing items to your wardrobe.</string>
+		<string>Zoura needs access to your photos to add clothing items to your wardrobe, and to choose a full-body photo if you ask it to suggest your body shape. That photo is read on your phone and isn't uploaded.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Zoura uses your location to tailor outfit suggestions to your local weather.</string>
 		<!-- Export compliance: only standard HTTPS/TLS, which is exempt. Declared
