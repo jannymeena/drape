@@ -137,6 +137,32 @@ class OnboardingService {
     }
   }
 
+  /// `PATCH /profile/measurements` — saves only [cm] (metric), merged into
+  /// whatever's already saved; the set stays incomplete until every required
+  /// measurement is in. For when only some are known, like the shape
+  /// finder's four. Like [submitMeasurements], leaves onboarding alone.
+  /// Throws [ApiException].
+  Future<void> saveSomeMeasurements(
+    Map<MeasurementField, double> cm, {
+    required String unitSystem,
+  }) async {
+    try {
+      await _dio.patch<Map<String, dynamic>>(
+        '/profile/measurements',
+        data: {
+          for (final MapEntry(key: field, value: value) in cm.entries)
+            _wireKey(field): value,
+          'unit_system': unitSystem,
+        },
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  static String _wireKey(MeasurementField field) =>
+      field == MeasurementField.weight ? 'weight_kg' : '${field.name}_cm';
+
   /// `GET /profile/onboarding-status` — completion flag + resume target.
   Future<OnboardingStatus> getOnboardingStatus() async {
     try {

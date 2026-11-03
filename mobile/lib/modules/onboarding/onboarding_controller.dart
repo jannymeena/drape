@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
@@ -286,6 +288,9 @@ class OnboardingController extends StateNotifier<OnboardingState> {
   /// step's answers are saved. Throws [ApiException] if one still can't be
   /// saved, or the completion itself fails.
   Future<String> completeBlueprint() async {
+    // Measurements are optional: one more try for any unsent ones, without
+    // holding the blueprint up for them.
+    unawaited(_sendMeasurements());
     await _allSaved();
     final next = await _service.completeBlueprint();
     state = state.copyWith(nextStep: next);
@@ -316,6 +321,56 @@ class OnboardingController extends StateNotifier<OnboardingState> {
         unitSystem: imperial ? 'imperial' : 'metric',
       ),
     );
+  }
+
+  /// Measurements given to [saveMeasurements] and not yet saved, metric.
+  final _unsentMeasurements = <MeasurementField, double>{};
+  var _unsentUnits = 'metric';
+
+  /// The tail of the measurement saves, which go out one at a time. Never
+  /// errors.
+  Future<void> _measurementSaves = Future.value();
+
+  /// Stores [cm] (metric) in the draft, and saves just those measurements to
+  /// the profile in the background (`PATCH /profile/measurements`): nothing
+  /// waits for it, and a failure never interrupts the user. Measurements are
+  /// optional, so they stay out of the step-save queue — a failed one must
+  /// not hold up the blueprint. One that fails for want of a connection or
+  /// a server error is kept and sent with the next, and again when the
+  /// blueprint is completed; one the server rejects is dropped.
+  void saveMeasurements(
+    Map<MeasurementField, double> cm, {
+    required bool imperial,
+  }) {
+    for (final MapEntry(key: field, value: value) in cm.entries) {
+      setMeasurement(field, value, imperial: imperial);
+    }
+    _unsentMeasurements.addAll(cm);
+    _unsentUnits = imperial ? 'imperial' : 'metric';
+    unawaited(_sendMeasurements());
+  }
+
+  Future<void> _sendMeasurements() {
+    return _measurementSaves = _measurementSaves.then((_) async {
+      if (_unsentMeasurements.isEmpty) return;
+      final batch = Map.of(_unsentMeasurements);
+      // Forget what was sent, unless it was changed meanwhile.
+      void sent() => batch.forEach((field, value) {
+        if (_unsentMeasurements[field] == value) {
+          _unsentMeasurements.remove(field);
+        }
+      });
+      try {
+        await _service.saveSomeMeasurements(batch, unitSystem: _unsentUnits);
+        sent();
+      } on ApiException catch (e) {
+        final status = e.statusCode;
+        // Rejected (bad values, signed out): retrying won't change that.
+        if (status != null && status >= 400 && status < 500) sent();
+      } catch (_) {
+        // Kept for the next try.
+      }
+    });
   }
 
   /// Submits all collected measurements in one call. Guards client-side that the

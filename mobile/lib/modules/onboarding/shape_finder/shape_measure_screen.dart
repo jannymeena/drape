@@ -222,10 +222,10 @@ class _ShapeMeasureScreenState extends ConsumerState<ShapeMeasureScreen> {
     if (_leaving || !_complete(finder)) return;
     setState(() => _leaving = true);
     if (_saveToProfile) {
-      final onboarding = ref.read(onboardingControllerProvider.notifier);
-      for (final MapEntry(key: field, value: cm) in finder.cm.entries) {
-        onboarding.setMeasurement(field, cm, imperial: finder.imperial);
-      }
+      // Saved to the profile in the background; the estimate doesn't wait.
+      ref
+          .read(onboardingControllerProvider.notifier)
+          .saveMeasurements(finder.cm, imperial: finder.imperial);
     }
     await ref.read(shapeFinderProvider.notifier).estimateFromMeasurements();
     if (!mounted) return;
