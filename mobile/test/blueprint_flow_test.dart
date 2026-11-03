@@ -105,6 +105,15 @@ class _StubService extends OnboardingService {
   }
 
   @override
+  Future<String> setBlueprintPalettes({
+    required List<String> palettes,
+    List<String> avoid = const [],
+  }) async {
+    calls['palettes'] = {'color_palettes': palettes, 'avoid_colors': avoid};
+    return 'style_blueprint_6';
+  }
+
+  @override
   Future<String> setBlueprintGoals({
     required String threeMonthFeeling,
     required List<String> goals,
@@ -707,14 +716,17 @@ void main() {
       container.read(onboardingControllerProvider).blueprint.colorPalettes,
       ['neutrals', 'bold_bright'],
     );
-    // Draft only: the step's API isn't connected yet.
-    expect(service.calls.keys, isNot(contains('lifestyle')));
+    expect(service.calls['palettes'], {
+      'color_palettes': ['neutrals', 'bold_bright'],
+      'avoid_colors': <String>[],
+    });
     await tester.pumpAndSettle();
     expect(find.byType(BlueprintHabitsScreen), findsOneWidget);
   });
 
   testWidgets('step 5’s “Colours I avoid” picks are kept', (tester) async {
-    final container = _container(_StubService());
+    final service = _StubService();
+    final container = _container(service);
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -750,6 +762,10 @@ void main() {
       'bright_orange',
       'magenta',
     ]);
+    expect(service.calls['palettes'], {
+      'color_palettes': ['earth_tones'],
+      'avoid_colors': ['bright_orange', 'magenta'],
+    });
   });
 
   testWidgets('the reveal plays back what the steps captured', (tester) async {

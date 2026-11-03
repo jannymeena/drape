@@ -229,10 +229,10 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
-  /// Step 5 — the colour palettes the user gravitates to, and the colours
-  /// they'd rather avoid. Draft only for now: the step's API isn't connected
-  /// yet, so nothing is sent.
-  void setBlueprintPalettes(
+  /// Step 5 — the colour palettes the user gravitates to ([palettes],
+  /// non-empty) and the colours they'd rather avoid. See [_save] for the
+  /// future.
+  Future<String> setBlueprintPalettes(
     List<String> palettes, {
     List<String> avoid = const [],
   }) {
@@ -241,6 +241,10 @@ class OnboardingController extends StateNotifier<OnboardingState> {
         colorPalettes: palettes,
         avoidColors: avoid,
       ),
+    );
+    return _save(
+      'palettes',
+      () => _service.setBlueprintPalettes(palettes: palettes, avoid: avoid),
     );
   }
 

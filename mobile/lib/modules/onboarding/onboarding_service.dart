@@ -73,7 +73,20 @@ class OnboardingService {
     });
   }
 
-  /// Step 5 — `POST /profile/style-blueprint/lifestyle`. [occupation] and
+  /// Step 5 — `POST /profile/style-blueprint/palettes`. [palettes] must be
+  /// non-empty; [avoid] are the "Colours I avoid" picks, none clearing
+  /// earlier ones.
+  Future<String> setBlueprintPalettes({
+    required List<String> palettes,
+    List<String> avoid = const [],
+  }) async {
+    return _postStep('/profile/style-blueprint/palettes', {
+      'color_palettes': palettes,
+      'avoid_colors': avoid,
+    });
+  }
+
+  /// The earlier step 5 — `POST /profile/style-blueprint/lifestyle`. [occupation] and
   /// [dressCode] are both null-able: the dress-code question is skipped for
   /// users who aren't currently working.
   Future<String> setBlueprintLifestyle({

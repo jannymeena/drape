@@ -10,8 +10,8 @@ import 'blueprint_habits_screen.dart';
 /// Step 5 of 7 — "Which colours do you gravitate toward?": six palette cards,
 /// any number of which can be picked, and an optional "Colours I avoid" row.
 ///
-/// UI only for now: the answers go into the draft, not to the backend (the
-/// API is connected later).
+/// Continue saves in the background (see OnboardingController._save) and
+/// moves straight on.
 class BlueprintPalettesScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/blueprint/palettes';
   static const name = 'blueprint_palettes';
