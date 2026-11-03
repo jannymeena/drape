@@ -99,6 +99,14 @@ _BLUEPRINT_STEPS = [
         },
     ),
     (
+        "shopping",
+        {
+            "shopping_feelings": ["confident", "necessity"],
+            "accessories": "minimal",
+            "brand_tier": "premium",
+        },
+    ),
+    (
         "goals",
         {
             "three_month_feeling": "confident_anywhere",
@@ -108,7 +116,7 @@ _BLUEPRINT_STEPS = [
 ]
 
 
-def _walk_blueprint(client, through: int = 7) -> str:
+def _walk_blueprint(client, through: int = 8) -> str:
     """POST the first [through] blueprint steps in order; returns the last
     `next_step`."""
     nxt = ""
@@ -120,13 +128,13 @@ def _walk_blueprint(client, through: int = 7) -> str:
 
 
 def test_blueprint_steps_chain_in_order(authed_client):
-    """Each step advances to the next; step 7 hands off to the reveal."""
+    """Each step advances to the next; step 8 hands off to the reveal."""
     for i, (suffix, payload) in enumerate(_BLUEPRINT_STEPS, start=1):
         r = authed_client.post(
             f"/api/v1/profile/style-blueprint/{suffix}", json=payload
         )
         assert r.status_code == 200, r.text
-        expected = "style_blueprint_reveal" if i == 7 else f"style_blueprint_{i + 1}"
+        expected = "style_blueprint_reveal" if i == 8 else f"style_blueprint_{i + 1}"
         assert r.json()["next_step"] == expected
 
 
@@ -150,6 +158,8 @@ def test_blueprint_answers_accumulate_in_style_profile(authed_client):
     assert profile["color_palettes"] == ["earth_tones", "neutrals"]
     assert profile["avoid_colors"] == ["magenta"]
     assert profile["occupations"] == ["marketing", "other"]
+    assert profile["shopping_feelings"] == ["confident", "necessity"]
+    assert profile["brand_tier"] == "premium"
     assert profile["occupation_other"] == "Brand Strategist"
     assert profile["dress_code"] == "smart_casual"
     assert profile["day_formality"] == "smart_casual"
@@ -361,6 +371,39 @@ def test_free_text_occupation_stays_out_of_the_prompt():
     )
     assert "Brand Strategist" not in block
     assert "day formality: business." in block
+
+
+def test_blueprint_shopping_saves_up_to_three_feelings(authed_client):
+    url = "/api/v1/profile/style-blueprint/shopping"
+    body = {"accessories": "statement", "brand_tier": "mix"}
+    r = authed_client.post(
+        url,
+        json=dict(body, shopping_feelings=["exploring", "frustrated", "exploring"]),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["next_step"] == "style_blueprint_8"
+    profile = authed_client.get("/api/v1/profile/onboarding-status").json()[
+        "style_profile"
+    ]
+    assert profile["shopping_feelings"] == ["exploring", "frustrated"]
+    assert profile["accessories"] == "statement"
+
+    for bad in (
+        dict(body, shopping_feelings=[]),
+        dict(body, shopping_feelings=["confident", "necessity", "frustrated", "exploring"]),
+        dict(body, shopping_feelings=["bored"]),
+        {"shopping_feelings": ["confident"], "brand_tier": "mix"},  # accessories
+    ):
+        assert authed_client.post(url, json=bad).status_code == 422, bad
+
+
+def test_goals_is_step_8_and_leads_to_the_reveal(authed_client):
+    r = authed_client.post(
+        "/api/v1/profile/style-blueprint/goals",
+        json={"three_month_feeling": "found_my_look", "style_goals": ["polished"]},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["next_step"] == "style_blueprint_reveal"
 
 
 def test_blueprint_identity_accepts_null_age_skip(authed_client):

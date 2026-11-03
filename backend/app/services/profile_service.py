@@ -3,15 +3,15 @@
 The onboarding step machine lives here. A single source of truth (`_NEXT`)
 maps each step to the one that follows it; routes never hardcode transitions.
 
-The flow is: seven blueprint screens (each posting one request model from
+The flow is: eight blueprint screens (each posting one request model from
 `app.schemas.profile`) → the blueprint reveal → the app. Body measurements
 used to sit between style goals and the reveal; the 7-step redesign moved them
 out of onboarding entirely — they're now entered from the Shop/Profile tabs
 via `POST /profile/measurements`, and the measurement services no longer
 participate in this chain.
 
-Steps 2-7 write into the `users.style_profile` JSONB blob one step at a time
-via `_merge_style_profile`; step 1 and step 7 also write the dedicated
+Steps 2-8 write into the `users.style_profile` JSONB blob one step at a time
+via `_merge_style_profile`; step 1 and step 8 also write the dedicated
 `shopping_style` / `age_range` / `style_goals` columns.
 """
 from __future__ import annotations
@@ -35,6 +35,7 @@ from app.schemas.profile import (
     StyleBlueprintIdentityRequest,
     StyleBlueprintLifestyleRequest,
     StyleBlueprintPalettesRequest,
+    StyleBlueprintShoppingRequest,
     StyleBlueprintWorkRequest,
     StyleProfileResponse,
 )
@@ -52,7 +53,8 @@ _NEXT: dict[str, OnboardingStep] = {
     "style_blueprint_4": "style_blueprint_5",
     "style_blueprint_5": "style_blueprint_6",
     "style_blueprint_6": "style_blueprint_7",
-    "style_blueprint_7": "style_blueprint_reveal",
+    "style_blueprint_7": "style_blueprint_8",
+    "style_blueprint_8": "style_blueprint_reveal",
     "style_blueprint_reveal": "today_dashboard",
 }
 
@@ -240,6 +242,30 @@ def set_blueprint_work(
     return nxt
 
 
+def set_blueprint_shopping(
+    db: Session, *, user: User, payload: StyleBlueprintShoppingRequest
+) -> OnboardingStep:
+    """Step 7 — shopping feelings (up to three), accessories, brand type."""
+    feelings = _dedup(payload.shopping_feelings)
+    _merge_style_profile(
+        user,
+        {
+            "shopping_feelings": feelings,
+            "accessories": payload.accessories,
+            "brand_tier": payload.brand_tier,
+        },
+    )
+    nxt = _advance(user, "style_blueprint_7")
+    db.commit()
+    _log.info(
+        "profile.blueprint.shopping",
+        user_id=str(user.id),
+        feelings=feelings,
+        brand_tier=payload.brand_tier,
+    )
+    return nxt
+
+
 def set_blueprint_lifestyle(
     db: Session, *, user: User, payload: StyleBlueprintLifestyleRequest
 ) -> OnboardingStep:
@@ -291,7 +317,7 @@ def set_blueprint_goals(
     matching); the aspiration joins the blob."""
     user.style_goals = _dedup(payload.style_goals)
     _merge_style_profile(user, {"three_month_feeling": payload.three_month_feeling})
-    nxt = _advance(user, "style_blueprint_7")
+    nxt = _advance(user, "style_blueprint_8")
     db.commit()
     _log.info(
         "profile.blueprint.goals",

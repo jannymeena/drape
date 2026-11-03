@@ -1,4 +1,4 @@
-"""Profile setup routes — the 7-step Style Blueprint onboarding.
+"""Profile setup routes — the 8-step Style Blueprint onboarding.
 
 One POST per blueprint screen, each returning the next step to route to. The
 CTO doc takes user_id in the request bodies; we ignore that and trust the
@@ -30,6 +30,7 @@ from app.schemas.profile import (
     StyleBlueprintIdentityRequest,
     StyleBlueprintLifestyleRequest,
     StyleBlueprintPalettesRequest,
+    StyleBlueprintShoppingRequest,
     StyleBlueprintWorkRequest,
 )
 from app.schemas.user import UserResponse
@@ -52,7 +53,7 @@ def set_blueprint_identity(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    """Step 1 of 7 — what style you shop for + age range."""
+    """Step 1 of 8 — what style you shop for + age range."""
     nxt = profile_service.set_blueprint_identity(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 
@@ -63,7 +64,7 @@ def set_blueprint_fit(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    """Step 2 of 7 — body shape + fit preferences."""
+    """Step 2 of 8 — body shape + fit preferences."""
     nxt = profile_service.set_blueprint_fit(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 
@@ -74,7 +75,7 @@ def set_blueprint_aesthetics(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    """Step 3 of 7 — which styles you like."""
+    """Step 3 of 8 — which styles you like."""
     nxt = profile_service.set_blueprint_aesthetics(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 
@@ -85,7 +86,7 @@ def set_blueprint_color(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    """Step 4 of 7 — skin shade + undertone (null when skipped)."""
+    """Step 4 of 8 — skin shade + undertone (null when skipped)."""
     nxt = profile_service.set_blueprint_color(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 
@@ -96,7 +97,7 @@ def set_blueprint_palettes(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    """Step 5 of 7 — colour palettes, and colours the user avoids."""
+    """Step 5 of 8 — colour palettes, and colours the user avoids."""
     nxt = profile_service.set_blueprint_palettes(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 
@@ -107,9 +108,20 @@ def set_blueprint_work(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    """Step 6 of 7 — occupations, dress code, typical-day formality, and
+    """Step 6 of 8 — occupations, dress code, typical-day formality, and
     where the user wants to impress."""
     nxt = profile_service.set_blueprint_work(db, user=user, payload=payload)
+    return ProfileStepResponse(next_step=nxt)
+
+
+@router.post("/style-blueprint/shopping", response_model=ProfileStepResponse)
+def set_blueprint_shopping(
+    payload: StyleBlueprintShoppingRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ProfileStepResponse:
+    """Step 7 of 8 — shopping feelings (up to three), accessories, brand type."""
+    nxt = profile_service.set_blueprint_shopping(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 
 
@@ -144,7 +156,7 @@ def set_blueprint_goals(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> ProfileStepResponse:
-    """Step 7 of 7 — three-month aspiration + style goals."""
+    """Step 8 of 8 — three-month aspiration + style goals."""
     nxt = profile_service.set_blueprint_goals(db, user=user, payload=payload)
     return ProfileStepResponse(next_step=nxt)
 

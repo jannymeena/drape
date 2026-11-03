@@ -117,6 +117,7 @@ OnboardingStep = Literal[
     "style_blueprint_5",
     "style_blueprint_6",
     "style_blueprint_7",
+    "style_blueprint_8",
     "style_blueprint_reveal",
     "today_dashboard",
 ]
@@ -227,6 +228,15 @@ class StyleBlueprintLifestyleRequest(BaseModel):
     impression_goal: ImpressionGoal
 
 
+class StyleBlueprintShoppingRequest(BaseModel):
+    """Step 7 — how the user feels about shopping and getting dressed (one
+    to three), their accessories, and the type of brands they buy."""
+
+    shopping_feelings: list[ShoppingFeeling] = Field(min_length=1, max_length=3)
+    accessories: Accessories
+    brand_tier: BrandTier
+
+
 class StyleBlueprintHabitsRequest(BaseModel):
     """The earlier step 6 — attitude to shopping, accessories, and price
     bracket. The app no longer asks it."""
@@ -269,6 +279,7 @@ class StyleProfileResponse(BaseModel):
     day_formality: DayFormality | None = None
     impression_goal: ImpressionGoal | None = None
     shopping_feeling: ShoppingFeeling | None = None
+    shopping_feelings: list[ShoppingFeeling] | None = None
     accessories: Accessories | None = None
     brand_tier: BrandTier | None = None
     three_month_feeling: ThreeMonthFeeling | None = None
