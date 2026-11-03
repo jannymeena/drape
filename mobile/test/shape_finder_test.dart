@@ -20,11 +20,14 @@ import 'package:mobile/modules/onboarding/shape_finder/shape_intro_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_measure_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_error_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_frame.dart';
+import 'package:mobile/modules/onboarding/shape_finder/pose_detector.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_render.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_review_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_tips_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_result_screen.dart';
 import 'package:mobile/shared/theme/app_theme.dart';
+
+import 'support/synthetic_body.dart';
 
 class _StubService extends OnboardingService {
   _StubService() : super(Dio());
@@ -100,6 +103,12 @@ class _FakeRenderer implements ShapePhotoRenderer {
     this.faceBlur = faceBlur;
     return framedFile;
   }
+
+  /// What was discarded.
+  final discarded = <XFile>[];
+
+  @override
+  Future<void> discard(XFile framed) async => discarded.add(framed);
 }
 
 GoRoute _route(String path, String name, Widget screen) =>
@@ -196,16 +205,19 @@ void main() {
   late _StubService service;
   late _FakeEstimator estimator;
   late _FakeRenderer renderer;
+  late FakePoseDetector detector;
 
   Future<ProviderContainer> womenAtStep2(WidgetTester tester) async {
     service = _StubService();
     estimator = _FakeEstimator();
     renderer = _FakeRenderer();
+    detector = FakePoseDetector();
     final container = ProviderContainer(
       overrides: [
         onboardingServiceProvider.overrideWithValue(service),
         bodyShapeEstimatorProvider.overrideWithValue(estimator),
         shapePhotoRendererProvider.overrideWithValue(renderer),
+        poseDetectorProvider.overrideWithValue(detector),
       ],
     );
     addTearDown(container.dispose);
@@ -336,6 +348,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('We couldn’t see your full body.'), findsOneWidget);
+    // The framed copy is no use now, so it's gone.
+    expect(renderer.discarded, [_FakeRenderer.framedFile]);
 
     // "I'll pick my shape myself" goes back to step 2's grid.
     await _tap(tester, find.text('I’ll pick my shape myself'));
@@ -379,15 +393,15 @@ void main() {
     await tester.pumpAndSettle();
     ShapeFinderState finder() => container.read(shapeFinderProvider);
 
-    // Drag the waist line down: it follows the finger the whole way, even
+    // Drag the waist line up: it follows the finger the whole way, even
     // when the drag arrives as several events between rebuilds.
     final waistBefore = finder().guides.waist;
     final frameHeight = tester.getSize(find.byType(ShapePhotoFrame)).height;
-    await tester.drag(find.text('Waist'), const Offset(0, 30));
+    await tester.drag(find.text('Waist'), const Offset(0, -30));
     await tester.pumpAndSettle();
-    expect(finder().guides.waist, greaterThan(waistBefore));
+    expect(finder().guides.waist, lessThan(waistBefore));
     expect(
-      finder().guides.waist - waistBefore,
+      waistBefore - finder().guides.waist,
       closeTo(30 / frameHeight, 0.02),
     );
 
@@ -420,6 +434,125 @@ void main() {
     expect(finder().photo, _FakeRenderer.framedFile);
     expect(estimator.lastPhoto!.file, _FakeRenderer.framedFile);
     expect(renderer.renders, 1);
+  });
+
+  testWidgets('the lines and the blur start on the body MediaPipe found', (
+    tester,
+  ) async {
+    final container = await womenAtStep2(tester);
+    await _tap(tester, find.text('Not sure?'));
+    container
+        .read(shapeFinderProvider.notifier)
+        .setPhoto(XFile('/nonexistent/photo.jpg'));
+    unawaitedPush(tester, ShapePhotoReviewScreen.name);
+    await tester.pumpAndSettle();
+
+    final finder = container.read(shapeFinderProvider);
+    expect(finder.detecting, isFalse);
+    expect(find.text('FRAMING GUIDE'), findsOneWidget);
+    // The synthetic body's narrowest waist is at y 150 of 400; its head at
+    // (100, 40) of 200 × 400.
+    expect(finder.guides.waist, closeTo(150 / 400, 0.01));
+    expect(finder.faceBlur.center.dy, closeTo(40 / 400, 0.015));
+  });
+
+  testWidgets('a line the user already moved isn’t moved back by the reading', (
+    tester,
+  ) async {
+    final container = await womenAtStep2(tester);
+    await _tap(tester, find.text('Not sure?'));
+    container.read(shapeFinderProvider.notifier)
+      ..setPhoto(XFile('/nonexistent/photo.jpg'))
+      // Before the reading arrives.
+      ..nudgeGuide(Landmark.waist, 0.05);
+    final moved = container.read(shapeFinderProvider).guides.waist;
+    await tester.pumpAndSettle();
+    expect(container.read(shapeFinderProvider).guides.waist, moved);
+    // The blur, untouched, still moved onto the face.
+    expect(
+      container.read(shapeFinderProvider).faceBlur.center.dy,
+      closeTo(40 / 400, 0.015),
+    );
+  });
+
+  for (final (problem, poses, headline) in [
+    (
+      PhotoProblem.noPerson,
+      <DetectedPose>[],
+      'We couldn’t find you in the photo.',
+    ),
+    (
+      PhotoProblem.severalPeople,
+      [syntheticBody(), syntheticBody()],
+      'We found more than one person.',
+    ),
+    (
+      PhotoProblem.sideOn,
+      [syntheticBody(shoulderSpan: 20)],
+      'Turn to face the camera.',
+    ),
+  ]) {
+    testWidgets('“Use This Photo” with ${problem.name} says so', (
+      tester,
+    ) async {
+      final container = await womenAtStep2(tester);
+      detector.poses = poses;
+      await _tap(tester, find.text('Not sure?'));
+      container
+          .read(shapeFinderProvider.notifier)
+          .setPhoto(XFile('/nonexistent/photo.jpg'));
+      unawaitedPush(tester, ShapePhotoReviewScreen.name);
+      await tester.pumpAndSettle();
+
+      await _tap(tester, find.text('Use This Photo'));
+      expect(find.text(headline), findsOneWidget);
+      expect(renderer.renders, 0);
+    });
+  }
+
+  test(
+    'arms across the body at the user’s lines are caught in the analysis',
+    () async {
+      // The real estimator, measuring the synthetic body with its hands
+      // clasped in front.
+      final controller = ShapeFinderController(
+        const LocalBodyShapeEstimator(analysisTime: Duration.zero),
+        _FakeRenderer(),
+        FakePoseDetector([syntheticBody(handsInFront: true)]),
+      )..setPhoto(XFile('/nonexistent/photo.jpg'));
+      addTearDown(controller.dispose);
+      await expectLater(
+        controller.estimateFromPhoto(),
+        throwsA(
+          isA<PhotoUnreadableException>().having(
+            (e) => e.problem,
+            'problem',
+            PhotoProblem.armsTouching,
+          ),
+        ),
+      );
+      expect(controller.state.photoProblem, PhotoProblem.armsTouching);
+    },
+  );
+
+  test('a readable body gives a shape from the user’s set', () async {
+    final controller =
+        ShapeFinderController(
+            const LocalBodyShapeEstimator(analysisTime: Duration.zero),
+            _FakeRenderer(),
+            FakePoseDetector(),
+          )
+          ..start(
+            set: BodyShapeSet.mens,
+            fitTops: 'regular',
+            fitBottoms: 'relaxed',
+          )
+          ..setPhoto(XFile('/nonexistent/photo.jpg'));
+    addTearDown(controller.dispose);
+    final estimate = await controller.estimateFromPhoto();
+    final offered = {for (final o in bodyShapesFor(BodyShapeSet.mens)) o.value};
+    expect(offered, contains(estimate.best));
+    expect(controller.state.source, ShapeSource.photo);
   });
 
   testWidgets(

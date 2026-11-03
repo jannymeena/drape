@@ -31,6 +31,9 @@ target 'Runner' do
   use_frameworks!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  # On-device body detection for the shape finder's photo path
+  # (Runner/PoseDetectorChannel.swift). Keep in step with android/app.
+  pod 'MediaPipeTasksVision', '0.10.35'
   target 'RunnerTests' do
     inherit! :search_paths
   end
@@ -40,4 +43,48 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
   end
+  drop_mediapipe_gtm_session_fetcher(installer)
+end
+
+# MediaPipeTasksCommon bundles its own copy of Google's GTMSessionFetcher,
+# which it only uses to download models from a URL (we never do: the model
+# ships in the app). Google Sign-In brings GTMSessionFetcher too, through
+# Swift Package Manager, and the two copies collide when the app is linked
+# ("duplicate symbols"). Take MediaPipe's copy out of its static library so
+# it uses Google Sign-In's. Runs on every `pod install`.
+def drop_mediapipe_gtm_session_fetcher(installer)
+  require 'tmpdir'
+  members = %w[
+    GTMSessionFetcher.o
+    GTMSessionFetcherLogging.o
+    GTMSessionFetcherService.o
+    GTMSessionUploadFetcher.o
+  ]
+  xcframework = File.join(
+    installer.sandbox.root.to_s, 'MediaPipeTasksCommon', 'frameworks',
+    'MediaPipeTasksCommon.xcframework'
+  )
+  Dir.glob(File.join(xcframework, '*', 'MediaPipeTasksCommon.framework', 'MediaPipeTasksCommon')).each do |binary|
+    archs = `lipo -archs "#{binary}"`.split
+    if archs.length > 1
+      Dir.mktmpdir do |tmp|
+        thin = archs.map do |arch|
+          path = File.join(tmp, arch)
+          system('lipo', binary, '-thin', arch, '-output', path, exception: true)
+          drop_archive_members(path, members)
+          path
+        end
+        system('lipo', '-create', *thin, '-output', binary, exception: true)
+      end
+    else
+      drop_archive_members(binary, members)
+    end
+  end
+end
+
+def drop_archive_members(archive, members)
+  present = `ar -t "#{archive}"`.split("\n") & members
+  return if present.empty?
+  system('ar', '-d', archive, *present, exception: true)
+  system('ranlib', archive, exception: true)
 end

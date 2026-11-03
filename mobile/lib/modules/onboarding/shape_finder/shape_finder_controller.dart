@@ -7,15 +7,22 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/body_shapes.dart';
 import '../models/measurements_draft.dart';
+import 'body_reading.dart';
 import 'measurement_shape.dart';
+import 'pose_detector.dart';
 import 'shape_photo_render.dart';
+
+export 'body_reading.dart' show PhotoProblem, PhotoUnreadableException;
 
 /// The "Not sure?" sub-flow of Style Blueprint step 2: the user either enters
 /// four measurements or takes/uploads a full-body photo, and we suggest a body
-/// shape from it.
+/// shape from it. Both are worked out on the device; nothing is uploaded.
 ///
-/// Shapes are identified behind [BodyShapeEstimator]; [LocalBodyShapeEstimator]
-/// works measurements out on the device and still stands in for photos.
+/// Measurements go straight into the formula ([shapeFromMeasurements]). A
+/// photo is read by MediaPipe ([PoseDetector]) as soon as it's picked; the
+/// reading ([BodyReading]) places the framing lines and the face blur, and
+/// after the user's adjustments gives the body's widths at the lines, which
+/// go into the same formula ([photoSignals]).
 
 /// The measurements the measurements path asks for.
 const shapeMeasurements = [
@@ -69,6 +76,18 @@ class FramingGuides {
     Landmark.hips => hips,
   };
 
+  /// Lines at about these heights, put in order and apart, inside the photo.
+  factory FramingGuides.fitted({
+    required double shoulders,
+    required double waist,
+    required double hips,
+  }) {
+    final s = shoulders.clamp(_top, _bottom - 2 * minGap).toDouble();
+    final w = waist.clamp(s + minGap, _bottom - minGap).toDouble();
+    final h = hips.clamp(w + minGap, _bottom).toDouble();
+    return FramingGuides(shoulders: s, waist: w, hips: h);
+  }
+
   /// [landmark] moved to [y], held between its neighbours.
   FramingGuides move(Landmark landmark, double y) {
     double clamp(double lo, double hi) => y.clamp(lo, hi).toDouble();
@@ -118,22 +137,25 @@ class FaceBlur {
 
 /// What the photo path hands to [BodyShapeEstimator.fromPhoto].
 class ShapePhoto {
-  const ShapePhoto({required this.file, required this.guides, this.faceBlur});
+  const ShapePhoto({
+    required this.file,
+    required this.guides,
+    this.faceBlur,
+    this.body,
+  });
 
   /// The framed photo: the face blur and the guide lines are already drawn
   /// into it (see [ShapePhotoRenderer]).
   final XFile file;
 
-  /// Where the lines were drawn, for the analysis to use as a starting point.
+  /// Where the user put the lines: the body is measured there.
   final FramingGuides guides;
 
   /// Where the face was blurred; null when the user turned blurring off.
   final FaceBlur? faceBlur;
-}
 
-/// The photo doesn't show a whole body, so no shape can be read from it.
-class PhotoUnreadableException implements Exception {
-  const PhotoUnreadableException();
+  /// What MediaPipe found in the original photo.
+  final BodyReading? body;
 }
 
 abstract class BodyShapeEstimator {
@@ -146,34 +168,16 @@ abstract class BodyShapeEstimator {
   Future<ShapeEstimate> fromPhoto(BodyShapeSet set, ShapePhoto photo);
 }
 
-/// Measurements go through [shapeFromMeasurements], on the device.
-///
-/// Photos: a stand-in until photo detection is built — suggests the shape
-/// each set's mockup shows, whatever the photo. A landscape photo is
-/// reported as unreadable (a full body rarely fits one), which is also how to
-/// reach the error screen while this is in place.
+/// Both paths, on the device: measurements through [shapeFromMeasurements];
+/// a photo by measuring the body MediaPipe found at the user's lines.
 class LocalBodyShapeEstimator implements BodyShapeEstimator {
   const LocalBodyShapeEstimator({
-    this.analysisTime = const Duration(seconds: 3),
+    this.analysisTime = const Duration(milliseconds: 1500),
   });
 
-  /// How long the photo "analysis" takes, so the analyzing screen is seen.
+  /// The least time the analyzing screen shows, so it doesn't just flash:
+  /// the reading itself is done by the time it opens.
   final Duration analysisTime;
-
-  static const _photoSuggestions = {
-    BodyShapeSet.mens: ShapeEstimate(
-      best: 'inverted_triangle',
-      alternatives: ['trapezoid', 'rectangle'],
-    ),
-    BodyShapeSet.womens: ShapeEstimate(
-      best: 'hourglass',
-      alternatives: ['triangle', 'rectangle'],
-    ),
-    BodyShapeSet.neutral: ShapeEstimate(
-      best: 'rectangle',
-      alternatives: ['triangle', 'trapezoid'],
-    ),
-  };
 
   @override
   Future<ShapeEstimate> fromMeasurements(
@@ -183,11 +187,13 @@ class LocalBodyShapeEstimator implements BodyShapeEstimator {
 
   @override
   Future<ShapeEstimate> fromPhoto(BodyShapeSet set, ShapePhoto photo) async {
-    final size = await photoSize(photo.file);
-    final landscape = size.width > size.height;
     await Future<void>.delayed(analysisTime);
-    if (landscape) throw const PhotoUnreadableException();
-    return _photoSuggestions[set]!;
+    final body = photo.body;
+    if (body == null) throw const PhotoUnreadableException();
+    return shapeFromSignals(
+      set,
+      photoSignals(set, body.widthsAt(photo.guides)),
+    );
   }
 }
 
@@ -218,6 +224,11 @@ class ShapeFinderState {
     this.guides = const FramingGuides(),
     this.faceBlur = const FaceBlur(),
     this.blurFace = true,
+    this.detecting = false,
+    this.body,
+    this.photoProblem,
+    this.guidesTouched = false,
+    this.blurTouched = false,
     this.source,
     this.estimate,
   });
@@ -252,6 +263,20 @@ class ShapeFinderState {
   final FaceBlur faceBlur;
   final bool blurFace;
 
+  /// MediaPipe is reading [photo].
+  final bool detecting;
+
+  /// What it found; null while [detecting] or when there's a [photoProblem].
+  final BodyReading? body;
+
+  /// Why the photo can't be used, once known; the error screen explains it.
+  final PhotoProblem? photoProblem;
+
+  /// The user has moved a line, or the blur circle: the reading's
+  /// suggestions, if they arrive later, mustn't undo that.
+  final bool guidesTouched;
+  final bool blurTouched;
+
   final ShapeSource? source;
   final ShapeEstimate? estimate;
 
@@ -264,6 +289,11 @@ class ShapeFinderState {
     FramingGuides? guides,
     FaceBlur? faceBlur,
     bool? blurFace,
+    bool? detecting,
+    BodyReading? body,
+    PhotoProblem? photoProblem,
+    bool? guidesTouched,
+    bool? blurTouched,
     ShapeSource? source,
     ShapeEstimate? estimate,
   }) => ShapeFinderState(
@@ -278,17 +308,26 @@ class ShapeFinderState {
     guides: guides ?? this.guides,
     faceBlur: faceBlur ?? this.faceBlur,
     blurFace: blurFace ?? this.blurFace,
+    detecting: detecting ?? this.detecting,
+    body: body ?? this.body,
+    photoProblem: photoProblem ?? this.photoProblem,
+    guidesTouched: guidesTouched ?? this.guidesTouched,
+    blurTouched: blurTouched ?? this.blurTouched,
     source: source ?? this.source,
     estimate: estimate ?? this.estimate,
   );
 }
 
 class ShapeFinderController extends StateNotifier<ShapeFinderState> {
-  ShapeFinderController(this._estimator, this._renderer)
+  ShapeFinderController(this._estimator, this._renderer, this._detector)
     : super(const ShapeFinderState());
 
   final BodyShapeEstimator _estimator;
   final ShapePhotoRenderer _renderer;
+  final PoseDetector _detector;
+
+  /// The reading of the current photo, started when it was picked.
+  Future<BodyReading>? _reading;
 
   /// Starts afresh from step 2, remembering its fit answers. [saved] are
   /// measurements entered earlier (in cm); they prefill the measurements path.
@@ -320,7 +359,9 @@ class ShapeFinderController extends StateNotifier<ShapeFinderState> {
   }
 
   /// A new photo, with the guides and blur back at their defaults. Its size
-  /// is read in the background.
+  /// is read, and MediaPipe reads the body, in the background; when the body
+  /// is found, the lines and the blur move onto it (unless the user has
+  /// already moved them).
   void setPhoto(XFile photo) {
     state = ShapeFinderState(
       set: state.set,
@@ -330,12 +371,45 @@ class ShapeFinderController extends StateNotifier<ShapeFinderState> {
       cm: state.cm,
       photo: photo,
       blurFace: state.blurFace,
+      detecting: true,
     );
+    bool current() => mounted && state.photo == photo;
     photoSize(photo).then((size) {
-      if (mounted && state.photo == photo) {
-        state = state.copyWith(photoSize: size);
-      }
+      if (current()) state = state.copyWith(photoSize: size);
     }, onError: (Object _) {}); // unreadable: the frame keeps a default shape
+
+    final reading = _reading = _read(photo);
+    reading.then(
+      (body) {
+        if (!current()) return;
+        state = state.copyWith(
+          detecting: false,
+          body: body,
+          guides: state.guidesTouched ? null : body.suggestedGuides,
+          faceBlur: state.blurTouched ? null : body.suggestedFaceBlur,
+        );
+      },
+      onError: (Object e) {
+        if (!current()) return;
+        state = state.copyWith(
+          detecting: false,
+          photoProblem: e is PhotoUnreadableException
+              ? e.problem
+              : PhotoProblem.unreadable,
+        );
+      },
+    );
+  }
+
+  Future<BodyReading> _read(XFile photo) async {
+    final List<DetectedPose> poses;
+    try {
+      poses = await _detector.detect(photo);
+    } catch (_) {
+      // Undecodable, or the detector failed.
+      throw const PhotoUnreadableException();
+    }
+    return BodyReading.from(poses);
   }
 
   // The editing calls below take *changes*, applied to the current state:
@@ -345,31 +419,46 @@ class ShapeFinderController extends StateNotifier<ShapeFinderState> {
   /// Moves [landmark]'s line by [dy] (a fraction of the photo's height).
   void nudgeGuide(Landmark landmark, double dy) => state = state.copyWith(
     guides: state.guides.move(landmark, state.guides[landmark] + dy),
+    guidesTouched: true,
   );
 
   /// [delta] in fractions of the photo's width and height.
-  void moveFaceBlur(Offset delta) =>
-      state = state.copyWith(faceBlur: state.faceBlur.moveBy(delta));
+  void moveFaceBlur(Offset delta) => state = state.copyWith(
+    faceBlur: state.faceBlur.moveBy(delta),
+    blurTouched: true,
+  );
 
   /// Grows the disc's radius by [dr] (a fraction of the photo's width).
   void growFaceBlur(double dr) => state = state.copyWith(
     faceBlur: state.faceBlur.resize(state.faceBlur.radius + dr),
+    blurTouched: true,
   );
 
   /// Scales the disc's radius by [factor].
   void scaleFaceBlur(double factor) => state = state.copyWith(
     faceBlur: state.faceBlur.resize(state.faceBlur.radius * factor),
+    blurTouched: true,
   );
 
   void setBlurFace(bool blur) => state = state.copyWith(blurFace: blur);
 
-  /// "Use This Photo": draws the face blur (if on) and the guide lines into a
-  /// new image, which replaces [ShapeFinderState.photo] from here on, and
-  /// deletes the original. Throws [PhotoUnreadableException].
+  /// "Use This Photo": once MediaPipe has found a readable body, draws the
+  /// face blur (if on) and the guide lines into a new image, which replaces
+  /// [ShapeFinderState.photo] from here on, and deletes the original.
+  ///
+  /// Throws [PhotoUnreadableException] when the body can't be read; the
+  /// original is deleted then too, as the error screen says.
   Future<XFile> framePhoto() async {
     final original = state.photo;
     if (original == null) throw const PhotoUnreadableException();
     if (state.framed) return original;
+    try {
+      await (_reading ?? Future.error(const PhotoUnreadableException()));
+    } on PhotoUnreadableException catch (e) {
+      if (mounted) state = state.copyWith(photoProblem: e.problem);
+      await _deletePicked(original);
+      rethrow;
+    }
     final framed = await _renderer.render(
       original,
       guides: state.guides,
@@ -403,17 +492,26 @@ class ShapeFinderController extends StateNotifier<ShapeFinderState> {
     return estimate;
   }
 
-  /// Throws [PhotoUnreadableException].
+  /// Throws [PhotoUnreadableException] (and deletes the framed photo, which
+  /// is no use then).
   Future<ShapeEstimate> estimateFromPhoto() async {
     final photo = state.framed ? state.photo! : await framePhoto();
-    final estimate = await _estimator.fromPhoto(
-      state.set,
-      ShapePhoto(
-        file: photo,
-        guides: state.guides,
-        faceBlur: state.blurFace ? state.faceBlur : null,
-      ),
-    );
+    final ShapeEstimate estimate;
+    try {
+      estimate = await _estimator.fromPhoto(
+        state.set,
+        ShapePhoto(
+          file: photo,
+          guides: state.guides,
+          faceBlur: state.blurFace ? state.faceBlur : null,
+          body: state.body,
+        ),
+      );
+    } on PhotoUnreadableException catch (e) {
+      if (mounted) state = state.copyWith(photoProblem: e.problem);
+      await _renderer.discard(photo);
+      rethrow;
+    }
     state = state.copyWith(source: ShapeSource.photo, estimate: estimate);
     return estimate;
   }
@@ -431,5 +529,6 @@ final shapeFinderProvider =
       (ref) => ShapeFinderController(
         ref.read(bodyShapeEstimatorProvider),
         ref.read(shapePhotoRendererProvider),
+        ref.read(poseDetectorProvider),
       ),
     );

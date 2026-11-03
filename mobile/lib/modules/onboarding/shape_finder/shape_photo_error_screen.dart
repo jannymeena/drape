@@ -1,22 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../widgets/blueprint_scaffold.dart';
+import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
 import 'shape_measure_screen.dart';
 
-/// The photo couldn't be read. Offers another photo, measurements, or picking
-/// a shape by hand.
-class ShapePhotoErrorScreen extends StatelessWidget {
+/// The photo couldn't be read: says why, then offers another photo,
+/// measurements, or picking a shape by hand.
+class ShapePhotoErrorScreen extends ConsumerWidget {
   static const path = '/onboarding/blueprint/shape/photo/error';
   static const name = 'shape_photo_error';
 
   const ShapePhotoErrorScreen({super.key});
 
+  /// Headline and advice for each [PhotoProblem].
+  static (String, String) message(PhotoProblem? problem) => switch (problem) {
+    PhotoProblem.noPerson => (
+      'We couldn’t find you in the photo.',
+      'Stand facing the camera in good light, with your whole body in frame.',
+    ),
+    PhotoProblem.severalPeople => (
+      'We found more than one person.',
+      'Take a photo with only you in it.',
+    ),
+    PhotoProblem.sideOn => (
+      'Turn to face the camera.',
+      'We need a front view to read your shoulders, waist and hips.',
+    ),
+    PhotoProblem.armsTouching => (
+      'Keep your arms away from your body.',
+      'Your arms touched your sides at the waist or hips line, so we '
+          'couldn’t read them. Let them hang a little away from you.',
+    ),
+    PhotoProblem.notFullBody || PhotoProblem.unreadable || null => (
+      'We couldn’t see your full body.',
+      'Try again in better light with your whole body in frame.',
+    ),
+  };
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final caption = BlueprintText.caption(context);
+    final (headline, advice) = message(
+      ref.watch(shapeFinderProvider.select((s) => s.photoProblem)),
+    );
     return ShapeFinderScaffold(
       section: 'Photo estimate',
       children: [
@@ -46,11 +76,7 @@ class ShapePhotoErrorScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        const ShapeFinderHeading(
-          'We couldn’t see your full body.',
-          body: 'Try again in better light with your whole body in frame.',
-          center: true,
-        ),
+        ShapeFinderHeading(headline, body: advice, center: true),
         const SizedBox(height: 20),
         ShapeFinderCard(
           color: AppColors.ivoryDim,

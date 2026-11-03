@@ -94,7 +94,7 @@ class _ShapePhotoTipsScreenState extends ConsumerState<ShapePhotoTipsScreen> {
                 'Used solely to estimate your contour and drape.',
                 'Deleted as soon as your shape is estimated — never stored.',
                 'Never sold, shared, or used to train public AI models.',
-                'Processed securely in Canada. 🇨🇦',
+                'Read on your phone — never uploaded.',
               ])
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),

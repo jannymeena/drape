@@ -133,6 +133,8 @@ flutter:
 
   assets:
     - assets/onboarding/
+    # MediaPipe Pose Landmarker (full), for the shape finder's photo path.
+    - assets/models/
     - assets/onboarding/styles/male/
     - assets/onboarding/styles/female/
 

@@ -45,3 +45,9 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // On-device body detection for the shape finder's photo path
+    // (PoseDetectorChannel). Keep in step with the iOS pod in ios/Podfile.
+    implementation("com.google.mediapipe:tasks-vision:0.10.35")
+}

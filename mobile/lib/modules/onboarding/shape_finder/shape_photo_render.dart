@@ -22,6 +22,9 @@ abstract class ShapePhotoRenderer {
     required FramingGuides guides,
     FaceBlur? faceBlur,
   });
+
+  /// Deletes an image [render] made, once it's no longer needed.
+  Future<void> discard(XFile framed);
 }
 
 /// Draws with dart:ui at the photo's own resolution and encodes a JPEG off
@@ -97,6 +100,15 @@ class CanvasShapePhotoRenderer implements ShapePhotoRenderer {
     );
     await file.writeAsBytes(jpeg, flush: true);
     return XFile(file.path, mimeType: 'image/jpeg');
+  }
+
+  @override
+  Future<void> discard(XFile framed) async {
+    try {
+      await File(framed.path).delete();
+    } on FileSystemException {
+      // Already gone.
+    }
   }
 
   static const _labels = {

@@ -32,8 +32,15 @@ ShapeEstimate shapeFromMeasurements(
   if (chest == null || waist == null || hips == null) {
     throw ArgumentError('chest, waist and hips are required');
   }
-  final s = shapeSignals(cm);
+  return shapeFromSignals(set, shapeSignals(cm));
+}
 
+/// The two numbers a shape is read from; see [shapeFromMeasurements].
+typedef ShapeSignals = ({double balance, double waist});
+
+/// The nearest shapes to [s] that [set] offers: the suggestion, then the
+/// next two as alternatives. Shared by the measurements and photo paths.
+ShapeEstimate shapeFromSignals(BodyShapeSet set, ShapeSignals s) {
   final allowed = {for (final o in bodyShapesFor(set)) o.value};
   final ranked = [
     for (final p in _prototypes)
@@ -49,22 +56,29 @@ ShapeEstimate shapeFromMeasurements(
 /// Shoulder width × this ≈ shoulder girth.
 const shoulderGirthFactor = 2.4;
 
-/// The two numbers the shape is read from; see [shapeFromMeasurements].
-({double balance, double waist}) shapeSignals(
-  Map<MeasurementField, double> cm,
-) {
+/// [ShapeSignals] from tape measurements.
+ShapeSignals shapeSignals(Map<MeasurementField, double> cm) {
   final chest = cm[MeasurementField.chest]!;
   final shoulders = cm[MeasurementField.shoulders];
-  final upper = shoulders == null
-      ? chest
-      : (chest + shoulders * shoulderGirthFactor) / 2;
-  final hips = cm[MeasurementField.hips]!;
-  final waist = cm[MeasurementField.waist]!;
-  return (
-    balance: (upper - hips) / math.max(upper, hips),
-    waist: waist / ((upper + hips) / 2),
+  return signalsFromGirths(
+    upper: shoulders == null
+        ? chest
+        : (chest + shoulders * shoulderGirthFactor) / 2,
+    waist: cm[MeasurementField.waist]!,
+    hips: cm[MeasurementField.hips]!,
   );
 }
+
+/// [ShapeSignals] from the upper body's, waist's and hips' girths, in any
+/// one unit.
+ShapeSignals signalsFromGirths({
+  required double upper,
+  required double waist,
+  required double hips,
+}) => (
+  balance: (upper - hips) / math.max(upper, hips),
+  waist: waist / ((upper + hips) / 2),
+);
 
 class _Prototype {
   const _Prototype(this.shape, this.balance, this.waist);
@@ -79,7 +93,7 @@ class _Prototype {
   static const _balanceScale = 0.06;
   static const _waistScale = 0.08;
 
-  double distanceTo(({double balance, double waist}) s) {
+  double distanceTo(ShapeSignals s) {
     final db = (s.balance - balance) / _balanceScale;
     final dw = (s.waist - waist) / _waistScale;
     return math.sqrt(db * db + dw * dw);

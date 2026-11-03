@@ -68,10 +68,24 @@ class _ShapePhotoReviewScreenState
             onGrowFaceBlur: edit.growFaceBlur,
             onScaleFaceBlur: edit.scaleFaceBlur,
             badges: [
-              const Positioned(
+              Positioned(
                 left: 12,
                 top: 12,
-                child: ShapePhotoChip(leading: _Dot(), label: 'FRAMING GUIDE'),
+                child: finder.detecting
+                    ? const ShapePhotoChip(
+                        leading: SizedBox.square(
+                          dimension: 10,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: AppColors.espressoDark,
+                          ),
+                        ),
+                        label: 'FINDING YOU…',
+                      )
+                    : const ShapePhotoChip(
+                        leading: _Dot(),
+                        label: 'FRAMING GUIDE',
+                      ),
               ),
               if (finder.blurFace)
                 const Positioned(
@@ -142,7 +156,8 @@ class _ShapePhotoReviewScreenState
         const SizedBox(height: 12),
         const ShapeFinderResidencyNote(
           text:
-              'Processed securely. Deleted as soon as your shape is estimated.',
+              'Read on your phone, never uploaded. Deleted as soon as your '
+              'shape is estimated.',
         ),
         const SizedBox(height: 20),
         Text(
