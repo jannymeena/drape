@@ -16,6 +16,7 @@ import 'package:mobile/modules/onboarding/shape_finder/shape_finder_controller.d
 import 'package:mobile/modules/onboarding/shape_finder/shape_intro_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_measure_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_error_screen.dart';
+import 'package:mobile/modules/onboarding/shape_finder/shape_photo_frame.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_review_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_photo_tips_screen.dart';
 import 'package:mobile/modules/onboarding/shape_finder/shape_result_screen.dart';
@@ -51,6 +52,9 @@ class _StubService extends OnboardingService {
 class _FakeEstimator implements BodyShapeEstimator {
   bool photoUnreadable = false;
 
+  /// What the photo path last sent.
+  ShapePhoto? lastPhoto;
+
   static const _estimate = ShapeEstimate(
     best: 'hourglass',
     alternatives: ['triangle', 'rectangle'],
@@ -63,7 +67,8 @@ class _FakeEstimator implements BodyShapeEstimator {
   ) async => _estimate;
 
   @override
-  Future<ShapeEstimate> fromPhoto(BodyShapeSet set, XFile photo) async {
+  Future<ShapeEstimate> fromPhoto(BodyShapeSet set, ShapePhoto photo) async {
+    lastPhoto = photo;
     if (photoUnreadable) throw const PhotoUnreadableException();
     return _estimate;
   }
@@ -304,6 +309,78 @@ void main() {
     // "I'll pick my shape myself" goes back to step 2's grid.
     await _tap(tester, find.text('I’ll pick my shape myself'));
     expect(find.text('Which body shape feels closest?'), findsOneWidget);
+  });
+
+  group('framing guides', () {
+    test('stay in order and apart', () {
+      const g = FramingGuides(shoulders: 0.2, waist: 0.4, hips: 0.5);
+      // Waist can't pass the hips, nor the shoulders the waist.
+      expect(g.move(Landmark.waist, 0.9).waist, 0.5 - FramingGuides.minGap);
+      expect(
+        g.move(Landmark.shoulders, 0.45).shoulders,
+        0.4 - FramingGuides.minGap,
+      );
+      // And none leaves the photo.
+      expect(g.move(Landmark.shoulders, -1).shoulders, greaterThan(0));
+      expect(g.move(Landmark.hips, 2).hips, lessThan(1));
+      // The others don't move.
+      expect(g.move(Landmark.waist, 0.45).hips, 0.5);
+    });
+  });
+
+  test('the face blur stays on the photo and within size limits', () {
+    const b = FaceBlur(center: Offset(0.5, 0.1), radius: 0.13);
+    expect(b.moveBy(const Offset(0, -1)).center.dy, 0);
+    expect(b.moveBy(const Offset(0.2, 0.1)).center, const Offset(0.7, 0.2));
+    expect(b.resize(5).radius, FaceBlur.maxRadius);
+    expect(b.resize(0).radius, FaceBlur.minRadius);
+  });
+
+  testWidgets('the review screen’s lines and blur respond to drags', (
+    tester,
+  ) async {
+    final container = await womenAtStep2(tester);
+    await _tap(tester, find.text('Not sure?'));
+    container
+        .read(shapeFinderProvider.notifier)
+        .setPhoto(XFile('/nonexistent/photo.jpg'));
+    unawaitedPush(tester, ShapePhotoReviewScreen.name);
+    await tester.pumpAndSettle();
+    ShapeFinderState finder() => container.read(shapeFinderProvider);
+
+    // Drag the waist line down: it follows the finger the whole way, even
+    // when the drag arrives as several events between rebuilds.
+    final waistBefore = finder().guides.waist;
+    final frameHeight = tester.getSize(find.byType(ShapePhotoFrame)).height;
+    await tester.drag(find.text('Waist'), const Offset(0, 30));
+    await tester.pumpAndSettle();
+    expect(finder().guides.waist, greaterThan(waistBefore));
+    expect(
+      finder().guides.waist - waistBefore,
+      closeTo(30 / frameHeight, 0.02),
+    );
+
+    // Drag the blur disc, then grow it by its handle.
+    final blurBefore = finder().faceBlur;
+    await tester.drag(
+      find.bySemanticsLabel(RegExp(r'^Face blur\.')),
+      const Offset(40, 20),
+    );
+    await tester.pumpAndSettle();
+    expect(finder().faceBlur.center.dx, greaterThan(blurBefore.center.dx));
+    expect(finder().faceBlur.center.dy, greaterThan(blurBefore.center.dy));
+
+    final radiusBefore = finder().faceBlur.radius;
+    await tester.drag(find.byIcon(Icons.open_in_full), const Offset(20, 20));
+    await tester.pumpAndSettle();
+    expect(finder().faceBlur.radius, greaterThan(radiusBefore));
+
+    // Turned off, the disc goes and the analysis isn't asked to blur.
+    await _tap(tester, find.byType(Switch));
+    expect(find.bySemanticsLabel(RegExp(r'^Face blur\.')), findsNothing);
+    await _tap(tester, find.text('Use This Photo'));
+    expect(estimator.lastPhoto!.faceBlur, isNull);
+    expect(estimator.lastPhoto!.guides.waist, finder().guides.waist);
   });
 
   testWidgets('photo buttons wait for consent', (tester) async {

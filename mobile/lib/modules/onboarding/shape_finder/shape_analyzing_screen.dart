@@ -10,6 +10,7 @@ import '../widgets/blueprint_scaffold.dart';
 import '../widgets/line_glyph.dart';
 import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
+import 'shape_photo_frame.dart';
 import 'shape_photo_error_screen.dart';
 import 'shape_result_screen.dart';
 
@@ -67,119 +68,81 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
       section: 'Analyzing outline',
       onBack: () => backToShapeGrid(context),
       children: [
-        Center(
-          child: Container(
-            width: 260,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x142A1810),
-                  blurRadius: 30,
-                  offset: Offset(0, 10),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: AspectRatio(
-                aspectRatio: 4 / 5,
-                child: LayoutBuilder(
-                  builder: (context, box) => Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (photo != null)
-                        Opacity(
-                          opacity: 0.55,
-                          child: ColorFiltered(
-                            colorFilter: const ColorFilter.matrix([
-                              0.33, 0.59, 0.11, 0, 0, //
-                              0.33, 0.59, 0.11, 0, 0, //
-                              0.33, 0.59, 0.11, 0, 0, //
-                              0, 0, 0, 1, 0,
-                            ]),
-                            child: Image.file(
-                              File(photo.path),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                      Center(
-                        child: LineGlyph(
-                          bodyShapesFor(BodyShapeSet.neutral).first.glyph,
-                          size: Size(box.maxWidth * 0.75, box.maxHeight * 0.9),
-                          highlight: true,
-                          color: AppColors.espressoDark,
-                        ),
-                      ),
-                      AnimatedBuilder(
-                        animation: _scan,
-                        builder: (context, _) => Positioned(
-                          left: 0,
-                          right: 0,
-                          top: box.maxHeight * _scan.value - 30,
-                          height: 60,
-                          child: const DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Color(0x00EBC07D),
-                                  Color(0x66EBC07D),
-                                  Color(0x00EBC07D),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 10,
-                        bottom: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.white.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.sage,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'READING YOUR OUTLINE',
-                                style: caption.copyWith(
-                                  fontSize: 10,
-                                  letterSpacing: 0.8,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.espressoDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+        if (photo != null)
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x142A1810),
+                    blurRadius: 30,
+                    offset: Offset(0, 10),
                   ),
-                ),
+                ],
+              ),
+              child: ShapePhotoFrame(
+                file: File(photo.path),
+                photoSize: finder.photoSize,
+                maxHeight: 340,
+                greyscale: true,
+                faceBlur: finder.blurFace ? finder.faceBlur : null,
+                overlays: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: LineGlyph(
+                      bodyShapesFor(BodyShapeSet.neutral).first.glyph,
+                      size: Size.infinite,
+                      highlight: true,
+                      color: AppColors.espressoDark,
+                    ),
+                  ),
+                  AnimatedBuilder(
+                    animation: _scan,
+                    builder: (context, _) => Align(
+                      alignment: Alignment(0, _scan.value * 2.4 - 1.2),
+                      child: const SizedBox(
+                        height: 60,
+                        width: double.infinity,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color(0x00EBC07D),
+                                Color(0x66EBC07D),
+                                Color(0x00EBC07D),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                badges: [
+                  Positioned(
+                    left: 10,
+                    bottom: 10,
+                    child: ShapePhotoChip(
+                      leading: Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: AppColors.sage,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      label: 'READING YOUR OUTLINE',
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ),
         const SizedBox(height: 18),
         AnimatedBuilder(
           animation: _scan,

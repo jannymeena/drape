@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/painting.dart' show Offset, Size;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -39,6 +40,90 @@ class ShapeEstimate {
   );
 }
 
+/// The three body landmarks the user lines up on their photo.
+enum Landmark { shoulders, waist, hips }
+
+/// Where the user placed each [Landmark] line, as a fraction of the photo's
+/// height (0 = top). Always in top-to-bottom order, [minGap] apart.
+class FramingGuides {
+  const FramingGuides({
+    this.shoulders = 0.22,
+    this.waist = 0.40,
+    this.hips = 0.52,
+  });
+
+  final double shoulders;
+  final double waist;
+  final double hips;
+
+  static const minGap = 0.04;
+  static const _top = 0.03;
+  static const _bottom = 0.97;
+
+  double operator [](Landmark l) => switch (l) {
+    Landmark.shoulders => shoulders,
+    Landmark.waist => waist,
+    Landmark.hips => hips,
+  };
+
+  /// [landmark] moved to [y], held between its neighbours.
+  FramingGuides move(Landmark landmark, double y) {
+    double clamp(double lo, double hi) => y.clamp(lo, hi).toDouble();
+    return switch (landmark) {
+      Landmark.shoulders => FramingGuides(
+        shoulders: clamp(_top, waist - minGap),
+        waist: waist,
+        hips: hips,
+      ),
+      Landmark.waist => FramingGuides(
+        shoulders: shoulders,
+        waist: clamp(shoulders + minGap, hips - minGap),
+        hips: hips,
+      ),
+      Landmark.hips => FramingGuides(
+        shoulders: shoulders,
+        waist: waist,
+        hips: clamp(waist + minGap, _bottom),
+      ),
+    };
+  }
+}
+
+/// The disc the user places over their face to blur it. [center] is a
+/// fraction of the photo's width and height; [radius] a fraction of its
+/// width.
+class FaceBlur {
+  const FaceBlur({this.center = const Offset(0.5, 0.1), this.radius = 0.13});
+
+  final Offset center;
+  final double radius;
+
+  static const minRadius = 0.05;
+  static const maxRadius = 0.4;
+
+  FaceBlur moveBy(Offset delta) => FaceBlur(
+    center: Offset(
+      (center.dx + delta.dx).clamp(0.0, 1.0),
+      (center.dy + delta.dy).clamp(0.0, 1.0),
+    ),
+    radius: radius,
+  );
+
+  FaceBlur resize(double r) =>
+      FaceBlur(center: center, radius: r.clamp(minRadius, maxRadius));
+}
+
+/// What the photo path hands to [BodyShapeEstimator.fromPhoto].
+class ShapePhoto {
+  const ShapePhoto({required this.file, required this.guides, this.faceBlur});
+
+  final XFile file;
+  final FramingGuides guides;
+
+  /// Where to blur before analysis; null when the user turned blurring off.
+  final FaceBlur? faceBlur;
+}
+
 /// The photo doesn't show a whole body, so no shape can be read from it.
 class PhotoUnreadableException implements Exception {
   const PhotoUnreadableException();
@@ -51,7 +136,7 @@ abstract class BodyShapeEstimator {
   );
 
   /// Throws [PhotoUnreadableException] when the body can't be made out.
-  Future<ShapeEstimate> fromPhoto(BodyShapeSet set, XFile photo);
+  Future<ShapeEstimate> fromPhoto(BodyShapeSet set, ShapePhoto photo);
 }
 
 /// Stand-in until shape detection is designed: suggests the shape each set's
@@ -88,15 +173,23 @@ class PlaceholderBodyShapeEstimator implements BodyShapeEstimator {
   ) async => _suggestions[set]!;
 
   @override
-  Future<ShapeEstimate> fromPhoto(BodyShapeSet set, XFile photo) async {
-    final codec = await ui.instantiateImageCodec(await photo.readAsBytes());
-    final image = (await codec.getNextFrame()).image;
-    final landscape = image.width > image.height;
-    image.dispose();
+  Future<ShapeEstimate> fromPhoto(BodyShapeSet set, ShapePhoto photo) async {
+    final size = await photoSize(photo.file);
+    final landscape = size.width > size.height;
     await Future<void>.delayed(analysisTime);
     if (landscape) throw const PhotoUnreadableException();
     return _suggestions[set]!;
   }
+}
+
+/// The pixel size of [photo].
+Future<Size> photoSize(XFile photo) async {
+  final codec = await ui.instantiateImageCodec(await photo.readAsBytes());
+  final image = (await codec.getNextFrame()).image;
+  final size = Size(image.width.toDouble(), image.height.toDouble());
+  image.dispose();
+  codec.dispose();
+  return size;
 }
 
 final bodyShapeEstimatorProvider = Provider<BodyShapeEstimator>(
@@ -111,6 +204,9 @@ class ShapeFinderState {
     this.imperial = false,
     this.cm = const {},
     this.photo,
+    this.photoSize,
+    this.guides = const FramingGuides(),
+    this.faceBlur = const FaceBlur(),
     this.blurFace = true,
     this.source,
     this.estimate,
@@ -131,6 +227,13 @@ class ShapeFinderState {
   final Map<MeasurementField, double> cm;
 
   final XFile? photo;
+
+  /// [photo]'s pixel size, once read; the review screen frames it at this
+  /// aspect ratio so nothing is cropped.
+  final Size? photoSize;
+
+  final FramingGuides guides;
+  final FaceBlur faceBlur;
   final bool blurFace;
 
   final ShapeSource? source;
@@ -140,6 +243,9 @@ class ShapeFinderState {
     bool? imperial,
     Map<MeasurementField, double>? cm,
     XFile? photo,
+    Size? photoSize,
+    FramingGuides? guides,
+    FaceBlur? faceBlur,
     bool? blurFace,
     ShapeSource? source,
     ShapeEstimate? estimate,
@@ -150,6 +256,9 @@ class ShapeFinderState {
     imperial: imperial ?? this.imperial,
     cm: cm ?? this.cm,
     photo: photo ?? this.photo,
+    photoSize: photoSize ?? this.photoSize,
+    guides: guides ?? this.guides,
+    faceBlur: faceBlur ?? this.faceBlur,
     blurFace: blurFace ?? this.blurFace,
     source: source ?? this.source,
     estimate: estimate ?? this.estimate,
@@ -190,7 +299,47 @@ class ShapeFinderController extends StateNotifier<ShapeFinderState> {
     state = state.copyWith(cm: next);
   }
 
-  void setPhoto(XFile photo) => state = state.copyWith(photo: photo);
+  /// A new photo, with the guides and blur back at their defaults. Its size
+  /// is read in the background.
+  void setPhoto(XFile photo) {
+    state = ShapeFinderState(
+      set: state.set,
+      fitTops: state.fitTops,
+      fitBottoms: state.fitBottoms,
+      imperial: state.imperial,
+      cm: state.cm,
+      photo: photo,
+      blurFace: state.blurFace,
+    );
+    photoSize(photo).then((size) {
+      if (mounted && state.photo == photo) {
+        state = state.copyWith(photoSize: size);
+      }
+    }, onError: (Object _) {}); // unreadable: the frame keeps a default shape
+  }
+
+  // The editing calls below take *changes*, applied to the current state:
+  // several drag events can land between two rebuilds, and positions taken
+  // from the last build would drop all but the last.
+
+  /// Moves [landmark]'s line by [dy] (a fraction of the photo's height).
+  void nudgeGuide(Landmark landmark, double dy) => state = state.copyWith(
+    guides: state.guides.move(landmark, state.guides[landmark] + dy),
+  );
+
+  /// [delta] in fractions of the photo's width and height.
+  void moveFaceBlur(Offset delta) =>
+      state = state.copyWith(faceBlur: state.faceBlur.moveBy(delta));
+
+  /// Grows the disc's radius by [dr] (a fraction of the photo's width).
+  void growFaceBlur(double dr) => state = state.copyWith(
+    faceBlur: state.faceBlur.resize(state.faceBlur.radius + dr),
+  );
+
+  /// Scales the disc's radius by [factor].
+  void scaleFaceBlur(double factor) => state = state.copyWith(
+    faceBlur: state.faceBlur.resize(state.faceBlur.radius * factor),
+  );
 
   void setBlurFace(bool blur) => state = state.copyWith(blurFace: blur);
 
@@ -207,7 +356,14 @@ class ShapeFinderController extends StateNotifier<ShapeFinderState> {
   Future<ShapeEstimate> estimateFromPhoto() async {
     final photo = state.photo;
     if (photo == null) throw const PhotoUnreadableException();
-    final estimate = await _estimator.fromPhoto(state.set, photo);
+    final estimate = await _estimator.fromPhoto(
+      state.set,
+      ShapePhoto(
+        file: photo,
+        guides: state.guides,
+        faceBlur: state.blurFace ? state.faceBlur : null,
+      ),
+    );
     state = state.copyWith(source: ShapeSource.photo, estimate: estimate);
     return estimate;
   }
