@@ -17,6 +17,7 @@ import 'blueprint_goals_screen.dart';
 import 'blueprint_identity_screen.dart';
 import 'wardrobe_setup_screen.dart';
 import '../widgets/pipeda_note.dart';
+import '../../../shared/back_navigation.dart';
 
 /// After step 8: "builds" the Style Blueprint, then reveals it, and hands
 /// off to wardrobe setup.
@@ -76,7 +77,7 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
     if (context.canPop()) {
       context.pop();
     } else {
-      context.goNamed(BlueprintGoalsScreen.name);
+      context.goNamed(BlueprintGoalsScreen.name, extra: goingBack);
     }
   }
 
@@ -107,7 +108,8 @@ class _BlueprintRevealScreenState extends ConsumerState<BlueprintRevealScreen> {
         submitting: _submitting,
         onBuildWardrobe: _onBuildWardrobe,
         // Edit starts the steps over from step 1, every answer prefilled.
-        onEdit: () => context.goNamed(BlueprintIdentityScreen.name),
+        onEdit: () =>
+            context.goNamed(BlueprintIdentityScreen.name, extra: goingBack),
       ),
       _Phase.failed => _Failed(
         recorded:

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -48,6 +49,15 @@ class AppTheme {
         colorScheme: _colorScheme,
         scaffoldBackgroundColor: AppColors.ivory,
         textTheme: AppTypography.textTheme,
+        // A horizontal slide on both platforms: forward comes in from the
+        // right, back goes out to the right, so moving between screens reads
+        // as next/previous. (Android's default is a fade-and-zoom.)
+        pageTransitionsTheme: const PageTransitionsTheme(
+          builders: {
+            TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          },
+        ),
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.ivory,
           foregroundColor: AppColors.ink,

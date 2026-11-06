@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../resume_route_map.dart';
 import 'pipeda_note.dart';
+import '../../../shared/back_navigation.dart';
 
 /// How many steps the Style Blueprint has. Single source of truth for the
 /// "Step n of 8" pill and the progress line.
@@ -254,7 +255,10 @@ void goToPreviousStep(BuildContext context, int step) {
     // `pop`, not `maybePop`: this runs from inside the PopScope above.
     Navigator.of(context).pop();
   } else if (step > 1) {
-    context.goNamed(routeForNextStep('style_blueprint_${step - 1}'));
+    context.goNamed(
+      routeForNextStep('style_blueprint_${step - 1}'),
+      extra: goingBack,
+    );
   }
 }
 

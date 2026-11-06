@@ -95,6 +95,7 @@ import '../../modules/wardrobe/screens/wardrobe_screen.dart';
 import '../../modules/wardrobe/screens/weekly_recap_screen.dart';
 import '../services/session_store.dart';
 import '../widgets/main_shell_scaffold.dart';
+import '../back_navigation.dart';
 
 final _rootNavKey = GlobalKey<NavigatorState>();
 final _todayNavKey = GlobalKey<NavigatorState>();
@@ -166,47 +167,55 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: BlueprintIdentityScreen.path,
         name: BlueprintIdentityScreen.name,
-        builder: (_, _) => const BlueprintIdentityScreen(),
+        pageBuilder: (_, state) =>
+            slidePage(state, const BlueprintIdentityScreen()),
       ),
       GoRoute(
         path: BlueprintFitScreen.path,
         name: BlueprintFitScreen.name,
-        builder: (_, _) => const BlueprintFitScreen(),
+        pageBuilder: (_, state) => slidePage(state, const BlueprintFitScreen()),
       ),
       GoRoute(
         path: BlueprintAestheticsScreen.path,
         name: BlueprintAestheticsScreen.name,
-        builder: (_, _) => const BlueprintAestheticsScreen(),
+        pageBuilder: (_, state) =>
+            slidePage(state, const BlueprintAestheticsScreen()),
       ),
       GoRoute(
         path: BlueprintColorScreen.path,
         name: BlueprintColorScreen.name,
-        builder: (_, _) => const BlueprintColorScreen(),
+        pageBuilder: (_, state) =>
+            slidePage(state, const BlueprintColorScreen()),
       ),
       GoRoute(
         path: BlueprintPalettesScreen.path,
         name: BlueprintPalettesScreen.name,
-        builder: (_, _) => const BlueprintPalettesScreen(),
+        pageBuilder: (_, state) =>
+            slidePage(state, const BlueprintPalettesScreen()),
       ),
       GoRoute(
         path: BlueprintWorkScreen.path,
         name: BlueprintWorkScreen.name,
-        builder: (_, _) => const BlueprintWorkScreen(),
+        pageBuilder: (_, state) =>
+            slidePage(state, const BlueprintWorkScreen()),
       ),
       GoRoute(
         path: BlueprintShoppingScreen.path,
         name: BlueprintShoppingScreen.name,
-        builder: (_, _) => const BlueprintShoppingScreen(),
+        pageBuilder: (_, state) =>
+            slidePage(state, const BlueprintShoppingScreen()),
       ),
       GoRoute(
         path: BlueprintGoalsScreen.path,
         name: BlueprintGoalsScreen.name,
-        builder: (_, _) => const BlueprintGoalsScreen(),
+        pageBuilder: (_, state) =>
+            slidePage(state, const BlueprintGoalsScreen()),
       ),
       GoRoute(
         path: BlueprintRevealScreen.path,
         name: BlueprintRevealScreen.name,
-        builder: (_, _) => const BlueprintRevealScreen(),
+        pageBuilder: (_, state) =>
+            slidePage(state, const BlueprintRevealScreen()),
       ),
 
       // ─── Onboarding: step 2's "Not sure?" shape finder ─────────
