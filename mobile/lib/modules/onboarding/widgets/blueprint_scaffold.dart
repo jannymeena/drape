@@ -7,6 +7,7 @@ import '../../../shared/theme/app_colors.dart';
 import '../resume_route_map.dart';
 import 'pipeda_note.dart';
 import '../../../shared/back_navigation.dart';
+import 'step_swipe.dart';
 
 /// How many steps the Style Blueprint has. Single source of truth for the
 /// "Step n of 8" pill and the progress line.
@@ -201,35 +202,43 @@ class BlueprintScaffold extends StatelessWidget {
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: AppColors.ivory,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // A Hero, so the step pill and progress bar hold still while
-              // the page slides between steps (see [_headerFlight]).
-              Hero(
-                tag: _headerHeroTag,
-                flightShuttleBuilder: _headerFlight,
-                child: _Header(step: step),
-              ),
-              Expanded(
-                // Not a lazy ListView: every question is built up front so
-                // `revealNextQuestion` can always find the next one.
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: children,
+        body: StepSwipe(
+          // Right: the previous step (step 1 only when there's a screen to
+          // go back to). Left: the next step, once this one is answered.
+          onBack: step > 1 || _hasScreenBelow(context)
+              ? () => goToPreviousStep(context, step)
+              : null,
+          onForward: canContinue && !loading ? onContinue : null,
+          child: SafeArea(
+            child: Column(
+              children: [
+                // A Hero, so the step pill and progress bar hold still while
+                // the page slides between steps (see [_headerFlight]).
+                Hero(
+                  tag: _headerHeroTag,
+                  flightShuttleBuilder: _headerFlight,
+                  child: _Header(step: step),
+                ),
+                Expanded(
+                  // Not a lazy ListView: every question is built up front so
+                  // `revealNextQuestion` can always find the next one.
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: children,
+                    ),
                   ),
                 ),
-              ),
-              _ContinueBar(
-                label: buttonLabel,
-                icon: buttonIcon,
-                enabled: canContinue,
-                loading: loading,
-                onPressed: onContinue,
-              ),
-            ],
+                _ContinueBar(
+                  label: buttonLabel,
+                  icon: buttonIcon,
+                  enabled: canContinue,
+                  loading: loading,
+                  onPressed: onContinue,
+                ),
+              ],
+            ),
           ),
         ),
       ),

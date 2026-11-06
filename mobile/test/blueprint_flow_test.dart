@@ -439,6 +439,47 @@ void main() {
     ]);
   });
 
+  testWidgets('swiping left moves on once the step is answered; swiping '
+      'right goes back', (tester) async {
+    final service = _StubService();
+    final container = _container(service);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintIdentityScreen.path),
+    );
+    Future<void> swipe(double dx) async {
+      await tester.fling(
+        find.byType(BlueprintIdentityScreen).hitTestable().first,
+        Offset(dx, 0),
+        1000,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    // Unanswered: a left swipe does nothing.
+    await swipe(-300);
+    expect(find.text('Step 1 of 8'), findsOneWidget);
+    expect(service.calls, isEmpty);
+
+    // Answered: a left swipe continues, exactly like the button.
+    await _tap(tester, 'Women’s Fashion');
+    await swipe(-300);
+    expect(service.calls['identity'], {
+      'shopping_style': 'womens',
+      'age_range': null,
+    });
+    expect(find.text('Step 2 of 8'), findsOneWidget);
+
+    // A right swipe on step 2 comes back to step 1.
+    await tester.fling(
+      find.byType(BlueprintFitScreen).hitTestable().first,
+      const Offset(300, 0),
+      1000,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Step 1 of 8'), findsOneWidget);
+  });
+
   testWidgets('step 1 age chips toggle off so the question stays skippable', (
     tester,
   ) async {

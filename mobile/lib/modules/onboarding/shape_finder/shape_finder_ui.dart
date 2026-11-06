@@ -10,6 +10,7 @@ import '../screens/blueprint_fit_screen.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'shape_finder_controller.dart';
 import '../widgets/pipeda_note.dart';
+import '../widgets/step_swipe.dart';
 
 // ─── Leaving the sub-flow ───────────────────────────────────────────────────
 
@@ -67,98 +68,102 @@ class ShapeFinderScaffold extends StatelessWidget {
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: AppColors.ivory,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // A Hero, so the overline and progress line hold still while
-              // the page slides between the sub-flow's screens.
-              Hero(
-                tag: 'shape-finder-header',
-                flightShuttleBuilder: _pinnedHeaderFlight,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            onPressed:
-                                onBack ??
-                                () => Navigator.of(context).maybePop(),
-                            icon: const Icon(Icons.chevron_left, size: 28),
-                            color: AppColors.ink,
-                            tooltip: 'Go back',
-                          ),
-                          Expanded(
-                            child: Column(
-                              children: [
-                                Text(
-                                  'STEP 2 OF $kBlueprintSteps · ${section.toUpperCase()}',
-                                  textAlign: TextAlign.center,
-                                  style: caption.copyWith(
-                                    fontSize: 11,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                                if (title != null)
-                                  Text(
-                                    title!,
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineSmall!
-                                        .copyWith(
-                                          fontStyle: FontStyle.italic,
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: 20,
-                                          color: AppColors.espressoDark,
-                                        ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 48),
-                        ],
-                      ),
-                    ),
-                    LinearProgressIndicator(
-                      value: 2 / kBlueprintSteps,
-                      minHeight: 3,
-                      backgroundColor: AppColors.sand,
-                      valueColor: const AlwaysStoppedAnimation(
-                        AppColors.espresso,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: children,
-                  ),
-                ),
-              ),
-              if (bottom != null)
-                Container(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                  decoration: const BoxDecoration(
-                    color: AppColors.ivory,
-                    border: Border(top: BorderSide(color: AppColors.sand)),
-                  ),
+        // Swipe right to go back, like the back button.
+        body: StepSwipe(
+          onBack: onBack ?? () => Navigator.of(context).maybePop(),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // A Hero, so the overline and progress line hold still while
+                // the page slides between the sub-flow's screens.
+                Hero(
+                  tag: 'shape-finder-header',
+                  flightShuttleBuilder: _pinnedHeaderFlight,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      bottom!,
-                      const SizedBox(height: 8),
-                      const PipedaNote(),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              onPressed:
+                                  onBack ??
+                                  () => Navigator.of(context).maybePop(),
+                              icon: const Icon(Icons.chevron_left, size: 28),
+                              color: AppColors.ink,
+                              tooltip: 'Go back',
+                            ),
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'STEP 2 OF $kBlueprintSteps · ${section.toUpperCase()}',
+                                    textAlign: TextAlign.center,
+                                    style: caption.copyWith(
+                                      fontSize: 11,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                  if (title != null)
+                                    Text(
+                                      title!,
+                                      textAlign: TextAlign.center,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall!
+                                          .copyWith(
+                                            fontStyle: FontStyle.italic,
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 20,
+                                            color: AppColors.espressoDark,
+                                          ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 48),
+                          ],
+                        ),
+                      ),
+                      LinearProgressIndicator(
+                        value: 2 / kBlueprintSteps,
+                        minHeight: 3,
+                        backgroundColor: AppColors.sand,
+                        valueColor: const AlwaysStoppedAnimation(
+                          AppColors.espresso,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-            ],
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: children,
+                    ),
+                  ),
+                ),
+                if (bottom != null)
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                    decoration: const BoxDecoration(
+                      color: AppColors.ivory,
+                      border: Border(top: BorderSide(color: AppColors.sand)),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        bottom!,
+                        const SizedBox(height: 8),
+                        const PipedaNote(),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
