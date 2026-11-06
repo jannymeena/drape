@@ -1078,12 +1078,56 @@ void main() {
     for (final tag in const [
       'Minimalist',
       'Romantic',
-      'Hourglass',
-      'Warm',
+      'Hourglass · Regular fit', // regular tops + relaxed bottoms: the middle
+      'Warm undertone',
       'Business casual',
     ]) {
       expect(find.text(tag), findsOneWidget, reason: tag);
     }
+  });
+
+  group('the snapshot sums up the fit', () {
+    test('one fit when tops and bottoms match', () {
+      expect(fitSummary('slim', 'skinny', 'womens'), 'Slim fit');
+      expect(fitSummary('loose', 'baggy', 'mens'), 'Relaxed fit');
+    });
+    test('both, in step 2’s wording, when they differ', () {
+      expect(
+        fitSummary('slim', 'relaxed', 'womens'),
+        'Slim fitted tops, relaxed fit bottoms',
+      );
+      expect(
+        fitSummary('regular', 'skinny', 'mens'),
+        'Regular tops, slim trousers',
+      );
+    });
+    test('just the one answered, or nothing', () {
+      expect(fitSummary(null, 'baggy', 'womens'), 'Baggy bottoms');
+      expect(fitSummary(null, null, 'womens'), isNull);
+    });
+  });
+
+  testWidgets('the reveal names the skin tone without its shade number', (
+    tester,
+  ) async {
+    final container = _container(_StubService());
+    addTearDown(container.dispose);
+    final notifier = container.read(onboardingControllerProvider.notifier);
+    notifier.state = notifier.state.copyWith(
+      shoppingStyle: 'womens',
+      blueprint: const StyleBlueprintDraft(skinShade: 7, undertone: 'cool'),
+    );
+    await tester.pumpWidget(
+      _host(container, initialLocation: BlueprintRevealScreen.path),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Tailored to your skin tone · Cool undertone'),
+      findsOneWidget,
+    );
+    expect(find.text('Cool undertone'), findsOneWidget); // the snapshot tag
+    expect(find.textContaining('7'), findsNothing);
   });
 
   testWidgets('the reveal drops questions the user skipped', (tester) async {
@@ -1103,8 +1147,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // No tone or dress code was given, so there's no tag for them.
-    expect(find.text('ATELIER PROFILE SNAPSHOT'), findsOneWidget);
-    expect(find.textContaining('Tone'), findsNothing);
+    expect(find.text('YOUR PROFILE SNAPSHOT'), findsOneWidget);
+    expect(find.textContaining('undertone'), findsNothing);
+    expect(find.textContaining('skin tone'), findsNothing);
     expect(find.text('Business casual'), findsNothing);
     expect(find.text('A warm starting palette'), findsOneWidget);
   });

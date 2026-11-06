@@ -38,6 +38,32 @@ class BlueprintFitScreen extends ConsumerStatefulWidget {
 /// One fit stop: the backend literal and its label on the control.
 typedef _Stop = (String value, String label);
 
+/// Step 2's fit answers in a few words, in the wording the user picked them
+/// in: one fit when tops and bottoms sit at the same point ("Regular fit"),
+/// otherwise both ("Slim fitted tops, relaxed fit bottoms"). Null with
+/// neither answered.
+String? fitSummary(String? tops, String? bottoms, String? shoppingStyle) {
+  final set = bodyShapeSetFor(shoppingStyle);
+  final c = _copy[set]!;
+  int? at(List<_Stop> stops, String? value) {
+    final i = stops.indexWhere((s) => s.$1 == value);
+    return i < 0 ? null : i;
+  }
+
+  final t = at(c.tops, tops);
+  final b = at(c.bottoms, bottoms);
+  if (t == null && b == null) return null;
+  if (t == b) return const ['Slim fit', 'Regular fit', 'Relaxed fit'][t!];
+  final parts = [
+    if (t != null) '${c.tops[t].$2} tops',
+    if (b != null)
+      '${c.bottoms[b].$2} ${set == BodyShapeSet.mens ? 'trousers' : 'bottoms'}',
+  ];
+  final text = parts.join(', ');
+  // Sentence case: "Slim fitted tops, relaxed fit bottoms".
+  return text[0] + text.substring(1).toLowerCase();
+}
+
 /// The wording and sizing that differ between the step 2 variants.
 class _Copy {
   const _Copy({

@@ -13,6 +13,7 @@ import '../models/skin_shades.dart';
 import '../models/style_blueprint_draft.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_scaffold.dart';
+import 'blueprint_fit_screen.dart';
 import 'blueprint_goals_screen.dart';
 import 'blueprint_identity_screen.dart';
 import 'wardrobe_setup_screen.dart';
@@ -461,12 +462,13 @@ class _Result extends StatelessWidget {
   }
 
   String _paletteNote(StyleBlueprintDraft b) {
-    final tone = b.skinShade == null ? null : 'Tone ${b.skinShade}';
+    // The shade isn't named: step 4 shows it as a swatch, not a number.
+    final tone = b.skinShade != null;
     final under = _undertones[b.undertone];
-    if (tone != null && under != null) {
-      return 'Tailored to $tone · $under undertone';
+    if (tone && under != null) {
+      return 'Tailored to your skin tone · $under undertone';
     }
-    if (tone != null) return 'Tailored to $tone';
+    if (tone) return 'Tailored to your skin tone';
     if (under != null) {
       return 'Tailored to your ${under.toLowerCase()} undertone';
     }
@@ -474,16 +476,17 @@ class _Result extends StatelessWidget {
     return 'A warm starting palette';
   }
 
-  /// The snapshot: aesthetics, body shape, skin tone and dress code.
+  /// The snapshot: aesthetics, body shape and fit, undertone and dress code.
   List<String> _tags(StyleBlueprintDraft b) {
-    final tone = [
-      if (b.skinShade != null) 'Tone ${b.skinShade}',
-      ?_undertones[b.undertone],
+    final under = _undertones[b.undertone];
+    final shape = [
+      ?bodyShapeLabel(b.bodyShape, state.shoppingStyle),
+      ?fitSummary(b.fitTops, b.fitBottoms, state.shoppingStyle),
     ].join(' · ');
     return [
       for (final a in b.styleAesthetics) _aesthetics[a] ?? a,
-      ?bodyShapeLabel(b.bodyShape, state.shoppingStyle),
-      if (tone.isNotEmpty) tone,
+      if (shape.isNotEmpty) shape,
+      if (under != null) '$under undertone',
       ?_dressCodes[b.dressCode],
     ];
   }
@@ -632,7 +635,6 @@ class _Moodboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final body = BlueprintText.optionSupport(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
@@ -661,68 +663,15 @@ class _Moodboard extends StatelessWidget {
               left: 16,
               right: 16,
               bottom: 12,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Atelier Moodboard 01',
-                          style: BlueprintText.heading(context).copyWith(
-                            fontSize: 14,
-                            fontStyle: FontStyle.italic,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: 0,
-                            color: AppColors.espressoDark,
-                          ),
-                        ),
-                        Text(
-                          'Textural harmony · Quiet warmth',
-                          style: body.copyWith(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.inkSoft,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.white.withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: const BoxDecoration(
-                            color: AppColors.sage,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'MATCHED',
-                          style: body.copyWith(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                            color: AppColors.espressoDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Atelier Moodboard 01',
+                style: BlueprintText.heading(context).copyWith(
+                  fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
+                  color: AppColors.espressoDark,
+                ),
               ),
             ),
           ],
@@ -810,7 +759,7 @@ class _Snapshot extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'ATELIER PROFILE SNAPSHOT',
+                  'YOUR PROFILE SNAPSHOT',
                   style: body.copyWith(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
