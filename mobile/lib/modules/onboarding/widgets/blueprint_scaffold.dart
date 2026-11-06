@@ -254,12 +254,17 @@ class BlueprintScaffold extends StatelessWidget {
                     ],
                   ),
                 ),
-                _ContinueBar(
-                  label: buttonLabel,
-                  icon: buttonIcon,
-                  enabled: canContinue,
-                  loading: loading,
-                  onPressed: onContinue,
+                // Held still too, like the header (see [_footerFlight]).
+                Hero(
+                  tag: _footerHeroTag,
+                  flightShuttleBuilder: _footerFlight,
+                  child: _ContinueBar(
+                    label: buttonLabel,
+                    icon: buttonIcon,
+                    enabled: canContinue,
+                    loading: loading,
+                    onPressed: onContinue,
+                  ),
                 ),
               ],
             ),
@@ -302,6 +307,42 @@ void goToPreviousStep(BuildContext context, int step) {
 }
 
 const _headerHeroTag = 'blueprint-header';
+const _footerHeroTag = 'blueprint-footer';
+
+/// The button bar's stand-in while the page slides between steps: it stays
+/// put and fades from the old step's bar to the new one's (the label or the
+/// enabled state can differ).
+Widget _footerFlight(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection direction,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  final from = (fromHeroContext.widget as Hero).child;
+  final to = (toHeroContext.widget as Hero).child;
+  return Material(
+    color: AppColors.ivory,
+    child: AnimatedBuilder(
+      animation: animation,
+      builder: (_, _) {
+        // As in [_headerFlight]: 0 = the old step, 1 = the new one.
+        final t =
+            (direction == HeroFlightDirection.push
+                    ? animation.value
+                    : 1 - animation.value)
+                .clamp(0.0, 1.0);
+        return Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            Opacity(opacity: 1 - t, child: from),
+            Opacity(opacity: t, child: to),
+          ],
+        );
+      },
+    ),
+  );
+}
 
 /// What shows in place of the header while a step slides in or out: the
 /// destination's header, pinned in place, with the progress bar gliding from
