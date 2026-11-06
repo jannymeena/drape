@@ -127,6 +127,16 @@ class Settings(BaseSettings):
     # cached; chat/outfit-gen passes through. Safe to leave on in every env.
     ai_cache_enabled: bool = True
 
+    # Google Gemini API (garment images): each wardrobe photo is also shown on
+    # a ghost mannequin by GARMENT_IMAGE_MODEL ("Nano Banana 2 Lite"). Optional
+    # in every env: without the key, photos are stored as uploaded.
+    google_ai_api_key: str | None = None
+    garment_image_model: str = "gemini-3.1-flash-lite-image"
+    # Which Google endpoint the key belongs to: a Google Cloud "Agent
+    # Platform" (Vertex AI) key → agent_platform; an AI Studio key →
+    # gemini_api.
+    google_ai_endpoint: Literal["agent_platform", "gemini_api"] = "agent_platform"
+
     measurement_dek_dev: str | None = None
     kms_key_id: str | None = None
     aws_region: str = "ca-central-1"

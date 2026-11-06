@@ -168,7 +168,21 @@ def image_storage(tmp_path):
 
 
 @pytest.fixture
-def client(canned_ai, stub_weather, image_storage, db) -> Iterator[TestClient]:
+def garment_images():
+    """No image model by default, so a GOOGLE_AI_API_KEY in a developer's
+    .env never reaches Google from the tests. Override this fixture (or the
+    dependency) with a fake to exercise the mannequin shots."""
+    from app.services.providers.garment_image.disabled import (
+        DisabledGarmentImageProvider,
+    )
+
+    return DisabledGarmentImageProvider()
+
+
+@pytest.fixture
+def client(
+    canned_ai, stub_weather, image_storage, garment_images, db
+) -> Iterator[TestClient]:
     """A TestClient with canned AI + weather + a DB session bound to the test DB.
 
     `db` is included so its dependency override pulls the same session — meaning
@@ -176,6 +190,7 @@ def client(canned_ai, stub_weather, image_storage, db) -> Iterator[TestClient]:
     """
     from app.api.dependencies.providers import (
         get_ai_provider,
+        get_garment_image_provider,
         get_image_storage,
         get_weather_provider,
     )
@@ -184,6 +199,7 @@ def client(canned_ai, stub_weather, image_storage, db) -> Iterator[TestClient]:
     app.dependency_overrides[get_ai_provider] = lambda: canned_ai
     app.dependency_overrides[get_weather_provider] = lambda: stub_weather
     app.dependency_overrides[get_image_storage] = lambda: image_storage
+    app.dependency_overrides[get_garment_image_provider] = lambda: garment_images
     app.dependency_overrides[get_db] = lambda: db
 
     # Also patch the global providers container so non-Depends call sites pick

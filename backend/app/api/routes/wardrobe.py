@@ -11,7 +11,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
-from app.api.dependencies.providers import get_ai_provider, get_image_storage
+from app.api.dependencies.providers import (
+    get_ai_provider,
+    get_garment_image_provider,
+    get_image_storage,
+)
 from app.db.models import User
 from app.db.session import get_db
 from app.schemas.scanner import BatchUploadResponse, ScanItemResponse
@@ -27,6 +31,7 @@ from app.schemas.wardrobe import (
 )
 from app.services import scanner_service, wardrobe_service
 from app.services.providers.ai.base import AIProvider
+from app.services.providers.garment_image.base import GarmentImageProvider
 from app.services.providers.image.base import ImageStorageProvider
 from app.services.scanner_service import MAX_BATCH_SIZE, ScannerError, suggest_manual_entry
 from app.services.wardrobe_service import WardrobeError
@@ -172,6 +177,7 @@ async def add_images(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     storage: ImageStorageProvider = Depends(get_image_storage),
+    garment_images: GarmentImageProvider = Depends(get_garment_image_provider),
 ) -> WardrobeItemResponse:
     if not files:
         raise HTTPException(
@@ -180,8 +186,13 @@ async def add_images(
         )
     uploads = [await _read_image(f) for f in files]
     try:
-        item = wardrobe_service.add_images(
-            db, user=user, item_id=item_id, uploads=uploads, storage=storage
+        item = await wardrobe_service.add_images_with_mannequin(
+            db,
+            user=user,
+            item_id=item_id,
+            uploads=uploads,
+            storage=storage,
+            garment_images=garment_images,
         )
     except WardrobeError as e:
         raise _translate(e)

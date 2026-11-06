@@ -26,6 +26,10 @@ from app.schemas.wardrobe import (
     WardrobeListQuery,
 )
 from app.services import starter_wardrobe_service
+from app.services.providers.garment_image.base import (
+    GarmentImageError,
+    GarmentImageProvider,
+)
 from app.services.providers.image.base import ImageStorageProvider
 
 # CTO doc: max 4 photos per item.
@@ -317,6 +321,59 @@ def add_images(
         total=len(item.images or []),
     )
     return item
+
+
+# What the image model is asked to make of each garment photo.
+GHOST_MANNEQUIN_PROMPT = (
+    "Display your garment on a 3D ghost mannequin with professional styling"
+)
+
+
+async def add_images_with_mannequin(
+    db: Session,
+    *,
+    user: User,
+    item_id: UUID,
+    uploads: list[tuple[bytes, str]],
+    storage: ImageStorageProvider,
+    garment_images: GarmentImageProvider,
+) -> WardrobeItem:
+    """`add_images`, with each photo also shown on a ghost mannequin: the
+    generated image goes in just before its photo, so a first photo's
+    mannequin shot becomes the item's primary image.
+
+    The mannequin shots count toward MAX_IMAGES_PER_ITEM, so they're only
+    made while there's room beside the photos themselves. A failed or
+    refused generation just leaves that photo on its own — the upload never
+    fails over it."""
+    item = _get_owned(db, user=user, item_id=item_id)  # before paying Google
+    room = MAX_IMAGES_PER_ITEM - len(item.images or []) - len(uploads)
+    if not garment_images.enabled or room <= 0:
+        return add_images(
+            db, user=user, item_id=item_id, uploads=uploads, storage=storage
+        )
+    with_shots: list[tuple[bytes, str]] = []
+    for content, content_type in uploads:
+        if room > 0:
+            try:
+                shot = await garment_images.generate(
+                    content, media_type=content_type, prompt=GHOST_MANNEQUIN_PROMPT
+                )
+            except GarmentImageError as e:
+                _log.warning(
+                    "wardrobe.item.mannequin_failed",
+                    user_id=str(user.id),
+                    item_id=str(item_id),
+                    code=e.code,
+                    error=str(e),
+                )
+            else:
+                with_shots.append((shot.content, shot.content_type))
+                room -= 1
+        with_shots.append((content, content_type))
+    return add_images(
+        db, user=user, item_id=item_id, uploads=with_shots, storage=storage
+    )
 
 
 def toggle_favorite(

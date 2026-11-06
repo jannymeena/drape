@@ -2,6 +2,7 @@ from app.core.providers import providers
 from app.services.providers.ai.base import AIProvider
 from app.services.providers.crypto.base import Encryptor
 from app.services.providers.email.base import EmailProvider
+from app.services.providers.garment_image.base import GarmentImageProvider
 from app.services.providers.hash.base import PasswordHasher
 from app.services.providers.image.base import ImageStorageProvider
 from app.services.providers.oauth.base import OAuthVerifier
@@ -33,6 +34,10 @@ def get_image_storage() -> ImageStorageProvider:
 
 def get_ai_provider() -> AIProvider:
     return providers.ai
+
+
+def get_garment_image_provider() -> GarmentImageProvider:
+    return providers.garment_images
 
 
 def get_weather_provider() -> WeatherProvider:

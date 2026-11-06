@@ -178,6 +178,9 @@ class WardrobeService {
       final response = await _dio.post<Map<String, dynamic>>(
         '/wardrobe/items/$itemId/images',
         data: form,
+        // The server also shows each photo on a ghost mannequin (an image
+        // model call of up to 45 s, at most two per upload) before it answers.
+        options: Options(receiveTimeout: const Duration(minutes: 2)),
       );
       return WardrobeItem.fromJson(response.data!);
     } on DioException catch (e) {

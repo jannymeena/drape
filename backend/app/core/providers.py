@@ -11,6 +11,11 @@ from app.services.providers.crypto.local_aes import LocalAesEncryptor
 from app.services.providers.email.base import EmailProvider
 from app.services.providers.email.log import LogEmailProvider
 from app.services.providers.email.ses import SesEmailProvider
+from app.services.providers.garment_image.base import GarmentImageProvider
+from app.services.providers.garment_image.disabled import (
+    DisabledGarmentImageProvider,
+)
+from app.services.providers.garment_image.gemini import GeminiGarmentImageProvider
 from app.services.providers.hash.base import PasswordHasher
 from app.services.providers.hash.bcrypt import BcryptPasswordHasher
 from app.services.providers.image.base import ImageStorageProvider
@@ -43,6 +48,7 @@ class Providers:
         self.encryptor: Encryptor = self._build_encryptor(s)
         self.image_storage: ImageStorageProvider = self._build_image_storage(s)
         self.ai: AIProvider = self._build_ai(s)
+        self.garment_images: GarmentImageProvider = self._build_garment_images(s)
         self.weather: WeatherProvider = self._build_weather(s)
         self.payment: PaymentProvider | None = self._build_payment(s)
         self.push: PushProvider | None = self._build_push(s)
@@ -56,6 +62,7 @@ class Providers:
             encryptor=type(self.encryptor).__name__,
             image_storage=type(self.image_storage).__name__,
             ai=type(self.ai).__name__,
+            garment_images=type(self.garment_images).__name__,
             weather=type(getattr(self.weather, "inner", self.weather)).__name__,
             payment=type(self.payment).__name__ if self.payment else None,
             push=type(self.push).__name__ if self.push else None,
@@ -179,6 +186,17 @@ class Providers:
             return MockAIProvider()
         # Unreachable: config validator requires ANTHROPIC_API_KEY in tbd/prd.
         raise RuntimeError("ANTHROPIC_API_KEY is required outside dev")
+
+    @staticmethod
+    def _build_garment_images(s: Settings) -> GarmentImageProvider:
+        # Key presence decides, in every env: no key = photos as uploaded.
+        if s.google_ai_api_key:
+            return GeminiGarmentImageProvider(
+                s.google_ai_api_key,
+                model=s.garment_image_model,
+                endpoint=s.google_ai_endpoint,
+            )
+        return DisabledGarmentImageProvider()
 
     @staticmethod
     def _build_weather(s: Settings) -> WeatherProvider:
