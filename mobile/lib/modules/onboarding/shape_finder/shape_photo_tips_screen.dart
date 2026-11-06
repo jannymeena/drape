@@ -59,7 +59,7 @@ class _ShapePhotoTipsScreenState extends ConsumerState<ShapePhotoTipsScreen> {
         const ShapeFinderHeading(
           'Upload a full-body photo',
           body:
-              'We estimate your silhouette proportions from a single photo. '
+              'We estimate your body proportions from a single photo. '
               'Prefer a tape measure? You can enter measurements instead.',
         ),
         const SizedBox(height: 20),
@@ -231,7 +231,7 @@ class _ShapePhotoTipsScreenState extends ConsumerState<ShapePhotoTipsScreen> {
                   TextSpan(
                     text:
                         'I agree Zoura can analyze this photo to estimate my '
-                        'body shape and silhouette. Read our ',
+                        'body shape and proportions. Read our ',
                     children: [
                       TextSpan(
                         text: 'Privacy Policy',

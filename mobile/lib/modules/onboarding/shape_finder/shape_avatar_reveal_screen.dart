@@ -62,7 +62,7 @@ class ShapeAvatarRevealScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       Text(
-                        'ZOURA ATELIER',
+                        'ZOURA',
                         style: caption.copyWith(
                           fontSize: 11,
                           letterSpacing: 3,

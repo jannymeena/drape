@@ -149,10 +149,7 @@ class ShapePhotoErrorScreen extends ConsumerWidget {
                   Icons.wb_twilight,
                   'Lighting was too dim to make out your outline.',
                 ),
-                (
-                  Icons.checkroom,
-                  'Loose or oversized layers hid your silhouette.',
-                ),
+                (Icons.checkroom, 'Loose or oversized layers hid your shape.'),
               ])
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),

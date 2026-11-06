@@ -170,7 +170,7 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
         const SizedBox(height: 16),
         const ShapeFinderHeading(
           'Almost there…',
-          body: 'Composing your silhouette blueprint…',
+          body: 'Working out your body shape…',
           center: true,
         ),
         const SizedBox(height: 24),

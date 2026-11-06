@@ -55,7 +55,7 @@ class _ShapePhotoReviewScreenState
       children: [
         const ShapeFinderHeading(
           'Check your photo',
-          body: 'Make sure your full silhouette is visible from head to toe.',
+          body: 'Make sure your whole body is visible from head to toe.',
         ),
         const SizedBox(height: 16),
         if (photo != null)

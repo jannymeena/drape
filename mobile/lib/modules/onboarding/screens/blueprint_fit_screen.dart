@@ -89,8 +89,8 @@ const _copy = {
   BodyShapeSet.neutral: _Copy(
     title: 'Which shape feels closest?',
     fitTitle: 'How do you prefer clothes to fit?',
-    topHeading: 'Top silhouette',
-    bottomHeading: 'Bottom silhouette',
+    topHeading: 'Top fit',
+    bottomHeading: 'Bottom fit',
     tops: [('slim', 'Fitted'), ('regular', 'Regular'), ('loose', 'Oversized')],
     bottoms: [('skinny', 'Slim'), ('relaxed', 'Straight'), ('baggy', 'Wide')],
   ),

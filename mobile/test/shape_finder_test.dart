@@ -234,7 +234,7 @@ void main() {
     await womenAtStep2(tester);
     await _tap(tester, find.text('Not sure?'));
 
-    expect(find.text('Build your Atelier silhouette'), findsOneWidget);
+    expect(find.text('Find your body shape'), findsOneWidget);
     expect(find.text('Enter measurements'), findsOneWidget);
     expect(find.text('Use a photo instead'), findsOneWidget);
   });

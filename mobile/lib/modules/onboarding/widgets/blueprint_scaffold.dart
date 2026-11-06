@@ -369,40 +369,63 @@ class _Header extends StatelessWidget {
               else
                 const SizedBox(width: 48, height: 48),
               const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.ivoryHigh,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  'Step $step of $kBlueprintSteps',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
+              BlueprintStepPill(step: step),
             ],
           ),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.only(left: 12),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
-              child: LinearProgressIndicator(
-                value: progress ?? step / kBlueprintSteps,
-                minHeight: 4,
-                backgroundColor: AppColors.sand,
-                valueColor: const AlwaysStoppedAnimation(AppColors.espresso),
-              ),
+            child: BlueprintProgressLine(
+              value: progress ?? step / kBlueprintSteps,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The "Step x of 8" pill at the right of every Blueprint header.
+class BlueprintStepPill extends StatelessWidget {
+  final int step;
+
+  const BlueprintStepPill({super.key, required this.step});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.ivoryHigh,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        'Step $step of $kBlueprintSteps',
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: AppColors.ink,
+        ),
+      ),
+    );
+  }
+}
+
+/// The progress line under every Blueprint header.
+class BlueprintProgressLine extends StatelessWidget {
+  final double value;
+
+  const BlueprintProgressLine({super.key, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: LinearProgressIndicator(
+        value: value,
+        minHeight: 4,
+        backgroundColor: AppColors.sand,
+        valueColor: const AlwaysStoppedAnimation(AppColors.espresso),
       ),
     );
   }

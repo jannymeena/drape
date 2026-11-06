@@ -26,71 +26,26 @@ class ShapeIntroScreen extends ConsumerWidget {
       bottom: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ShapeFinderPrimaryButton(
-            label: 'Enter measurements',
-            trailing: Icons.arrow_forward,
-            onPressed: () => context.pushNamed(ShapeMeasureScreen.name),
-          ),
-          const SizedBox(height: 10),
           ShapeFinderSecondaryButton(
             label: 'Use a photo instead',
             leading: Icons.photo_camera_outlined,
             onPressed: () => context.pushNamed(ShapePhotoTipsScreen.name),
           ),
+          const SizedBox(height: 10),
+          ShapeFinderPrimaryButton(
+            label: 'Enter measurements',
+            trailing: Icons.arrow_forward,
+            onPressed: () => context.pushNamed(ShapeMeasureScreen.name),
+          ),
         ],
       ),
       children: [
-        Row(
-          children: [
-            Flexible(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.ivoryWarm,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: AppColors.sage,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'MEASUREMENTS • 4 POINTS',
-                        overflow: TextOverflow.ellipsis,
-                        style: caption.copyWith(
-                          fontSize: 11,
-                          letterSpacing: 0.8,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.espressoDark,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text('About 2 min', style: caption.copyWith(fontSize: 11)),
-          ],
-        ),
-        const SizedBox(height: 14),
         const ShapeFinderHeading(
-          'Build your Atelier silhouette',
+          'Find your body shape',
           body:
               'Four measurements with a soft tape, or one full-body photo. '
-              'Every drape, silhouette and size suggestion is then calibrated '
-              'to your proportions.',
+              'Every outfit, cut and size we suggest is then matched to your '
+              'proportions.',
         ),
         const SizedBox(height: 20),
         const Row(
@@ -139,33 +94,6 @@ class ShapeIntroScreen extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.ivoryWarm,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.lock_outline,
-                size: 18,
-                color: AppColors.inkSoft,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Biometric data stays privately encrypted in Canada. Never '
-                  'marketed or shared.',
-                  style: BlueprintText.optionSupport(
-                    context,
-                  ).copyWith(fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-        ),
         const SizedBox(height: 12),
         ShapeFinderLink(
           label: 'Skip for now — I’ll do this later in my profile',
@@ -173,8 +101,8 @@ class ShapeIntroScreen extends ConsumerWidget {
           onPressed: () => finishShapeFinder(context, ref, null),
         ),
         Text(
-          'You’ll still explore curated capsule edits today; silhouette '
-          'tailoring unlocks once it’s done.',
+          'You can still browse outfits today; picks for your body shape '
+          'unlock once it’s done.',
           textAlign: TextAlign.center,
           style: caption.copyWith(fontSize: 12),
         ),
@@ -249,7 +177,7 @@ class _AtelierCard extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                'SILHOUETTE CALIBRATION',
+                'YOUR BODY SHAPE',
                 style: caption.copyWith(
                   fontSize: 11,
                   letterSpacing: 1,
@@ -304,7 +232,7 @@ class _AtelierCard extends StatelessWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: 'The Atelier avatar: ',
+                        text: 'Your avatar: ',
                         style: caption.copyWith(
                           fontWeight: FontWeight.w700,
                           color: AppColors.espressoDark,
@@ -312,8 +240,8 @@ class _AtelierCard extends StatelessWidget {
                       ),
                       const TextSpan(
                         text:
-                            'your personal silhouette takes shape with every '
-                            'measurement you save.',
+                            'it takes on your shape with every measurement '
+                            'you save.',
                       ),
                     ],
                   ),

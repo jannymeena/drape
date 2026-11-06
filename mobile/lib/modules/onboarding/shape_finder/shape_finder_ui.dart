@@ -38,8 +38,9 @@ void finishShapeFinder(BuildContext context, WidgetRef ref, String? shape) {
 
 // ─── Chrome ─────────────────────────────────────────────────────────────────
 
-/// The sub-flow's page: back button, a centred "Step 2 of 8 · [section]"
-/// overline with an optional italic [title], the step 2 progress line, a
+/// The sub-flow's page: the Blueprint header (back button, centred [section]
+/// label, "Step 2 of 8" pill) with an optional italic [title] under it, the
+/// step 2 progress line, a
 /// scrolling body, and an optional pinned [bottom].
 class ShapeFinderScaffold extends StatelessWidget {
   const ShapeFinderScaffold({
@@ -79,62 +80,71 @@ class ShapeFinderScaffold extends StatelessWidget {
                 Hero(
                   tag: 'shape-finder-header',
                   flightShuttleBuilder: _pinnedHeaderFlight,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-                        child: Row(
+                  // Laid out like the Blueprint steps' header: back on the
+                  // left, the step pill on the right, the section centred.
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 8, 16, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
                           children: [
-                            IconButton(
-                              onPressed:
-                                  onBack ??
-                                  () => Navigator.of(context).maybePop(),
-                              icon: const Icon(Icons.chevron_left, size: 28),
-                              color: AppColors.ink,
-                              tooltip: 'Go back',
-                            ),
                             Expanded(
-                              child: Column(
-                                children: [
-                                  Text(
-                                    'STEP 2 OF $kBlueprintSteps · ${section.toUpperCase()}',
-                                    textAlign: TextAlign.center,
-                                    style: caption.copyWith(
-                                      fontSize: 11,
-                                      letterSpacing: 1.2,
-                                    ),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: IconButton(
+                                  onPressed:
+                                      onBack ??
+                                      () => Navigator.of(context).maybePop(),
+                                  icon: const Icon(
+                                    Icons.chevron_left,
+                                    size: 28,
                                   ),
-                                  if (title != null)
-                                    Text(
-                                      title!,
-                                      textAlign: TextAlign.center,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall!
-                                          .copyWith(
-                                            fontStyle: FontStyle.italic,
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 20,
-                                            color: AppColors.espressoDark,
-                                          ),
-                                    ),
-                                ],
+                                  color: AppColors.ink,
+                                  tooltip: 'Go back',
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 48),
+                            Text(
+                              section.toUpperCase(),
+                              textAlign: TextAlign.center,
+                              style: caption.copyWith(
+                                fontSize: 11,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const Expanded(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: BlueprintStepPill(step: 2),
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                      LinearProgressIndicator(
-                        value: 2 / kBlueprintSteps,
-                        minHeight: 3,
-                        backgroundColor: AppColors.sand,
-                        valueColor: const AlwaysStoppedAnimation(
-                          AppColors.espresso,
+                        if (title != null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child: Text(
+                              title!,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.headlineSmall!
+                                  .copyWith(
+                                    fontStyle: FontStyle.italic,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 20,
+                                    color: AppColors.espressoDark,
+                                  ),
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                        const Padding(
+                          padding: EdgeInsets.only(left: 12),
+                          child: BlueprintProgressLine(
+                            value: 2 / kBlueprintSteps,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 Expanded(
