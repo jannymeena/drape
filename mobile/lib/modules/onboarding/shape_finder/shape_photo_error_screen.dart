@@ -67,6 +67,11 @@ class ShapePhotoErrorScreen extends ConsumerWidget {
           ),
         ],
       ),
+      centeredFooter: ShapeFinderLink(
+        label: 'I’ll pick my shape myself',
+        trailing: Icons.chevron_right,
+        onPressed: () => backToShapeGrid(context),
+      ),
       children: [
         ShapeFinderHeading(headline, body: advice),
         const SizedBox(height: 20),
@@ -165,14 +170,10 @@ class ShapePhotoErrorScreen extends ConsumerWidget {
                   ),
                 ),
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                decoration: const BoxDecoration(
-                  color: AppColors.ivoryDim,
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(20),
-                  ),
-                ),
+              // Part of the white card, so its rounded corners show.
+              const Divider(height: 1, color: AppColors.sand),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
                 child: Row(
                   children: [
                     const Icon(
@@ -192,12 +193,6 @@ class ShapePhotoErrorScreen extends ConsumerWidget {
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 12),
-        ShapeFinderLink(
-          label: 'I’ll pick my shape myself',
-          trailing: Icons.chevron_right,
-          onPressed: () => backToShapeGrid(context),
         ),
       ],
     );

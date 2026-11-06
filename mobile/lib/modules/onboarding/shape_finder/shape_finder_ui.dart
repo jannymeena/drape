@@ -50,12 +50,17 @@ class ShapeFinderScaffold extends StatelessWidget {
     required this.section,
     required this.children,
     this.bottom,
+    this.centeredFooter,
     this.onBack,
   });
 
   final String section;
   final List<Widget> children;
   final Widget? bottom;
+
+  /// The page's closing link, centred in whatever space the body leaves
+  /// (it simply follows the body once the page scrolls).
+  final Widget? centeredFooter;
 
   /// Defaults to popping this screen.
   final VoidCallback? onBack;
@@ -133,12 +138,31 @@ class ShapeFinderScaffold extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: children,
-                    ),
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          20,
+                          20,
+                          20,
+                          centeredFooter == null ? 24 : 8,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: children,
+                          ),
+                        ),
+                      ),
+                      if (centeredFooter case final footer?)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                            child: Center(child: footer),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 Container(

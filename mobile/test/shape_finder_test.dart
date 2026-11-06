@@ -351,8 +351,18 @@ void main() {
     // The framed copy is no use now, so it's gone.
     expect(renderer.discarded, [_FakeRenderer.framedFile]);
 
-    // "I'll pick my shape myself" goes back to step 2's grid.
-    await _tap(tester, find.text('I’ll pick my shape myself'));
+    // "I'll pick my shape myself" goes back to step 2's grid. It's centred
+    // in the space under the page, so scroll it into view first.
+    final pick = find.text('I’ll pick my shape myself');
+    await tester.scrollUntilVisible(
+      pick,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(CustomScrollView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await _tap(tester, pick);
     expect(find.text('Which body shape feels closest?'), findsOneWidget);
   });
 
