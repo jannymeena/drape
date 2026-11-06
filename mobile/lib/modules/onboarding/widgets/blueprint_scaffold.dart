@@ -183,6 +183,10 @@ class BlueprintScaffold extends StatelessWidget {
 
   final VoidCallback onContinue;
 
+  /// Centred, vertically, in whatever space is left under [children] (e.g.
+  /// step 4's "Skip for now"). With no space left, it simply follows them.
+  final Widget? centeredFooter;
+
   const BlueprintScaffold({
     super.key,
     required this.step,
@@ -192,6 +196,7 @@ class BlueprintScaffold extends StatelessWidget {
     this.buttonIcon,
     this.canContinue = true,
     this.loading = false,
+    this.centeredFooter,
   });
 
   @override
@@ -220,14 +225,33 @@ class BlueprintScaffold extends StatelessWidget {
                   child: _Header(step: step),
                 ),
                 Expanded(
-                  // Not a lazy ListView: every question is built up front so
-                  // `revealNextQuestion` can always find the next one.
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: children,
-                    ),
+                  // Not a lazy list: every question is built up front (one
+                  // box) so `revealNextQuestion` can always find the next one.
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          24,
+                          16,
+                          centeredFooter == null ? 24 : 8,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: children,
+                          ),
+                        ),
+                      ),
+                      if (centeredFooter case final footer?)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Center(child: footer),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 _ContinueBar(

@@ -85,19 +85,26 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
       step: 4,
       canContinue: _shade != null && _undertone != null,
       onContinue: _leave,
+      centeredFooter: TextButton(
+        onPressed: () => _leave(skip: true),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.inkSoft.withValues(alpha: 0.75),
+        ),
+        child: Text(
+          'Skip for now',
+          style: BlueprintText.optionSupport(context).copyWith(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppColors.inkSoft.withValues(alpha: 0.75),
+          ),
+        ),
+      ),
       children: [
         const BlueprintQuestion(
           title: 'What’s your skin tone?',
           subtitle: 'We only use this to suggest colours that flatter you.',
         ),
         const SizedBox(height: 24),
-        _SectionLabel(
-          'Your shade',
-          trailing: shade == null
-              ? null
-              : 'Tone ${shade.number.toString().padLeft(2, '0')} Selected',
-        ),
-        const SizedBox(height: 12),
         _ShadeGrid(
           selected: _shade,
           onSelect: (n) {
@@ -108,7 +115,7 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
           const SizedBox(height: 12),
           _FlatteringStrip(colors: shade.flattering),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
         const _SectionLabel('Your undertone'),
         const SizedBox(height: 2),
         Text(
@@ -139,104 +146,27 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        Center(
-          child: InkWell(
-            // The jewellery test isn't designed yet: the link is shown, as in
-            // the mockup, but does nothing for now.
-            onTap: () {},
-            borderRadius: BorderRadius.circular(999),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.help_outline,
-                    size: 16,
-                    color: AppColors.espressoDark,
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      'Not sure? Try the 10-second jewellery test',
-                      style: BlueprintText.optionSupport(context).copyWith(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.espressoDark,
-                        decoration: TextDecoration.underline,
-                        decorationColor: AppColors.espressoDark.withValues(
-                          alpha: 0.4,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  const Icon(
-                    Icons.chevron_right,
-                    size: 14,
-                    color: AppColors.espressoDark,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Center(
-          child: TextButton(
-            onPressed: () => _leave(skip: true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.inkSoft.withValues(alpha: 0.75),
-            ),
-            child: Text(
-              'Skip for now',
-              style: BlueprintText.optionSupport(context).copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.inkSoft.withValues(alpha: 0.75),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
 }
 
-/// A small uppercase section heading, with an optional note at the right.
+/// A small uppercase section heading.
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text, {this.trailing});
+  const _SectionLabel(this.text);
 
   final String text;
-  final String? trailing;
 
   @override
   Widget build(BuildContext context) {
-    final body = BlueprintText.optionSupport(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            text.toUpperCase(),
-            style: body.copyWith(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 2,
-              color: AppColors.inkSoft.withValues(alpha: 0.8),
-            ),
-          ),
-        ),
-        if (trailing case final note?)
-          Text(
-            note,
-            style: body.copyWith(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: AppColors.espressoDark,
-            ),
-          ),
-      ],
+    return Text(
+      text.toUpperCase(),
+      style: BlueprintText.optionSupport(context).copyWith(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 2,
+        color: AppColors.inkSoft.withValues(alpha: 0.8),
+      ),
     );
   }
 }
@@ -252,7 +182,8 @@ class _ShadeGrid extends StatelessWidget {
 
   static const _padding = 14.0;
   static const _columnGap = 10.0;
-  static const _rowGap = 14.0;
+  // The gap between the two rows matches the panel's padding.
+  static const _rowGap = _padding;
   static const _swatch = 50.0;
 
   @override
@@ -395,24 +326,10 @@ class _ShadeSwatch extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedScale(
-              scale: selected ? 1.05 : 1,
-              duration: const Duration(milliseconds: 200),
-              child: swatch,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '${shade.number}',
-              style: BlueprintText.optionSupport(context).copyWith(
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? AppColors.espressoDark : AppColors.inkSoft,
-              ),
-            ),
-          ],
+        child: AnimatedScale(
+          scale: selected ? 1.05 : 1,
+          duration: const Duration(milliseconds: 200),
+          child: swatch,
         ),
       ),
     );
@@ -509,60 +426,44 @@ class _UndertoneCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 36,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: gradient,
-                        ),
-                      ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 16, 10, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 36,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: gradient,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      label,
-                      style: BlueprintText.optionSupport(context).copyWith(
-                        fontSize: 13,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        color: AppColors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      hint,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: BlueprintText.optionSupport(context).copyWith(
-                        fontSize: 10,
-                        height: 1.25,
-                        color: AppColors.inkSoft,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (selected)
-                const Positioned(
-                  top: 6,
-                  right: 6,
-                  child: CircleAvatar(
-                    radius: 8,
-                    backgroundColor: AppColors.espresso,
-                    child: Icon(Icons.check, size: 10, color: AppColors.white),
                   ),
                 ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: BlueprintText.optionSupport(context).copyWith(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hint,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: BlueprintText.optionSupport(context).copyWith(
+                    fontSize: 10,
+                    height: 1.25,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

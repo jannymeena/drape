@@ -740,7 +740,10 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Shade 7 of 10'));
     await tester.pump();
-    expect(find.text('Tone 07 Selected'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Shade 7 of 10')),
+      isSemantics(isSelected: true),
+    );
     expect(find.text('Colours that flatter you'), findsOneWidget);
     expect(continueButton().onTap, isNull);
 
@@ -766,8 +769,22 @@ void main() {
       _host(container, initialLocation: BlueprintColorScreen.path),
     );
     // Prefilled from the draft.
-    expect(find.text('Tone 04 Selected'), findsOneWidget);
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('Shade 4 of 10')),
+      isSemantics(isSelected: true),
+    );
 
+    // It sits in the space left under the questions, so scroll down to it.
+    await tester.scrollUntilVisible(
+      find.text('Skip for now'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await _tap(tester, 'Skip for now');
     expect(service.calls['color'], {'skin_shade': null, 'undertone': null});
     final blueprint = container.read(onboardingControllerProvider).blueprint;
@@ -1174,7 +1191,7 @@ void main() {
           // The page's own; step 2's shape grid has one inside it.
           find
               .descendant(
-                of: find.byType(SingleChildScrollView),
+                of: find.byType(CustomScrollView),
                 matching: find.byType(Scrollable),
               )
               .first,
@@ -1198,7 +1215,7 @@ void main() {
       final question = tester.getRect(
         find.text('How do you prefer your clothes to fit?'),
       );
-      final viewport = tester.getRect(find.byType(SingleChildScrollView));
+      final viewport = tester.getRect(find.byType(CustomScrollView));
       expect(
         viewport.top <= question.top && question.bottom <= viewport.bottom,
         isTrue,
