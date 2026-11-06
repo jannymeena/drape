@@ -249,6 +249,12 @@ Future<void> _tap(WidgetTester tester, String label) async {
   await tester.pump();
 }
 
+/// Lets a "next question" glide (see `revealNextQuestion`) finish.
+Future<void> settleReveal(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 300)); // the pause
+  await tester.pumpAndSettle(); // the glide
+}
+
 void main() {
   // A realistic phone viewport: the steps are long forms and several would
   // otherwise report overflow purely from the small default test window.
@@ -981,10 +987,12 @@ void main() {
     await _tap(tester, 'Ready for a change');
     await _tap(tester, 'Often frustrated');
     await _tap(tester, 'Confident and in control');
+    await settleReveal(tester); // the third pick glides on to accessories
     await _tap(tester, 'It’s just a necessity'); // a fourth: ignored
     expect(continueButton().onTap, isNull);
 
     await _tap(tester, 'Statement pieces');
+    await settleReveal(tester); // on to the brands
     await _tap(tester, 'A high-low mix');
     await _tap(tester, 'Continue');
 
@@ -1185,7 +1193,7 @@ void main() {
     expect(find.text('Build My Wardrobe'), findsOneWidget);
   });
 
-  group('answering a one-answer question moves on to the next', () {
+  group('finishing a question moves on to the next', () {
     ScrollPosition stepScroll(WidgetTester tester) => tester
         .state<ScrollableState>(
           // The page's own; step 2's shape grid has one inside it.
@@ -1197,11 +1205,6 @@ void main() {
               .first,
         )
         .position;
-
-    Future<void> settleReveal(WidgetTester tester) async {
-      await tester.pump(const Duration(milliseconds: 300)); // the pause
-      await tester.pumpAndSettle(); // the glide
-    }
 
     testWidgets('the next question scrolls into view', (tester) async {
       await fitStep(tester, 'womens');
@@ -1237,6 +1240,103 @@ void main() {
       await tester.tap(find.text('Pear'));
       await settleReveal(tester);
       expect(stepScroll(tester).pixels, 0);
+    });
+
+    /// Whether [text]'s question was brought up: to the top of the page, or,
+    /// near the end of it, as far as the page scrolls with it in view.
+    bool atTop(WidgetTester tester, String text) {
+      final question = tester.getRect(find.text(text));
+      final viewport = tester.getRect(find.byType(CustomScrollView));
+      final page = stepScroll(tester);
+      return (question.top - viewport.top).abs() < 2 ||
+          (page.pixels == page.maxScrollExtent &&
+              page.pixels > 0 &&
+              question.bottom <= viewport.bottom);
+    }
+
+    Future<void> openAt(WidgetTester tester, String path) async {
+      final container = _container(_StubService());
+      addTearDown(container.dispose);
+      await tester.pumpWidget(_host(container, initialLocation: path));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('step 7: the third feeling brings up the accessories', (
+      tester,
+    ) async {
+      await openAt(tester, BlueprintShoppingScreen.path);
+      const next = 'How do you feel about accessories?';
+      await _tap(tester, 'Ready for a change');
+      await _tap(tester, 'Often frustrated');
+      await settleReveal(tester);
+      expect(atTop(tester, next), isFalse); // two of three: stays put
+
+      await _tap(tester, 'Confident and in control');
+      await settleReveal(tester);
+      expect(atTop(tester, next), isTrue);
+    });
+
+    testWidgets('step 6: the second occupation brings up the dress code', (
+      tester,
+    ) async {
+      await openAt(tester, BlueprintWorkScreen.path);
+      const next = 'What’s the dress code like?';
+      await _tap(tester, 'Marketing');
+      await settleReveal(tester);
+      expect(atTop(tester, next), isFalse);
+
+      await _tap(tester, 'Healthcare');
+      await settleReveal(tester);
+      expect(atTop(tester, next), isTrue);
+    });
+
+    testWidgets('step 6: not with “Other” waiting to be described', (
+      tester,
+    ) async {
+      await openAt(tester, BlueprintWorkScreen.path);
+      await _tap(tester, 'Other');
+      await _tap(tester, 'Healthcare');
+      await settleReveal(tester);
+      expect(atTop(tester, 'What’s the dress code like?'), isFalse);
+    });
+
+    testWidgets('step 4: a shade brings up the undertone', (tester) async {
+      // A short phone: on a tall one the whole step fits, with nothing to
+      // scroll.
+      tester.view.physicalSize = const Size(390 * 3, 640 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await openAt(tester, BlueprintColorScreen.path);
+      await tester.tap(find.bySemanticsLabel('Shade 7 of 10'));
+      await tester.pump(); // the pick, and the strip it adds, laid out
+      await settleReveal(tester);
+      expect(atTop(tester, 'YOUR UNDERTONE'), isTrue);
+    });
+
+    testWidgets('step 6: the dress code brings up the typical day', (
+      tester,
+    ) async {
+      await openAt(tester, BlueprintWorkScreen.path);
+      await _tap(tester, 'Marketing');
+      await _tap(tester, 'Smart Casual');
+      await settleReveal(tester);
+      expect(atTop(tester, 'How dressed up is a typical day?'), isTrue);
+    });
+
+    testWidgets('step 7: accessories bring up the brands', (tester) async {
+      await openAt(tester, BlueprintShoppingScreen.path);
+      await _tap(tester, 'Statement pieces');
+      await settleReveal(tester);
+      expect(atTop(tester, 'Which types of brands do you prefer?'), isTrue);
+    });
+
+    testWidgets('step 6: “Not currently working” skips to the typical day', (
+      tester,
+    ) async {
+      await openAt(tester, BlueprintWorkScreen.path);
+      await _tap(tester, 'Not currently working');
+      await settleReveal(tester);
+      expect(atTop(tester, 'How dressed up is a typical day?'), isTrue);
     });
   });
 }

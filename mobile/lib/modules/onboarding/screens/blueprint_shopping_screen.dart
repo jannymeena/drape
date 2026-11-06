@@ -128,12 +128,24 @@ class _BlueprintShoppingScreenState
   bool get _complete =>
       _picked.isNotEmpty && _accessory != null && _brand != null;
 
+  /// The accessories question, brought into view once three feelings are
+  /// picked.
+  final _accessoryQuestion = GlobalKey();
+
+  /// The brands question, brought into view once accessories are answered.
+  final _brandQuestion = GlobalKey();
+
   void _toggleFeeling(String value) {
     if (_leaving) return;
+    var filled = false;
     setState(() {
       if (_picked.remove(value)) return;
-      if (_picked.length < _maxFeelings) _picked.add(value);
+      if (_picked.length < _maxFeelings) {
+        _picked.add(value);
+        filled = _picked.length == _maxFeelings;
+      }
     });
+    if (filled) revealNextQuestion(_accessoryQuestion);
   }
 
   void _onContinue() {
@@ -182,7 +194,8 @@ class _BlueprintShoppingScreenState
         const SizedBox(height: 20),
         const _InsightCard(),
         const SizedBox(height: 32),
-        const BlueprintSubQuestion(
+        BlueprintSubQuestion(
+          key: _accessoryQuestion,
           'How do you feel about accessories?',
           note: 'From understated accents to intentional centerpieces.',
           italic: false,
@@ -198,13 +211,19 @@ class _BlueprintShoppingScreenState
             ),
             selected: _accessory == a.value,
             onTap: () {
-              if (!_leaving) setState(() => _accessory = a.value);
+              if (_leaving) return;
+              final firstAnswer = _accessory == null;
+              setState(() => _accessory = a.value);
+              if (firstAnswer) revealNextQuestion(_brandQuestion);
             },
           ),
           if (a != _accessories.last) const SizedBox(height: 12),
         ],
         const SizedBox(height: 32),
-        const BlueprintSubQuestion('Which types of brands do you prefer?'),
+        BlueprintSubQuestion(
+          key: _brandQuestion,
+          'Which types of brands do you prefer?',
+        ),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(12),

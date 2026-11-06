@@ -111,8 +111,15 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
       (_notWorkingPicked || _dressCode != null) &&
       _impression != null;
 
+  /// Brought into view once the question before is done: the dress code
+  /// after a second occupation; the typical day after the dress code, or
+  /// straight after "Not currently working" (which has no dress code).
+  final _dressCodeQuestion = GlobalKey();
+  final _dayQuestion = GlobalKey();
+
   void _toggleOccupation(String value) {
     if (_leaving) return;
+    GlobalKey? next;
     setState(() {
       if (_picked.remove(value)) return;
       if (value == _notWorking) {
@@ -121,12 +128,18 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           ..clear()
           ..add(value);
         _dressCode = null;
+        next = _dayQuestion;
         return;
       }
       _picked.remove(_notWorking);
       if (_picked.length >= _maxOccupations) return; // up to two
       _picked.add(value);
+      // Not while "Other" waits to be described: its box is up here.
+      if (_picked.length == _maxOccupations && !_otherPicked) {
+        next = _dressCodeQuestion;
+      }
     });
+    if (next case final next?) revealNextQuestion(next);
   }
 
   void _onContinue() {
@@ -182,6 +195,7 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
         ],
         const SizedBox(height: 24),
         BlueprintSubQuestion(
+          key: _dressCodeQuestion,
           'What’s the dress code like?',
           note: 'Skipped automatically if you’re not currently working',
           italic: false,
@@ -201,7 +215,10 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
                     label: d.label,
                     selected: !_notWorkingPicked && _dressCode == d.value,
                     onTap: () {
-                      if (!_leaving) setState(() => _dressCode = d.value);
+                      if (_leaving) return;
+                      final firstAnswer = _dressCode == null;
+                      setState(() => _dressCode = d.value);
+                      if (firstAnswer) revealNextQuestion(_dayQuestion);
                     },
                   ),
               ],
@@ -209,7 +226,10 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           ),
         ),
         const SizedBox(height: 28),
-        const BlueprintSubQuestion('How dressed up is a typical day?'),
+        BlueprintSubQuestion(
+          key: _dayQuestion,
+          'How dressed up is a typical day?',
+        ),
         const SizedBox(height: 16),
         _FormalitySlider(
           labels: [for (final f in _formality) f.label],

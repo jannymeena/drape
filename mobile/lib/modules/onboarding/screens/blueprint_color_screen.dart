@@ -78,6 +78,16 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
     });
   }
 
+  /// The undertone question, brought into view once a shade is picked.
+  final _undertoneQuestion = GlobalKey();
+
+  void _pickShade(int n) {
+    if (_leaving) return;
+    final firstAnswer = _shade == null;
+    setState(() => _shade = n);
+    if (firstAnswer) revealNextQuestion(_undertoneQuestion);
+  }
+
   @override
   Widget build(BuildContext context) {
     final shade = skinShade(_shade);
@@ -105,18 +115,16 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
           subtitle: 'We only use this to suggest colours that flatter you.',
         ),
         const SizedBox(height: 24),
-        _ShadeGrid(
-          selected: _shade,
-          onSelect: (n) {
-            if (!_leaving) setState(() => _shade = n);
-          },
-        ),
+        _ShadeGrid(selected: _shade, onSelect: _pickShade),
         if (shade != null) ...[
           const SizedBox(height: 12),
           _FlatteringStrip(colors: shade.flattering),
         ],
         const SizedBox(height: 32),
-        const _SectionLabel('Your undertone'),
+        KeyedSubtree(
+          key: _undertoneQuestion,
+          child: const _SectionLabel('Your undertone'),
+        ),
         const SizedBox(height: 2),
         Text(
           'A quick guess is fine, you can refine it later with a photo.',
