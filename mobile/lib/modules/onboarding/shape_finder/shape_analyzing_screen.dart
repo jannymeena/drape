@@ -180,21 +180,26 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
         ShapeFinderCard(
           color: AppColors.ivoryDim,
           shadow: false,
-          child: Column(
+          child: Row(
             children: [
               const Icon(Icons.lock, size: 18, color: AppColors.sage),
-              const SizedBox(height: 6),
-              Text(
-                'Your photo is deleted as soon as we finish.',
-                textAlign: TextAlign.center,
-                style: BlueprintText.optionSupport(
-                  context,
-                ).copyWith(fontSize: 13),
-              ),
-              Text(
-                'No copies saved.',
-                textAlign: TextAlign.center,
-                style: caption.copyWith(fontSize: 11),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your photo is deleted as soon as we finish.',
+                      style: BlueprintText.optionSupport(
+                        context,
+                      ).copyWith(fontSize: 13),
+                    ),
+                    Text(
+                      'No copies saved.',
+                      style: caption.copyWith(fontSize: 11),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
