@@ -82,10 +82,15 @@ class _BlueprintAestheticsScreenState
     _specificsOpen = _micro.isNotEmpty;
   }
 
-  List<_Aesthetic> get _cards {
-    final style = ref.read(onboardingControllerProvider).shoppingStyle;
-    return style == 'mens' ? _mens : _womens;
-  }
+  bool get _isMens =>
+      ref.read(onboardingControllerProvider).shoppingStyle == 'mens';
+
+  List<_Aesthetic> get _cards => _isMens ? _mens : _womens;
+
+  /// The photos' own shape (the men's set is a little taller than wide, the
+  /// women's a little wider than tall), so the whole look shows instead of a
+  /// cropped, zoomed-in slice.
+  double get _photoAspectRatio => _isMens ? 357 / 399 : 360 / 346;
 
   /// Records the answers and moves straight on; the save runs in the
   /// background, and a failure is retried with the next step's save.
@@ -125,29 +130,42 @@ class _BlueprintAestheticsScreenState
           subtitle: 'Select all that apply.',
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 3 / 4,
-          children: [
-            for (final card in _cards)
-              _StyleCard(
-                label: card.label,
-                asset: 'assets/onboarding/styles/${card.asset}.jpg',
-                selected: _selected.contains(card.value),
-                onTap: () {
-                  if (_leaving) return;
-                  setState(() {
-                    if (!_selected.add(card.value)) {
-                      _selected.remove(card.value);
-                    }
-                  });
-                },
+        LayoutBuilder(
+          builder: (context, box) {
+            // Each card is its photo, at the photo's shape, plus the card's
+            // inner padding all round.
+            const gap = 12.0;
+            const inset = _StyleCard.padding;
+            final cardWidth = (box.maxWidth - gap) / 2;
+            final cardHeight =
+                (cardWidth - 2 * inset) / _photoAspectRatio + 2 * inset;
+            return GridView(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: gap,
+                mainAxisSpacing: gap,
+                mainAxisExtent: cardHeight,
               ),
-          ],
+              children: [
+                for (final card in _cards)
+                  _StyleCard(
+                    label: card.label,
+                    asset: 'assets/onboarding/styles/${card.asset}.jpg',
+                    selected: _selected.contains(card.value),
+                    onTap: () {
+                      if (_leaving) return;
+                      setState(() {
+                        if (!_selected.add(card.value)) {
+                          _selected.remove(card.value);
+                        }
+                      });
+                    },
+                  ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 16),
         _SpecificsCard(
@@ -309,10 +327,13 @@ class _StyleCard extends StatelessWidget {
     required this.onTap,
   });
 
+  /// Room between the card's edge and its photo.
+  static const padding = 8.0;
+
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.sand,
+      color: selected ? const Color(0xFFFDF5EE) : AppColors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
@@ -323,43 +344,57 @@ class _StyleCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.asset(asset, fit: BoxFit.cover),
-            // Scrim so the label stays legible over any part of the photo.
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [Colors.black87, Colors.transparent],
-                  stops: [0.0, 0.55],
+        child: Padding(
+          padding: const EdgeInsets.all(padding),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(
+                  color: AppColors.sand,
+                  child: Image.asset(asset, fit: BoxFit.cover),
                 ),
-              ),
-            ),
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: 10,
-              child: Text(
-                label,
-                style: BlueprintText.option(
-                  context,
-                ).copyWith(color: AppColors.white, fontWeight: FontWeight.w700),
-              ),
-            ),
-            if (selected)
-              const Positioned(
-                top: 8,
-                right: 8,
-                child: CircleAvatar(
-                  radius: 12,
-                  backgroundColor: AppColors.espresso,
-                  child: Icon(Icons.check, size: 15, color: AppColors.white),
+                // Scrim so the label stays legible over any part of the photo.
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Colors.black87, Colors.transparent],
+                      stops: [0.0, 0.55],
+                    ),
+                  ),
                 ),
-              ),
-          ],
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 10,
+                  child: Text(
+                    label,
+                    style: BlueprintText.option(context).copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (selected)
+                  const Positioned(
+                    top: 8,
+                    right: 8,
+                    child: CircleAvatar(
+                      radius: 12,
+                      backgroundColor: AppColors.espresso,
+                      child: Icon(
+                        Icons.check,
+                        size: 15,
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
