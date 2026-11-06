@@ -346,6 +346,11 @@ class _ScanTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.ivoryWarm,
           borderRadius: BorderRadius.circular(12),
+        ),
+        // The selection border is painted over the photo: as part of the
+        // background, the clipped photo covered it and it looked broken.
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? AppColors.espresso : Colors.transparent,
             width: 2,
