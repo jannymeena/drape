@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -20,7 +22,8 @@ import '../../../shared/widgets/zoura_header.dart';
 /// Wardrobe-side manual entry — distinct from onboarding's manual_entry
 /// (which captures body measurements). Doubles as the edit form: pass [itemId]
 /// (via `?id=`) to prefill from `GET /wardrobe/items/{id}` and PATCH on save;
-/// omit it to create. Photo capture is SP3 (the tile is a stub here).
+/// omit it to create. The photo tile adds a photo: straight away when
+/// editing, with the item on save when creating.
 class ManualEntryScreen extends ConsumerStatefulWidget {
   static const path = 'manual-entry';
   static const name = 'wardrobe_manual_entry';
@@ -59,6 +62,9 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   int? _colorIndex;
   final Set<int> _seasonIndices = {};
   int _formalityIndex = 0;
+
+  /// A new item's photo, picked before saving and uploaded with it.
+  PickedImage? _photo;
 
   bool _submitting = false;
   String? _nameError;
@@ -158,8 +164,9 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                 children: [
                   _PhotoTile(
-                    label: _isEditing ? 'ADD PHOTO' : 'PHOTO AFTER SAVING',
-                    onTap: _photoTileTapped,
+                    label: 'ADD PHOTO',
+                    preview: _photo?.bytes,
+                    onTap: _submitting ? null : _photoTileTapped,
                   ),
                   const SizedBox(height: 20),
                   DrapeTextField(
@@ -271,16 +278,14 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
   }
 
   Future<void> _photoTileTapped() async {
-    if (!_isEditing) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Save the item first, then add photos from its page.'),
-        ),
-      );
-      return;
-    }
     final picked = await pickWardrobeImage(context);
     if (picked == null || !mounted) return;
+    // A new item has nowhere to put it yet: it's shown here and uploaded
+    // with the item on save.
+    if (!_isEditing) {
+      setState(() => _photo = picked);
+      return;
+    }
     try {
       await ref
           .read(wardrobeControllerProvider.notifier)
@@ -311,17 +316,31 @@ class _ManualEntryScreenState extends ConsumerState<ManualEntryScreen> {
       } else {
         final capacityBefore =
             ref.read(wardrobeCapacityProvider).valueOrNull;
-        await controller.createItem(_buildInput());
+        final created = await controller.createItem(_buildInput());
         ref.read(analyticsProvider).capture(
           AnalyticsEvents.manualEntrySubmitted,
           {'source': 'wardrobe'},
         );
         ref.invalidate(wardrobeCapacityProvider);
+        // The item is saved by now; a photo that fails to upload doesn't
+        // undo that, it's just mentioned.
+        var photoFailed = false;
+        if (_photo case final photo?) {
+          try {
+            await controller.addImages(created.id, [photo]);
+          } on ApiException {
+            photoFailed = true;
+          }
+        }
         if (!mounted) return;
         showDrapeToast(
           context,
-          'Item added to wardrobe!',
-          trailing: capacityBefore?.toastDetailAfterAdding(1),
+          photoFailed
+              ? 'Item added, but the photo didn’t upload'
+              : 'Item added to wardrobe!',
+          trailing: photoFailed
+              ? null
+              : capacityBefore?.toastDetailAfterAdding(1),
         );
       }
       context.pop();
@@ -404,11 +423,16 @@ class _Header extends StatelessWidget {
 
 class _PhotoTile extends StatelessWidget {
   final String label;
-  final VoidCallback onTap;
-  const _PhotoTile({required this.label, required this.onTap});
+  final VoidCallback? onTap;
+
+  /// The picked photo, shown in place of the prompt.
+  final Uint8List? preview;
+
+  const _PhotoTile({required this.label, required this.onTap, this.preview});
 
   @override
   Widget build(BuildContext context) {
+    final preview = this.preview;
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: AspectRatio(
@@ -417,7 +441,50 @@ class _PhotoTile extends StatelessWidget {
           color: AppColors.tanFixed.withValues(alpha: 0.5),
           child: InkWell(
             onTap: onTap,
-            child: Center(
+            child: preview != null
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Ink.image(
+                        image: MemoryImage(preview),
+                        fit: BoxFit.cover,
+                      ),
+                      Positioned(
+                        right: 10,
+                        bottom: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.espresso.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.photo_camera_outlined,
+                                  color: AppColors.white, size: 14),
+                              const SizedBox(width: 6),
+                              Text(
+                                'CHANGE',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: AppColors.white,
+                                      letterSpacing: 1.2,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
