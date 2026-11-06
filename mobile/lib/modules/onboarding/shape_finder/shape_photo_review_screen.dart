@@ -11,7 +11,6 @@ import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
 import 'shape_photo_error_screen.dart';
 import 'shape_photo_frame.dart';
-import '../widgets/pipeda_note.dart';
 
 /// The photo framing check: the shot with shoulder / waist / hip guides, and
 /// the option to blur the face before it's analyzed. "Use This Photo" draws
@@ -52,6 +51,22 @@ class _ShapePhotoReviewScreenState
     final photo = finder.photo;
     return ShapeFinderScaffold(
       section: 'Framing check',
+      bottom: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ShapeFinderSecondaryButton(
+            label: 'Retake Photo',
+            leading: Icons.photo_camera_outlined,
+            onPressed: _framing ? null : () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(height: 10),
+          ShapeFinderPrimaryButton(
+            label: _framing ? 'Preparing photo…' : 'Use This Photo',
+            trailing: _framing ? null : Icons.arrow_forward,
+            onPressed: photo == null || _framing ? null : _usePhoto,
+          ),
+        ],
+      ),
       children: [
         const ShapeFinderHeading(
           'Check your photo',
@@ -154,36 +169,6 @@ class _ShapePhotoReviewScreenState
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        _Hint(
-          Icons.lock_outline,
-          'Read on your phone, never uploaded. Deleted as soon as your '
-          'shape is estimated.',
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'Looks good?',
-          textAlign: TextAlign.center,
-          style: BlueprintText.option(
-            context,
-          ).copyWith(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 12),
-        ShapeFinderPrimaryButton(
-          label: _framing ? 'Preparing photo…' : 'Use This Photo',
-          trailing: _framing ? null : Icons.arrow_forward,
-          onPressed: photo == null || _framing ? null : _usePhoto,
-        ),
-        const SizedBox(height: 4),
-        ShapeFinderLink(
-          label: 'Retake photo',
-          leading: Icons.photo_camera_outlined,
-          onPressed: () {
-            if (!_framing) Navigator.of(context).pop();
-          },
-        ),
-        const SizedBox(height: 8),
-        const PipedaNote(),
       ],
     );
   }

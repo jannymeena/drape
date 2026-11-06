@@ -11,9 +11,7 @@ import '../widgets/blueprint_scaffold.dart';
 import '../widgets/privacy_sheet.dart';
 import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
-import 'shape_measure_screen.dart';
 import 'shape_photo_review_screen.dart';
-import '../widgets/pipeda_note.dart';
 
 /// The photo path's start: how the photo is handled, tips for a usable shot,
 /// consent, then camera or library.
@@ -55,6 +53,22 @@ class _ShapePhotoTipsScreenState extends ConsumerState<ShapePhotoTipsScreen> {
     final ready = _consent && !_picking;
     return ShapeFinderScaffold(
       section: 'Photo estimate',
+      bottom: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ShapeFinderSecondaryButton(
+            label: 'Choose From Library',
+            leading: Icons.photo_library_outlined,
+            onPressed: ready ? () => _pick(ImageSource.gallery) : null,
+          ),
+          const SizedBox(height: 10),
+          ShapeFinderPrimaryButton(
+            label: 'Take Photo',
+            leading: Icons.photo_camera_outlined,
+            onPressed: ready ? () => _pick(ImageSource.camera) : null,
+          ),
+        ],
+      ),
       children: [
         const ShapeFinderHeading(
           'Upload a full-body photo',
@@ -216,65 +230,50 @@ class _ShapePhotoTipsScreenState extends ConsumerState<ShapePhotoTipsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        ShapeFinderCard(
-          padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
-          radius: 16,
-          child: Row(
-            children: [
-              Checkbox(
-                value: _consent,
-                onChanged: (v) => setState(() => _consent = v ?? false),
-                activeColor: AppColors.espressoDark,
-              ),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    text:
-                        'I agree Zoura can analyze this photo to estimate my '
-                        'body shape and proportions. Read our ',
-                    children: [
-                      TextSpan(
-                        text: 'Privacy Policy',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.underline,
-                          color: AppColors.espressoDark,
-                        ),
-                        recognizer: TapGestureRecognizer()
-                          ..onTap = () => showPrivacySheet(context),
-                      ),
-                      const TextSpan(text: '.'),
-                    ],
-                  ),
-                  style: BlueprintText.optionSupport(
-                    context,
-                  ).copyWith(fontSize: 13, color: AppColors.ink),
+        // A tap anywhere on the card ticks the box; the Privacy Policy link
+        // in the text still opens the policy.
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => setState(() => _consent = !_consent),
+          child: ShapeFinderCard(
+            padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+            radius: 16,
+            child: Row(
+              children: [
+                Checkbox(
+                  value: _consent,
+                  onChanged: (v) => setState(() => _consent = v ?? false),
+                  activeColor: AppColors.espressoDark,
                 ),
-              ),
-            ],
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      text:
+                          'I agree Zoura can analyze this photo to estimate my '
+                          'body shape and proportions. Read our ',
+                      children: [
+                        TextSpan(
+                          text: 'Privacy Policy',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                            color: AppColors.espressoDark,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () => showPrivacySheet(context),
+                        ),
+                        const TextSpan(text: '.'),
+                      ],
+                    ),
+                    style: BlueprintText.optionSupport(
+                      context,
+                    ).copyWith(fontSize: 13, color: AppColors.ink),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 20),
-        ShapeFinderPrimaryButton(
-          label: 'Take Photo',
-          leading: Icons.photo_camera_outlined,
-          onPressed: ready ? () => _pick(ImageSource.camera) : null,
-        ),
-        const SizedBox(height: 10),
-        ShapeFinderSecondaryButton(
-          label: 'Choose From Library',
-          leading: Icons.photo_library_outlined,
-          onPressed: ready ? () => _pick(ImageSource.gallery) : null,
-        ),
-        const SizedBox(height: 8),
-        ShapeFinderLink(
-          label: 'Enter manual measurements instead',
-          leading: Icons.straighten,
-          onPressed: () =>
-              context.pushReplacementNamed(ShapeMeasureScreen.name),
-        ),
-        const SizedBox(height: 8),
-        const PipedaNote(),
       ],
     );
   }

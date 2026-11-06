@@ -263,7 +263,7 @@ void main() {
     await _tap(tester, find.text('Not sure?'));
     await _tap(tester, find.text('Enter measurements'));
 
-    expect(find.text('Four quick measurements'), findsOneWidget);
+    expect(find.text('Quick measurements'), findsOneWidget);
     expect(find.text('Bust'), findsOneWidget); // women's wording
     final continueButton = find.text('Continue');
     final fields = find.byType(TextField);
@@ -271,7 +271,7 @@ void main() {
     await tester.enterText(fields.at(1), '70');
     await tester.pump();
     await _tap(tester, continueButton); // hips missing: nothing happens
-    expect(find.text('Four quick measurements'), findsOneWidget);
+    expect(find.text('Quick measurements'), findsOneWidget);
 
     await tester.enterText(fields.at(2), '98');
     await tester.pump();
@@ -624,6 +624,26 @@ void main() {
 
     await _tap(tester, find.byType(Checkbox));
     expect(tester.widget<InkWell>(take).onTap, isNotNull);
+  });
+
+  testWidgets('a tap anywhere on the consent card ticks the box', (
+    tester,
+  ) async {
+    await womenAtStep2(tester);
+    await _tap(tester, find.text('Not sure?'));
+    await _tap(tester, find.text('Use a photo instead'));
+    expect(find.text('Enter manual measurements instead'), findsNothing);
+
+    final consent = find.textContaining('I agree Zoura', findRichText: true);
+    await tester.ensureVisible(consent);
+    await tester.pumpAndSettle();
+    await tester.tapAt(tester.getTopLeft(consent) + const Offset(4, 4));
+    await tester.pump();
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+
+    await tester.tapAt(tester.getTopLeft(consent) + const Offset(4, 4));
+    await tester.pump();
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
   });
 }
 

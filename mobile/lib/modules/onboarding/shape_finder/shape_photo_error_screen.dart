@@ -7,7 +7,6 @@ import '../widgets/blueprint_scaffold.dart';
 import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
 import 'shape_measure_screen.dart';
-import '../widgets/pipeda_note.dart';
 
 /// The photo couldn't be read: says why, then offers another photo,
 /// measurements, or picking a shape by hand.
@@ -50,34 +49,26 @@ class ShapePhotoErrorScreen extends ConsumerWidget {
     );
     return ShapeFinderScaffold(
       section: 'Photo estimate',
-      children: [
-        const SizedBox(height: 8),
-        Center(
-          child: Container(
-            width: 72,
-            height: 72,
-            decoration: const BoxDecoration(
-              color: AppColors.ivoryHigh,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Container(
-              width: 52,
-              height: 52,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFDEAD),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.warning_rounded,
-                size: 28,
-                color: AppColors.goldDark,
-              ),
-            ),
+      bottom: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ShapeFinderSecondaryButton(
+            label: 'Enter Measurements',
+            leading: Icons.straighten,
+            onPressed: () =>
+                context.pushReplacementNamed(ShapeMeasureScreen.name),
           ),
-        ),
-        const SizedBox(height: 16),
-        ShapeFinderHeading(headline, body: advice, center: true),
+          const SizedBox(height: 10),
+          ShapeFinderPrimaryButton(
+            label: 'Try Again',
+            leading: Icons.photo_camera_outlined,
+            // Back to the photo tips, under this screen.
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+      children: [
+        ShapeFinderHeading(headline, body: advice),
         const SizedBox(height: 20),
         ShapeFinderCard(
           color: AppColors.ivoryDim,
@@ -202,28 +193,12 @@ class ShapePhotoErrorScreen extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        ShapeFinderPrimaryButton(
-          label: 'Try Again',
-          leading: Icons.photo_camera_outlined,
-          // Back to the photo tips, under this screen.
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        const SizedBox(height: 10),
-        ShapeFinderSecondaryButton(
-          label: 'Enter Measurements',
-          leading: Icons.straighten,
-          onPressed: () =>
-              context.pushReplacementNamed(ShapeMeasureScreen.name),
-        ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 12),
         ShapeFinderLink(
           label: 'I’ll pick my shape myself',
           trailing: Icons.chevron_right,
           onPressed: () => backToShapeGrid(context),
         ),
-        const SizedBox(height: 8),
-        const PipedaNote(),
       ],
     );
   }

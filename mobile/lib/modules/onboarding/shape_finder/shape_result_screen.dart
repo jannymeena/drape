@@ -33,31 +33,23 @@ class ShapeResultScreen extends ConsumerWidget {
 
     return ShapeFinderScaffold(
       section: 'Your shape',
-      title: 'Shape result',
       bottom: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          ShapeFinderSecondaryButton(
+            label: 'Choose a Different Shape',
+            onPressed: () => backToShapeGrid(context),
+          ),
+          const SizedBox(height: 10),
           ShapeFinderPrimaryButton(
             label: 'Yes, That’s Me',
             onPressed: () => context.pushNamed(ShapeAvatarRevealScreen.name),
           ),
-          ShapeFinderLink(
-            label: 'Choose a Different Shape',
-            onPressed: () => backToShapeGrid(context),
-          ),
         ],
       ),
       children: [
-        Text(
-          'WE THINK YOU’RE',
-          textAlign: TextAlign.center,
-          style: caption.copyWith(
-            fontSize: 11,
-            letterSpacing: 1.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
+        const ShapeFinderHeading('We think you’re…'),
+        const SizedBox(height: 16),
         ShapeFinderCard(
           radius: 28,
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -265,7 +257,6 @@ class _Basis extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 16, color: AppColors.espressoDark),
         const SizedBox(width: 10),

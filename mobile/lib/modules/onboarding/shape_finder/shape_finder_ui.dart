@@ -38,22 +38,22 @@ void finishShapeFinder(BuildContext context, WidgetRef ref, String? shape) {
 
 // ─── Chrome ─────────────────────────────────────────────────────────────────
 
-/// The sub-flow's page: the Blueprint header (back button, centred [section]
-/// label, "Step 2 of 8" pill) with an optional italic [title] under it, the
-/// step 2 progress line, a
-/// scrolling body, and an optional pinned [bottom].
+/// The sub-flow's page, laid out the same on every screen: the Blueprint
+/// header (back button, centred [section] label, "Step 2 of 8" pill) and the
+/// step 2 progress line; a scrolling body that opens with a
+/// [ShapeFinderHeading] and ends with the screen's skip/change link, if any;
+/// and a pinned bar with the screen's buttons ([bottom]) over the privacy
+/// line.
 class ShapeFinderScaffold extends StatelessWidget {
   const ShapeFinderScaffold({
     super.key,
     required this.section,
     required this.children,
-    this.title,
     this.bottom,
     this.onBack,
   });
 
   final String section;
-  final String? title;
   final List<Widget> children;
   final Widget? bottom;
 
@@ -121,21 +121,6 @@ class ShapeFinderScaffold extends StatelessWidget {
                             ),
                           ],
                         ),
-                        if (title != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 12),
-                            child: Text(
-                              title!,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.headlineSmall!
-                                  .copyWith(
-                                    fontStyle: FontStyle.italic,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 20,
-                                    color: AppColors.espressoDark,
-                                  ),
-                            ),
-                          ),
                         const SizedBox(height: 8),
                         const Padding(
                           padding: EdgeInsets.only(left: 12),
@@ -156,22 +141,23 @@ class ShapeFinderScaffold extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (bottom != null)
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                    decoration: const BoxDecoration(
-                      color: AppColors.ivory,
-                      border: Border(top: BorderSide(color: AppColors.sand)),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        bottom!,
-                        const SizedBox(height: 8),
-                        const PipedaNote(),
-                      ],
-                    ),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  decoration: const BoxDecoration(
+                    color: AppColors.ivory,
+                    border: Border(top: BorderSide(color: AppColors.sand)),
                   ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (bottom case final bottom?) ...[
+                        bottom,
+                        const SizedBox(height: 8),
+                      ],
+                      const PipedaNote(),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -182,8 +168,7 @@ class ShapeFinderScaffold extends StatelessWidget {
 }
 
 /// The header's stand-in while a sub-flow screen slides: the destination's
-/// header on the page colour, top-aligned and clipped, since headers with and
-/// without a title differ in height.
+/// header on the page colour, top-aligned and clipped.
 Widget _pinnedHeaderFlight(
   BuildContext flightContext,
   Animation<double> animation,

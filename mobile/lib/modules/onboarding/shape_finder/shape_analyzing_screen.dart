@@ -13,7 +13,6 @@ import 'shape_finder_ui.dart';
 import 'shape_photo_frame.dart';
 import 'shape_photo_error_screen.dart';
 import 'shape_result_screen.dart';
-import '../widgets/pipeda_note.dart';
 
 /// While the photo is analyzed: the framed shot (face blur and guide lines
 /// drawn in), greyed, with a scan passing over an outline. Hands over to the result, or to the error screen.
@@ -69,6 +68,11 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
       section: 'Analyzing outline',
       onBack: () => backToShapeGrid(context),
       children: [
+        const ShapeFinderHeading(
+          'Almost there…',
+          body: 'Working out your body shape…',
+        ),
+        const SizedBox(height: 20),
         if (photo != null)
           Center(
             child: Container(
@@ -167,12 +171,6 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
             );
           },
         ),
-        const SizedBox(height: 16),
-        const ShapeFinderHeading(
-          'Almost there…',
-          body: 'Working out your body shape…',
-          center: true,
-        ),
         const SizedBox(height: 24),
         ShapeFinderCard(
           color: AppColors.ivoryDim,
@@ -202,8 +200,6 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
           trailing: Icons.chevron_right,
           onPressed: () => backToShapeGrid(context),
         ),
-        const SizedBox(height: 8),
-        const PipedaNote(),
       ],
     );
   }

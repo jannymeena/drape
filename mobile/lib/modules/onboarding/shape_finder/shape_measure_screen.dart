@@ -252,7 +252,7 @@ class _ShapeMeasureScreenState extends ConsumerState<ShapeMeasureScreen> {
           children: [
             const Expanded(
               child: ShapeFinderHeading(
-                'Four quick measurements',
+                'Quick measurements',
                 body:
                     'Use a soft tape over light clothing. Breathe out '
                     'normally.',
