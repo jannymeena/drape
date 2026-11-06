@@ -140,6 +140,10 @@ flutter:
     - assets/models/
     - assets/onboarding/styles/male/
     - assets/onboarding/styles/female/
+    # Step 2's body-shape figures, one folder per shape set.
+    - assets/onboarding/shapes/womens/
+    - assets/onboarding/shapes/mens/
+    - assets/onboarding/shapes/neutral/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

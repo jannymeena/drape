@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
@@ -8,7 +9,6 @@ import '../onboarding_controller.dart';
 import '../shape_finder/shape_finder_controller.dart';
 import '../shape_finder/shape_intro_screen.dart';
 import '../widgets/blueprint_scaffold.dart';
-import '../widgets/line_glyph.dart';
 import 'blueprint_aesthetics_screen.dart';
 
 /// Step 2 of 8 — body shape and how clothes should sit.
@@ -47,7 +47,6 @@ class _Copy {
     required this.bottomHeading,
     required this.tops,
     required this.bottoms,
-    required this.artSize,
   });
 
   final String title;
@@ -56,9 +55,6 @@ class _Copy {
   final String bottomHeading;
   final List<_Stop> tops;
   final List<_Stop> bottoms;
-
-  /// The shape drawing's box; each set's drawings have their own proportions.
-  final Size artSize;
 }
 
 const _copy = {
@@ -77,7 +73,6 @@ const _copy = {
       ('relaxed', 'Relaxed fit'),
       ('baggy', 'Baggy'),
     ],
-    artSize: Size(54, 80),
   ),
   BodyShapeSet.mens: _Copy(
     title: 'Which build feels closest?',
@@ -90,7 +85,6 @@ const _copy = {
       ('relaxed', 'Straight'),
       ('baggy', 'Relaxed'),
     ],
-    artSize: Size(64, 80),
   ),
   BodyShapeSet.neutral: _Copy(
     title: 'Which shape feels closest?',
@@ -99,7 +93,6 @@ const _copy = {
     bottomHeading: 'Bottom silhouette',
     tops: [('slim', 'Fitted'), ('regular', 'Regular'), ('loose', 'Oversized')],
     bottoms: [('skinny', 'Slim'), ('relaxed', 'Straight'), ('baggy', 'Wide')],
-    artSize: Size(64, 90),
   ),
 };
 
@@ -207,10 +200,12 @@ class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
               _ShapeCard(
                 selected: _shape == s.value,
                 onTap: () => _select(s.value),
-                art: LineGlyph(
-                  s.glyph,
-                  size: _c.artSize,
-                  highlight: _shape == s.value,
+                art: SizedBox.expand(
+                  child: SvgPicture.asset(
+                    bodyShapeFigure(_set, s.value),
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
                 ),
                 label: s.label,
                 description: s.description,
@@ -299,38 +294,32 @@ class _ShapeCard extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             borderRadius: radius,
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      Expanded(child: Center(child: art)),
-                      const SizedBox(height: 8),
-                      Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: BlueprintText.option(context).copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.espressoDark,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        description,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: BlueprintText.optionSupport(
-                          context,
-                        ).copyWith(fontSize: 12, height: 1.3),
-                      ),
-                    ],
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  Expanded(child: Center(child: art)),
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: BlueprintText.option(context).copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.espressoDark,
+                    ),
                   ),
-                ),
-                if (selected)
-                  const Positioned(top: 10, right: 10, child: _CheckBadge()),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: BlueprintText.optionSupport(
+                      context,
+                    ).copyWith(fontSize: 12, height: 1.3),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -358,23 +347,6 @@ class _NotSureArt extends StatelessWidget {
         size: 30,
         color: AppColors.espressoDark,
       ),
-    );
-  }
-}
-
-class _CheckBadge extends StatelessWidget {
-  const _CheckBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 24,
-      height: 24,
-      decoration: const BoxDecoration(
-        color: AppColors.espresso,
-        shape: BoxShape.circle,
-      ),
-      child: const Icon(Icons.check, size: 16, color: AppColors.white),
     );
   }
 }

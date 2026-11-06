@@ -27,6 +27,12 @@ class BodyShapeOption {
   final LineGlyphData glyph;
 }
 
+/// The step 2 card's figure for [value] in [set]: a filled silhouette with a
+/// guide marking the shape (`assets/onboarding/shapes/`). The line drawings
+/// in [BodyShapeOption.glyph] stay for the shape finder's small icons.
+String bodyShapeFigure(BodyShapeSet set, String value) =>
+    'assets/onboarding/shapes/${set.name}/$value.svg';
+
 List<BodyShapeOption> bodyShapesFor(BodyShapeSet set) => switch (set) {
   BodyShapeSet.womens => _womens,
   BodyShapeSet.mens => _mens,
