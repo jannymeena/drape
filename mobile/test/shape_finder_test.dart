@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -332,7 +333,7 @@ void main() {
       find.text('Your temporary photo has been securely deleted.'),
       findsOneWidget,
     );
-    expect(find.text('Add measurements to sharpen sizing'), findsOneWidget);
+    expect(find.text('Add measurements to sharpen sizing'), findsNothing);
   });
 
   testWidgets('photo path: an unreadable photo shows the error', (
@@ -633,6 +634,39 @@ void main() {
     expect(tester.widget<InkWell>(take).onTap, isNull);
 
     await _tap(tester, find.byType(Checkbox));
+    expect(tester.widget<InkWell>(take).onTap, isNotNull);
+  });
+
+  testWidgets('“Try Again” after a failed photo leaves the photo buttons on', (
+    tester,
+  ) async {
+    // The camera hands back a photo straight away.
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/image_picker'),
+      (call) async => '/nonexistent/photo.jpg',
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('plugins.flutter.io/image_picker'),
+        null,
+      ),
+    );
+    await womenAtStep2(tester);
+    detector.poses = []; // nobody in the photo
+    await _tap(tester, find.text('Not sure?'));
+    await _tap(tester, find.text('Use a photo instead'));
+    await _tap(tester, find.byType(Checkbox));
+    await _tap(tester, find.text('Take Photo'));
+    await _tap(tester, find.text('Use This Photo'));
+    expect(find.text('We couldn’t find you in the photo.'), findsOneWidget);
+
+    await _tap(tester, find.text('Try Again'));
+    expect(find.text('Upload a full-body photo'), findsOneWidget);
+    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
+    final take = find.ancestor(
+      of: find.text('Take Photo'),
+      matching: find.byType(InkWell),
+    );
     expect(tester.widget<InkWell>(take).onTap, isNotNull);
   });
 

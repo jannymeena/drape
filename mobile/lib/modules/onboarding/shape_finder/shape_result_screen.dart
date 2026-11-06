@@ -10,7 +10,6 @@ import '../widgets/blueprint_scaffold.dart';
 import 'shape_avatar_reveal_screen.dart';
 import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
-import 'shape_measure_screen.dart';
 
 /// "We think you're…": the suggested shape, what it's based on, and two
 /// runners-up the user can swap in. Confirming leads to the avatar reveal.
@@ -146,47 +145,6 @@ class ShapeResultScreen extends ConsumerWidget {
             ],
           ),
         ),
-        if (finder.source == ShapeSource.photo) ...[
-          const SizedBox(height: 16),
-          ShapeFinderCard(
-            padding: EdgeInsets.zero,
-            radius: 16,
-            child: InkWell(
-              onTap: () =>
-                  context.pushReplacementNamed(ShapeMeasureScreen.name),
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    const ShapeFinderBadgeIcon(
-                      Icons.auto_fix_high,
-                      size: 34,
-                      background: AppColors.ivoryWarm,
-                      color: AppColors.espressoDark,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Add measurements to sharpen sizing',
-                        style: BlueprintText.option(
-                          context,
-                        ).copyWith(fontSize: 14, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    Text(
-                      'Add +',
-                      style: caption.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.espressoDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
         if (alternatives.isNotEmpty) ...[
           const SizedBox(height: 24),
           Row(

@@ -30,21 +30,26 @@ class _ShapePhotoTipsScreenState extends ConsumerState<ShapePhotoTipsScreen> {
   bool _consent = false;
   bool _picking = false;
 
+  /// Opens the camera or library. The buttons are off only while the picker
+  /// is open: the review screen it leads to may later be replaced (by the
+  /// analysis, then the error screen) rather than popped, so waiting for it
+  /// would leave them off when "Try Again" comes back here.
   Future<void> _pick(ImageSource source) async {
     if (_picking) return;
     setState(() => _picking = true);
+    final XFile? photo;
     try {
-      final photo = await ImagePicker().pickImage(
+      photo = await ImagePicker().pickImage(
         source: source,
         maxWidth: 2000,
         imageQuality: 85,
       );
-      if (photo == null || !mounted) return;
-      ref.read(shapeFinderProvider.notifier).setPhoto(photo);
-      await context.pushNamed(ShapePhotoReviewScreen.name);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
+    if (photo == null || !mounted) return;
+    ref.read(shapeFinderProvider.notifier).setPhoto(photo);
+    context.pushNamed(ShapePhotoReviewScreen.name);
   }
 
   @override
