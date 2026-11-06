@@ -258,19 +258,6 @@ class _BuildingState extends State<_Building>
           padding: const EdgeInsets.fromLTRB(28, 40, 28, 16),
           child: Column(
             children: [
-              Opacity(
-                opacity: 0.4,
-                child: Text(
-                  'ATELIER Nº 04 — SYNTHESIS',
-                  style: BlueprintText.heading(context).copyWith(
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 2.4,
-                    color: AppColors.inkSoft,
-                  ),
-                ),
-              ),
               const Spacer(),
               const _Eyebrow(spacing: 2),
               const SizedBox(height: 8),
@@ -369,45 +356,6 @@ class _BuildingState extends State<_Building>
                       ],
                     ),
                 ],
-              ),
-              const SizedBox(height: 40),
-              Container(
-                constraints: const BoxConstraints(maxWidth: 240),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.ivoryDim,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0D000000),
-                      blurRadius: 2,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.auto_fix_high,
-                      size: 16,
-                      color: AppColors.taupe,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Calibrating drape, tone, and silhouette profile',
-                        style: body.copyWith(
-                          fontSize: 12,
-                          height: 1.25,
-                          color: AppColors.inkSoft,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const Spacer(),
               const PipedaNote(),
