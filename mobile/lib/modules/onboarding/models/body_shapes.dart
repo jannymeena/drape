@@ -27,9 +27,10 @@ class BodyShapeOption {
   final LineGlyphData glyph;
 }
 
-/// The step 2 card's figure for [value] in [set]: a filled silhouette with a
-/// guide marking the shape (`assets/onboarding/shapes/`). The line drawings
-/// in [BodyShapeOption.glyph] stay for the shape finder's small icons.
+/// The figure for [value] in [set]: a filled silhouette with a guide marking
+/// the shape (`assets/onboarding/shapes/`), used wherever a shape is shown.
+/// The line drawing in [BodyShapeOption.glyph] is kept only for the outline
+/// traced over the user's photo while it's analysed.
 String bodyShapeFigure(BodyShapeSet set, String value) =>
     'assets/onboarding/shapes/${set.name}/$value.svg';
 

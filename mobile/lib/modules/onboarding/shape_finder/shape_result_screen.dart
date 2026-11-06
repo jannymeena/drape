@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../models/body_shapes.dart';
 import '../models/measurements_draft.dart';
 import '../widgets/blueprint_scaffold.dart';
-import '../widgets/line_glyph.dart';
 import 'shape_avatar_reveal_screen.dart';
 import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
@@ -106,10 +106,11 @@ class ShapeResultScreen extends ConsumerWidget {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: LineGlyph(
-                  best.glyph,
-                  size: const Size(100, 125),
-                  highlight: true,
+                child: SvgPicture.asset(
+                  bodyShapeFigure(finder.set, best.value),
+                  height: 125,
+                  fit: BoxFit.contain,
+                  excludeFromSemantics: true,
                 ),
               ),
               const SizedBox(height: 16),
@@ -220,6 +221,10 @@ class ShapeResultScreen extends ConsumerWidget {
                   Expanded(
                     child: _Alternative(
                       option: alternatives[i],
+                      figure: bodyShapeFigure(
+                        finder.set,
+                        alternatives[i].value,
+                      ),
                       onTap: () => ref
                           .read(shapeFinderProvider.notifier)
                           .promote(alternatives[i].value),
@@ -280,9 +285,16 @@ class _Basis extends StatelessWidget {
 }
 
 class _Alternative extends StatelessWidget {
-  const _Alternative({required this.option, required this.onTap});
+  const _Alternative({
+    required this.option,
+    required this.figure,
+    required this.onTap,
+  });
 
   final BodyShapeOption option;
+
+  /// The shape's figure asset ([bodyShapeFigure]).
+  final String figure;
   final VoidCallback onTap;
 
   @override
@@ -300,7 +312,12 @@ class _Alternative extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  LineGlyph(option.glyph, size: const Size(32, 40)),
+                  SvgPicture.asset(
+                    figure,
+                    height: 48,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
                   const Spacer(),
                   const ShapeFinderBadgeIcon(
                     Icons.chevron_right,

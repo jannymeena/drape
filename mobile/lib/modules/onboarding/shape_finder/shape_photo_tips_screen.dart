@@ -1,13 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../models/body_shapes.dart';
 import '../widgets/blueprint_scaffold.dart';
-import '../widgets/line_glyph.dart';
 import '../widgets/privacy_sheet.dart';
 import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
@@ -146,10 +146,15 @@ class _ShapePhotoTipsScreenState extends ConsumerState<ShapePhotoTipsScreen> {
                     ),
                     child: Column(
                       children: [
-                        LineGlyph(
-                          bodyShapesFor(BodyShapeSet.neutral).first.glyph,
-                          size: const Size(70, 98),
-                          highlight: true,
+                        // An example figure, from the user's own set.
+                        SvgPicture.asset(
+                          bodyShapeFigure(
+                            ref.watch(shapeFinderProvider).set,
+                            'rectangle',
+                          ),
+                          height: 98,
+                          fit: BoxFit.contain,
+                          excludeFromSemantics: true,
                         ),
                         const SizedBox(height: 4),
                         Text(
