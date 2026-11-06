@@ -204,7 +204,13 @@ class BlueprintScaffold extends StatelessWidget {
         body: SafeArea(
           child: Column(
             children: [
-              _Header(step: step),
+              // A Hero, so the step pill and progress bar hold still while
+              // the page slides between steps (see [_headerFlight]).
+              Hero(
+                tag: _headerHeroTag,
+                flightShuttleBuilder: _headerFlight,
+                child: _Header(step: step),
+              ),
               Expanded(
                 // Not a lazy ListView: every question is built up front so
                 // `revealNextQuestion` can always find the next one.
@@ -262,9 +268,52 @@ void goToPreviousStep(BuildContext context, int step) {
   }
 }
 
+const _headerHeroTag = 'blueprint-header';
+
+/// What shows in place of the header while a step slides in or out: the
+/// destination's header, pinned in place, with the progress bar gliding from
+/// the old step's value to the new one.
+Widget _headerFlight(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection direction,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  int stepOf(BuildContext c) => ((c.widget as Hero).child as _Header).step;
+  final from = stepOf(fromHeroContext);
+  final to = stepOf(toHeroContext);
+  // A route's animation runs 0→1 when pushed and 1→0 when popped; either
+  // way the bar should move from the old step toward the new one.
+  return Material(
+    color: AppColors.ivory,
+    child: AnimatedBuilder(
+      animation: animation,
+      builder: (_, _) {
+        final t = direction == HeroFlightDirection.push
+            ? animation.value
+            : 1 - animation.value;
+        return _Header(
+          step: to,
+          progress: (from + (to - from) * t.clamp(0.0, 1.0)) / kBlueprintSteps,
+          showBack: _hasScreenBelow(toHeroContext) || to > 1,
+        );
+      },
+    ),
+  );
+}
+
 class _Header extends StatelessWidget {
   final int step;
-  const _Header({required this.step});
+
+  /// Overrides the bar's fill, for the in-between frames of a step change.
+  final double? progress;
+
+  /// Overrides whether the back button shows (the flight's copy of the header
+  /// has no route of its own to ask).
+  final bool? showBack;
+
+  const _Header({required this.step, this.progress, this.showBack});
 
   @override
   Widget build(BuildContext context) {
@@ -277,7 +326,7 @@ class _Header extends StatelessWidget {
               // Steps 2–7 always lead back to the previous step. Step 1 is
               // the flow's entry point: show back only when there's a screen
               // underneath it.
-              if (step > 1 || _hasScreenBelow(context))
+              if (showBack ?? (step > 1 || _hasScreenBelow(context)))
                 IconButton(
                   onPressed: () => goToPreviousStep(context, step),
                   icon: const Icon(Icons.chevron_left, size: 28),
@@ -313,7 +362,7 @@ class _Header extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(2),
               child: LinearProgressIndicator(
-                value: step / kBlueprintSteps,
+                value: progress ?? step / kBlueprintSteps,
                 minHeight: 4,
                 backgroundColor: AppColors.sand,
                 valueColor: const AlwaysStoppedAnimation(AppColors.espresso),

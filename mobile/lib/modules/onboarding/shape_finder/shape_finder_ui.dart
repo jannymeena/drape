@@ -70,52 +70,68 @@ class ShapeFinderScaffold extends StatelessWidget {
         body: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-                child: Row(
+              // A Hero, so the overline and progress line hold still while
+              // the page slides between the sub-flow's screens.
+              Hero(
+                tag: 'shape-finder-header',
+                flightShuttleBuilder: _pinnedHeaderFlight,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      onPressed:
-                          onBack ?? () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.chevron_left, size: 28),
-                      color: AppColors.ink,
-                      tooltip: 'Go back',
-                    ),
-                    Expanded(
-                      child: Column(
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+                      child: Row(
                         children: [
-                          Text(
-                            'STEP 2 OF $kBlueprintSteps · ${section.toUpperCase()}',
-                            textAlign: TextAlign.center,
-                            style: caption.copyWith(
-                              fontSize: 11,
-                              letterSpacing: 1.2,
+                          IconButton(
+                            onPressed:
+                                onBack ??
+                                () => Navigator.of(context).maybePop(),
+                            icon: const Icon(Icons.chevron_left, size: 28),
+                            color: AppColors.ink,
+                            tooltip: 'Go back',
+                          ),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(
+                                  'STEP 2 OF $kBlueprintSteps · ${section.toUpperCase()}',
+                                  textAlign: TextAlign.center,
+                                  style: caption.copyWith(
+                                    fontSize: 11,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                                if (title != null)
+                                  Text(
+                                    title!,
+                                    textAlign: TextAlign.center,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall!
+                                        .copyWith(
+                                          fontStyle: FontStyle.italic,
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 20,
+                                          color: AppColors.espressoDark,
+                                        ),
+                                  ),
+                              ],
                             ),
                           ),
-                          if (title != null)
-                            Text(
-                              title!,
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.headlineSmall!
-                                  .copyWith(
-                                    fontStyle: FontStyle.italic,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 20,
-                                    color: AppColors.espressoDark,
-                                  ),
-                            ),
+                          const SizedBox(width: 48),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 48),
+                    LinearProgressIndicator(
+                      value: 2 / kBlueprintSteps,
+                      minHeight: 3,
+                      backgroundColor: AppColors.sand,
+                      valueColor: const AlwaysStoppedAnimation(
+                        AppColors.espresso,
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              LinearProgressIndicator(
-                value: 2 / kBlueprintSteps,
-                minHeight: 3,
-                backgroundColor: AppColors.sand,
-                valueColor: const AlwaysStoppedAnimation(AppColors.espresso),
               ),
               Expanded(
                 child: SingleChildScrollView(
@@ -148,6 +164,28 @@ class ShapeFinderScaffold extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The header's stand-in while a sub-flow screen slides: the destination's
+/// header on the page colour, top-aligned and clipped, since headers with and
+/// without a title differ in height.
+Widget _pinnedHeaderFlight(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection direction,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  return Material(
+    color: AppColors.ivory,
+    child: ClipRect(
+      child: OverflowBox(
+        alignment: Alignment.topCenter,
+        maxHeight: double.infinity,
+        child: (toHeroContext.widget as Hero).child,
+      ),
+    ),
+  );
 }
 
 /// A big serif heading with an optional line under it.
