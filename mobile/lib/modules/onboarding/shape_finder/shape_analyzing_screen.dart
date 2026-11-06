@@ -67,6 +67,11 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
     return ShapeFinderScaffold(
       section: 'Analyzing outline',
       onBack: () => backToShapeGrid(context),
+      centeredFooter: ShapeFinderLink(
+        label: 'Cancel and pick manually',
+        trailing: Icons.chevron_right,
+        onPressed: () => backToShapeGrid(context),
+      ),
       children: [
         const ShapeFinderHeading(
           'Almost there…',
@@ -193,12 +198,6 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 12),
-        ShapeFinderLink(
-          label: 'Cancel and pick manually',
-          trailing: Icons.chevron_right,
-          onPressed: () => backToShapeGrid(context),
         ),
       ],
     );
