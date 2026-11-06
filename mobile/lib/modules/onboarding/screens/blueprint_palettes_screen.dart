@@ -115,6 +115,19 @@ class _BlueprintPalettesScreenState
     });
   }
 
+  Widget _paletteCard(({String value, String label, List<Color> dots}) p) =>
+      _PaletteCard(
+        label: p.label,
+        dots: p.dots,
+        selected: _selected.contains(p.value),
+        onTap: () {
+          if (_leaving) return;
+          setState(() {
+            if (!_selected.add(p.value)) _selected.remove(p.value);
+          });
+        },
+      );
+
   @override
   Widget build(BuildContext context) {
     return BlueprintScaffold(
@@ -127,33 +140,26 @@ class _BlueprintPalettesScreenState
           subtitle: 'Select all that apply.',
         ),
         const SizedBox(height: 20),
-        GridView(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          // The card's badge sits past its corner; leave room so it's not
-          // clipped by the grid.
-          clipBehavior: Clip.none,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            mainAxisExtent: 104,
+        // Two per row, each row as tall as its tallest card: the cards take
+        // their height from their padding, not a fixed extent.
+        for (var row = 0; row < _palettes.length; row += 2) ...[
+          if (row > 0) const SizedBox(height: 12),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = row; i < row + 2; i++) ...[
+                  if (i > row) const SizedBox(width: 12),
+                  Expanded(
+                    child: i < _palettes.length
+                        ? _paletteCard(_palettes[i])
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ],
+            ),
           ),
-          children: [
-            for (final p in _palettes)
-              _PaletteCard(
-                label: p.label,
-                dots: p.dots,
-                selected: _selected.contains(p.value),
-                onTap: () {
-                  if (_leaving) return;
-                  setState(() {
-                    if (!_selected.add(p.value)) _selected.remove(p.value);
-                  });
-                },
-              ),
-          ],
-        ),
+        ],
         const SizedBox(height: 16),
         _AvoidRow(
           picked: [
@@ -214,9 +220,10 @@ class _PaletteCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Three overlapping swatches, the first on top.
               SizedBox(
@@ -249,6 +256,7 @@ class _PaletteCard extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 10),
               Text(
                 label.toUpperCase(),
                 textAlign: TextAlign.center,
@@ -267,29 +275,12 @@ class _PaletteCard extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: _cardShadow,
-              ),
-              child: card,
-            ),
-          ),
-          if (selected)
-            const Positioned(
-              top: -6,
-              right: -6,
-              child: CircleAvatar(
-                radius: 10,
-                backgroundColor: AppColors.espresso,
-                child: Icon(Icons.check, size: 13, color: AppColors.white),
-              ),
-            ),
-        ],
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: _cardShadow,
+        ),
+        child: card,
       ),
     );
   }
