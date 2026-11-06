@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/modules/onboarding/models/style_blueprint_draft.dart';
 import 'package:mobile/modules/onboarding/onboarding_controller.dart';
 import 'package:mobile/modules/onboarding/onboarding_service.dart';
+import 'package:mobile/modules/onboarding/widgets/pipeda_note.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_aesthetics_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_color_screen.dart';
 import 'package:mobile/modules/onboarding/screens/blueprint_fit_screen.dart';
@@ -892,16 +893,12 @@ void main() {
       expect(service.calls['work']?['occupation_other'], 'Florist');
     });
 
-    testWidgets('search narrows the occupations', (tester) async {
+    testWidgets('lists every occupation, with no search box', (tester) async {
       await open(tester);
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Search or pick below'),
-        'tech',
-      );
-      await tester.pump();
+      expect(find.byType(TextField), findsNothing);
       expect(find.text('Tech / Remote'), findsOneWidget);
-      expect(find.text('Healthcare'), findsNothing);
-      expect(find.text('Other'), findsOneWidget); // always offered
+      expect(find.text('Healthcare'), findsOneWidget);
+      expect(find.text('Other'), findsOneWidget);
     });
   });
 
@@ -918,12 +915,15 @@ void main() {
     );
 
     expect(find.text('Step 7 of 8'), findsOneWidget);
-    expect(find.text('0 of 3 selected'), findsOneWidget);
+    expect(find.text('0 of 3 selected'), findsNothing);
+    expect(
+      find.text('You can pick up to 3. Untick one to change.'),
+      findsNothing,
+    );
     await _tap(tester, 'Ready for a change');
     await _tap(tester, 'Often frustrated');
     await _tap(tester, 'Confident and in control');
     await _tap(tester, 'It’s just a necessity'); // a fourth: ignored
-    expect(find.text('3 of 3 selected'), findsOneWidget);
     expect(continueButton().onTap, isNull);
 
     await _tap(tester, 'Statement pieces');
@@ -952,15 +952,17 @@ void main() {
 
     expect(
       find.text('Takes about 10 seconds. No card required.'),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(find.text(PipedaNote.text), findsOneWidget);
     expect(tester.widget<FilledButton>(cta).onPressed, isNull);
 
     await _tap(tester, 'Excited to get dressed, not stressed');
     await _tap(tester, 'Confident wherever I go');
     await _tap(tester, 'Discover my personal style');
     await _tap(tester, 'Spend less time choosing outfits');
-    expect(find.text('2 SELECTED'), findsOneWidget);
+    expect(find.text('2 SELECTED'), findsNothing);
+    expect(find.text('ATELIER SYNTHESIS'), findsNothing);
     await _tap(tester, 'See My Style Blueprint');
 
     expect(service.calls['goals'], {

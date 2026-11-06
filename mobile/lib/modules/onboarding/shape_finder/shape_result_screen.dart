@@ -230,8 +230,6 @@ class ShapeResultScreen extends ConsumerWidget {
             ),
           ),
         ],
-        const SizedBox(height: 20),
-        const ShapeFinderResidencyNote(),
       ],
     );
   }

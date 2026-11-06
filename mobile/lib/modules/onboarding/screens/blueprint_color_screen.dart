@@ -199,32 +199,6 @@ class _BlueprintColorScreenState extends ConsumerState<BlueprintColorScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 6),
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.ivoryDim,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.lock, size: 13, color: AppColors.sage),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    'Skin tone parameters stored securely in Canada 🇨🇦',
-                    style: BlueprintText.optionSupport(context).copyWith(
-                      fontSize: 11,
-                      color: AppColors.inkSoft.withValues(alpha: 0.8),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }

@@ -11,9 +11,6 @@ import 'blueprint_goals_screen.dart';
 /// Step 7 of 8 — how the user feels about shopping and getting dressed (up
 /// to three), their attitude to accessories, and the type of brands they
 /// buy, with example brands for each.
-///
-/// "Add a favourite brand" isn't designed yet: shown as in the mockup, it
-/// does nothing.
 class BlueprintShoppingScreen extends ConsumerStatefulWidget {
   static const path = '/onboarding/blueprint/shopping';
   static const name = 'blueprint_shopping';
@@ -182,31 +179,7 @@ class _BlueprintShoppingScreenState
           ),
           const SizedBox(height: 12),
         ],
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'You can pick up to 3. Untick one to change.',
-                  style: body.copyWith(
-                    fontSize: 11,
-                    color: AppColors.taglineGrey,
-                  ),
-                ),
-              ),
-              Text(
-                '${_picked.length} of $_maxFeelings selected',
-                style: body.copyWith(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.taglineGrey,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 20),
         const _InsightCard(),
         const SizedBox(height: 32),
         const BlueprintSubQuestion(
@@ -277,63 +250,9 @@ class _BlueprintShoppingScreenState
           ),
           const SizedBox(height: 12),
         ],
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Material(
-            color: Colors.transparent,
-            shape: const StadiumBorder(
-              side: BorderSide(color: AppColors.taupeSoft),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              // Not designed yet: shown as in the mockup, does nothing.
-              onTap: () {},
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.add, size: 16, color: AppColors.espresso),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Add a favourite brand',
-                      style: body.copyWith(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.espresso,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
         Text(
           'Price ranges are a guide only.',
           style: body.copyWith(fontSize: 11, color: AppColors.taglineGrey),
-        ),
-        const SizedBox(height: 36),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.lock, size: 15, color: AppColors.taupe),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                'Stored securely in Canada. 🇨🇦',
-                style: body.copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.taupe,
-                ),
-              ),
-            ),
-          ],
         ),
       ],
     );

@@ -48,7 +48,6 @@ class _Copy {
     required this.tops,
     required this.bottoms,
     required this.artSize,
-    this.residencyNote = false,
   });
 
   final String title;
@@ -60,7 +59,6 @@ class _Copy {
 
   /// The shape drawing's box; each set's drawings have their own proportions.
   final Size artSize;
-  final bool residencyNote;
 }
 
 const _copy = {
@@ -102,7 +100,6 @@ const _copy = {
     tops: [('slim', 'Fitted'), ('regular', 'Regular'), ('loose', 'Oversized')],
     bottoms: [('skinny', 'Slim'), ('relaxed', 'Straight'), ('baggy', 'Wide')],
     artSize: Size(64, 90),
-    residencyNote: true,
   ),
 };
 
@@ -244,10 +241,6 @@ class _BlueprintFitScreenState extends ConsumerState<BlueprintFitScreen> {
           index: _bottomsIndex,
           onChanged: (i) => setState(() => _bottomsIndex = i),
         ),
-        if (_c.residencyNote) ...[
-          const SizedBox(height: 32),
-          const _ResidencyNote(),
-        ],
       ],
     );
   }
@@ -535,40 +528,6 @@ class _SlidingSegments extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _ResidencyNote extends StatelessWidget {
-  const _ResidencyNote();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.ivoryDim,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.verified_user_outlined,
-            size: 16,
-            color: AppColors.sage,
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              'Encrypted & stored securely in Canada 🇨🇦',
-              style: BlueprintText.optionSupport(
-                context,
-              ).copyWith(fontSize: 12),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

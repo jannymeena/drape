@@ -10,6 +10,7 @@ import '../widgets/blueprint_scaffold.dart';
 import '../widgets/line_glyph.dart';
 import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
+import '../widgets/pipeda_note.dart';
 
 /// The sub-flow's finale, in the dark atelier palette: the styled avatar,
 /// the measurements behind it, and on into the rest of the blueprint.
@@ -217,22 +218,7 @@ class ShapeAvatarRevealScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.lock_outline, size: 13, color: _muted),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            'Encrypted & saved in Canada 🇨🇦',
-                            style: caption.copyWith(
-                              fontSize: 11,
-                              color: _muted,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    const PipedaNote(),
                   ],
                 ),
               ),

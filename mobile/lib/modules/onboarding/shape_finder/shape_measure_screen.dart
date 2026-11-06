@@ -322,8 +322,6 @@ class _ShapeMeasureScreenState extends ConsumerState<ShapeMeasureScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 4),
-        const ShapeFinderResidencyNote(),
       ],
     );
   }

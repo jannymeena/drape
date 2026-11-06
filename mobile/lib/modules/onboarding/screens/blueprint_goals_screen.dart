@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../shared/theme/app_colors.dart';
 import '../onboarding_controller.dart';
 import '../widgets/blueprint_choice_card.dart';
 import '../widgets/blueprint_scaffold.dart';
@@ -32,21 +31,13 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
   ];
 
   // The backend `StyleGoal` literals.
-  static const _goals = <(String, String, IconData)>[
-    ('time_saving', 'Spend less time choosing outfits', Icons.schedule),
-    ('polished', 'Look more polished & put-together', Icons.flare),
-    (
-      'maximize_wardrobe',
-      'Make the most of clothes I already own',
-      Icons.checkroom,
-    ),
-    ('discover_style', 'Discover my personal style', Icons.explore_outlined),
-    ('confidence', 'Feel more confident in what I wear', Icons.favorite_border),
-    (
-      'reduce_clutter',
-      'Reduce closet clutter & decision fatigue',
-      Icons.cleaning_services_outlined,
-    ),
+  static const _goals = <(String, String)>[
+    ('time_saving', 'Spend less time choosing outfits'),
+    ('polished', 'Look more polished & put-together'),
+    ('maximize_wardrobe', 'Make the most of clothes I already own'),
+    ('discover_style', 'Discover my personal style'),
+    ('confidence', 'Feel more confident in what I wear'),
+    ('reduce_clutter', 'Reduce closet clutter & decision fatigue'),
   ];
 
   final _selectedFeelings = <String>{};
@@ -97,12 +88,10 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final body = BlueprintText.optionSupport(context);
     return BlueprintScaffold(
       step: 8,
       buttonLabel: 'See My Style Blueprint',
       buttonIcon: Icons.auto_awesome,
-      footnote: 'Takes about 10 seconds. No card required.',
       canContinue: _complete,
       onContinue: _onContinue,
       children: [
@@ -121,58 +110,6 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
           if (value != _feelings.last.$1) const SizedBox(height: 12),
         ],
         const SizedBox(height: 28),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.ivoryDim,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.auto_awesome,
-                  size: 20,
-                  color: AppColors.espresso,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ATELIER SYNTHESIS',
-                      style: body.copyWith(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.55,
-                        color: AppColors.taupe,
-                      ),
-                    ),
-                    Text(
-                      'Curating tailored silhouettes for your exact '
-                      'proportions',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: body.copyWith(
-                        fontSize: 13,
-                        color: AppColors.inkSoft,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 28),
         const BlueprintSubQuestion(
           'What matters most to you right now?',
           note: 'Pick as many as you like. This shapes how Zoura styles you.',
@@ -180,51 +117,15 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
           size: 20,
         ),
         const SizedBox(height: 16),
-        for (final (value, label, icon) in _goals) ...[
+        for (final (value, label) in _goals) ...[
           BlueprintChoiceCard(
             control: ChoiceControl.checkbox,
             label: label,
-            icon: icon,
             selected: _selectedGoals.contains(value),
             onTap: () => _toggle(_selectedGoals, value),
           ),
           if (value != _goals.last.$1) const SizedBox(height: 12),
         ],
-        const SizedBox(height: 14),
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.ivoryWarm,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              _selectedGoals.isEmpty
-                  ? 'SELECT AT LEAST ONE'
-                  : '${_selectedGoals.length} SELECTED',
-              style: body.copyWith(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.55,
-                color: AppColors.taupe,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 18),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.lock, size: 15, color: AppColors.taupe),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                'Stored securely in Canada. 🇨🇦',
-                style: body.copyWith(fontSize: 12, color: AppColors.taupe),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }

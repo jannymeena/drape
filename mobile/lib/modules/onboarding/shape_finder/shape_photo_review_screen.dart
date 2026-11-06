@@ -11,6 +11,7 @@ import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
 import 'shape_photo_error_screen.dart';
 import 'shape_photo_frame.dart';
+import '../widgets/pipeda_note.dart';
 
 /// The photo framing check: the shot with shoulder / waist / hip guides, and
 /// the option to blur the face before it's analyzed. "Use This Photo" draws
@@ -154,10 +155,10 @@ class _ShapePhotoReviewScreenState
           ),
         ),
         const SizedBox(height: 12),
-        const ShapeFinderResidencyNote(
-          text:
-              'Read on your phone, never uploaded. Deleted as soon as your '
-              'shape is estimated.',
+        _Hint(
+          Icons.lock_outline,
+          'Read on your phone, never uploaded. Deleted as soon as your '
+          'shape is estimated.',
         ),
         const SizedBox(height: 20),
         Text(
@@ -181,6 +182,8 @@ class _ShapePhotoReviewScreenState
             if (!_framing) Navigator.of(context).pop();
           },
         ),
+        const SizedBox(height: 8),
+        const PipedaNote(),
       ],
     );
   }

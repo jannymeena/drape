@@ -12,6 +12,7 @@ import '../widgets/privacy_sheet.dart';
 import '../widgets/skip_confirmation_sheet.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'height_input_screen.dart';
+import '../widgets/pipeda_note.dart';
 
 class PreMeasurementScreen extends ConsumerWidget {
   static const path = '/onboarding/pre-measurement';
@@ -126,34 +127,6 @@ class PreMeasurementScreen extends ConsumerWidget {
                 body: 'Your avatar improves every time you update.',
               ),
               const SizedBox(height: 20),
-              InkWell(
-                onTap: () => showPrivacySheet(context),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.ivoryWarm,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.lock_outline,
-                        color: AppColors.sage,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Stored privately on Canadian servers · Never shared',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
               DrapeButton(
                 label: 'Begin Measurements',
                 onPressed: () {
@@ -188,6 +161,8 @@ class PreMeasurementScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 4),
+              PipedaNote(onTap: () => showPrivacySheet(context)),
             ],
           ),
         ),

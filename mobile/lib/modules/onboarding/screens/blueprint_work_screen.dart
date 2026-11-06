@@ -11,7 +11,7 @@ import 'blueprint_shopping_screen.dart';
 
 typedef _Option = ({String value, String label});
 
-/// Step 6 of 8 — work and lifestyle: what the user does (up to two, searchable,
+/// Step 6 of 8 — work and lifestyle: what the user does (up to two,
 /// "Other" in their own words), the dress code, how dressed up a typical day
 /// is, and where they want to make a better impression.
 ///
@@ -75,7 +75,6 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
   /// Picked occupations, in the order picked.
   final _picked = <String>[];
   late final TextEditingController _otherText;
-  final _search = TextEditingController();
   String? _dressCode;
   int _formalityIndex = 2; // Smart casual
   String? _impression;
@@ -94,14 +93,12 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
     _impression = _impressions.any((o) => o.value == saved.impressionGoal)
         ? saved.impressionGoal
         : null;
-    _search.addListener(() => setState(() {}));
     _otherText.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _otherText.dispose();
-    _search.dispose();
     super.dispose();
   }
 
@@ -157,17 +154,6 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final body = BlueprintText.optionSupport(context);
-    final query = _search.text.trim().toLowerCase();
-    // Search narrows the chips; picked ones and "Other" always stay.
-    final shown = [
-      for (final o in _occupations)
-        if (query.isEmpty ||
-            o.label.toLowerCase().contains(query) ||
-            _picked.contains(o.value) ||
-            o.value == _other)
-          o,
-    ];
     return BlueprintScaffold(
       step: 6,
       canContinue: _complete,
@@ -178,13 +164,11 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           subtitle: 'Helps us match outfits to your day-to-day.',
         ),
         const SizedBox(height: 16),
-        _SearchField(controller: _search),
-        const SizedBox(height: 16),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final o in shown)
+            for (final o in _occupations)
               BlueprintChip(
                 label: o.label,
                 selected: _picked.contains(o.value),
@@ -200,6 +184,7 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
         BlueprintSubQuestion(
           'What’s the dress code like?',
           note: 'Skipped automatically if you’re not currently working',
+          italic: false,
         ),
         const SizedBox(height: 12),
         // Not working: nothing to ask, so the chips are switched off.
@@ -248,29 +233,6 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           ),
           if (i != _impressions.last) const SizedBox(height: 12),
         ],
-        const SizedBox(height: 28),
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.ivoryDim.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.lock, size: 15, color: AppColors.taupe),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    'Stored securely in Canada. 🇨🇦',
-                    style: body.copyWith(fontSize: 12, color: AppColors.taupe),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -280,50 +242,6 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
 const _softShadow = [
   BoxShadow(color: Color(0x0D000000), blurRadius: 2, offset: Offset(0, 1)),
 ];
-
-class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller});
-
-  final TextEditingController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final body = BlueprintText.optionSupport(context);
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: _softShadow,
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search, size: 20, color: AppColors.taupe),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              textInputAction: TextInputAction.search,
-              style: body.copyWith(fontSize: 14, color: AppColors.ink),
-              decoration: InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: 'Search or pick below',
-                hintStyle: body.copyWith(fontSize: 14, color: AppColors.taupe),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '(Pick up to 2)',
-            style: body.copyWith(fontSize: 11, color: AppColors.taupe),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// "Tell us what you do", for "Other": up to [max] characters, counted.
 class _OtherField extends StatelessWidget {

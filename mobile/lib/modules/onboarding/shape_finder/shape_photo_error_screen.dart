@@ -7,6 +7,7 @@ import '../widgets/blueprint_scaffold.dart';
 import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
 import 'shape_measure_screen.dart';
+import '../widgets/pipeda_note.dart';
 
 /// The photo couldn't be read: says why, then offers another photo,
 /// measurements, or picking a shape by hand.
@@ -224,6 +225,8 @@ class ShapePhotoErrorScreen extends ConsumerWidget {
           trailing: Icons.chevron_right,
           onPressed: () => backToShapeGrid(context),
         ),
+        const SizedBox(height: 8),
+        const PipedaNote(),
       ],
     );
   }

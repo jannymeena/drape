@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../resume_route_map.dart';
+import 'pipeda_note.dart';
 
 /// How many steps the Style Blueprint has. Single source of truth for the
 /// "Step n of 8" pill and the progress line.
@@ -168,11 +169,9 @@ class BlueprintScaffold extends StatelessWidget {
   /// 16dp horizontal gutter.
   final List<Widget> children;
 
-  /// Primary button label, with an optional [buttonIcon] after it and a
-  /// [footnote] under the button.
+  /// Primary button label, with an optional [buttonIcon] after it.
   final String buttonLabel;
   final IconData? buttonIcon;
-  final String? footnote;
 
   /// False disables the button (an unanswered required question).
   final bool canContinue;
@@ -189,7 +188,6 @@ class BlueprintScaffold extends StatelessWidget {
     required this.onContinue,
     this.buttonLabel = 'Continue',
     this.buttonIcon,
-    this.footnote,
     this.canContinue = true,
     this.loading = false,
   });
@@ -220,7 +218,6 @@ class BlueprintScaffold extends StatelessWidget {
               _ContinueBar(
                 label: buttonLabel,
                 icon: buttonIcon,
-                footnote: footnote,
                 enabled: canContinue,
                 loading: loading,
                 onPressed: onContinue,
@@ -328,7 +325,6 @@ class _Header extends StatelessWidget {
 class _ContinueBar extends StatelessWidget {
   final String label;
   final IconData? icon;
-  final String? footnote;
   final bool enabled;
   final bool loading;
   final VoidCallback onPressed;
@@ -339,7 +335,6 @@ class _ContinueBar extends StatelessWidget {
     required this.loading,
     required this.onPressed,
     this.icon,
-    this.footnote,
   });
 
   @override
@@ -354,7 +349,7 @@ class _ContinueBar extends StatelessWidget {
       ),
     );
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, footnote == null ? 20 : 12),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       decoration: const BoxDecoration(
         color: AppColors.ivory,
         border: Border(top: BorderSide(color: AppColors.sand)),
@@ -396,15 +391,8 @@ class _ContinueBar extends StatelessWidget {
                     ),
             ),
           ),
-          if (footnote case final note?) ...[
-            const SizedBox(height: 8),
-            Text(
-              note,
-              style: BlueprintText.optionSupport(
-                context,
-              ).copyWith(fontSize: 11, color: AppColors.taupe),
-            ),
-          ],
+          const SizedBox(height: 8),
+          const PipedaNote(),
         ],
       ),
     );

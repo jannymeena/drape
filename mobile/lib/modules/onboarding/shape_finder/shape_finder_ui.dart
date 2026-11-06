@@ -9,6 +9,7 @@ import '../screens/blueprint_aesthetics_screen.dart';
 import '../screens/blueprint_fit_screen.dart';
 import '../widgets/blueprint_scaffold.dart';
 import 'shape_finder_controller.dart';
+import '../widgets/pipeda_note.dart';
 
 // ─── Leaving the sub-flow ───────────────────────────────────────────────────
 
@@ -132,7 +133,14 @@ class ShapeFinderScaffold extends StatelessWidget {
                     color: AppColors.ivory,
                     border: Border(top: BorderSide(color: AppColors.sand)),
                   ),
-                  child: bottom,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      bottom!,
+                      const SizedBox(height: 8),
+                      const PipedaNote(),
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -424,34 +432,6 @@ class ShapeFinderBadgeIcon extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(color: background, shape: BoxShape.circle),
       child: Icon(icon, size: size * 0.5, color: color),
-    );
-  }
-}
-
-/// "Stored securely in Canada" — the data-residency line under each screen.
-class ShapeFinderResidencyNote extends StatelessWidget {
-  const ShapeFinderResidencyNote({
-    super.key,
-    this.text = 'Stored securely in Canada (PIPEDA compliant) 🇨🇦',
-  });
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.lock_outline, size: 14, color: AppColors.inkSoft),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: BlueprintText.caption(context).copyWith(fontSize: 12),
-          ),
-        ),
-      ],
     );
   }
 }

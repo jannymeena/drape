@@ -129,29 +129,35 @@ class _BlueprintIdentityScreenState
           subtitle: 'Helps us fit styles to your life stage',
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          mainAxisExtent: 52,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            for (var i = 0; i < _ages.length; i++)
-              BlueprintChip(
-                expand: true,
-                label: _ages[i].$2,
-                selected: _ageIndex == i,
-                onTap: () {
-                  if (_leaving) return;
-                  // Tapping the selected chip clears it — the question is
-                  // optional, so there has to be a way back to "unanswered".
-                  setState(() => _ageIndex = _ageIndex == i ? null : i);
-                },
-              ),
-          ],
-        ),
+        // Two per row; each row as tall as its tallest pill, so the pills
+        // take their height from font + padding, not a fixed extent.
+        for (var row = 0; row < _ages.length; row += 2) ...[
+          if (row > 0) const SizedBox(height: 8),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = row; i < row + 2 && i < _ages.length; i++) ...[
+                  if (i > row) const SizedBox(width: 8),
+                  Expanded(child: _ageChip(i)),
+                ],
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
+
+  Widget _ageChip(int i) => BlueprintChip(
+    expand: true,
+    label: _ages[i].$2,
+    selected: _ageIndex == i,
+    onTap: () {
+      if (_leaving) return;
+      // Tapping the selected chip clears it — the question is optional, so
+      // there has to be a way back to "unanswered".
+      setState(() => _ageIndex = _ageIndex == i ? null : i);
+    },
+  );
 }

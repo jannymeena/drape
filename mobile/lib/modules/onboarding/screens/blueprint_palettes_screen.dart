@@ -165,22 +165,6 @@ class _BlueprintPalettesScreenState
             if (!_leaving) setState(() => _avoid.remove(value));
           },
         ),
-        const SizedBox(height: 32),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.lock, size: 13, color: AppColors.taglineGrey),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                'Stored securely in Canada. 🇨🇦',
-                style: BlueprintText.optionSupport(
-                  context,
-                ).copyWith(fontSize: 11, color: AppColors.taglineGrey),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }

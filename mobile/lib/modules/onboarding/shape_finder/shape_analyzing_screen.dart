@@ -13,6 +13,7 @@ import 'shape_finder_ui.dart';
 import 'shape_photo_frame.dart';
 import 'shape_photo_error_screen.dart';
 import 'shape_result_screen.dart';
+import '../widgets/pipeda_note.dart';
 
 /// While the photo is analyzed: the framed shot (face blur and guide lines
 /// drawn in), greyed, with a scan passing over an outline. Hands over to the result, or to the error screen.
@@ -188,7 +189,7 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
                 ).copyWith(fontSize: 13),
               ),
               Text(
-                'No copies saved. Canadian PIPEDA compliant. 🇨🇦',
+                'No copies saved.',
                 textAlign: TextAlign.center,
                 style: caption.copyWith(fontSize: 11),
               ),
@@ -201,6 +202,8 @@ class _ShapeAnalyzingScreenState extends ConsumerState<ShapeAnalyzingScreen>
           trailing: Icons.chevron_right,
           onPressed: () => backToShapeGrid(context),
         ),
+        const SizedBox(height: 8),
+        const PipedaNote(),
       ],
     );
   }

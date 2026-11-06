@@ -5,7 +5,7 @@ import 'blueprint_choice_card.dart';
 import 'blueprint_scaffold.dart';
 
 /// The Style Blueprint's chip: a pill choice, from the step 6 mockup.
-/// Picked, it fills espresso with a white semibold label and a tick;
+/// Picked, it fills espresso with a white semibold label (no tick);
 /// otherwise it's white with a fine warm border (so it shows on white cards
 /// too). One look for every step's chips.
 class BlueprintChip extends StatelessWidget {
@@ -25,8 +25,9 @@ class BlueprintChip extends StatelessWidget {
   /// Before the label, e.g. a colour dot.
   final Widget? leading;
 
-  /// Fill the slot it's given (a grid cell), label centred, rather than
-  /// hugging the label at 40 pt tall.
+  /// Fill the width it's given (a grid column), label centred and free to
+  /// wrap, rather than hugging the label. Also the larger size: 16 pt label
+  /// (step 1's age pills).
   final bool expand;
 
   @override
@@ -39,19 +40,16 @@ class BlueprintChip extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            maxLines: expand ? null : 1,
+            overflow: expand ? null : TextOverflow.ellipsis,
             style: BlueprintText.optionSupport(context).copyWith(
-              fontSize: 13,
+              fontSize: expand ? 16 : 13,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               color: selected ? AppColors.white : AppColors.ink,
             ),
           ),
         ),
-        if (selected) ...[
-          const SizedBox(width: 6),
-          const Icon(Icons.check, size: 15, color: AppColors.white),
-        ],
       ],
     );
     return Semantics(
@@ -69,16 +67,14 @@ class BlueprintChip extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: expand
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: content,
-                )
-              : Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: content,
-                ),
+          // No fixed height: font + padding size the pill, so it grows with
+          // the system text size instead of clipping the label.
+          child: Padding(
+            padding: expand
+                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 12)
+                : const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            child: content,
+          ),
         ),
       ),
     );

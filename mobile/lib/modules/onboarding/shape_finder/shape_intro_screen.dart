@@ -157,7 +157,7 @@ class ShapeIntroScreen extends ConsumerWidget {
               Expanded(
                 child: Text(
                   'Biometric data stays privately encrypted in Canada. Never '
-                  'marketed or shared. • PIPEDA compliant 🇨🇦',
+                  'marketed or shared.',
                   style: BlueprintText.optionSupport(
                     context,
                   ).copyWith(fontSize: 12),

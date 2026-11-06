@@ -16,6 +16,7 @@ import '../widgets/blueprint_scaffold.dart';
 import 'blueprint_goals_screen.dart';
 import 'blueprint_identity_screen.dart';
 import 'wardrobe_setup_screen.dart';
+import '../widgets/pipeda_note.dart';
 
 /// After step 8: "builds" the Style Blueprint, then reveals it, and hands
 /// off to wardrobe setup.
@@ -152,34 +153,6 @@ class _Eyebrow extends StatelessWidget {
         letterSpacing: spacing,
         color: color,
       ),
-    );
-  }
-}
-
-class _LockNote extends StatelessWidget {
-  const _LockNote(this.text, {this.size = 11, this.color = AppColors.taupe});
-
-  final String text;
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.lock_outline, size: size + 2, color: color),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: BlueprintText.optionSupport(
-              context,
-            ).copyWith(fontSize: size, color: color),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -435,7 +408,7 @@ class _BuildingState extends State<_Building>
                 ),
               ),
               const Spacer(),
-              const _LockNote('Stored securely in Canada. 🇨🇦'),
+              const PipedaNote(),
             ],
           ),
         ),
@@ -695,20 +668,7 @@ class _Result extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                'Takes 10 seconds. No card required.',
-                style: body.copyWith(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.taupe,
-                ),
-              ),
-              const SizedBox(height: 4),
-              _LockNote(
-                'Compliant with Canadian PIPEDA privacy standards',
-                size: 10,
-                color: AppColors.taupe.withValues(alpha: 0.8),
-              ),
+              const PipedaNote(),
             ],
           ),
         ),
@@ -1194,11 +1154,8 @@ class _FailedState extends State<_Failed> with SingleTickerProviderStateMixin {
             ),
           ),
         ),
-        const SizedBox(height: 40),
-        const _LockNote(
-          'Your answers remain encrypted and saved in Canada. 🇨🇦',
-          color: AppColors.taglineGrey,
-        ),
+        const SizedBox(height: 8),
+        const PipedaNote(),
       ],
     );
   }

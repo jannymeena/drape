@@ -13,6 +13,7 @@ import 'shape_finder_controller.dart';
 import 'shape_finder_ui.dart';
 import 'shape_measure_screen.dart';
 import 'shape_photo_review_screen.dart';
+import '../widgets/pipeda_note.dart';
 
 /// The photo path's start: how the photo is handled, tips for a usable shot,
 /// consent, then camera or library.
@@ -267,6 +268,8 @@ class _ShapePhotoTipsScreenState extends ConsumerState<ShapePhotoTipsScreen> {
           onPressed: () =>
               context.pushReplacementNamed(ShapeMeasureScreen.name),
         ),
+        const SizedBox(height: 8),
+        const PipedaNote(),
       ],
     );
   }
