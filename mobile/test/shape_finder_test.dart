@@ -670,6 +670,48 @@ void main() {
     expect(tester.widget<InkWell>(take).onTap, isNotNull);
   });
 
+  testWidgets('swipes move through the sub-flow like its buttons', (
+    tester,
+  ) async {
+    await womenAtStep2(tester);
+    await _tap(tester, find.text('Not sure?'));
+    Future<void> swipe(Type screen, double dx) async {
+      await tester.fling(
+        find.byType(screen).hitTestable().first,
+        Offset(dx, 0),
+        1000,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    // Left on the intro: on to the measurements, like its main button.
+    await swipe(ShapeIntroScreen, -300);
+    expect(find.text('Quick measurements'), findsOneWidget);
+
+    // Left with measurements missing does nothing.
+    await swipe(ShapeMeasureScreen, -300);
+    expect(find.text('Quick measurements'), findsOneWidget);
+
+    // Filled in, left continues to the result.
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '92');
+    await tester.enterText(fields.at(1), '70');
+    await tester.enterText(fields.at(2), '98');
+    await tester.pump();
+    await swipe(ShapeMeasureScreen, -300);
+    expect(find.text('Hourglass'), findsOneWidget);
+
+    // Left again: the avatar reveal; left once more leaves for step 3.
+    await swipe(ShapeResultScreen, -300);
+    expect(find.text('Meet yourself, styled.'), findsOneWidget);
+    await swipe(ShapeAvatarRevealScreen, 300);
+    expect(find.text('Hourglass'), findsOneWidget); // right: back a screen
+    await swipe(ShapeResultScreen, -300);
+    await swipe(ShapeAvatarRevealScreen, -300);
+    expect(find.text('step 3'), findsOneWidget);
+    expect(service.calls['fit']?['body_shape'], 'hourglass');
+  });
+
   testWidgets('a tap anywhere on the consent card ticks the box', (
     tester,
   ) async {

@@ -23,6 +23,7 @@ class ShapeIntroScreen extends ConsumerWidget {
     final caption = BlueprintText.caption(context);
     return ShapeFinderScaffold(
       section: 'Your shape',
+      onForward: () => context.pushNamed(ShapeMeasureScreen.name),
       bottom: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -52,6 +52,7 @@ class ShapeFinderScaffold extends StatelessWidget {
     this.bottom,
     this.centeredFooter,
     this.onBack,
+    this.onForward,
   });
 
   final String section;
@@ -65,6 +66,10 @@ class ShapeFinderScaffold extends StatelessWidget {
   /// Defaults to popping this screen.
   final VoidCallback? onBack;
 
+  /// What a swipe left does: the screen's main button, while it's enabled.
+  /// Null (e.g. answers still missing) switches the forward swipe off.
+  final VoidCallback? onForward;
+
   @override
   Widget build(BuildContext context) {
     final caption = BlueprintText.caption(context);
@@ -74,9 +79,11 @@ class ShapeFinderScaffold extends StatelessWidget {
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: AppColors.ivory,
-        // Swipe right to go back, like the back button.
+        // Swipe right to go back, like the back button; left to go on, like
+        // the main button.
         body: StepSwipe(
           onBack: onBack ?? () => Navigator.of(context).maybePop(),
+          onForward: onForward,
           child: SafeArea(
             child: Column(
               children: [

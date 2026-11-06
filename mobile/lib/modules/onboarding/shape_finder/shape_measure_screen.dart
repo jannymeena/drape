@@ -241,6 +241,7 @@ class _ShapeMeasureScreenState extends ConsumerState<ShapeMeasureScreen> {
     final finder = ref.watch(shapeFinderProvider);
     return ShapeFinderScaffold(
       section: 'Measurements',
+      onForward: _complete(finder) ? _onContinue : null,
       bottom: ShapeFinderPrimaryButton(
         label: 'Continue',
         trailing: Icons.arrow_forward,

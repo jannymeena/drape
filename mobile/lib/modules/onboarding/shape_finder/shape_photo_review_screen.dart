@@ -51,6 +51,7 @@ class _ShapePhotoReviewScreenState
     final photo = finder.photo;
     return ShapeFinderScaffold(
       section: 'Framing check',
+      onForward: photo == null || _framing ? null : _usePhoto,
       bottom: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

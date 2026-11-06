@@ -32,6 +32,7 @@ class ShapeResultScreen extends ConsumerWidget {
 
     return ShapeFinderScaffold(
       section: 'Your shape',
+      onForward: () => context.pushNamed(ShapeAvatarRevealScreen.name),
       bottom: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
