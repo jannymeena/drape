@@ -238,6 +238,11 @@ void main() {
     );
 
     expect(find.text('Plan your week'), findsOneWidget);
+    // Same face as Today's greeting.
+    final title = tester.widget<Text>(find.text('Plan your week')).style!;
+    expect(title.fontFamily, startsWith('Newsreader'));
+    expect(title.fontSize, 24);
+    expect(title.fontWeight, FontWeight.w600);
     // Today is always styled; the other six need a plan.
     expect(find.text('1 of 7 planned'), findsOneWidget);
     expect(find.text('6 days to plan'), findsOneWidget);

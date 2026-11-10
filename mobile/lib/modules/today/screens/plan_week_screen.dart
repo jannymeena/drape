@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../day_plans_controller.dart';
 import '../models/day_plan.dart';
@@ -92,10 +93,7 @@ class PlanWeekScreen extends ConsumerWidget {
                     child: Text(
                       'Plan your week',
                       textAlign: TextAlign.center,
-                      style: text.headlineMedium?.copyWith(
-                        color: AppColors.espressoDark,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTypography.screenTitle,
                     ),
                   ),
                   const SizedBox(width: 48),

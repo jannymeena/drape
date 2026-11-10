@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -281,6 +282,12 @@ void main() {
     await _settle(tester);
 
     expect(find.text('7°C, feels 4° · Rain'), findsOneWidget);
+    // Date on the left, weather on the right of the same line.
+    final date = tester.getRect(find.textContaining(RegExp(r'^[A-Z]{3}, [A-Z]{3} \d+$')));
+    final pill = tester.getRect(find.text('7°C, feels 4° · Rain'));
+    expect((date.center.dy - pill.center.dy).abs(), lessThan(4));
+    expect(pill.left, greaterThan(date.right));
+    expect(pill.right, closeTo(1200 - 16 - 12, 2)); // pill's padding inside the gutter
     final credit = tester.getTopLeft(find.text('Data sources')).dy;
     expect(credit, greaterThan(tester.getTopLeft(find.text('Your next 7 days')).dy));
     expect(credit,
@@ -332,6 +339,57 @@ void main() {
     await _settle(tester);
 
     expect(find.text("Parents' meeting · Smart casual"), findsOneWidget);
+  });
+
+  testWidgets('a long name stays on one line, cut with an ellipsis', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    _stubGeolocator(tester);
+    final json = _frame([]).toJson()
+      ..['user'] = {'name': 'Bartholomew Maximilian Featherstonehaugh'};
+    await tester.pumpWidget(_host(_StubService(TodayDashboard.fromJson(json))));
+    await _settle(tester);
+
+    final greeting = find.textContaining('Bartholomew');
+    final widget = tester.widget<Text>(greeting);
+    // Set as in the Stitch mock: Newsreader 30, semibold, tight tracking.
+    expect(widget.style?.fontFamily, startsWith('Newsreader'));
+    expect(widget.style?.fontSize, 30);
+    expect(widget.style?.fontWeight, FontWeight.w600);
+    expect(widget.style?.letterSpacing, -0.75);
+    expect(widget.style?.height, 1.25);
+    expect(widget.maxLines, 1);
+    expect(widget.overflow, TextOverflow.ellipsis);
+    final line = tester.renderObject<RenderParagraph>(greeting);
+    expect(line.didExceedMaxLines, isTrue); // really was cut
+    expect(tester.getRect(greeting).right, lessThanOrEqualTo(390 - 16));
+  });
+
+  testWidgets('date + weather share a line even on a narrow phone', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    _stubGeolocator(tester);
+    final json = _frame([]).toJson()
+      ..['weather'] = {
+        'temp_c': -12.4,
+        'feels_like_c': -21.0,
+        'condition': 'thunderstorm',
+      };
+    await tester.pumpWidget(_host(_StubService(TodayDashboard.fromJson(json))));
+    await _settle(tester);
+
+    // No overflow error (the pill ellipsizes) and it stays on screen.
+    expect(tester.takeException(), isNull);
+    final pill = tester.getRect(find.textContaining('feels -21°'));
+    expect(pill.right, lessThanOrEqualTo(320 - 16));
   });
 
   testWidgets('no shop section without picks or gaps', (tester) async {

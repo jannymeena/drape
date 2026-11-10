@@ -7,6 +7,7 @@ import '../../../shared/providers/analytics_provider.dart';
 import '../../../shared/providers/push_provider.dart';
 import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/analytics_screen_view.dart';
 import '../../../shared/widgets/buy_pill.dart';
 import '../../../shared/widgets/drape_toast.dart';
@@ -238,7 +239,10 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
             padding: const EdgeInsets.fromLTRB(_gutter, 8, _gutter, 0),
             sliver: SliverList(
               delegate: SliverChildListDelegate.fixed([
-                _Greeting(name: dashboard.user.name),
+                _Greeting(
+                  name: dashboard.user.name,
+                  weather: _weatherChip(dashboard),
+                ),
                 ..._contextChips(dashboard),
                 ..._resumeBanner(),
                 ..._starterBanner(),
@@ -366,32 +370,33 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   /// Weather pill (its required source credit sits at the bottom of the
   /// screen). The "rain from 5 pm" and day-plan pills join once the backend
   /// sends forecast + plans.
-  List<Widget> _contextChips(TodayDashboard dashboard) {
+  /// The weather pill, shown on the date line (right side).
+  Widget? _weatherChip(TodayDashboard dashboard) {
     final w = dashboard.weather;
+    if (w == null) return null;
+    final condition = weatherConditionLabel(w.condition);
+    return TodayContextChip(
+      icon: weatherConditionIcon(w.condition),
+      label: '${w.tempC.round()}°C, feels ${w.feelsLikeC.round()}°'
+          '${condition == null ? '' : ' · $condition'}',
+    );
+  }
+
+  /// Today's plan pill, on its own line under the date + weather.
+  List<Widget> _contextChips(TodayDashboard dashboard) {
     final plan = ref.watch(dayPlansProvider)[dayOnly(DateTime.now())];
-    if (w == null && plan == null) return const [];
-    final condition = w == null ? null : weatherConditionLabel(w.condition);
+    if (plan == null) return const [];
     return [
-      const SizedBox(height: 12),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          if (w != null)
-            TodayContextChip(
-              icon: weatherConditionIcon(w.condition),
-              label: '${w.tempC.round()}°C, feels ${w.feelsLikeC.round()}°'
-                  '${condition == null ? '' : ' · $condition'}',
-            ),
-          if (plan != null)
-            TodayContextChip(
-              icon: plan.occasion.icon,
-              tone: TodayChipTone.plan,
-              label: '${plan.note.isEmpty ? plan.occasion.label : plan.note}'
-                  ' · ${plan.dress.label}',
-              onTap: () => _planDay(dashboard, DateTime.now()),
-            ),
-        ],
+      const SizedBox(height: 10),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TodayContextChip(
+          icon: plan.occasion.icon,
+          tone: TodayChipTone.plan,
+          label: '${plan.note.isEmpty ? plan.occasion.label : plan.note}'
+              ' · ${plan.dress.label}',
+          onTap: () => _planDay(dashboard, DateTime.now()),
+        ),
       ),
     ];
   }
@@ -771,7 +776,11 @@ class _AddItemsEmptyState extends StatelessWidget {
 
 class _Greeting extends StatelessWidget {
   final String name;
-  const _Greeting({required this.name});
+
+  /// Sits at the right end of the date line; shrinks (ellipsis) before the
+  /// date does.
+  final Widget? weather;
+  const _Greeting({required this.name, this.weather});
 
   String _prefix(DateTime now) {
     final h = now.hour;
@@ -789,22 +798,33 @@ class _Greeting extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // One line: a long name is cut with an ellipsis rather than
+        // wrapping onto a second line.
         Text(
           '${_prefix(now)}, $name',
-          style: text.headlineLarge?.copyWith(
-            color: AppColors.espressoDark,
-            fontWeight: FontWeight.w700,
-            height: 1.1,
-          ),
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.greeting,
         ),
-        const SizedBox(height: 4),
-        Text(
-          date,
-          style: text.labelMedium?.copyWith(
-            color: AppColors.taupe,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.8,
-          ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Text(
+              date,
+              style: text.labelMedium?.copyWith(
+                color: AppColors.taupe,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.8,
+              ),
+            ),
+            if (weather != null) ...[
+              const SizedBox(width: 12),
+              Expanded(
+                child: Align(alignment: Alignment.centerRight, child: weather),
+              ),
+            ],
+          ],
         ),
       ],
     );

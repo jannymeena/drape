@@ -81,6 +81,30 @@ class AppTypography {
         ),
       );
 
+  /// Newsreader — the Today tab's editorial serif (Stitch `font-headline`).
+  static TextStyle _newsreader({
+    required double size,
+    FontWeight weight = FontWeight.w600,
+    double height = 1.25,
+    double? letterSpacing,
+  }) =>
+      GoogleFonts.newsreader(
+        fontSize: size,
+        fontWeight: weight,
+        height: height,
+        letterSpacing: letterSpacing,
+        color: AppColors.espressoDark,
+      );
+
+  /// Today's "Good morning, …" greeting, as the Stitch Today mock sets it:
+  /// 30 (`text-3xl`), semibold, tracking-tight (-0.025em), leading-tight.
+  static TextStyle get greeting =>
+      _newsreader(size: 30, letterSpacing: -0.75);
+
+  /// Pushed Today screens' centred title ("Plan your week"): 24, semibold,
+  /// leading-tight — same face as the greeting.
+  static TextStyle get screenTitle => _newsreader(size: 24);
+
   /// Splash-screen wordmark style (ZOURA, 48dp, wide tracking).
   static TextStyle get brandMark => _serif(
         size: 48,
