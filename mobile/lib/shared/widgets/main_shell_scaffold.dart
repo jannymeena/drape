@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'drape_bottom_nav.dart';
 
-/// Hosts the four tab branches of the main app shell so each tab keeps its
+/// Hosts the five tab branches of the main app shell so each tab keeps its
 /// own back stack and switching tabs doesn't reset scroll position.
 ///
 /// `navigationShell` is supplied by `StatefulShellRoute.indexedStack`.

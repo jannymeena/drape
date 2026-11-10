@@ -84,6 +84,7 @@ import '../../modules/shop/screens/shop_feed_screen.dart';
 import '../../modules/shop/screens/wishlist_screen.dart';
 import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
 import '../../modules/today/screens/outfit_history_screen.dart';
+import '../../modules/stylist/screens/stylist_screen.dart';
 import '../../modules/today/screens/today_dashboard_screen.dart';
 import '../../modules/wardrobe/screens/batch_upload_screen.dart';
 import '../../modules/wardrobe/screens/intelligence_report_screen.dart';
@@ -100,6 +101,7 @@ import '../back_navigation.dart';
 final _rootNavKey = GlobalKey<NavigatorState>();
 final _todayNavKey = GlobalKey<NavigatorState>();
 final _wardrobeNavKey = GlobalKey<NavigatorState>();
+final _stylistNavKey = GlobalKey<NavigatorState>();
 final _shopNavKey = GlobalKey<NavigatorState>();
 final _profileNavKey = GlobalKey<NavigatorState>();
 
@@ -109,13 +111,14 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: SplashScreen.path,
     // Re-run `redirect` whenever the session flag flips (login / logout).
     refreshListenable: SessionStore.state,
-    // Auth gate: the four main-shell tabs require a session. Auth, onboarding,
+    // Auth gate: the five main-shell tabs require a session. Auth, onboarding,
     // splash, and debug routes stay open. Logged-out access to a protected
     // route bounces to Welcome.
     redirect: (context, state) {
       const protectedPrefixes = [
         TodayDashboardScreen.path,
         WardrobeScreen.path,
+        StylistScreen.path,
         ShopFeedScreen.path,
         ProfileIntelligenceScreen.path,
       ];
@@ -356,7 +359,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const ProfileCompleteScreen(),
       ),
 
-      // ─── Main app shell (Today / Wardrobe / Shop / Profile) ──
+      // ─── Main app shell (Today / Wardrobe / Stylist / Shop / Profile) ──
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             MainShellScaffold(navigationShell: navigationShell),
@@ -450,6 +453,16 @@ final routerProvider = Provider<GoRouter>((ref) {
                         ItemDetailScreen(itemId: state.pathParameters['id']!),
                   ),
                 ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _stylistNavKey,
+            routes: [
+              GoRoute(
+                path: StylistScreen.path,
+                name: StylistScreen.name,
+                builder: (_, _) => const StylistScreen(),
               ),
             ],
           ),

@@ -167,6 +167,9 @@ void main() {
     // Shell chrome rendered immediately.
     expect(find.text("Today's outfits"), findsOneWidget);
     expect(find.text('Today'), findsOneWidget); // app bar title
+    // Favourites took the profile avatar's place (Profile is in the nav).
+    expect(find.byTooltip('Favourites'), findsOneWidget);
+    expect(find.byTooltip('Notifications'), findsOneWidget);
     // Scoped skeletons (one per pending occasion) are shown.
     expect(find.byType(OutfitCardSkeleton), findsWidgets);
   });
@@ -249,6 +252,31 @@ void main() {
     expect(find.text('Shop the look'), findsOneWidget);
     expect(find.text('Fill a gap: outerwear'), findsOneWidget);
     expect(find.text('Zoura may earn a commission when you buy.'), findsOneWidget);
+  });
+
+  testWidgets('weather credit sits at the bottom, below the week strip', (
+    tester,
+  ) async {
+    final json = _frame([]).toJson()
+      ..['weather'] = {'temp_c': 7.2, 'feels_like_c': 4.1, 'condition': 'rain'}
+      ..['weather_attribution'] = {
+        'service_name': 'Apple Weather',
+        'logo_light_url': 'https://example.test/light.png',
+        'logo_dark_url': 'https://example.test/dark.png',
+        'legal_url': 'https://example.test/legal',
+      };
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    await tester.pumpWidget(
+      _host(_StubService(TodayDashboard.fromJson(json))),
+    );
+    await _settle(tester);
+
+    expect(find.text('7°C, feels 4° · Rain'), findsOneWidget);
+    final credit = tester.getTopLeft(find.text('Data sources')).dy;
+    expect(credit, greaterThan(tester.getTopLeft(find.text('Your next 7 days')).dy));
+    expect(credit,
+        greaterThan(tester.getTopLeft(find.text('7°C, feels 4° · Rain')).dy));
   });
 
   testWidgets('no shop section without picks or gaps', (tester) async {

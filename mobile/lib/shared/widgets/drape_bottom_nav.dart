@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-enum DrapeNavDestination { today, wardrobe, shop, profile }
+/// Order = the shell's branch order in `router_provider.dart`.
+enum DrapeNavDestination { today, wardrobe, stylist, shop, profile }
 
 class DrapeBottomNav extends StatelessWidget {
   final DrapeNavDestination current;
@@ -41,6 +42,12 @@ class DrapeBottomNav extends StatelessWidget {
                 onTap: () => onSelected(DrapeNavDestination.wardrobe),
               ),
               _Item(
+                label: 'STYLIST',
+                icon: Icons.auto_awesome_outlined,
+                selected: current == DrapeNavDestination.stylist,
+                onTap: () => onSelected(DrapeNavDestination.stylist),
+              ),
+              _Item(
                 label: 'SHOP',
                 icon: Icons.shopping_bag_outlined,
                 selected: current == DrapeNavDestination.shop,
@@ -48,7 +55,7 @@ class DrapeBottomNav extends StatelessWidget {
               ),
               _Item(
                 label: 'PROFILE',
-                icon: Icons.person_outline,
+                icon: Icons.account_circle_outlined,
                 selected: current == DrapeNavDestination.profile,
                 onTap: () => onSelected(DrapeNavDestination.profile),
               ),
@@ -86,9 +93,12 @@ class _Item extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
+              maxLines: 1,
+              // Five tabs share the width: 10sp keeps WARDROBE on one line.
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: color,
-                    letterSpacing: 1.2,
+                    fontSize: 10,
+                    letterSpacing: 0.8,
                   ),
             ),
           ],

@@ -16,7 +16,6 @@ import '../../onboarding/onboarding_service.dart';
 import '../../profile/profile_service.dart';
 import '../../profile/screens/compare_plans_screen.dart';
 import '../../profile/screens/edit_measurements_screen.dart';
-import '../../profile/screens/profile_intelligence_screen.dart';
 import '../../shop/screens/gap_analysis_screen.dart';
 import '../../shop/shop_service.dart';
 import '../../wardrobe/screens/wardrobe_screen.dart';
@@ -235,11 +234,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
             padding: const EdgeInsets.fromLTRB(_gutter, 8, _gutter, 0),
             sliver: SliverList(
               delegate: SliverChildListDelegate.fixed([
-                _Greeting(
-                  name: dashboard.user.name,
-                  onFavourites: () =>
-                      context.goNamed(OutfitHistoryScreen.name),
-                ),
+                _Greeting(name: dashboard.user.name),
                 ..._contextChips(dashboard),
                 ..._resumeBanner(),
                 ..._starterBanner(),
@@ -266,6 +261,18 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
                   const SizedBox(height: 32),
                   shop,
                 ],
+                if (dashboard.weather != null &&
+                    dashboard.weatherAttribution != null) ...[
+                  const SizedBox(height: 24),
+                  // WeatherKit: the Apple Weather mark + data-sources link
+                  // must be shown wherever its data is; Apple sets no
+                  // placement, so it closes the screen that shows the pill.
+                  Center(
+                    child: WeatherAttributionLine(
+                      attribution: dashboard.weatherAttribution!,
+                    ),
+                  ),
+                ],
               ]),
             ),
           ),
@@ -277,7 +284,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   Widget _appBar() {
     return _TodayAppBar(
       onNotifications: () => _comingSoon('Notifications'),
-      onProfile: () => context.goNamed(ProfileIntelligenceScreen.name),
+      // Favourites isn't built yet — Outfit History holds the saved looks.
+      onFavourites: () => context.goNamed(OutfitHistoryScreen.name),
     );
   }
 
@@ -351,8 +359,9 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     );
   }
 
-  /// Weather pill (+ the provider's required source credit). The "rain from
-  /// 5 pm" and day-plan pills join once the backend sends forecast + plans.
+  /// Weather pill (its required source credit sits at the bottom of the
+  /// screen). The "rain from 5 pm" and day-plan pills join once the backend
+  /// sends forecast + plans.
   List<Widget> _contextChips(TodayDashboard dashboard) {
     final w = dashboard.weather;
     if (w == null) return const [];
@@ -370,15 +379,6 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
           ),
         ],
       ),
-      if (dashboard.weatherAttribution != null) ...[
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: WeatherAttributionLine(
-            attribution: dashboard.weatherAttribution!,
-          ),
-        ),
-      ],
     ];
   }
 
@@ -569,11 +569,15 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   }
 }
 
-/// Pinned "Today" bar: serif title, notifications bell, profile avatar.
+/// Pinned "Today" bar: serif title, notifications bell, favourites heart.
+/// (Profile lives in the bottom nav.)
 class _TodayAppBar extends StatelessWidget {
   final VoidCallback onNotifications;
-  final VoidCallback onProfile;
-  const _TodayAppBar({required this.onNotifications, required this.onProfile});
+  final VoidCallback onFavourites;
+  const _TodayAppBar({
+    required this.onNotifications,
+    required this.onFavourites,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -601,26 +605,13 @@ class _TodayAppBar extends StatelessWidget {
               color: AppColors.espressoDark),
           onPressed: onNotifications,
         ),
-        const SizedBox(width: 4),
-        Semantics(
-          button: true,
-          label: 'Profile',
-          child: InkResponse(
-            onTap: onProfile,
-            radius: 24,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: const BoxDecoration(
-                color: AppColors.espressoDark,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.person_outline,
-                  color: AppColors.white, size: 20),
-            ),
-          ),
+        IconButton(
+          tooltip: 'Favourites',
+          icon: const Icon(Icons.favorite_border,
+              color: AppColors.espressoDark),
+          onPressed: onFavourites,
         ),
-        const SizedBox(width: _gutter),
+        const SizedBox(width: 8),
       ],
     );
   }
@@ -756,8 +747,7 @@ class _AddItemsEmptyState extends StatelessWidget {
 
 class _Greeting extends StatelessWidget {
   final String name;
-  final VoidCallback onFavourites;
-  const _Greeting({required this.name, required this.onFavourites});
+  const _Greeting({required this.name});
 
   static const _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -777,46 +767,24 @@ class _Greeting extends StatelessWidget {
     final date =
         '${weekdayShort(now)}, ${_months[now.month - 1]} ${now.day}'.toUpperCase();
     final text = Theme.of(context).textTheme;
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${_prefix(now)}, $name',
-                style: text.headlineLarge?.copyWith(
-                  color: AppColors.espressoDark,
-                  fontWeight: FontWeight.w700,
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                date,
-                style: text.labelMedium?.copyWith(
-                  color: AppColors.taupe,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.8,
-                ),
-              ),
-            ],
+        Text(
+          '${_prefix(now)}, $name',
+          style: text.headlineLarge?.copyWith(
+            color: AppColors.espressoDark,
+            fontWeight: FontWeight.w700,
+            height: 1.1,
           ),
         ),
-        const SizedBox(width: 12),
-        Material(
-          color: AppColors.ivoryWarm,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onFavourites,
-            child: const SizedBox(
-              width: 48,
-              height: 48,
-              child: Icon(Icons.favorite_border,
-                  color: AppColors.espressoDark, size: 22),
-            ),
+        const SizedBox(height: 4),
+        Text(
+          date,
+          style: text.labelMedium?.copyWith(
+            color: AppColors.taupe,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.8,
           ),
         ),
       ],
