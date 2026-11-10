@@ -20,6 +20,8 @@ import '../../shop/screens/gap_analysis_screen.dart';
 import '../../shop/shop_service.dart';
 import '../../wardrobe/screens/wardrobe_screen.dart';
 import '../../wardrobe/wardrobe_service.dart';
+import '../day_plans_controller.dart';
+import '../models/day_plan.dart';
 import '../models/log_outfit_result.dart';
 import '../models/outfit.dart';
 import '../models/today_dashboard.dart';
@@ -29,6 +31,7 @@ import '../widgets/mix_match_sheet.dart';
 import '../widgets/outfit_card.dart';
 import '../widgets/outfit_card_skeleton.dart';
 import '../widgets/outfit_carousel.dart';
+import '../widgets/plan_day_sheet.dart';
 import '../widgets/resume_banner.dart';
 import '../widgets/shop_the_look_sheet.dart';
 import '../widgets/starter_wardrobe_banner.dart';
@@ -38,6 +41,7 @@ import '../widgets/weather_chip.dart';
 import '../widgets/week_plan_strip.dart';
 import 'ai_reasoning_detail_screen.dart';
 import 'outfit_history_screen.dart';
+import 'plan_week_screen.dart';
 
 /// Page gutter (Stitch `px-4`).
 const _gutter = 16.0;
@@ -364,22 +368,48 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   /// sends forecast + plans.
   List<Widget> _contextChips(TodayDashboard dashboard) {
     final w = dashboard.weather;
-    if (w == null) return const [];
-    final condition = _conditionLabel(w.condition);
+    final plan = ref.watch(dayPlansProvider)[dayOnly(DateTime.now())];
+    if (w == null && plan == null) return const [];
+    final condition = w == null ? null : weatherConditionLabel(w.condition);
     return [
       const SizedBox(height: 12),
       Wrap(
         spacing: 8,
         runSpacing: 8,
         children: [
-          TodayContextChip(
-            icon: _weatherIcon(w.condition),
-            label: '${w.tempC.round()}°C, feels ${w.feelsLikeC.round()}°'
-                '${condition == null ? '' : ' · $condition'}',
-          ),
+          if (w != null)
+            TodayContextChip(
+              icon: weatherConditionIcon(w.condition),
+              label: '${w.tempC.round()}°C, feels ${w.feelsLikeC.round()}°'
+                  '${condition == null ? '' : ' · $condition'}',
+            ),
+          if (plan != null)
+            TodayContextChip(
+              icon: plan.occasion.icon,
+              tone: TodayChipTone.plan,
+              label: '${plan.note.isEmpty ? plan.occasion.label : plan.note}'
+                  ' · ${plan.dress.label}',
+              onTap: () => _planDay(dashboard, DateTime.now()),
+            ),
         ],
       ),
     ];
+  }
+
+  /// Opens Plan the day for [date]; today's sheet shows the current weather.
+  void _planDay(TodayDashboard dashboard, DateTime date) {
+    final w = dashboard.weather;
+    final isToday = daysFromToday(date) == 0;
+    final condition = w == null ? null : weatherConditionLabel(w.condition);
+    PlanDaySheet.open(
+      context,
+      ref,
+      date,
+      weatherLabel: isToday && w != null
+          ? '${w.tempC.round()}°C${condition == null ? '' : ' · $condition'}'
+          : null,
+      weatherIcon: w == null ? null : weatherConditionIcon(w.condition),
+    );
   }
 
   /// "Complete your ZOURA profile" nudge — shown while measurements are
@@ -467,30 +497,43 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     return [meter];
   }
 
-  /// "Your next 7 days". Day plans aren't stored yet, so today (styled daily)
-  /// is the only filled day and every other day asks for a plan.
+  /// "Your next 7 days": today is always styled (filled); other days are
+  /// filled once planned (Plan the day / Plan your week).
   Widget _weekStrip(TodayDashboard dashboard) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final plans = ref.watch(dayPlansProvider);
+    final dates = nextSevenDays();
     final days = [
-      for (var i = 0; i < 7; i++)
+      for (final (i, date) in dates.indexed)
         WeekDayCell(
-          date: DateTime(today.year, today.month, today.day + i),
-          status: i == 0 ? WeekDayStatus.today : WeekDayStatus.open,
+          date: date,
+          status: i == 0
+              ? WeekDayStatus.today
+              : (plans[date] == null
+                  ? WeekDayStatus.open
+                  : WeekDayStatus.planned),
+          icon: plans[date]?.occasion.icon ?? Icons.checkroom,
         ),
     ];
-    void plan() => _comingSoon('Planning your week');
+    final tomorrow = dates[1];
+    final plan = plans[tomorrow];
     return WeekPlanStrip(
       days: days,
-      onPlanWeek: plan,
-      onDayTap: (_) => plan(),
-      tomorrow: const TomorrowSummary(
-        title: 'Tomorrow · No plan yet',
-        subtitle: "Tell us what's on and we'll style it tonight",
-        actionLabel: 'Plan',
-        planned: false,
-      ),
-      onTomorrowAction: plan,
+      onPlanWeek: () => context.pushNamed(PlanWeekScreen.name),
+      onDayTap: (date) => _planDay(dashboard, date),
+      tomorrow: plan == null
+          ? const TomorrowSummary(
+              title: 'Tomorrow · No plan yet',
+              subtitle: "Tell us what's on and we'll style it tonight",
+              actionLabel: 'Plan',
+              planned: false,
+            )
+          : TomorrowSummary(
+              title: 'Tomorrow · ${plan.title} · ${plan.dress.label}',
+              subtitle: 'Your outfit will be ready by 10 pm',
+              actionLabel: 'Edit',
+              planned: true,
+            ),
+      onTomorrowAction: () => _planDay(dashboard, tomorrow),
     );
   }
 
@@ -548,25 +591,6 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     );
   }
 
-  /// Backend vocabulary: clear | cloudy | fog | rain | snow | thunderstorm |
-  /// unknown (the last is left off the pill).
-  String? _conditionLabel(String condition) {
-    final c = condition.trim();
-    if (c.isEmpty || c.toLowerCase() == 'unknown') return null;
-    return '${c[0].toUpperCase()}${c.substring(1)}';
-  }
-
-  IconData _weatherIcon(String condition) {
-    final c = condition.toLowerCase();
-    if (c.contains('rain') || c.contains('drizzle')) return Icons.umbrella_outlined;
-    if (c.contains('snow')) return Icons.ac_unit;
-    if (c.contains('clear') || c.contains('sun')) return Icons.wb_sunny_outlined;
-    if (c.contains('cloud')) return Icons.wb_cloudy_outlined;
-    if (c.contains('thunder')) return Icons.thunderstorm_outlined;
-    if (c.contains('fog')) return Icons.foggy;
-    if (c.contains('wind')) return Icons.air;
-    return Icons.cloud_outlined;
-  }
 }
 
 /// Pinned "Today" bar: serif title, notifications bell, favourites heart.
@@ -749,11 +773,6 @@ class _Greeting extends StatelessWidget {
   final String name;
   const _Greeting({required this.name});
 
-  static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-
   String _prefix(DateTime now) {
     final h = now.hour;
     if (h < 12) return 'Good morning';
@@ -765,7 +784,7 @@ class _Greeting extends StatelessWidget {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final date =
-        '${weekdayShort(now)}, ${_months[now.month - 1]} ${now.day}'.toUpperCase();
+        '${weekdayShort(now)}, ${monthShort(now)} ${now.day}'.toUpperCase();
     final text = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

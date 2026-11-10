@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/modules/onboarding/models/onboarding_status.dart';
 import 'package:mobile/modules/onboarding/onboarding_service.dart';
+import 'package:mobile/modules/today/day_plans_controller.dart';
+import 'package:mobile/modules/today/models/day_plan.dart';
 import 'package:mobile/modules/today/models/outfit.dart';
 import 'package:mobile/modules/today/models/today_dashboard.dart';
 import 'package:mobile/modules/today/models/usage.dart';
@@ -106,8 +108,14 @@ Widget _host(
   TodayService service, {
   OnboardingStatus? status,
   GapAnalysis? gaps,
+  List<DayPlan> plans = const [],
 }) => ProviderScope(
   overrides: [
+    dayPlansProvider.overrideWith((ref) {
+      final c = DayPlansController();
+      plans.forEach(c.save);
+      return c;
+    }),
     // Shop the look stays off the network: no feed, and gaps only when given.
     shopFeedProvider.overrideWith((ref) => Completer<ShopFeed>().future),
     gapAnalysisProvider.overrideWith(
@@ -277,6 +285,53 @@ void main() {
     expect(credit, greaterThan(tester.getTopLeft(find.text('Your next 7 days')).dy));
     expect(credit,
         greaterThan(tester.getTopLeft(find.text('7°C, feels 4° · Rain')).dy));
+  });
+
+  testWidgets('a planned tomorrow fills the strip and the tomorrow card', (
+    tester,
+  ) async {
+    final tomorrow = nextSevenDays()[1];
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    await tester.pumpWidget(
+      _host(
+        _StubService(_frame([])),
+        plans: [
+          DayPlan(
+            date: tomorrow,
+            occasion: DayOccasion.workDay,
+            dress: DressLevel.smartCasual,
+          ),
+        ],
+      ),
+    );
+    await _settle(tester);
+
+    expect(find.text('2 of 7 planned'), findsOneWidget);
+    expect(find.text('Tomorrow · Work day · Smart casual'), findsOneWidget);
+    expect(find.text('Your outfit will be ready by 10 pm'), findsOneWidget);
+    expect(find.text('Edit'), findsOneWidget);
+  });
+
+  testWidgets("today's plan shows as a pill under the weather", (tester) async {
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    await tester.pumpWidget(
+      _host(
+        _StubService(_frame([])),
+        plans: [
+          DayPlan(
+            date: DateTime.now(),
+            occasion: DayOccasion.school,
+            dress: DressLevel.smartCasual,
+            note: "Parents' meeting",
+          ),
+        ],
+      ),
+    );
+    await _settle(tester);
+
+    expect(find.text("Parents' meeting · Smart casual"), findsOneWidget);
   });
 
   testWidgets('no shop section without picks or gaps', (tester) async {

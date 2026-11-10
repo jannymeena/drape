@@ -85,6 +85,7 @@ import '../../modules/shop/screens/wishlist_screen.dart';
 import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
 import '../../modules/today/screens/outfit_history_screen.dart';
 import '../../modules/stylist/screens/stylist_screen.dart';
+import '../../modules/today/screens/plan_week_screen.dart';
 import '../../modules/today/screens/today_dashboard_screen.dart';
 import '../../modules/wardrobe/screens/batch_upload_screen.dart';
 import '../../modules/wardrobe/screens/intelligence_report_screen.dart';
@@ -376,6 +377,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'history',
                     name: OutfitHistoryScreen.name,
                     builder: (_, _) => const OutfitHistoryScreen(),
+                  ),
+                  GoRoute(
+                    path: PlanWeekScreen.path,
+                    name: PlanWeekScreen.name,
+                    parentNavigatorKey: _rootNavKey,
+                    builder: (_, _) => const PlanWeekScreen(),
                   ),
                   GoRoute(
                     path: 'outfit/:id/reasoning',

@@ -4,6 +4,26 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/today_dashboard.dart';
 
+/// Backend vocabulary: clear | cloudy | fog | rain | snow | thunderstorm |
+/// windy | unknown → "Rain"; null for unknown (left off the pill).
+String? weatherConditionLabel(String condition) {
+  final c = condition.trim();
+  if (c.isEmpty || c.toLowerCase() == 'unknown') return null;
+  return '${c[0].toUpperCase()}${c.substring(1)}';
+}
+
+IconData weatherConditionIcon(String condition) {
+  final c = condition.toLowerCase();
+  if (c.contains('rain') || c.contains('drizzle')) return Icons.umbrella_outlined;
+  if (c.contains('snow')) return Icons.ac_unit;
+  if (c.contains('clear') || c.contains('sun')) return Icons.wb_sunny_outlined;
+  if (c.contains('cloud')) return Icons.wb_cloudy_outlined;
+  if (c.contains('thunder')) return Icons.thunderstorm_outlined;
+  if (c.contains('fog')) return Icons.foggy;
+  if (c.contains('wind')) return Icons.air;
+  return Icons.cloud_outlined;
+}
+
 enum TodayChipTone {
   /// Mist-blue — weather facts ("8°C, feels 5° · Rain").
   weather,

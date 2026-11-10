@@ -3,12 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../models/day_plan.dart';
 import 'outfit_card.dart';
-
-const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-/// Short weekday label ("Wed") for [date].
-String weekdayShort(DateTime date) => _weekdays[date.weekday - 1];
 
 enum WeekDayStatus {
   /// Today — always styled, drawn as the filled espresso marker.
