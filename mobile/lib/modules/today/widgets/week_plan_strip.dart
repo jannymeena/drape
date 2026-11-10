@@ -46,9 +46,8 @@ class TomorrowSummary {
   });
 }
 
-/// "Your next 7 days": header with planned count + PLAN WEEK, the 7-day
-/// ribbon (filled = planned, dashed = needs a plan), the legend, and the
-/// tomorrow summary card.
+/// "Your next 7 days": header with PLAN WEEK, the 7-day ribbon (filled =
+/// planned, dashed = needs a plan) and the tomorrow summary card.
 class WeekPlanStrip extends StatelessWidget {
   final List<WeekDayCell> days;
   final TomorrowSummary? tomorrow;
@@ -65,8 +64,6 @@ class WeekPlanStrip extends StatelessWidget {
     this.onTomorrowAction,
   });
 
-  int get _planned => days.where((d) => d.status != WeekDayStatus.open).length;
-
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -74,27 +71,15 @@ class WeekPlanStrip extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Your next 7 days',
-                    style: text.headlineSmall?.copyWith(
-                      color: AppColors.espressoDark,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    '$_planned of ${days.length} planned',
-                    style: text.bodySmall?.copyWith(
-                      color: AppColors.taupe,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Your next 7 days',
+                style: text.headlineSmall?.copyWith(
+                  color: AppColors.espressoDark,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             TextButton(
@@ -137,12 +122,6 @@ class WeekPlanStrip extends StatelessWidget {
               ],
             ],
           ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'Filled = planned · Dashed = needs a plan',
-          textAlign: TextAlign.center,
-          style: text.bodySmall?.copyWith(color: AppColors.taupe, fontSize: 11),
         ),
         if (tomorrow != null) ...[
           const SizedBox(height: 12),

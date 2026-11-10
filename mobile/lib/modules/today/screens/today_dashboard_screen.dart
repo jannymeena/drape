@@ -485,7 +485,17 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
       context.goNamed(ComparePlansScreen.name);
     }
 
-    Widget meter = UsageMeter(used: c.used, limit: c.limit, onUpgrade: upgrade);
+    // Display-only for now: the meter reads "x of 10" per the redesign while
+    // the backend still enforces its own weekly cap (21). The count is
+    // capped at 10 so it never shows "15 of 10". Use c.limit again once the
+    // backend cap changes (BACKEND_CHANGES 1.0). Analytics below stay on the
+    // backend's real percentage.
+    const shownLimit = 10;
+    Widget meter = UsageMeter(
+      used: c.used > shownLimit ? shownLimit : c.used,
+      limit: shownLimit,
+      onUpgrade: upgrade,
+    );
     if (c.percentage >= 75) {
       final level = c.percentage >= 100
           ? 'blocked'

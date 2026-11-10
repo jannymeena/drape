@@ -39,8 +39,8 @@ class GapPick {
   const GapPick({required this.title, required this.body});
 }
 
-/// "Shop the look": up to three affiliate picks, a wardrobe-gap card and the
-/// commission disclosure. Hidden by the caller when there's nothing to show.
+/// "Shop the look": up to three affiliate picks and a wardrobe-gap card.
+/// Hidden by the caller when there's nothing to show.
 class TodayShopSection extends StatelessWidget {
   final List<ShopPick> picks;
   final GapPick? gap;
@@ -62,36 +62,12 @@ class TodayShopSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                'Shop the look',
-                style: text.headlineSmall?.copyWith(
-                  color: AppColors.espressoDark,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            if (shown.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.sageDim.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  shown.length == 1
-                      ? '1 pick for you'
-                      : '${shown.length} picks for you',
-                  style: text.labelMedium?.copyWith(
-                    color: AppColors.sage,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-          ],
+        Text(
+          'Shop the look',
+          style: text.headlineSmall?.copyWith(
+            color: AppColors.espressoDark,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         if (shown.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -113,12 +89,6 @@ class TodayShopSection extends StatelessWidget {
           const SizedBox(height: 12),
           _GapCard(gap: gap!, onView: onViewGap),
         ],
-        const SizedBox(height: 12),
-        Text(
-          'Zoura may earn a commission when you buy.',
-          textAlign: TextAlign.center,
-          style: text.bodySmall?.copyWith(color: AppColors.taupe, fontSize: 10),
-        ),
       ],
     );
   }

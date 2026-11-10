@@ -221,7 +221,8 @@ void main() {
     await tester.pumpWidget(_host(_StubService(_frame([]))));
     await _settle(tester);
 
-    expect(find.text('0 of 21 outfit ideas used this week'), findsOneWidget);
+    // Shows "of 10" (display-only) though the stub's backend cap is 21.
+    expect(find.text('0 of 10 outfit ideas used this week'), findsOneWidget);
     expect(find.text('Get unlimited'), findsOneWidget);
   });
 
@@ -232,7 +233,9 @@ void main() {
     await _settle(tester);
 
     expect(find.text('Your next 7 days'), findsOneWidget);
-    expect(find.text('1 of 7 planned'), findsOneWidget);
+    // No planned count and no legend line.
+    expect(find.textContaining('of 7 planned'), findsNothing);
+    expect(find.textContaining('Filled = planned'), findsNothing);
     expect(find.text('Tomorrow · No plan yet'), findsOneWidget);
   });
 
@@ -260,7 +263,9 @@ void main() {
 
     expect(find.text('Shop the look'), findsOneWidget);
     expect(find.text('Fill a gap: outerwear'), findsOneWidget);
-    expect(find.text('Zoura may earn a commission when you buy.'), findsOneWidget);
+    // No picks count pill and no commission line on Today.
+    expect(find.textContaining(RegExp(r'picks? for you')), findsNothing);
+    expect(find.textContaining('commission'), findsNothing);
   });
 
   testWidgets('weather credit sits at the bottom, below the week strip', (
@@ -314,7 +319,6 @@ void main() {
     );
     await _settle(tester);
 
-    expect(find.text('2 of 7 planned'), findsOneWidget);
     expect(find.text('Tomorrow · Work day · Smart casual'), findsOneWidget);
     expect(find.text('Your outfit will be ready by 10 pm'), findsOneWidget);
     expect(find.text('Edit'), findsOneWidget);
