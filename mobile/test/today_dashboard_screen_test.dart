@@ -12,7 +12,10 @@ import 'package:mobile/modules/today/models/today_dashboard.dart';
 import 'package:mobile/modules/today/models/usage.dart';
 import 'package:mobile/modules/today/screens/today_dashboard_screen.dart';
 import 'package:mobile/modules/today/today_service.dart';
+import 'package:mobile/modules/shop/models/shop.dart';
+import 'package:mobile/modules/shop/shop_service.dart';
 import 'package:mobile/modules/today/widgets/outfit_card_skeleton.dart';
+import 'package:mobile/modules/today/widgets/outfit_carousel.dart';
 import 'package:mobile/modules/today/widgets/resume_banner.dart';
 import 'package:mobile/shared/providers/network_provider.dart';
 import 'package:mobile/shared/services/dashboard_cache.dart';
@@ -35,16 +38,18 @@ class _StubService extends TodayService {
           'used': 0,
           'limit': 3,
           'remaining': 3,
-          'percentage': 0.0
+          'percentage': 0.0,
         },
         'next_reset': '2026-06-15T05:00:00Z',
         'subscription_tier': 'free',
       });
 
   @override
-  Future<Outfit> generateOccasion(String occasion,
-          {double? lat, double? lon}) =>
-      _never.future;
+  Future<Outfit> generateOccasion(
+    String occasion, {
+    double? lat,
+    double? lon,
+  }) => _never.future;
 }
 
 class _NullCache extends DashboardCache {
@@ -56,34 +61,35 @@ class _NullCache extends DashboardCache {
   Future<void> clear() async {}
 }
 
-TodayDashboard _frame(List<String> pending,
-        {List<String> outfitOccasions = const []}) =>
-    TodayDashboard.fromJson({
-      'user': {'name': 'Alex'},
-      'outfits': [
-        for (final (i, occasion) in outfitOccasions.indexed)
-          {
-            'id': 'outfit-$i',
-            'occasion': occasion,
-            'items': <dynamic>[],
-            'ai_reasoning_short': 'Works well.',
-          },
-      ],
-      'usage': {'outfits_generated_today': 0},
-      'banners': <String, dynamic>{},
-      'wardrobe_ready': true,
-      'pending_occasions': pending,
-      // What the backend's occasion rulebook sends (a subset is enough here).
-      'occasions': [
-        for (final (key, label, daily) in const [
-          ('work', 'Work', true),
-          ('casual', 'Casual', true),
-          ('date_night', 'Date Night', true),
-          ('gym', 'Gym', false),
-        ])
-          {'key': key, 'label': label, 'daily': daily},
-      ],
-    });
+TodayDashboard _frame(
+  List<String> pending, {
+  List<String> outfitOccasions = const [],
+}) => TodayDashboard.fromJson({
+  'user': {'name': 'Alex'},
+  'outfits': [
+    for (final (i, occasion) in outfitOccasions.indexed)
+      {
+        'id': 'outfit-$i',
+        'occasion': occasion,
+        'items': <dynamic>[],
+        'ai_reasoning_short': 'Works well.',
+      },
+  ],
+  'usage': {'outfits_generated_today': 0},
+  'banners': <String, dynamic>{},
+  'wardrobe_ready': true,
+  'pending_occasions': pending,
+  // What the backend's occasion rulebook sends (a subset is enough here).
+  'occasions': [
+    for (final (key, label, daily) in const [
+      ('work', 'Work', true),
+      ('casual', 'Casual', true),
+      ('date_night', 'Date Night', true),
+      ('gym', 'Gym', false),
+    ])
+      {'key': key, 'label': label, 'daily': daily},
+  ],
+});
 
 /// Backend onboarding-status payload driving the resume banner. [next] null
 /// means the 7 required measurements are in (nudge hidden).
@@ -96,16 +102,24 @@ OnboardingStatus _status({int stepsDone = 0, String? next = 'height'}) =>
       nextIncompleteStep: next,
     );
 
-Widget _host(TodayService service, {OnboardingStatus? status}) =>
-    ProviderScope(
-      overrides: [
-        todayServiceProvider.overrideWithValue(service),
-        dashboardCacheProvider.overrideWithValue(_NullCache()),
-        // Deterministic resume-banner input (default → nothing saved yet).
-        onboardingStatusProvider.overrideWith((ref) async => status ?? _status()),
-      ],
-      child: const MaterialApp(home: TodayDashboardScreen()),
-    );
+Widget _host(
+  TodayService service, {
+  OnboardingStatus? status,
+  GapAnalysis? gaps,
+}) => ProviderScope(
+  overrides: [
+    // Shop the look stays off the network: no feed, and gaps only when given.
+    shopFeedProvider.overrideWith((ref) => Completer<ShopFeed>().future),
+    gapAnalysisProvider.overrideWith(
+      (ref) async => gaps ?? const GapAnalysis(gaps: [], isTeaser: false),
+    ),
+    todayServiceProvider.overrideWithValue(service),
+    dashboardCacheProvider.overrideWithValue(_NullCache()),
+    // Deterministic resume-banner input (default → nothing saved yet).
+    onboardingStatusProvider.overrideWith((ref) async => status ?? _status()),
+  ],
+  child: const MaterialApp(home: TodayDashboardScreen()),
+);
 
 /// Pumps several frames so the async `loadFrame` chain (cache → coords → frame)
 /// settles. Avoids `pumpAndSettle` because the shimmer animation never settles.
@@ -140,8 +154,9 @@ void _stubGeolocator(WidgetTester tester) {
 }
 
 void main() {
-  testWidgets('renders the shell + scoped skeletons, no full-screen spinner',
-      (tester) async {
+  testWidgets('renders the shell + scoped skeletons, no full-screen spinner', (
+    tester,
+  ) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
     await tester.pumpWidget(_host(_StubService(_frame(['work', 'casual']))));
@@ -150,82 +165,104 @@ void main() {
     // The old full-screen spinner is gone for good.
     expect(find.text('Curating your outfits…'), findsNothing);
     // Shell chrome rendered immediately.
-    expect(find.text("Today's Picks"), findsOneWidget);
+    expect(find.text("Today's outfits"), findsOneWidget);
+    expect(find.text('Today'), findsOneWidget); // app bar title
     // Scoped skeletons (one per pending occasion) are shown.
     expect(find.byType(OutfitCardSkeleton), findsWidgets);
   });
 
-  testWidgets('occasion chips filter the outfit cards', (tester) async {
+  testWidgets('outfits render as a carousel with one featured look', (
+    tester,
+  ) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
-    await tester.pumpWidget(_host(
-      _StubService(_frame([], outfitOccasions: ['work', 'casual'])),
-    ));
+    await tester.pumpWidget(
+      _host(_StubService(_frame([], outfitOccasions: ['work', 'casual']))),
+    );
     await _settle(tester);
 
-    // "All" (default) shows both cards — badges render uppercase.
-    expect(find.text('WORK'), findsOneWidget);
-    expect(find.text('CASUAL'), findsOneWidget);
-
-    await tester.tap(find.text('Work')); // chip, title-case
-    await _settle(tester);
-
-    expect(find.text('WORK'), findsOneWidget);
-    expect(find.text('CASUAL'), findsNothing);
+    expect(find.byType(OutfitCarousel), findsOneWidget);
+    expect(find.text('Work look'), findsOneWidget);
+    expect(find.text('Casual look'), findsOneWidget);
+    // The lead look gets the filled CTA, the alternate the tonal one.
+    expect(find.text('Wear this'), findsOneWidget);
+    expect(find.text('Wear this instead'), findsOneWidget);
+    expect(find.text('2 ideas for you'), findsOneWidget);
   });
 
-  testWidgets('occasion chips come from the backend rulebook', (tester) async {
+  testWidgets('pending occasions show a skeleton each in the carousel', (
+    tester,
+  ) async {
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    await tester.pumpWidget(_host(_StubService(_frame(['work', 'casual']))));
+    await _settle(tester);
+
+    expect(find.byType(OutfitCardSkeleton), findsNWidgets(2));
+    expect(find.text('STYLING WORK…'), findsOneWidget);
+    expect(find.text('Styling 0 of 2…'), findsOneWidget);
+  });
+
+  testWidgets('shows the weekly usage meter for free users', (tester) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
     await tester.pumpWidget(_host(_StubService(_frame([]))));
     await _settle(tester);
 
-    for (final label in ['All', 'Work', 'Casual', 'Date Night', 'Gym']) {
-      expect(find.text(label), findsWidgets, reason: label);
-    }
-    // Not in this frame's list, so no chip.
-    expect(find.text('Wedding Guest'), findsNothing);
+    expect(find.text('0 of 21 outfit ideas used this week'), findsOneWidget);
+    expect(find.text('Get unlimited'), findsOneWidget);
   });
 
-  testWidgets('filtering to an occasion with no pick shows the empty message',
-      (tester) async {
+  testWidgets('shows the next 7 days with today filled', (tester) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
-    await tester.pumpWidget(_host(
-      _StubService(_frame([], outfitOccasions: ['work'])),
-    ));
+    await tester.pumpWidget(_host(_StubService(_frame([]))));
     await _settle(tester);
 
-    await tester.tap(find.text('Gym'));
-    await _settle(tester);
-
-    expect(find.text("No Gym pick in today's outfits."), findsOneWidget);
-    expect(find.text('WORK'), findsNothing);
-
-    await tester.tap(find.text('All'));
-    await _settle(tester);
-    expect(find.text('WORK'), findsOneWidget);
+    expect(find.text('Your next 7 days'), findsOneWidget);
+    expect(find.text('1 of 7 planned'), findsOneWidget);
+    expect(find.text('Tomorrow · No plan yet'), findsOneWidget);
   });
 
-  testWidgets('occasion filter also scopes the pending skeletons',
-      (tester) async {
+  testWidgets('shop the look shows the top wardrobe gap', (tester) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
     await tester.pumpWidget(
-      _host(_StubService(_frame(['work', 'casual']))),
+      _host(
+        _StubService(_frame([])),
+        gaps: const GapAnalysis(
+          gaps: [
+            GapItem(
+              category: 'outerwear',
+              have: 0,
+              recommended: 2,
+              reason: 'You have 0 outerwear.',
+              outfitsUnlocked: 6,
+            ),
+          ],
+          isTeaser: false,
+        ),
+      ),
     );
     await _settle(tester);
 
-    expect(find.byType(OutfitCardSkeleton), findsNWidgets(2));
-
-    await tester.tap(find.text('Casual'));
-    await _settle(tester);
-
-    expect(find.byType(OutfitCardSkeleton), findsOneWidget);
+    expect(find.text('Shop the look'), findsOneWidget);
+    expect(find.text('Fill a gap: outerwear'), findsOneWidget);
+    expect(find.text('Zoura may earn a commission when you buy.'), findsOneWidget);
   });
 
-  testWidgets('shows the resume banner with 0/8 when nothing is saved',
-      (tester) async {
+  testWidgets('no shop section without picks or gaps', (tester) async {
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    await tester.pumpWidget(_host(_StubService(_frame([]))));
+    await _settle(tester);
+
+    expect(find.text('Shop the look'), findsNothing);
+  });
+
+  testWidgets('shows the resume banner with 0/8 when nothing is saved', (
+    tester,
+  ) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
     await tester.pumpWidget(_host(_StubService(_frame([]))));
@@ -239,49 +276,56 @@ void main() {
   testWidgets('resume banner counts saved steps', (tester) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
-    await tester.pumpWidget(_host(
-      _StubService(_frame([])),
-      status: _status(stepsDone: 4, next: 'shoulders'),
-    ));
+    await tester.pumpWidget(
+      _host(
+        _StubService(_frame([])),
+        status: _status(stepsDone: 4, next: 'shoulders'),
+      ),
+    );
     await _settle(tester);
 
     expect(find.text('4 of 8 steps done'), findsOneWidget);
   });
 
-  testWidgets('resume banner hides when all required measurements exist',
-      (tester) async {
+  testWidgets('resume banner hides when all required measurements exist', (
+    tester,
+  ) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
     // A null next step means the 7 required are in — weight (optional)
     // missing must NOT keep the nudge alive (steps_done 7 of 8).
-    await tester.pumpWidget(_host(
-      _StubService(_frame([])),
-      status: _status(stepsDone: 7, next: null),
-    ));
+    await tester.pumpWidget(
+      _host(
+        _StubService(_frame([])),
+        status: _status(stepsDone: 7, next: null),
+      ),
+    );
     await _settle(tester);
 
     expect(find.byType(ResumeBanner), findsNothing);
   });
 
-  testWidgets('shows the add-items empty state when the wardrobe is not ready',
-      (tester) async {
-    final notReady = TodayDashboard.fromJson({
-      'user': {'name': 'Alex'},
-      'outfits': <dynamic>[],
-      'usage': {'outfits_generated_today': 0},
-      'banners': <String, dynamic>{},
-      'wardrobe_ready': false,
-      'pending_occasions': <dynamic>[],
-    });
-    _tallSurface(tester);
-    _stubGeolocator(tester);
-    await tester.pumpWidget(_host(_StubService(notReady)));
-    await _settle(tester);
+  testWidgets(
+    'shows the add-items empty state when the wardrobe is not ready',
+    (tester) async {
+      final notReady = TodayDashboard.fromJson({
+        'user': {'name': 'Alex'},
+        'outfits': <dynamic>[],
+        'usage': {'outfits_generated_today': 0},
+        'banners': <String, dynamic>{},
+        'wardrobe_ready': false,
+        'pending_occasions': <dynamic>[],
+      });
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(_host(_StubService(notReady)));
+      await _settle(tester);
 
-    expect(find.byType(OutfitCardSkeleton), findsNothing);
-    expect(
-      find.text('Add a few wardrobe items to start getting daily outfits.'),
-      findsOneWidget,
-    );
-  });
+      expect(find.byType(OutfitCardSkeleton), findsNothing);
+      expect(
+        find.text('Add a few wardrobe items to start getting daily outfits.'),
+        findsOneWidget,
+      );
+    },
+  );
 }

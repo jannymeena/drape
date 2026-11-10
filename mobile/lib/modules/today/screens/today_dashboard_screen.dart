@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../profile/screens/compare_plans_screen.dart';
 import '../../../shared/models/api_error.dart';
 import '../../../shared/providers/analytics_provider.dart';
 import '../../../shared/providers/push_provider.dart';
 import '../../../shared/services/analytics/analytics_events.dart';
-import '../../../shared/widgets/analytics_screen_view.dart';
-import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/analytics_screen_view.dart';
+import '../../../shared/widgets/buy_pill.dart';
+import '../../../shared/widgets/drape_toast.dart';
+import '../../../shared/widgets/shimmer_skeleton.dart';
 import '../../onboarding/models/onboarding_status.dart';
 import '../../onboarding/onboarding_service.dart';
 import '../../profile/profile_service.dart';
+import '../../profile/screens/compare_plans_screen.dart';
 import '../../profile/screens/edit_measurements_screen.dart';
+import '../../profile/screens/profile_intelligence_screen.dart';
+import '../../shop/screens/gap_analysis_screen.dart';
+import '../../shop/shop_service.dart';
 import '../../wardrobe/screens/wardrobe_screen.dart';
 import '../../wardrobe/wardrobe_service.dart';
 import '../models/log_outfit_result.dart';
@@ -22,19 +27,21 @@ import '../models/today_dashboard.dart';
 import '../models/usage.dart';
 import '../today_controller.dart';
 import '../widgets/mix_match_sheet.dart';
-import '../../../shared/widgets/garment_placeholder.dart';
-import '../../../shared/widgets/shimmer_skeleton.dart';
 import '../widgets/outfit_card.dart';
 import '../widgets/outfit_card_skeleton.dart';
-import '../widgets/outfit_item_grid.dart';
+import '../widgets/outfit_carousel.dart';
 import '../widgets/resume_banner.dart';
 import '../widgets/shop_the_look_sheet.dart';
 import '../widgets/starter_wardrobe_banner.dart';
-import '../widgets/usage_warning_banner.dart';
+import '../widgets/today_shop_section.dart';
+import '../widgets/usage_meter.dart';
 import '../widgets/weather_chip.dart';
+import '../widgets/week_plan_strip.dart';
 import 'ai_reasoning_detail_screen.dart';
 import 'outfit_history_screen.dart';
-import '../../../shared/widgets/zoura_header.dart';
+
+/// Page gutter (Stitch `px-4`).
+const _gutter = 16.0;
 
 class TodayDashboardScreen extends ConsumerStatefulWidget {
   static const path = '/today';
@@ -49,11 +56,6 @@ class TodayDashboardScreen extends ConsumerStatefulWidget {
 
 class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     with WidgetsBindingObserver {
-  /// Chip row: "All" plus every occasion the backend's rulebook defines
-  /// (`dashboard.occasions`, in its order). The active chip's occasion key;
-  /// null when "All".
-  String? _selectedOccasion;
-
   @override
   void initState() {
     super.initState();
@@ -141,6 +143,17 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
       );
   }
 
+  /// Placeholder for the Today sub-screens still being built (planning,
+  /// Change it, notifications, favourites).
+  void _comingSoon(String what) {
+    showDrapeToast(
+      context,
+      '$what is coming soon.',
+      icon: Icons.schedule,
+      background: AppColors.espressoDeep,
+    );
+  }
+
   /// Weekly free-tier cap hit (429 `limit_reached`). The backend message already
   /// names the count + reset time; the CTA points at the (unbuilt) paywall.
   void _showLimitDialog(ApiException e) {
@@ -196,7 +209,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
 
   Widget _body(TodayState state) {
     if (!state.hasData) {
-      if (state.frameLoading) return const _FrameLoading();
+      if (state.frameLoading) return _FrameLoading(appBar: _appBar());
       if (state.frameError != null) {
         return _DashboardError(
           message: state.frameError!.message,
@@ -208,7 +221,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     }
 
     final dashboard = state.dashboard!;
-    final pickWidgets = _pickWidgets(state, dashboard);
+    final cards = _carouselCards(state, dashboard);
+    final shop = _shopSection(dashboard);
     return RefreshIndicator(
       onRefresh: () {
         ref.invalidate(onboardingStatusProvider);
@@ -216,101 +230,43 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
       },
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: _TopBar()),
+          _appBar(),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+            padding: const EdgeInsets.fromLTRB(_gutter, 8, _gutter, 0),
             sliver: SliverList(
               delegate: SliverChildListDelegate.fixed([
-                _Greeting(name: dashboard.user.name),
-                const SizedBox(height: 20),
-                if (dashboard.weather != null) ...[
-                  _weatherChip(dashboard),
-                  const SizedBox(height: 16),
-                ],
-                ..._usageBanner(state.usage),
-                SizedBox(
-                  height: 40,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: dashboard.occasions.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
-                    itemBuilder: (_, i) {
-                      final key = i == 0 ? null : dashboard.occasions[i - 1].key;
-                      return _OccasionChip(
-                        label: i == 0 ? 'All' : dashboard.occasions[i - 1].label,
-                        selected: key == _selectedOccasion,
-                        onTap: () => setState(() => _selectedOccasion = key),
-                      );
-                    },
-                  ),
+                _Greeting(
+                  name: dashboard.user.name,
+                  onFavourites: () =>
+                      context.goNamed(OutfitHistoryScreen.name),
                 ),
+                ..._contextChips(dashboard),
                 ..._resumeBanner(),
                 ..._starterBanner(),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _QuickActionButton(
-                        icon: Icons.history,
-                        label: 'Outfit History',
-                        onTap: () => context.goNamed(OutfitHistoryScreen.name),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _QuickActionButton(
-                        icon: Icons.auto_awesome_motion_outlined,
-                        label: 'Mix & Match',
-                        onTap: () {
-                          if (dashboard.outfits.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                    'Generate an outfit first to mix & match.'),
-                              ),
-                            );
-                            return;
-                          }
-                          MixMatchSheet.show(context, dashboard.outfits.first);
-                        },
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 24),
+                _OutfitsHeader(
+                  status: _picksStatusLabel(state, dashboard),
+                  onMyOutfits: () => context.goNamed(OutfitHistoryScreen.name),
                 ),
-                const SizedBox(height: 28),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        "Today's Picks",
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                    ),
-                    Text(
-                      _picksStatusLabel(state, dashboard),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.taupe,
-                            letterSpacing: 1.4,
-                          ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 if (!dashboard.wardrobeReady) const _AddItemsEmptyState(),
               ]),
             ),
           ),
+          if (dashboard.wardrobeReady)
+            SliverToBoxAdapter(child: OutfitCarousel(children: cards)),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            padding: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, 40),
             sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (_, i) => Padding(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: pickWidgets[i],
-                ),
-                childCount: pickWidgets.length,
-              ),
+              delegate: SliverChildListDelegate.fixed([
+                ..._usageMeter(state.usage),
+                const SizedBox(height: 32),
+                _weekStrip(dashboard),
+                if (shop != null) ...[
+                  const SizedBox(height: 32),
+                  shop,
+                ],
+              ]),
             ),
           ),
         ],
@@ -318,10 +274,11 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     );
   }
 
-  /// Position in the backend's occasion order (unknown ones last).
-  int _occasionRank(TodayDashboard dashboard, String occasion) {
-    final i = dashboard.occasions.indexWhere((o) => o.key == occasion);
-    return i == -1 ? dashboard.occasions.length : i;
+  Widget _appBar() {
+    return _TodayAppBar(
+      onNotifications: () => _comingSoon('Notifications'),
+      onProfile: () => context.goNamed(ProfileIntelligenceScreen.name),
+    );
   }
 
   String _occasionLabel(String occasion) => occasion
@@ -329,44 +286,41 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
       .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
       .join(' ');
 
-  /// The "Today's Picks" status line — generation progress while filling,
-  /// otherwise the recommended count.
+  /// Position in the backend's occasion order (unknown ones last).
+  int _occasionRank(TodayDashboard dashboard, String occasion) {
+    final i = dashboard.occasions.indexWhere((o) => o.key == occasion);
+    return i == -1 ? dashboard.occasions.length : i;
+  }
+
+  /// The "Today's outfits" subline — generation progress while filling,
+  /// otherwise the idea count.
   String _picksStatusLabel(TodayState state, TodayDashboard dashboard) {
-    if (!dashboard.wardrobeReady) return '';
+    if (!dashboard.wardrobeReady) return 'Add a few pieces to get started';
     final done = dashboard.outfits.length;
     if (state.pendingOccasions.isNotEmpty) {
       final total =
           done + state.pendingOccasions.length + state.failedOccasions.length;
-      return 'STYLING $done OF $total…';
+      return 'Styling $done of $total…';
     }
-    return '$done RECOMMENDED';
+    return done == 1 ? '1 idea for you' : '$done ideas for you';
   }
 
-  /// Builds the picks list: real outfit cards, then a skeleton per occasion
-  /// still generating, then a retry card per occasion that failed. An active
-  /// occasion chip filters all three by the backend literal; a chip whose
-  /// occasion has no outfit offers on-demand generation instead.
-  List<Widget> _pickWidgets(TodayState state, TodayDashboard dashboard) {
-    final filter = _selectedOccasion;
-    bool matches(String occasion) => filter == null || occasion == filter;
-
-    final widgets = <Widget>[
-      for (final outfit in dashboard.outfits)
-        if (matches(outfit.occasion)) _outfitCard(state, outfit),
+  /// The carousel: real outfit cards, then a skeleton per occasion still
+  /// generating, then a retry card per occasion that failed.
+  List<Widget> _carouselCards(TodayState state, TodayDashboard dashboard) {
+    final cards = <Widget>[
+      for (final (i, outfit) in dashboard.outfits.indexed)
+        _outfitCard(state, outfit, featured: i == 0),
     ];
 
-    final pending = state.pendingOccasions.where(matches).toList()
-      ..sort((a, b) =>
-          _occasionRank(dashboard, a).compareTo(_occasionRank(dashboard, b)));
-    for (final occasion in pending) {
-      widgets.add(OutfitCardSkeleton(occasionLabel: _occasionLabel(occasion)));
-    }
+    int byRank(String a, String b) =>
+        _occasionRank(dashboard, a).compareTo(_occasionRank(dashboard, b));
 
-    final failed = state.failedOccasions.keys.where(matches).toList()
-      ..sort((a, b) =>
-          _occasionRank(dashboard, a).compareTo(_occasionRank(dashboard, b)));
-    for (final occasion in failed) {
-      widgets.add(OutfitOccasionRetryCard(
+    for (final occasion in state.pendingOccasions.toList()..sort(byRank)) {
+      cards.add(OutfitCardSkeleton(occasionLabel: _occasionLabel(occasion)));
+    }
+    for (final occasion in state.failedOccasions.keys.toList()..sort(byRank)) {
+      cards.add(OutfitOccasionRetryCard(
         occasionLabel: _occasionLabel(occasion),
         message: state.failedOccasions[occasion]!.message,
         onRetry: () => ref
@@ -374,46 +328,21 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
             .generateOccasion(occasion),
       ));
     }
-
-    // The filter matched nothing today (e.g. no Gym pick was generated) —
-    // offer to style that occasion on the spot (one backend call per tap,
-    // per the one-by-one AI-call convention).
-    if (widgets.isEmpty && filter != null && dashboard.wardrobeReady) {
-      widgets.add(_FilteredEmptyMessage(
-        label: _occasionLabel(filter),
-        onGenerate: () => ref
-            .read(todayControllerProvider.notifier)
-            .generateOccasion(filter),
-      ));
-    }
-    return widgets;
+    return cards;
   }
 
-  Widget _outfitCard(TodayState state, Outfit outfit) {
+  Widget _outfitCard(TodayState state, Outfit outfit, {required bool featured}) {
     return OutfitCard(
-      outfit: OutfitCardData(
-        id: outfit.id,
-        occasion: outfit.occasionLabel,
-        items: [
-          for (final i in outfit.items)
-            GarmentCell(
-              imageUrl: i.primaryImageUrl,
-              category: i.category,
-              color: garmentColorFromName(i.colorName),
-              buyUrl: i.productUrl,
-            ),
-        ],
-        reasoning: outfit.aiReasoningShort ?? '',
-        logged: outfit.isLogged,
-        favorited: outfit.isFavorite,
-        shopTheLook: outfit.shopTheLook,
-      ),
+      outfit: OutfitCardData.fromOutfit(outfit),
+      featured: featured,
+      expand: true,
       regenerating: state.regeneratingIds.contains(outfit.id),
       logging: state.loggingIds.contains(outfit.id),
       onRegenerate: () => _onRegenerate(outfit.id),
       onLogWorn: () => _onLogWorn(outfit.id),
       onShopTheLook: () => ShopTheLookSheet.show(context, outfit),
       onMix: () => MixMatchSheet.show(context, outfit),
+      onChange: () => _comingSoon('Change it'),
       onFavorite: () => _onFavorite(outfit.id),
       onLearnMore: () => context.goNamed(
         AiReasoningDetailScreen.name,
@@ -422,16 +351,35 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     );
   }
 
-  Widget _weatherChip(TodayDashboard dashboard) {
-    final w = dashboard.weather!;
-    return WeatherChip(
-      temperature: '${w.tempC.round()}°C',
-      condition: w.condition,
-      hint: _weatherHint(w.tempC),
-      location: dashboard.user.location,
-      icon: _weatherIcon(w.condition),
-      attribution: dashboard.weatherAttribution,
-    );
+  /// Weather pill (+ the provider's required source credit). The "rain from
+  /// 5 pm" and day-plan pills join once the backend sends forecast + plans.
+  List<Widget> _contextChips(TodayDashboard dashboard) {
+    final w = dashboard.weather;
+    if (w == null) return const [];
+    final condition = _conditionLabel(w.condition);
+    return [
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          TodayContextChip(
+            icon: _weatherIcon(w.condition),
+            label: '${w.tempC.round()}°C, feels ${w.feelsLikeC.round()}°'
+                '${condition == null ? '' : ' · $condition'}',
+          ),
+        ],
+      ),
+      if (dashboard.weatherAttribution != null) ...[
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: WeatherAttributionLine(
+            attribution: dashboard.weatherAttribution!,
+          ),
+        ),
+      ],
+    ];
   }
 
   /// "Complete your ZOURA profile" nudge — shown while measurements are
@@ -489,43 +437,123 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     ];
   }
 
-  /// Weekly usage banner — only shown at 75%+ and only for free users.
-  List<Widget> _usageBanner(CurrentWeekUsage? usage) {
+  /// Free-tier meter, always on for free users; the 75 / 90 / 100% thresholds
+  /// keep firing the same analytics events the old banner did.
+  List<Widget> _usageMeter(CurrentWeekUsage? usage) {
     if (usage == null || usage.isPro) return const [];
     final c = usage.outfits;
-    if (c.percentage < 75) return const [];
-    final level = c.percentage >= 100
-        ? UsageLevel.blocked
-        : (c.percentage >= 90 ? UsageLevel.urgent : UsageLevel.soft);
-    return [
-      AnalyticsScreenView(
+    void upgrade() {
+      ref.read(analyticsProvider).capture(
+        AnalyticsEvents.upgradeTapped,
+        {'source': 'usage_banner'},
+      );
+      context.goNamed(ComparePlansScreen.name);
+    }
+
+    Widget meter = UsageMeter(used: c.used, limit: c.limit, onUpgrade: upgrade);
+    if (c.percentage >= 75) {
+      final level = c.percentage >= 100
+          ? 'blocked'
+          : (c.percentage >= 90 ? 'urgent' : 'soft');
+      meter = AnalyticsScreenView(
         // Blocked (100%) is the hard stop; below that it's a warning.
-        event: level == UsageLevel.blocked
+        event: level == 'blocked'
             ? AnalyticsEvents.usageLimitReached
             : AnalyticsEvents.usageLimitWarningShown,
-        properties: {'feature': 'outfits', 'level': level.name},
-        child: UsageWarningBanner(
-          used: c.used,
-          total: c.limit,
-          level: level,
-          onUpgrade: () {
-            ref.read(analyticsProvider).capture(
-              AnalyticsEvents.upgradeTapped,
-              {'source': 'usage_banner'},
-            );
-            context.goNamed(ComparePlansScreen.name);
-          },
-        ),
-      ),
-      const SizedBox(height: 20),
-    ];
+        properties: {'feature': 'outfits', 'level': level},
+        child: meter,
+      );
+    }
+    return [meter];
   }
 
-  String _weatherHint(double t) {
-    if (t < 5) return 'Bundle up — it’s cold out.';
-    if (t < 15) return 'Cool out — layer up.';
-    if (t < 24) return 'Mild — light layers work well.';
-    return 'Warm — keep it light and breezy.';
+  /// "Your next 7 days". Day plans aren't stored yet, so today (styled daily)
+  /// is the only filled day and every other day asks for a plan.
+  Widget _weekStrip(TodayDashboard dashboard) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final days = [
+      for (var i = 0; i < 7; i++)
+        WeekDayCell(
+          date: DateTime(today.year, today.month, today.day + i),
+          status: i == 0 ? WeekDayStatus.today : WeekDayStatus.open,
+        ),
+    ];
+    void plan() => _comingSoon('Planning your week');
+    return WeekPlanStrip(
+      days: days,
+      onPlanWeek: plan,
+      onDayTap: (_) => plan(),
+      tomorrow: const TomorrowSummary(
+        title: 'Tomorrow · No plan yet',
+        subtitle: "Tell us what's on and we'll style it tonight",
+        actionLabel: 'Plan',
+        planned: false,
+      ),
+      onTomorrowAction: plan,
+    );
+  }
+
+  /// "Shop the look": unowned pieces from today's outfits first (they are
+  /// literally this look), topped up from the Shop feed; plus the biggest
+  /// wardrobe gap. Both sources are best-effort — hidden while loading/failed.
+  Widget? _shopSection(TodayDashboard dashboard) {
+    final picks = <ShopPick>[];
+    final seen = <String>{};
+    for (final outfit in dashboard.outfits) {
+      for (final item in outfit.items) {
+        final url = item.productUrl;
+        final cents = item.priceCents;
+        if (url == null || cents == null || !seen.add(url)) continue;
+        picks.add(ShopPick(
+          name: item.name,
+          imageUrl: item.primaryImageUrl,
+          category: item.category,
+          priceText: ShopPick.formatPrice(cents, item.currency ?? 'CAD'),
+          url: url,
+        ));
+      }
+    }
+    final feed = ref.watch(shopFeedProvider).valueOrNull;
+    for (final p in feed?.products ?? const []) {
+      if (picks.length >= 3) break;
+      if (p.productUrl.isEmpty || !seen.add(p.productUrl)) continue;
+      picks.add(ShopPick(
+        name: p.name,
+        imageUrl: p.imageUrl,
+        category: p.category,
+        priceText: ShopPick.formatPrice(p.priceCents, p.currency),
+        url: p.productUrl,
+      ));
+    }
+
+    final topGap =
+        ref.watch(gapAnalysisProvider).valueOrNull?.gaps.firstOrNull;
+    final gap = topGap == null
+        ? null
+        : GapPick(
+            title: 'Fill a gap: ${topGap.category}',
+            body: topGap.outfitsUnlocked > 1
+                ? '${topGap.reason} One new piece unlocks about '
+                    '${topGap.outfitsUnlocked} outfits with what you own.'
+                : topGap.reason,
+          );
+
+    if (picks.isEmpty && gap == null) return null;
+    return TodayShopSection(
+      picks: picks,
+      gap: gap,
+      onPickTap: (p) => openProductLink(context, p.url),
+      onViewGap: () => context.goNamed(GapAnalysisScreen.name),
+    );
+  }
+
+  /// Backend vocabulary: clear | cloudy | fog | rain | snow | thunderstorm |
+  /// unknown (the last is left off the pill).
+  String? _conditionLabel(String condition) {
+    final c = condition.trim();
+    if (c.isEmpty || c.toLowerCase() == 'unknown') return null;
+    return '${c[0].toUpperCase()}${c.substring(1)}';
   }
 
   IconData _weatherIcon(String condition) {
@@ -541,48 +569,116 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   }
 }
 
+/// Pinned "Today" bar: serif title, notifications bell, profile avatar.
+class _TodayAppBar extends StatelessWidget {
+  final VoidCallback onNotifications;
+  final VoidCallback onProfile;
+  const _TodayAppBar({required this.onNotifications, required this.onProfile});
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverAppBar(
+      pinned: true,
+      automaticallyImplyLeading: false,
+      backgroundColor: AppColors.ivory,
+      surfaceTintColor: Colors.transparent,
+      scrolledUnderElevation: 2,
+      shadowColor: const Color(0x14512F1B),
+      toolbarHeight: 60,
+      centerTitle: false,
+      titleSpacing: 24,
+      title: Text(
+        'Today',
+        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: AppColors.espressoDark,
+              fontWeight: FontWeight.w500,
+            ),
+      ),
+      actions: [
+        IconButton(
+          tooltip: 'Notifications',
+          icon: const Icon(Icons.notifications_none,
+              color: AppColors.espressoDark),
+          onPressed: onNotifications,
+        ),
+        const SizedBox(width: 4),
+        Semantics(
+          button: true,
+          label: 'Profile',
+          child: InkResponse(
+            onTap: onProfile,
+            radius: 24,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: AppColors.espressoDark,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.person_outline,
+                  color: AppColors.white, size: 20),
+            ),
+          ),
+        ),
+        const SizedBox(width: _gutter),
+      ],
+    );
+  }
+}
+
 /// First-paint skeleton shown only briefly while the (fast) read-only frame
 /// loads and no cached dashboard is available — never a full-screen spinner.
 class _FrameLoading extends StatelessWidget {
-  const _FrameLoading();
+  final Widget appBar;
+  const _FrameLoading({required this.appBar});
 
   @override
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
-        SliverToBoxAdapter(child: _TopBar()),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+        appBar,
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(_gutter, 8, _gutter, 0),
           sliver: SliverList(
-            delegate: SliverChildListDelegate.fixed(const [
-              // These two bars stand in for the greeting, so their metrics
-              // mirror it exactly — headlineLarge (32 x 1.25 = 40) + 4 +
-              // bodyMedium (14 x 1.43 = 20) — otherwise the heading visibly
-              // jumps when the frame lands. Align is what makes the width
-              // stick: ShimmerSkeleton sizes itself with a Container, and a
-              // Container's width loses to the tight cross-axis constraints a
-              // SliverList child is handed, so the bars would stretch full
-              // bleed and then snap back to the text width.
+            delegate: SliverChildListDelegate.fixed([
+              // These bars stand in for the greeting + date, so their metrics
+              // mirror it — otherwise the heading visibly jumps when the frame
+              // lands. Align is what makes the width stick: ShimmerSkeleton
+              // sizes itself with a Container, whose width loses to the tight
+              // cross-axis constraints a SliverList child is handed.
               Align(
                 alignment: Alignment.centerLeft,
                 child: SizedBox(
-                  width: 220,
+                  width: 240,
                   child: ShimmerSkeleton(
-                    height: 40,
+                    height: 36,
                     borderRadius: BorderRadius.all(Radius.circular(8)),
                   ),
                 ),
               ),
-              SizedBox(height: 4),
+              SizedBox(height: 6),
               Align(
                 alignment: Alignment.centerLeft,
-                child: SizedBox(width: 160, child: ShimmerSkeleton(height: 20)),
+                child: SizedBox(width: 90, child: ShimmerSkeleton(height: 14)),
               ),
-              SizedBox(height: 20),
-              OutfitCardSkeleton(),
+              SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: 200,
+                  child: ShimmerSkeleton(
+                    height: 28,
+                    borderRadius: BorderRadius.all(Radius.circular(999)),
+                  ),
+                ),
+              ),
               SizedBox(height: 24),
-              OutfitCardSkeleton(),
             ]),
+          ),
+        ),
+        const SliverToBoxAdapter(
+          child: OutfitCarousel(
+            children: [OutfitCardSkeleton(), OutfitCardSkeleton()],
           ),
         ),
       ],
@@ -627,8 +723,13 @@ class _AddItemsEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: todayCardShadow,
+      ),
       child: Column(
         children: [
           const Icon(Icons.checkroom_outlined, color: AppColors.taupe, size: 44),
@@ -653,84 +754,18 @@ class _AddItemsEmptyState extends StatelessWidget {
   }
 }
 
-/// Shown when the active occasion chip has no generated outfit — offers
-/// on-demand generation for exactly that occasion. Tapping flips the slot to
-/// the usual skeleton via `pendingOccasions`.
-class _FilteredEmptyMessage extends StatelessWidget {
-  final String label;
-  final VoidCallback onGenerate;
-  const _FilteredEmptyMessage({required this.label, required this.onGenerate});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Column(
-        children: [
-          const Icon(Icons.filter_alt_outlined,
-              color: AppColors.taupe, size: 36),
-          const SizedBox(height: 10),
-          Text(
-            "No $label pick in today's outfits.",
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 14),
-          Material(
-            color: AppColors.espresso,
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              onTap: onGenerate,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                child: Text(
-                  'Generate $label Look',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppColors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Switch to All to see everything we styled today.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: AppColors.taupe),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TopBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return ZouraTopBar(
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_outlined,
-              color: AppColors.espresso),
-          onPressed: () => debugPrint('today: notifications'),
-        ),
-      ],
-    );
-  }
-}
-
 class _Greeting extends StatelessWidget {
   final String name;
-  const _Greeting({required this.name});
+  final VoidCallback onFavourites;
+  const _Greeting({required this.name, required this.onFavourites});
 
-  String get _prefix {
-    final h = DateTime.now().hour;
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  String _prefix(DateTime now) {
+    final h = now.hour;
     if (h < 12) return 'Good morning';
     if (h < 17) return 'Good afternoon';
     return 'Good evening';
@@ -738,99 +773,105 @@ class _Greeting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final now = DateTime.now();
+    final date =
+        '${weekdayShort(now)}, ${_months[now.month - 1]} ${now.day}'.toUpperCase();
+    final text = Theme.of(context).textTheme;
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '$_prefix, $name',
-          style: Theme.of(context).textTheme.headlineLarge,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${_prefix(now)}, $name',
+                style: text.headlineLarge?.copyWith(
+                  color: AppColors.espressoDark,
+                  fontWeight: FontWeight.w700,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                date,
+                style: text.labelMedium?.copyWith(
+                  color: AppColors.taupe,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Your daily personalized style curation is ready.',
-          style: Theme.of(context).textTheme.bodyMedium,
+        const SizedBox(width: 12),
+        Material(
+          color: AppColors.ivoryWarm,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onFavourites,
+            child: const SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(Icons.favorite_border,
+                  color: AppColors.espressoDark, size: 22),
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-class _OccasionChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _OccasionChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+/// "Today's outfits · N ideas for you" + the "My outfits" link.
+class _OutfitsHeader extends StatelessWidget {
+  final String status;
+  final VoidCallback onMyOutfits;
+  const _OutfitsHeader({required this.status, required this.onMyOutfits});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.espresso : AppColors.sand,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-          child: Center(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: selected ? AppColors.white : AppColors.inkSoft,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _QuickActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.ivory,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppColors.taupeSoft),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: SizedBox(
-          height: 48,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+    final text = Theme.of(context).textTheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: AppColors.espresso, size: 18),
-              const SizedBox(width: 8),
               Text(
-                label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.espresso,
-                      fontWeight: FontWeight.w700,
-                    ),
+                "Today's outfits",
+                style: text.headlineSmall?.copyWith(
+                  color: AppColors.espressoDark,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
+              Text(status, style: text.bodySmall),
             ],
           ),
         ),
-      ),
+        TextButton(
+          onPressed: onMyOutfits,
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.espresso,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            minimumSize: const Size(48, 48),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.checkroom, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                'My outfits',
+                style: text.labelLarge?.copyWith(color: AppColors.espresso),
+              ),
+              const Icon(Icons.chevron_right, size: 16),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

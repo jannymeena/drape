@@ -36,6 +36,10 @@ class AppColors {
   static const Color gold = Color(0xFFE4BA77);
   static const Color goldSoft = Color(0xFFEBC07D);
 
+  // ─── Accent: mist (weather chips on Today) ──────────────────────
+  static const Color mist = Color(0xFFEAF0F4);
+  static const Color mistInk = Color(0xFF3E5566);
+
   // ─── Status ─────────────────────────────────────────────────────
   static const Color error = Color(0xFFBA1A1A);
   static const Color errorContainer = Color(0xFFFFDAD6);

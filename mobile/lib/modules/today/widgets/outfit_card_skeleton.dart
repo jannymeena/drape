@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
+import 'outfit_card.dart';
 
 const _cardDecoration = BoxDecoration(
-  color: Color(0xFFFDF2E8),
-  borderRadius: BorderRadius.all(Radius.circular(24)),
-  boxShadow: [
-    BoxShadow(color: Color(0x0F2A1810), blurRadius: 48, offset: Offset(0, 24)),
-  ],
+  color: AppColors.white,
+  borderRadius: BorderRadius.all(Radius.circular(20)),
+  boxShadow: todayCardShadow,
 );
 
+const _r8 = BorderRadius.all(Radius.circular(8));
+
 /// Placeholder shown while an occasion's outfit is being generated. Mirrors
-/// [OutfitCard]'s shell (same container, 2×2 grid, reasoning + action rows) so
-/// the swap to the real card is seamless.
+/// [OutfitCard]'s shell (same container, 260dp hero, title/reason/chip rows,
+/// CTA + action row) so the swap to the real card is seamless.
 class OutfitCardSkeleton extends StatelessWidget {
   const OutfitCardSkeleton({super.key, this.occasionLabel});
 
@@ -25,32 +26,15 @@ class OutfitCardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: _cardDecoration,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Stack(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  color: AppColors.ivoryWarm,
-                  padding: const EdgeInsets.all(6),
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 6,
-                    mainAxisSpacing: 6,
-                    childAspectRatio: 1,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: List.generate(
-                      4,
-                      (_) => const ShimmerSkeleton(
-                        borderRadius: BorderRadius.all(Radius.circular(8)),
-                      ),
-                    ),
-                  ),
-                ),
+              const ShimmerSkeleton(
+                height: 260,
+                borderRadius: BorderRadius.all(Radius.circular(12)),
               ),
               if (occasionLabel != null)
                 Positioned(
@@ -58,49 +42,49 @@ class OutfitCardSkeleton extends StatelessWidget {
                   left: 12,
                   child: Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.tanFixed,
+                      color: AppColors.ivory.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
                       'STYLING ${occasionLabel!.toUpperCase()}…',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.espresso,
-                            letterSpacing: 1.2,
-                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                            fontSize: 11,
+                            letterSpacing: 1.1,
                           ),
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 20),
-          const ShimmerSkeleton(
-            height: 80,
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: const [
-              Expanded(
-                child: ShimmerSkeleton(
-                    height: 44,
-                    borderRadius: BorderRadius.all(Radius.circular(12))),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: ShimmerSkeleton(
-                    height: 44,
-                    borderRadius: BorderRadius.all(Radius.circular(12))),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: ShimmerSkeleton(
-                    height: 44,
-                    borderRadius: BorderRadius.all(Radius.circular(12))),
-              ),
-            ],
+          const Padding(
+            padding: EdgeInsets.fromLTRB(8, 14, 8, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 180, child: ShimmerSkeleton(height: 26, borderRadius: _r8)),
+                SizedBox(height: 6),
+                SizedBox(width: 150, child: ShimmerSkeleton(height: 14)),
+                SizedBox(height: 12),
+                ShimmerSkeleton(height: 40, borderRadius: _r8),
+                SizedBox(height: 12),
+                SizedBox(width: 220, child: ShimmerSkeleton(height: 22, borderRadius: BorderRadius.all(Radius.circular(999)))),
+                SizedBox(height: 12),
+                ShimmerSkeleton(height: 48, borderRadius: BorderRadius.all(Radius.circular(12))),
+                SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(child: ShimmerSkeleton(height: 36, borderRadius: _r8)),
+                    SizedBox(width: 8),
+                    Expanded(child: ShimmerSkeleton(height: 36, borderRadius: _r8)),
+                    SizedBox(width: 8),
+                    Expanded(child: ShimmerSkeleton(height: 36, borderRadius: _r8)),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -109,7 +93,7 @@ class OutfitCardSkeleton extends StatelessWidget {
 }
 
 /// Card-shaped error slot shown when one occasion's generation failed. Keeps the
-/// list layout stable and offers a scoped retry — the rest of the dashboard is
+/// carousel stable and offers a scoped retry — the rest of the dashboard is
 /// unaffected.
 class OutfitOccasionRetryCard extends StatelessWidget {
   const OutfitOccasionRetryCard({
@@ -129,7 +113,7 @@ class OutfitOccasionRetryCard extends StatelessWidget {
       decoration: _cardDecoration,
       padding: const EdgeInsets.all(24),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.refresh_rounded, color: AppColors.taupe, size: 36),
           const SizedBox(height: 12),

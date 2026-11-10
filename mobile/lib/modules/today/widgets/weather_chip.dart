@@ -4,81 +4,59 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../models/today_dashboard.dart';
 
-/// Today dashboard weather widget — temperature + condition + hint + chevron,
-/// plus the source credit when the provider requires one (WeatherKit terms:
-/// Apple Weather mark + a link to its data-sources page).
-class WeatherChip extends StatelessWidget {
-  final String temperature;
-  final String condition;
-  final String hint;
-  final String? location;
-  final IconData icon;
-  final VoidCallback? onTap;
-  final WeatherAttribution? attribution;
+enum TodayChipTone {
+  /// Mist-blue — weather facts ("8°C, feels 5° · Rain").
+  weather,
 
-  const WeatherChip({
+  /// Warm neutral — the day's plan ("Parents' meeting · Smart casual").
+  plan,
+}
+
+/// One of the context pills under the Today greeting.
+class TodayContextChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final TodayChipTone tone;
+  final VoidCallback? onTap;
+
+  const TodayContextChip({
     super.key,
-    required this.temperature,
-    required this.condition,
-    required this.hint,
-    this.location,
-    this.icon = Icons.cloud_outlined,
+    required this.icon,
+    required this.label,
+    this.tone = TodayChipTone.weather,
     this.onTap,
-    this.attribution,
   });
 
   @override
   Widget build(BuildContext context) {
+    final weather = tone == TodayChipTone.weather;
+    final bg = weather ? AppColors.mist : AppColors.ivoryWarm;
+    final fg = weather ? AppColors.mistInk : AppColors.ink;
+    final iconColor = weather ? AppColors.mistInk : AppColors.espressoDark;
     return Material(
-      color: AppColors.tanFixed.withValues(alpha: 0.6),
-      borderRadius: BorderRadius.circular(20),
+      color: bg,
+      borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(999),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: AppColors.espresso, size: 26),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$temperature • $condition',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.espresso,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      hint,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (attribution != null) ...[
-                      const SizedBox(height: 6),
-                      _Attribution(attribution: attribution!),
-                    ],
-                  ],
-                ),
-              ),
-              if (location != null) ...[
-                const SizedBox(width: 8),
-                Text(
-                  location!.toUpperCase(),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.inkSoft,
-                        letterSpacing: 1.2,
+              Icon(icon, size: 16, color: iconColor),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: fg,
+                        fontWeight: weather ? FontWeight.w600 : FontWeight.w500,
                       ),
                 ),
-              ] else
-                const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.espresso,
-                  size: 22,
-                ),
+              ),
             ],
           ),
         ),
@@ -87,11 +65,13 @@ class WeatherChip extends StatelessWidget {
   }
 }
 
-/// "[ Weather] · Data sources" — the whole row opens the legal page. The
-/// mark falls back to the service name as text if the logo can't load.
-class _Attribution extends StatelessWidget {
+/// "[ Weather] · Data sources" — the source credit the weather provider
+/// requires (WeatherKit terms: Apple Weather mark + a link to its data-sources
+/// page). The whole row opens the legal page; the mark falls back to the
+/// service name as text if the logo can't load.
+class WeatherAttributionLine extends StatelessWidget {
   final WeatherAttribution attribution;
-  const _Attribution({required this.attribution});
+  const WeatherAttributionLine({super.key, required this.attribution});
 
   Future<void> _openLegal() async {
     final uri = Uri.tryParse(attribution.legalUrl);
@@ -103,7 +83,8 @@ class _Attribution extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: AppColors.inkSoft,
+          color: AppColors.taupe,
+          letterSpacing: 0.2,
         );
     return Semantics(
       button: true,
@@ -115,11 +96,11 @@ class _Attribution extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // The app has no dark theme and the chip is always light, so the
+            // The app has no dark theme and the page is always light, so the
             // dark-on-light ("light") logo variant is the right one.
             Image.network(
               attribution.logoLightUrl,
-              height: 14,
+              height: 12,
               errorBuilder: (_, _, _) =>
                   Text(attribution.serviceName, style: style),
             ),
