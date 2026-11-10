@@ -243,6 +243,22 @@ void main() {
     expect(find.text('6 days to plan'), findsOneWidget);
     expect(find.text('Add plan'), findsNWidgets(6));
     expect(find.text('Today'), findsOneWidget);
+    // No legend, no calendar row, and Done is text only.
+    expect(find.textContaining('Filled = planned'), findsNothing);
+    expect(find.text('Import from my calendar'), findsNothing);
+    expect(find.byIcon(Icons.check), findsNothing);
+    // "Add plan" fills the row's middle and matches the date tile's height.
+    final addPlan = find
+        .ancestor(of: find.text('Add plan').first, matching: find.byType(SizedBox))
+        .first;
+    expect(tester.getSize(addPlan).height, 56);
+    final row = find
+        .ancestor(of: find.text('Add plan').first, matching: find.byType(Row))
+        .at(1); // tile · add plan · chevron
+    final chevron = tester.getRect(find
+        .descendant(of: row, matching: find.byIcon(Icons.chevron_right)));
+    // From the date tile (56 + 12 gap) to just before the chevron (8 gap).
+    expect(tester.getRect(addPlan).right, closeTo(chevron.left - 8, 0.5));
 
     await tester.tap(find.text('Weekend: Day off'));
     await tester.pump();

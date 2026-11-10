@@ -11,8 +11,8 @@ import '../widgets/plan_day_sheet.dart';
 import '../widgets/weather_chip.dart';
 
 /// Plan your week (Stitch `plan_your_week_zoura`): progress, quick-start
-/// presets, one row per day (tap → Plan the day), calendar import (coming
-/// soon), Done. UI-only — plans live in [dayPlansProvider].
+/// presets, one row per day (tap → Plan the day), Done. UI-only — plans
+/// live in [dayPlansProvider].
 class PlanWeekScreen extends ConsumerWidget {
   static const path = 'plan-week';
   static const name = 'plan_week';
@@ -81,8 +81,11 @@ class PlanWeekScreen extends ConsumerWidget {
                 children: [
                   IconButton(
                     tooltip: 'Back',
-                    icon: const Icon(Icons.chevron_left,
-                        size: 28, color: AppColors.espressoDark),
+                    icon: const Icon(
+                      Icons.chevron_left,
+                      size: 28,
+                      color: AppColors.espressoDark,
+                    ),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
                   Expanded(
@@ -109,7 +112,11 @@ class PlanWeekScreen extends ConsumerWidget {
                     style: text.bodyMedium,
                   ),
                   const SizedBox(height: 16),
-                  _ProgressCard(planned: planned, total: days.length, toPlan: toPlan),
+                  _ProgressCard(
+                    planned: planned,
+                    total: days.length,
+                    toPlan: toPlan,
+                  ),
                   const SizedBox(height: 20),
                   Text(
                     'QUICK START',
@@ -130,16 +137,25 @@ class PlanWeekScreen extends ConsumerWidget {
                         _PresetChip(
                           icon: Icons.work_outline,
                           label: 'Weekdays: Work day',
-                          onTap: () => _preset(context, ref, days,
-                              when: _isWeekday, occasion: DayOccasion.workDay),
+                          onTap: () => _preset(
+                            context,
+                            ref,
+                            days,
+                            when: _isWeekday,
+                            occasion: DayOccasion.workDay,
+                          ),
                         ),
                         const SizedBox(width: 8),
                         _PresetChip(
                           icon: Icons.wb_sunny_outlined,
                           label: 'Weekend: Day off',
-                          onTap: () => _preset(context, ref, days,
-                              when: (d) => !_isWeekday(d),
-                              occasion: DayOccasion.dayOff),
+                          onTap: () => _preset(
+                            context,
+                            ref,
+                            days,
+                            when: (d) => !_isWeekday(d),
+                            occasion: DayOccasion.dayOff,
+                          ),
                         ),
                         const SizedBox(width: 8),
                         _PresetChip(
@@ -164,21 +180,15 @@ class PlanWeekScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                   ],
-                  const SizedBox(height: 8),
-                  Text(
-                    'Filled = planned · Dashed = needs a plan · Tap a row to edit',
-                    textAlign: TextAlign.center,
-                    style: text.bodySmall,
-                  ),
-                  const SizedBox(height: 16),
-                  const _CalendarImportRow(),
                 ],
               ),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: _DoneBar(onDone: () => Navigator.of(context).maybePop()),
+      bottomNavigationBar: _DoneBar(
+        onDone: () => Navigator.of(context).maybePop(),
+      ),
     );
   }
 }
@@ -200,7 +210,7 @@ class _ProgressCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.sand),
         boxShadow: _rowShadow,
       ),
@@ -250,7 +260,11 @@ class _PresetChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _PresetChip({required this.icon, required this.label, required this.onTap});
+  const _PresetChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -270,9 +284,9 @@ class _PresetChip extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.espressoDeep,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  color: AppColors.espressoDeep,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -298,7 +312,8 @@ class _DayRow extends StatelessWidget {
     final filled = plan != null || isToday;
     return Semantics(
       button: true,
-      label: '${weekdayLong(date)} ${date.day}, '
+      label:
+          '${weekdayLong(date)} ${date.day}, '
           '${plan?.title ?? (isToday ? "today's picks" : 'needs a plan')}',
       excludeSemantics: true,
       child: Material(
@@ -342,30 +357,28 @@ class _DayRow extends StatelessWidget {
                               ),
                             ],
                           )
-                        : Align(
-                            alignment: Alignment.centerLeft,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 190),
-                              child: DashedOutline(
-                                color: AppColors.taupe,
-                                fill: AppColors.white,
-                                child: SizedBox(
-                                  height: 48,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.add,
-                                          size: 18, color: AppColors.espresso),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'Add plan',
-                                        style: text.titleSmall?.copyWith(
-                                          color: AppColors.espresso,
-                                        ),
-                                      ),
-                                    ],
+                        // Full width, and as tall as the date tile beside it.
+                        : DashedOutline(
+                            color: AppColors.taupe,
+                            fill: AppColors.white,
+                            child: SizedBox(
+                              height: _DateTile.size,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.add,
+                                    size: 18,
+                                    color: AppColors.espresso,
                                   ),
-                                ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Add plan',
+                                    style: text.titleSmall?.copyWith(
+                                      color: AppColors.espresso,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -383,18 +396,25 @@ class _DayRow extends StatelessWidget {
 }
 
 class _DateTile extends StatelessWidget {
+  /// Square tile edge; the "Add plan" button matches its height.
+  static const size = 56.0;
+
   final DateTime date;
   final bool filled;
   final bool isToday;
-  const _DateTile({required this.date, required this.filled, required this.isToday});
+  const _DateTile({
+    required this.date,
+    required this.filled,
+    required this.isToday,
+  });
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final fg = filled ? AppColors.white : AppColors.espressoDeep;
     final content = SizedBox(
-      width: 56,
-      height: 56,
+      width: size,
+      height: size,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -489,55 +509,12 @@ class _PlanChip extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: AppColors.espressoDeep,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(color: AppColors.espressoDeep),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CalendarImportRow extends StatelessWidget {
-  const _CalendarImportRow();
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Opacity(
-      opacity: 0.9,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.ivoryDim,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.calendar_today_outlined,
-                size: 20, color: AppColors.inkSoft),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Import from my calendar',
-                style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.ivoryWarm,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                'Coming soon',
-                style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -581,19 +558,13 @@ class _DoneBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
                   height: 56,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Done',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(color: AppColors.white),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.check, size: 20, color: AppColors.white),
-                    ],
+                  child: Center(
+                    child: Text(
+                      'Done',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleMedium?.copyWith(color: AppColors.white),
+                    ),
                   ),
                 ),
               ),
