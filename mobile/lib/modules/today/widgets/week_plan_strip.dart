@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/theme/app_typography.dart';
 import '../models/day_plan.dart';
 import 'outfit_card.dart';
 
@@ -76,9 +77,10 @@ class WeekPlanStrip extends StatelessWidget {
             Expanded(
               child: Text(
                 'Your next 7 days',
-                style: text.headlineSmall?.copyWith(
-                  color: AppColors.espressoDark,
-                  fontWeight: FontWeight.w700,
+                // Newsreader, like the greeting and the other Today titles;
+                // lining figures so the 7 doesn't sit low.
+                style: AppTypography.sectionTitle.copyWith(
+                  fontFeatures: const [FontFeature.liningFigures()],
                 ),
               ),
             ),

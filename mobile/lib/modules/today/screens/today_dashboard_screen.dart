@@ -27,6 +27,8 @@ import '../models/log_outfit_result.dart';
 import '../models/outfit.dart';
 import '../models/today_dashboard.dart';
 import '../models/usage.dart';
+import '../../notifications/notifications_controller.dart';
+import '../../notifications/screens/notifications_screen.dart';
 import '../today_controller.dart';
 import '../widgets/mix_match_sheet.dart';
 import '../widgets/outfit_card.dart';
@@ -246,12 +248,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
                 ..._contextChips(dashboard),
                 ..._resumeBanner(),
                 ..._starterBanner(),
-                const SizedBox(height: 24),
-                _OutfitsHeader(
-                  status: _picksStatusLabel(state, dashboard),
-                  onMyOutfits: () => context.goNamed(OutfitHistoryScreen.name),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 20),
                 if (!dashboard.wardrobeReady) const _AddItemsEmptyState(),
               ]),
             ),
@@ -259,7 +256,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
           if (dashboard.wardrobeReady)
             SliverToBoxAdapter(child: OutfitCarousel(children: cards)),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, 40),
+            padding: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, 16),
             sliver: SliverList(
               delegate: SliverChildListDelegate.fixed([
                 ..._usageMeter(state.usage),
@@ -271,7 +268,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
                 ],
                 if (dashboard.weather != null &&
                     dashboard.weatherAttribution != null) ...[
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   // WeatherKit: the Apple Weather mark + data-sources link
                   // must be shown wherever its data is; Apple sets no
                   // placement, so it closes the screen that shows the pill.
@@ -291,7 +288,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
 
   Widget _appBar() {
     return _TodayAppBar(
-      onNotifications: () => _comingSoon('Notifications'),
+      unreadNotifications: ref.watch(unreadNotificationsProvider),
+      onNotifications: () => context.pushNamed(NotificationsScreen.name),
       // Favourites isn't built yet — Outfit History holds the saved looks.
       onFavourites: () => context.goNamed(OutfitHistoryScreen.name),
     );
@@ -306,19 +304,6 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   int _occasionRank(TodayDashboard dashboard, String occasion) {
     final i = dashboard.occasions.indexWhere((o) => o.key == occasion);
     return i == -1 ? dashboard.occasions.length : i;
-  }
-
-  /// The "Today's outfits" subline — generation progress while filling,
-  /// otherwise the idea count.
-  String _picksStatusLabel(TodayState state, TodayDashboard dashboard) {
-    if (!dashboard.wardrobeReady) return 'Add a few pieces to get started';
-    final done = dashboard.outfits.length;
-    if (state.pendingOccasions.isNotEmpty) {
-      final total =
-          done + state.pendingOccasions.length + state.failedOccasions.length;
-      return 'Styling $done of $total…';
-    }
-    return done == 1 ? '1 idea for you' : '$done ideas for you';
   }
 
   /// The carousel: real outfit cards, then a skeleton per occasion still
@@ -613,9 +598,13 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
 class _TodayAppBar extends StatelessWidget {
   final VoidCallback onNotifications;
   final VoidCallback onFavourites;
+
+  /// Unread count; > 0 puts a red dot on the bell.
+  final int unreadNotifications;
   const _TodayAppBar({
     required this.onNotifications,
     required this.onFavourites,
+    this.unreadNotifications = 0,
   });
 
   @override
@@ -639,9 +628,16 @@ class _TodayAppBar extends StatelessWidget {
       ),
       actions: [
         IconButton(
-          tooltip: 'Notifications',
-          icon: const Icon(Icons.notifications_none,
-              color: AppColors.espressoDark),
+          tooltip: unreadNotifications > 0
+              ? 'Notifications, $unreadNotifications unread'
+              : 'Notifications',
+          icon: Badge(
+            isLabelVisible: unreadNotifications > 0,
+            smallSize: 8,
+            backgroundColor: const Color(0xFFC24040),
+            child: const Icon(Icons.notifications_none,
+                color: AppColors.espressoDark),
+          ),
           onPressed: onNotifications,
         ),
         IconButton(
@@ -835,58 +831,6 @@ class _Greeting extends StatelessWidget {
               ),
             ],
           ],
-        ),
-      ],
-    );
-  }
-}
-
-/// "Today's outfits · N ideas for you" + the "My outfits" link.
-class _OutfitsHeader extends StatelessWidget {
-  final String status;
-  final VoidCallback onMyOutfits;
-  const _OutfitsHeader({required this.status, required this.onMyOutfits});
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Today's outfits",
-                style: text.headlineSmall?.copyWith(
-                  color: AppColors.espressoDark,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(status, style: text.bodySmall),
-            ],
-          ),
-        ),
-        TextButton(
-          onPressed: onMyOutfits,
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.espresso,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            minimumSize: const Size(48, 48),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.checkroom, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                'My outfits',
-                style: text.labelLarge?.copyWith(color: AppColors.espresso),
-              ),
-              const Icon(Icons.chevron_right, size: 16),
-            ],
-          ),
         ),
       ],
     );

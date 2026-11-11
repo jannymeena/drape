@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../models/outfit.dart';
 import 'outfit_collage.dart';
@@ -270,11 +271,7 @@ class OutfitCard extends StatelessWidget {
                         outfit.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: text.headlineSmall?.copyWith(
-                          color: AppColors.espressoDark,
-                          fontWeight: FontWeight.w700,
-                          height: 1.15,
-                        ),
+                        style: AppTypography.sectionTitle,
                       ),
                     ),
                     if (outfit.matchScore != null) ...[

@@ -101,6 +101,11 @@ class AppTypography {
   static TextStyle get greeting =>
       _newsreader(size: 30, letterSpacing: -0.75);
 
+  /// Today's card + section titles ("Work look", "Shop the look"): the
+  /// mock's `text-2xl font-semibold tracking-tight` — 24, semibold, -0.025em.
+  static TextStyle get sectionTitle =>
+      _newsreader(size: 24, letterSpacing: -0.6);
+
   /// Pushed Today screens' centred title ("Plan your week"): 24, semibold,
   /// leading-tight — same face as the greeting.
   static TextStyle get screenTitle => _newsreader(size: 24);

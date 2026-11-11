@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import 'outfit_card.dart';
 
@@ -57,17 +58,13 @@ class TodayShopSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final shown = picks.take(3).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
           'Shop the look',
-          style: text.headlineSmall?.copyWith(
-            color: AppColors.espressoDark,
-            fontWeight: FontWeight.w700,
-          ),
+          style: AppTypography.sectionTitle,
         ),
         if (shown.isNotEmpty) ...[
           const SizedBox(height: 12),

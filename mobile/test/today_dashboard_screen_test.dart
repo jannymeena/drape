@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/modules/onboarding/models/onboarding_status.dart';
 import 'package:mobile/modules/onboarding/onboarding_service.dart';
+import 'package:mobile/modules/notifications/models/app_notification.dart';
+import 'package:mobile/modules/notifications/notifications_controller.dart';
 import 'package:mobile/modules/today/day_plans_controller.dart';
 import 'package:mobile/modules/today/models/day_plan.dart';
 import 'package:mobile/modules/today/models/outfit.dart';
@@ -110,8 +112,12 @@ Widget _host(
   OnboardingStatus? status,
   GapAnalysis? gaps,
   List<DayPlan> plans = const [],
+  List<AppNotification> notifications = const [],
 }) => ProviderScope(
   overrides: [
+    notificationsProvider.overrideWith(
+      (ref) => NotificationsController(notifications),
+    ),
     dayPlansProvider.overrideWith((ref) {
       final c = DayPlansController();
       plans.forEach(c.save);
@@ -174,7 +180,9 @@ void main() {
     // The old full-screen spinner is gone for good.
     expect(find.text('Curating your outfits…'), findsNothing);
     // Shell chrome rendered immediately.
-    expect(find.text("Today's outfits"), findsOneWidget);
+    // No "Today's outfits" header, idea count or "My outfits" link.
+    expect(find.text("Today's outfits"), findsNothing);
+    expect(find.text('My outfits'), findsNothing);
     expect(find.text('Today'), findsOneWidget); // app bar title
     // Favourites took the profile avatar's place (Profile is in the nav).
     expect(find.byTooltip('Favourites'), findsOneWidget);
@@ -199,7 +207,13 @@ void main() {
     // The lead look gets the filled CTA, the alternate the tonal one.
     expect(find.text('Wear this'), findsOneWidget);
     expect(find.text('Wear this instead'), findsOneWidget);
-    expect(find.text('2 ideas for you'), findsOneWidget);
+    expect(find.textContaining('ideas for you'), findsNothing);
+    // Card titles use the greeting's face (Newsreader 24, semibold, tight).
+    final title = tester.widget<Text>(find.text('Work look')).style!;
+    expect(title.fontFamily, startsWith('Newsreader'));
+    expect(title.fontSize, 24);
+    expect(title.fontWeight, FontWeight.w600);
+    expect(title.letterSpacing, -0.6);
   });
 
   testWidgets('pending occasions show a skeleton each in the carousel', (
@@ -212,7 +226,6 @@ void main() {
 
     expect(find.byType(OutfitCardSkeleton), findsNWidgets(2));
     expect(find.text('STYLING WORK…'), findsOneWidget);
-    expect(find.text('Styling 0 of 2…'), findsOneWidget);
   });
 
   testWidgets('shows the weekly usage meter for free users', (tester) async {
@@ -233,6 +246,11 @@ void main() {
     await _settle(tester);
 
     expect(find.text('Your next 7 days'), findsOneWidget);
+    final heading = tester.widget<Text>(find.text('Your next 7 days')).style!;
+    expect(heading.fontFamily, startsWith('Newsreader'));
+    expect(heading.fontSize, 24);
+    expect(heading.fontWeight, FontWeight.w600);
+    expect(heading.letterSpacing, -0.6);
     // No planned count and no legend line.
     expect(find.textContaining('of 7 planned'), findsNothing);
     expect(find.textContaining('Filled = planned'), findsNothing);
@@ -263,6 +281,9 @@ void main() {
 
     expect(find.text('Shop the look'), findsOneWidget);
     expect(find.text('Fill a gap: outerwear'), findsOneWidget);
+    final heading = tester.widget<Text>(find.text('Shop the look')).style!;
+    expect(heading.fontFamily, startsWith('Newsreader'));
+    expect(heading.fontSize, 24);
     // No picks count pill and no commission line on Today.
     expect(find.textContaining(RegExp(r'picks? for you')), findsNothing);
     expect(find.textContaining('commission'), findsNothing);
@@ -394,6 +415,24 @@ void main() {
     expect(tester.takeException(), isNull);
     final pill = tester.getRect(find.textContaining('feels -21°'));
     expect(pill.right, lessThanOrEqualTo(320 - 16));
+  });
+
+  testWidgets('the bell shows a dot while notifications are unread', (
+    tester,
+  ) async {
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    await tester.pumpWidget(
+      _host(
+        _StubService(_frame([])),
+        notifications: sampleNotifications(DateTime.now()),
+      ),
+    );
+    await _settle(tester);
+
+    expect(find.byTooltip('Notifications, 2 unread'), findsOneWidget);
+    final badge = tester.widget<Badge>(find.byType(Badge));
+    expect(badge.isLabelVisible, isTrue);
   });
 
   testWidgets('no shop section without picks or gaps', (tester) async {
