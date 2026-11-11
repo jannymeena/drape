@@ -31,6 +31,7 @@ import '../../my_outfits/screens/my_outfits_screen.dart';
 import '../../notifications/notifications_controller.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../today_controller.dart';
+import '../widgets/change_outfit_sheet.dart';
 import '../widgets/mix_match_sheet.dart';
 import '../widgets/outfit_card.dart';
 import '../widgets/outfit_card_skeleton.dart';
@@ -100,6 +101,19 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
       } else {
         _showError(e.message);
       }
+    }
+  }
+
+  /// Change it: Regenerate runs the card's regenerate; "Update this outfit"
+  /// (reasons + kept pieces) waits on the constrained-regenerate endpoint.
+  Future<void> _onChange(Outfit outfit) async {
+    final result = await ChangeOutfitSheet.show(context, outfit);
+    if (!mounted || result == null) return;
+    switch (result) {
+      case ChangeRegenerate():
+        await _onRegenerate(outfit.id);
+      case ChangeUpdate():
+        _comingSoon('Updating an outfit from your feedback');
     }
   }
 
@@ -342,7 +356,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
       onLogWorn: () => _onLogWorn(outfit.id),
       onShopTheLook: () => ShopTheLookSheet.show(context, outfit),
       onMix: () => MixMatchSheet.show(context, outfit),
-      onChange: () => _comingSoon('Change it'),
+      onChange: () => _onChange(outfit),
       onFavorite: () => _onFavorite(outfit.id),
       onLearnMore: () => context.goNamed(
         AiReasoningDetailScreen.name,

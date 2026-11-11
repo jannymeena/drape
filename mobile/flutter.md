@@ -79,7 +79,9 @@ final result = await AppBottomSheet.show<String>(
 
 **Uses it:** Plan a day (`modules/today/widgets/plan_day_sheet.dart`), Mix &
 match (`modules/today/widgets/mix_match_sheet.dart` — its Reset lives on the
-grid's helper line, since the title row is text-only).
+grid's helper line, since the title row is text-only), Change it
+(`modules/today/widgets/change_outfit_sheet.dart`). Mix & match and Change it
+use `heightFactor: 0.6`.
 **Not yet migrated:** Shop the look, product options, privacy,
 skip confirmation, cancellation reason, settings sheets, and the wardrobe
 pickers and scanner sheets.
