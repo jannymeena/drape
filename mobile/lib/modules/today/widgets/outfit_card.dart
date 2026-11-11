@@ -88,7 +88,7 @@ class OutfitCardData {
     return OutfitCardData(
       id: outfit.id,
       occasion: _dressLevel(outfit) ?? outfit.occasionLabel,
-      title: '${outfit.occasionLabel} look',
+      title: outfit.title ?? '${outfit.occasionLabel} look',
       items: [
         for (final i in outfit.items)
           GarmentCell(

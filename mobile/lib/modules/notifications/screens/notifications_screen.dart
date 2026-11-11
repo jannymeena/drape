@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_colors.dart';
-import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/drape_toast.dart';
+import '../../../shared/widgets/titled_screen_header.dart';
 import '../../profile/screens/notifications_preferences_screen.dart';
 import '../../profile/screens/profile_intelligence_screen.dart';
 import '../../today/models/day_plan.dart';
@@ -66,9 +66,12 @@ class NotificationsScreen extends ConsumerWidget {
         bottom: false,
         child: Column(
           children: [
-            _Header(
+            TitledScreenHeader(
+              title: 'Notifications',
               onBack: () => Navigator.of(context).maybePop(),
-              onSettings: () =>
+              actionIcon: Icons.settings_outlined,
+              actionTooltip: 'Notification settings',
+              onAction: () =>
                   context.goNamed(NotificationsPreferencesScreen.name),
               onProfile: () => context.goNamed(ProfileIntelligenceScreen.name),
             ),
@@ -142,84 +145,6 @@ class NotificationsScreen extends ConsumerWidget {
     if (d == 0) return clock;
     if (d >= -6) return '${weekdayShort(at)} $clock';
     return '${monthShort(at)} ${at.day}';
-  }
-}
-
-class _Header extends StatelessWidget {
-  final VoidCallback onBack;
-  final VoidCallback onSettings;
-  final VoidCallback onProfile;
-  const _Header({
-    required this.onBack,
-    required this.onSettings,
-    required this.onProfile,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 64,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Centred on the screen, not between the side controls.
-          Text(
-            'Notifications',
-            // Same title style as "Plan your week".
-            style: AppTypography.screenTitle,
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: 'Back',
-                  icon: const Icon(
-                    Icons.arrow_back_ios_new,
-                    size: 22,
-                    color: AppColors.ink,
-                  ),
-                  onPressed: onBack,
-                ),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Notification settings',
-                  icon: const Icon(
-                    Icons.settings_outlined,
-                    size: 22,
-                    color: AppColors.ink,
-                  ),
-                  onPressed: onSettings,
-                ),
-                const SizedBox(width: 4),
-                Semantics(
-                  button: true,
-                  label: 'Profile',
-                  child: InkResponse(
-                    onTap: onProfile,
-                    radius: 22,
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: const BoxDecoration(
-                        color: AppColors.espressoDark,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.person_outline,
-                        size: 18,
-                        color: AppColors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

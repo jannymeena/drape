@@ -135,6 +135,7 @@ class Outfit {
     required this.wornCount,
     this.isFavorite = false,
     this.shopTheLook = false,
+    this.title,
     this.imageUrl,
     this.aiReasoningShort,
     this.aiReasoningFull,
@@ -154,6 +155,10 @@ class Outfit {
   /// Some pieces aren't owned yet: the card offers "Shop the look" instead of
   /// "Wear this" (the backend refuses to log such an outfit).
   final bool shopTheLook;
+
+  /// The look's name ("Rainy-day layers"). Not sent by the backend yet
+  /// (BACKEND_CHANGES 1.0) — cards fall back to "`Occasion` look".
+  final String? title;
   final String? imageUrl;
   final String? aiReasoningShort;
   final String? aiReasoningFull;
@@ -184,6 +189,7 @@ class Outfit {
       wornCount: wornCount ?? this.wornCount,
       isFavorite: isFavorite ?? this.isFavorite,
       shopTheLook: (items ?? this.items).any((i) => i.isShopItem),
+      title: title,
       imageUrl: imageUrl,
       aiReasoningShort: aiReasoningShort,
       aiReasoningFull: aiReasoningFull,
@@ -213,6 +219,7 @@ class Outfit {
       isLogged: json['is_logged'] as bool? ?? false,
       wornCount: json['worn_count'] as int? ?? 0,
       isFavorite: json['is_favorite'] as bool? ?? false,
+      title: json['title'] as String?,
       imageUrl: ApiConfig.resolveImageUrl(json['image_url'] as String?),
       aiReasoningShort: json['ai_reasoning_short'] as String?,
       aiReasoningFull: json['ai_reasoning_full'] as String?,
@@ -233,6 +240,7 @@ class Outfit {
         'worn_count': wornCount,
         'is_favorite': isFavorite,
         'shop_the_look': shopTheLook,
+        'title': title,
         'image_url': imageUrl,
         'ai_reasoning_short': aiReasoningShort,
         'ai_reasoning_full': aiReasoningFull,

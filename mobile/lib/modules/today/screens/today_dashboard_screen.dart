@@ -27,6 +27,7 @@ import '../models/log_outfit_result.dart';
 import '../models/outfit.dart';
 import '../models/today_dashboard.dart';
 import '../models/usage.dart';
+import '../../favourites/screens/favourites_screen.dart';
 import '../../notifications/notifications_controller.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../today_controller.dart';
@@ -43,7 +44,6 @@ import '../widgets/usage_meter.dart';
 import '../widgets/weather_chip.dart';
 import '../widgets/week_plan_strip.dart';
 import 'ai_reasoning_detail_screen.dart';
-import 'outfit_history_screen.dart';
 import 'plan_week_screen.dart';
 
 /// Page gutter (Stitch `px-4`).
@@ -290,8 +290,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     return _TodayAppBar(
       unreadNotifications: ref.watch(unreadNotificationsProvider),
       onNotifications: () => context.pushNamed(NotificationsScreen.name),
-      // Favourites isn't built yet — Outfit History holds the saved looks.
-      onFavourites: () => context.goNamed(OutfitHistoryScreen.name),
+      onFavourites: () => context.pushNamed(FavouritesScreen.name),
     );
   }
 

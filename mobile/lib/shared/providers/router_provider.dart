@@ -85,6 +85,7 @@ import '../../modules/shop/screens/wishlist_screen.dart';
 import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
 import '../../modules/today/screens/outfit_history_screen.dart';
 import '../../modules/stylist/screens/stylist_screen.dart';
+import '../../modules/favourites/screens/favourites_screen.dart';
 import '../../modules/notifications/screens/notifications_screen.dart';
 import '../../modules/today/screens/plan_week_screen.dart';
 import '../../modules/today/screens/today_dashboard_screen.dart';
@@ -378,6 +379,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'history',
                     name: OutfitHistoryScreen.name,
                     builder: (_, _) => const OutfitHistoryScreen(),
+                  ),
+                  GoRoute(
+                    path: FavouritesScreen.path,
+                    name: FavouritesScreen.name,
+                    parentNavigatorKey: _rootNavKey,
+                    builder: (_, _) => const FavouritesScreen(),
                   ),
                   GoRoute(
                     path: NotificationsScreen.path,
