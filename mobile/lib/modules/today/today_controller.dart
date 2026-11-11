@@ -322,7 +322,12 @@ class TodayController extends StateNotifier<TodayState> {
         .where((o) => o.id == outfitId)
         .firstOrNull
         ?.isFavorite;
-    if (current == null) return;
+    if (current == null) {
+      // Not one of today's cards (e.g. an older outfit): nothing to patch
+      // locally, but the toggle must still reach the server.
+      await _service.toggleFavorite(outfitId);
+      return;
+    }
     _patchOutfit(outfitId, (o) => o.copyWith(isFavorite: !current));
     try {
       final server = await _service.toggleFavorite(outfitId);
