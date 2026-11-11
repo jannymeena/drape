@@ -61,6 +61,7 @@ OutfitItem _piece(
 List<Outfit> sampleFavouriteOutfits() => [
   Outfit(
     id: '${_samplePrefix}autumn',
+    imageUrl: 'assets/samples/fav_autumn.jpg',
     title: 'Autumn camel & denim',
     occasion: 'casual',
     items: [
@@ -76,6 +77,7 @@ List<Outfit> sampleFavouriteOutfits() => [
   ),
   Outfit(
     id: '${_samplePrefix}espresso',
+    imageUrl: 'assets/samples/fav_espresso.jpg',
     title: 'Tailored espresso look',
     occasion: 'work',
     items: [
@@ -91,6 +93,7 @@ List<Outfit> sampleFavouriteOutfits() => [
   ),
   Outfit(
     id: '${_samplePrefix}rainy',
+    imageUrl: 'assets/samples/fav_rainy.jpg',
     title: 'Rainy-day layers',
     occasion: 'casual',
     items: [
@@ -105,6 +108,7 @@ List<Outfit> sampleFavouriteOutfits() => [
   ),
   Outfit(
     id: '${_samplePrefix}office',
+    imageUrl: 'assets/samples/fav_office.jpg',
     title: 'Dry office classic',
     occasion: 'work',
     items: [

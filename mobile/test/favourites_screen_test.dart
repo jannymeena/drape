@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/modules/favourites/favourites_providers.dart';
-import 'package:mobile/modules/favourites/screens/favourites_screen.dart';
+import 'package:mobile/modules/my_outfits/screens/my_outfits_screen.dart';
 import 'package:mobile/modules/today/models/outfit.dart';
 import 'package:mobile/modules/wardrobe/models/wardrobe_item.dart';
 import 'package:mobile/shared/models/api_error.dart';
@@ -60,7 +60,7 @@ Future<void> _pump(
           (ref) => (items ?? () async => const <WardrobeItem>[])(),
         ),
       ],
-      child: const MaterialApp(home: FavouritesScreen()),
+      child: const MaterialApp(home: MyOutfitsScreen()),
     ),
   );
   await tester.pump();
@@ -75,11 +75,13 @@ void main() {
       items: () async => [_item('i1', 'Ribbed Knit')],
     );
 
-    expect(find.text('Favourites'), findsOneWidget);
-    // Same header as Notifications: centred title, back arrow, filter, avatar.
+    // My Outfits: shared header (centred title, back arrow), opening on the
+    // Favourites side of the Favourites | History switch.
     expect(find.byType(TitledScreenHeader), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back_ios_new), findsOneWidget);
-    expect(tester.getCenter(find.text('Favourites')).dx, closeTo(195, 1));
+    expect(tester.getCenter(find.text('My Outfits')).dx, closeTo(195, 1));
+    expect(find.text('Favourites'), findsOneWidget);
+    expect(find.text('History'), findsOneWidget);
     // Counts on both tabs; the selected one in a badge.
     expect(find.text('2'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
@@ -157,6 +159,20 @@ void main() {
     }
     expect(find.text('4'), findsOneWidget); // Outfits badge
     expect(find.text('6'), findsOneWidget); // Items count
+
+    // Sample looks use the bundled photos from the mock.
+    final assets = tester
+        .widgetList<Image>(find.byType(Image))
+        .map((i) => i.image)
+        .whereType<AssetImage>()
+        .map((a) => a.assetName)
+        .toSet();
+    expect(assets, {
+      'assets/samples/fav_autumn.jpg',
+      'assets/samples/fav_espresso.jpg',
+      'assets/samples/fav_rainy.jpg',
+      'assets/samples/fav_office.jpg',
+    });
 
     // Actions on a sample explain themselves instead of calling the API.
     await tester.tap(find.text('Wear this').first);

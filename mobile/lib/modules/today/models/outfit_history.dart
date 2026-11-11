@@ -10,12 +10,12 @@ library;
 import 'outfit.dart';
 
 /// The backend's `HistoryFilter` literals. Index order matches the chip row in
-/// [OutfitHistoryScreen]; [query] is the value sent to the API.
+/// My Outfits › History; [query] is the value sent to the API.
 enum HistoryFilter {
-  thisWeek('this_week', 'This Week'),
-  thisMonth('this_month', 'This Month'),
-  last3Months('last_3_months', 'Last 3 Months'),
-  all('all', 'All Time');
+  thisWeek('this_week', 'This week'),
+  thisMonth('this_month', 'This month'),
+  last3Months('last_3_months', 'Last 3 months'),
+  all('all', 'All');
 
   const HistoryFilter(this.query, this.label);
 
@@ -54,6 +54,9 @@ class HistoryEntry {
     required this.wornCount,
     required this.items,
     this.imageUrl,
+    this.title,
+    this.weatherContext,
+    this.isFavorite = false,
   });
 
   final String outfitId;
@@ -63,6 +66,25 @@ class HistoryEntry {
   final int wornCount;
   final String? imageUrl;
   final List<OutfitItem> items;
+
+  /// Optional extras the History card shows when present. The backend's
+  /// `HistoryEntry` doesn't send them yet (BACKEND_CHANGES 1.0): the look's
+  /// name, the weather it was styled for, and whether it's a favourite.
+  final String? title;
+  final WeatherContext? weatherContext;
+  final bool isFavorite;
+
+  /// Local calendar day it was worn.
+  DateTime get day {
+    final d = loggedAt.toLocal();
+    return DateTime(d.year, d.month, d.day);
+  }
+
+  /// "Tuesday, Nov 3" (local time) — the History card's heading.
+  String get cardDayLabel {
+    final d = loggedAt.toLocal();
+    return '${_weekdays[d.weekday - 1]}, ${_months[d.month - 1].substring(0, 3)} ${d.day}';
+  }
 
   /// `date_night` → "Date Night".
   String get occasionLabel => occasion
@@ -93,6 +115,13 @@ class HistoryEntry {
       items: (json['items'] as List<dynamic>? ?? const [])
           .map((e) => OutfitItem.fromJson(e as Map<String, dynamic>))
           .toList(),
+      title: json['title'] as String?,
+      weatherContext: json['weather_context'] == null
+          ? null
+          : WeatherContext.fromJson(
+              json['weather_context'] as Map<String, dynamic>,
+            ),
+      isFavorite: json['is_favorite'] as bool? ?? false,
     );
   }
 }

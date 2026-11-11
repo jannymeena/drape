@@ -83,9 +83,8 @@ import '../../modules/shop/screens/shop_feed_loading_screen.dart';
 import '../../modules/shop/screens/shop_feed_screen.dart';
 import '../../modules/shop/screens/wishlist_screen.dart';
 import '../../modules/today/screens/ai_reasoning_detail_screen.dart';
-import '../../modules/today/screens/outfit_history_screen.dart';
 import '../../modules/stylist/screens/stylist_screen.dart';
-import '../../modules/favourites/screens/favourites_screen.dart';
+import '../../modules/my_outfits/screens/my_outfits_screen.dart';
 import '../../modules/notifications/screens/notifications_screen.dart';
 import '../../modules/today/screens/plan_week_screen.dart';
 import '../../modules/today/screens/today_dashboard_screen.dart';
@@ -376,15 +375,22 @@ final routerProvider = Provider<GoRouter>((ref) {
                 builder: (_, _) => const TodayDashboardScreen(),
                 routes: [
                   GoRoute(
-                    path: 'history',
-                    name: OutfitHistoryScreen.name,
-                    builder: (_, _) => const OutfitHistoryScreen(),
-                  ),
-                  GoRoute(
-                    path: FavouritesScreen.path,
-                    name: FavouritesScreen.name,
+                    path: MyOutfitsScreen.path,
+                    name: MyOutfitsScreen.name,
                     parentNavigatorKey: _rootNavKey,
-                    builder: (_, _) => const FavouritesScreen(),
+                    builder: (_, state) => MyOutfitsScreen(
+                      initialTab: MyOutfitsScreen.tabFromQuery(
+                        state.uri.queryParameters['tab'],
+                      ),
+                    ),
+                  ),
+                  // The old history address still lands on My Outfits.
+                  GoRoute(
+                    path: 'history',
+                    name: MyOutfitsScreen.historyName,
+                    parentNavigatorKey: _rootNavKey,
+                    builder: (_, _) =>
+                        const MyOutfitsScreen(initialTab: MyOutfitsTab.history),
                   ),
                   GoRoute(
                     path: NotificationsScreen.path,

@@ -9,45 +9,35 @@ import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
-import '../../../shared/widgets/titled_screen_header.dart';
-import '../../profile/screens/profile_intelligence_screen.dart';
+import '../../../shared/widgets/segmented_tabs.dart';
+import '../../../shared/widgets/status_message.dart';
 import '../../today/models/outfit.dart';
 import '../../today/today_controller.dart';
 import '../../today/widgets/outfit_card.dart';
-import '../../today/widgets/outfit_collage.dart';
+import '../../today/widgets/outfit_image.dart';
 import '../../today/widgets/shop_the_look_sheet.dart';
 import '../../wardrobe/models/wardrobe_item.dart';
 import '../../wardrobe/screens/item_detail_screen.dart';
 import '../../wardrobe/wardrobe_service.dart';
 import '../favourites_providers.dart';
 
-/// Favourites (Stitch `favourites_zoura`): Outfits / Items tabs with counts,
-/// a "We are learning your taste" card, and a two-column grid of saved looks
-/// or pieces — heart to un-save (with Undo), "Wear this" on outfits.
-/// Opened from the heart on Today.
-class FavouritesScreen extends ConsumerStatefulWidget {
-  static const path = 'favourites';
-  static const name = 'today_favourites';
-
-  const FavouritesScreen({super.key});
+/// The Favourites tab of My Outfits (Stitch `favourites_zoura`): Outfits /
+/// Items with counts, a "We are learning your taste" card, and a two-column
+/// grid of saved looks or pieces — heart to un-save (with Undo), "Wear this"
+/// on outfits.
+class FavouritesView extends ConsumerStatefulWidget {
+  const FavouritesView({super.key});
 
   @override
-  ConsumerState<FavouritesScreen> createState() => _FavouritesScreenState();
+  ConsumerState<FavouritesView> createState() => _FavouritesViewState();
 }
 
 enum _Tab { outfits, items }
 
-class _FavouritesScreenState extends ConsumerState<FavouritesScreen> {
+class _FavouritesViewState extends ConsumerState<FavouritesView> {
   _Tab _tab = _Tab.outfits;
 
   static const _gutter = 20.0;
-
-  void _comingSoon(String what) => showDrapeToast(
-    context,
-    '$what is coming soon.',
-    icon: Icons.schedule,
-    background: AppColors.espressoDeep,
-  );
 
   void _showError(String message) {
     ScaffoldMessenger.of(context)
@@ -189,51 +179,32 @@ class _FavouritesScreenState extends ConsumerState<FavouritesScreen> {
     final items = itemsAsync.valueOrNull ?? const <WardrobeItem>[];
     final insight = tasteInsight(outfits: outfits, items: items);
 
-    return Scaffold(
-      backgroundColor: AppColors.ivory,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TitledScreenHeader(
-              title: 'Favourites',
-              onBack: () => Navigator.of(context).maybePop(),
-              actionIcon: Icons.tune,
-              actionTooltip: 'Filter',
-              onAction: () => _comingSoon('Filtering favourites'),
-              onProfile: () => context.goNamed(ProfileIntelligenceScreen.name),
-            ),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  ref.invalidate(favouriteItemsProvider);
-                  await ref.read(todayControllerProvider.notifier).loadFrame();
-                },
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(_gutter, 8, _gutter, 40),
-                  children: [
-                    _Tabs(
-                      selected: _tab,
-                      outfits: outfits.length,
-                      items: itemsAsync.valueOrNull?.length,
-                      onSelect: (t) => setState(() => _tab = t),
-                    ),
-                    const SizedBox(height: 20),
-                    if (insight != null) ...[
-                      _InsightCard(message: insight, onWhy: _whyThis),
-                      const SizedBox(height: 20),
-                    ],
-                    ...switch (_tab) {
-                      _Tab.outfits => _outfitsTab(today, outfits),
-                      _Tab.items => _itemsTab(itemsAsync),
-                    },
-                  ],
-                ),
-              ),
-            ),
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(favouriteItemsProvider);
+        await ref.read(todayControllerProvider.notifier).loadFrame();
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, 40),
+        children: [
+          SegmentedTabs(
+            tabs: [
+              SegmentedTab('Outfits', count: outfits.length),
+              SegmentedTab('Items', count: itemsAsync.valueOrNull?.length),
+            ],
+            selected: _tab.index,
+            onSelect: (i) => setState(() => _tab = _Tab.values[i]),
+          ),
+          const SizedBox(height: 20),
+          if (insight != null) ...[
+            _InsightCard(message: insight, onWhy: _whyThis),
+            const SizedBox(height: 20),
           ],
-        ),
+          ...switch (_tab) {
+            _Tab.outfits => _outfitsTab(today, outfits),
+            _Tab.items => _itemsTab(itemsAsync),
+          },
+        ],
       ),
     );
   }
@@ -242,7 +213,7 @@ class _FavouritesScreenState extends ConsumerState<FavouritesScreen> {
     if (!today.hasData && today.frameLoading) return const [_GridSkeleton()];
     if (!today.hasData && today.frameError != null) {
       return [
-        _Message(
+        StatusMessage(
           icon: Icons.cloud_off_outlined,
           title: "Couldn't load your outfits",
           body: today.frameError!.message,
@@ -254,7 +225,7 @@ class _FavouritesScreenState extends ConsumerState<FavouritesScreen> {
     }
     if (outfits.isEmpty) {
       return const [
-        _Message(
+        StatusMessage(
           icon: Icons.favorite_border,
           title: 'No saved outfits yet',
           body: 'Tap the heart on any outfit to keep it here.',
@@ -280,7 +251,7 @@ class _FavouritesScreenState extends ConsumerState<FavouritesScreen> {
   List<Widget> _itemsTab(AsyncValue<List<WardrobeItem>> async) {
     return switch (async) {
       AsyncData(:final value) when value.isEmpty => const [
-        _Message(
+        StatusMessage(
           icon: Icons.favorite_border,
           title: 'No saved pieces yet',
           body:
@@ -307,7 +278,7 @@ class _FavouritesScreenState extends ConsumerState<FavouritesScreen> {
         ),
       ],
       AsyncError(:final error) => [
-        _Message(
+        StatusMessage(
           icon: Icons.cloud_off_outlined,
           title: "Couldn't load your pieces",
           body: error is ApiException
@@ -319,130 +290,6 @@ class _FavouritesScreenState extends ConsumerState<FavouritesScreen> {
       ],
       _ => const [_GridSkeleton()],
     };
-  }
-}
-
-// ─── Outfits / Items switch ─────────────────────────────────────────────
-
-class _Tabs extends StatelessWidget {
-  final _Tab selected;
-  final int outfits;
-
-  /// Null while the items are loading (no count shown yet).
-  final int? items;
-  final ValueChanged<_Tab> onSelect;
-  const _Tabs({
-    required this.selected,
-    required this.outfits,
-    required this.items,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColors.ivoryWarm,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _Segment(
-              label: 'Outfits',
-              count: outfits,
-              selected: selected == _Tab.outfits,
-              onTap: () => onSelect(_Tab.outfits),
-            ),
-          ),
-          Expanded(
-            child: _Segment(
-              label: 'Items',
-              count: items,
-              selected: selected == _Tab.items,
-              onTap: () => onSelect(_Tab.items),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Segment extends StatelessWidget {
-  final String label;
-  final int? count;
-  final bool selected;
-  final VoidCallback onTap;
-  const _Segment({
-    required this.label,
-    required this.count,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Semantics(
-      selected: selected,
-      button: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: selected ? todayCardShadow : null,
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: text.bodyLarge?.copyWith(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: selected ? AppColors.espresso : AppColors.inkSoft,
-                ),
-              ),
-              if (count != null) ...[
-                const SizedBox(width: 8),
-                selected
-                    ? Container(
-                        constraints: const BoxConstraints(minWidth: 20),
-                        height: 20,
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: AppColors.espresso,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          '$count',
-                          style: text.labelSmall?.copyWith(
-                            color: AppColors.white,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                      )
-                    : Text(
-                        '$count',
-                        style: text.labelMedium?.copyWith(
-                          color: AppColors.taupe,
-                        ),
-                      ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -682,8 +529,8 @@ class _OutfitTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final card = OutfitCardData.fromOutfit(outfit);
     return _TileShell(
-      // The tile's AspectRatio sizes it; the collage just fills.
-      image: OutfitCollage(cells: card.items, height: double.infinity),
+      // The tile's AspectRatio sizes it; photo if there is one, else collage.
+      image: OutfitImage(imageUrl: outfit.imageUrl, cells: card.items),
       title: card.title,
       subtitle: '${card.occasion} · ${_wornLabel(outfit.wornCount)}',
       onUnsave: onUnsave,
@@ -822,54 +669,6 @@ class _GridSkeleton extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _Message extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String body;
-  final String? action;
-  final VoidCallback? onAction;
-  const _Message({
-    required this.icon,
-    required this.title,
-    required this.body,
-    this.action,
-    this.onAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 16),
-      child: Column(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: const BoxDecoration(
-              color: AppColors.ivoryWarm,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 28, color: AppColors.espresso),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: text.titleMedium?.copyWith(color: AppColors.ink),
-          ),
-          const SizedBox(height: 4),
-          Text(body, textAlign: TextAlign.center, style: text.bodySmall),
-          if (action != null) ...[
-            const SizedBox(height: 16),
-            OutlinedButton(onPressed: onAction, child: Text(action!)),
-          ],
-        ],
-      ),
     );
   }
 }

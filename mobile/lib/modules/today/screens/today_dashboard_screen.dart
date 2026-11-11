@@ -27,7 +27,7 @@ import '../models/log_outfit_result.dart';
 import '../models/outfit.dart';
 import '../models/today_dashboard.dart';
 import '../models/usage.dart';
-import '../../favourites/screens/favourites_screen.dart';
+import '../../my_outfits/screens/my_outfits_screen.dart';
 import '../../notifications/notifications_controller.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../today_controller.dart';
@@ -290,7 +290,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     return _TodayAppBar(
       unreadNotifications: ref.watch(unreadNotificationsProvider),
       onNotifications: () => context.pushNamed(NotificationsScreen.name),
-      onFavourites: () => context.pushNamed(FavouritesScreen.name),
+      onFavourites: () => context.pushNamed(MyOutfitsScreen.name),
     );
   }
 
