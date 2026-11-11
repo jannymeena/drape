@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/app_bottom_sheet.dart';
 import '../../onboarding/widgets/pipeda_note.dart';
 import '../day_plans_controller.dart';
 import '../models/day_plan.dart';
@@ -53,12 +54,8 @@ class PlanDaySheet extends StatefulWidget {
     final controller = ref.read(dayPlansProvider.notifier);
     final previous = controller.planFor(date);
     final messenger = ScaffoldMessenger.of(context);
-    final result = await showModalBottomSheet<_PlanResult>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: AppColors.espressoDeep.withValues(alpha: 0.55),
+    final result = await AppBottomSheet.show<_PlanResult>(
+      context,
       builder: (_) => PlanDaySheet(
         date: date,
         existing: previous,
@@ -196,106 +193,65 @@ class _PlanDaySheetState extends State<PlanDaySheet> {
     final text = Theme.of(context).textTheme;
     final date = widget.date;
     final weekday = weekdayLong(date);
-    final media = MediaQuery.of(context);
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 150),
-      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-      child: Container(
-        height: media.size.height * 0.8,
-        decoration: const BoxDecoration(
-          color: AppColors.ivory,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            // Grabber hugs the top edge. No close button: the sheet is
-            // dismissed by dragging it down or tapping outside it.
-            Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 20),
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.taupeSoft.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(999),
+    // The shared sheet: grabber, 80% height, scrolling body (every section
+    // built, so answering can scroll the next one into view), fixed footer.
+    return AppBottomSheet(
+      actions: _actions(text),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _header(text, date),
+          const SizedBox(height: 24),
+          _sectionLabel(text, 'What is on'),
+          const SizedBox(height: 10),
+          _occasionGrid(),
+          const SizedBox(height: 28),
+          KeyedSubtree(
+            key: _dressKey,
+            child: _sectionLabel(text, 'How dressed up?'),
+          ),
+          const SizedBox(height: 10),
+          _DressSlider(value: _dress, onChanged: _pickDress),
+          const SizedBox(height: 28),
+          Row(
+            key: _noteKey,
+            children: [
+              Expanded(
+                child: Text(
+                  'Anything else?',
+                  style: text.titleSmall?.copyWith(color: AppColors.ink),
                 ),
               ),
-            ),
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: () => FocusScope.of(context).unfocus(),
-                // Not a lazy ListView: every section must be built so
-                // answering can scroll the next one into view.
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _header(text, date),
-                      const SizedBox(height: 24),
-                      _sectionLabel(text, 'What is on'),
-                      const SizedBox(height: 10),
-                      _occasionGrid(),
-                      const SizedBox(height: 28),
-                      KeyedSubtree(
-                        key: _dressKey,
-                        child: _sectionLabel(text, 'How dressed up?'),
-                      ),
-                      const SizedBox(height: 10),
-                      _DressSlider(value: _dress, onChanged: _pickDress),
-                      const SizedBox(height: 28),
-                      Row(
-                        key: _noteKey,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Anything else?',
-                              style: text.titleSmall?.copyWith(
-                                color: AppColors.ink,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            '${_note.text.length} / $_noteMax',
-                            style: text.bodySmall?.copyWith(
-                              color: AppColors.taupe,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      _noteField(text),
-                      const SizedBox(height: 28),
-                      _repeatRow(text, weekday),
-                      if (widget.existing != null) ...[
-                        const SizedBox(height: 16),
-                        Center(
-                          child: TextButton(
-                            onPressed: () =>
-                                Navigator.of(context).pop(const _Cleared()),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.error,
-                              minimumSize: const Size(48, 48),
-                            ),
-                            child: Text(
-                              'Clear plan',
-                              style: text.labelLarge?.copyWith(
-                                color: AppColors.error,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+              Text(
+                '${_note.text.length} / $_noteMax',
+                style: text.bodySmall?.copyWith(color: AppColors.taupe),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _noteField(text),
+          const SizedBox(height: 28),
+          _repeatRow(text, weekday),
+          if (widget.existing != null) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(const _Cleared()),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  minimumSize: const Size(48, 48),
+                ),
+                child: Text(
+                  'Clear plan',
+                  style: text.labelLarge?.copyWith(
+                    color: AppColors.error,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ),
-            _footer(text),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -469,60 +425,52 @@ class _PlanDaySheetState extends State<PlanDaySheet> {
     );
   }
 
-  Widget _footer(TextTheme text) {
+  /// Save plan, with the privacy line under it (the sheet's footer slot).
+  Widget _actions(TextTheme text) {
     final enabled = _occasion != null;
-    return Container(
-      color: AppColors.ivory.withValues(alpha: 0.95),
-      padding: EdgeInsets.fromLTRB(
-        20,
-        12,
-        20,
-        12 + MediaQuery.of(context).padding.bottom,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              gradient: LinearGradient(
-                colors: enabled
-                    ? const [AppColors.espressoDark, AppColors.espresso]
-                    : const [AppColors.taupeSoft, AppColors.taupeSoft],
-              ),
-              boxShadow: enabled
-                  ? const [
-                      BoxShadow(
-                        color: Color(0x33512F1B),
-                        blurRadius: 16,
-                        offset: Offset(0, 4),
-                      ),
-                    ]
-                  : null,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              colors: enabled
+                  ? const [AppColors.espressoDark, AppColors.espresso]
+                  : const [AppColors.taupeSoft, AppColors.taupeSoft],
             ),
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: enabled ? _save : null,
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  height: 52,
-                  child: Center(
-                    child: Text(
-                      'Save plan',
-                      style: text.titleMedium?.copyWith(color: AppColors.white),
+            boxShadow: enabled
+                ? const [
+                    BoxShadow(
+                      color: Color(0x33512F1B),
+                      blurRadius: 16,
+                      offset: Offset(0, 4),
                     ),
+                  ]
+                : null,
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: enabled ? _save : null,
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 52,
+                child: Center(
+                  child: Text(
+                    'Save plan',
+                    style: text.titleMedium?.copyWith(color: AppColors.white),
                   ),
                 ),
               ),
             ),
           ),
-          // The privacy line sits under the CTA, as in onboarding, with
-          // breathing room between them.
-          const SizedBox(height: 12),
-          const PipedaNote(),
-        ],
-      ),
+        ),
+        // The privacy line sits under the CTA, as in onboarding, with
+        // breathing room between them.
+        const SizedBox(height: 12),
+        const PipedaNote(),
+      ],
     );
   }
 }
