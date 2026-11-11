@@ -7,7 +7,7 @@ import '../../../shared/models/api_error.dart';
 import '../../../shared/providers/analytics_provider.dart';
 import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
-import '../../../shared/theme/app_typography.dart';
+import '../../../shared/widgets/app_bottom_sheet.dart';
 import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../../wardrobe/models/wardrobe_item.dart';
@@ -95,17 +95,9 @@ class MixMatchSheet extends ConsumerStatefulWidget {
   final Outfit outfit;
   const MixMatchSheet({super.key, required this.outfit});
 
-  /// The sheet's panel (80% of the screen) — for tests.
-  @visibleForTesting
-  static const panelKey = ValueKey('mix-match-panel');
-
   static Future<void> show(BuildContext context, Outfit outfit) {
-    return showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: AppColors.espressoDeep.withValues(alpha: 0.45),
+    return AppBottomSheet.show<void>(
+      context,
       builder: (_) => MixMatchSheet(outfit: outfit),
     );
   }
@@ -277,116 +269,24 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
     final wardrobe = ref.watch(_wardrobeItemsProvider);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Grabber sits on the scrim, just above the sheet (as in the mock).
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.sand,
-              borderRadius: BorderRadius.circular(999),
-            ),
-          ),
-        ),
-        Container(
-          key: MixMatchSheet.panelKey,
-          height: media.size.height * 0.8,
-          clipBehavior: Clip.antiAlias,
-          decoration: const BoxDecoration(
-            color: AppColors.ivory,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              _header(),
-              // Everything between the header and the Save / Wear bar
-              // scrolls as one, so the grid gets the room it needs.
-              Expanded(
-                child: CustomScrollView(
-                  slivers: [
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      sliver: SliverToBoxAdapter(child: _topContent()),
-                    ),
-                    const SliverToBoxAdapter(
-                      child: Divider(height: 1, color: AppColors.sand),
-                    ),
-                    ..._gridSlivers(wardrobe),
-                  ],
-                ),
-              ),
-              _BottomBar(
-                busy: _busy,
-                onSave: _busy ? null : _save,
-                onWear: _busy ? null : _wear,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── Header (fixed) ────────────────────────────────────────────────────
-
-  Widget _header() {
-    final text = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+    // The shared sheet: grabber, fixed title, one scrolling body (context,
+    // preview, fit line, tabs, grid), Save / Wear this in the footer.
+    return AppBottomSheet(
+      title: 'Mix & match',
+      heightFactor: 0.6,
+      actions: _BottomBar(
+        busy: _busy,
+        onSave: _busy ? null : _save,
+        onWear: _busy ? null : _wear,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: 56,
-            child: Row(
-              children: [
-                TextButton(
-                  onPressed: _changed && !_busy
-                      ? () => setState(() => _picks = {..._original})
-                      : null,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.inkSoft,
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(48, 48),
-                    alignment: Alignment.centerLeft,
-                  ),
-                  child: Text(
-                    'Reset',
-                    style: text.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: _changed ? AppColors.inkSoft : AppColors.taupeSoft,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Mix & match',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.sectionTitle.copyWith(fontSize: 22),
-                  ),
-                ),
-                SizedBox(
-                  width: 48,
-                  child: IconButton(
-                    tooltip: 'Close',
-                    alignment: Alignment.centerRight,
-                    icon: const Icon(
-                      Icons.close,
-                      size: 22,
-                      color: AppColors.inkSoft,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _topContent(),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: AppColors.sand),
+          _grid(wardrobe),
         ],
       ),
     );
@@ -486,25 +386,21 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
 
   // ─── Grid for the selected slot ───────────────────────────────────────
 
-  List<Widget> _gridSlivers(AsyncValue<List<WardrobeItem>> wardrobe) {
+  Widget _grid(AsyncValue<List<WardrobeItem>> wardrobe) {
     final text = Theme.of(context).textTheme;
     final original = _original[_slot];
     final picked = _picks[_slot];
     final level = _dressLevel;
 
     return switch (wardrobe) {
-      AsyncError() => [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              "Couldn't load your wardrobe.",
-              textAlign: TextAlign.center,
-              style: text.bodyMedium,
-            ),
-          ),
+      AsyncError() => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          "Couldn't load your wardrobe.",
+          textAlign: TextAlign.center,
+          style: text.bodyMedium,
         ),
-      ],
+      ),
       AsyncData(:final value) => () {
         final inOutfit = {for (final p in _original.values) p.id};
         final candidates = <_Piece>[
@@ -530,26 +426,53 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
           'Swapping is free',
         ].join(' · ');
 
-        return <Widget>[
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
-            sliver: SliverToBoxAdapter(
-              child: Text(
-                helper,
-                style: text.bodySmall?.copyWith(fontWeight: FontWeight.w500),
-              ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 6),
+            // Helper line, with Reset at its end (the sheet's title row is
+            // text-only, so Reset lives right above the pieces it resets).
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    helper,
+                    style: text.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _changed && !_busy
+                      ? () => setState(() => _picks = {..._original})
+                      : null,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.inkSoft,
+                    minimumSize: const Size(48, 40),
+                    padding: const EdgeInsets.only(left: 12),
+                  ),
+                  child: Text(
+                    'Reset',
+                    style: text.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: _changed ? AppColors.inkSoft : AppColors.taupeSoft,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(24, 14, 24, 24),
-            sliver: SliverGrid(
+            const SizedBox(height: 8),
+            GridView(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
                 mainAxisSpacing: 16,
                 crossAxisSpacing: 16,
                 mainAxisExtent: 116,
               ),
-              delegate: SliverChildListDelegate([
+              children: [
                 _NoneTile(selected: picked == null, onTap: _pickNone),
                 for (final p in ordered)
                   _PieceTile(
@@ -561,21 +484,17 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
                     onTap: () => _pick(p),
                   ),
                 _AddMoreTile(onTap: _addMore),
-              ]),
+              ],
             ),
-          ),
-        ];
+          ],
+        );
       }(),
-      _ => const [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.all(32),
-            child: Center(
-              child: CircularProgressIndicator(color: AppColors.espresso),
-            ),
-          ),
+      _ => const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.espresso),
         ),
-      ],
+      ),
     };
   }
 }
@@ -1063,117 +982,103 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.white,
-        border: Border(top: BorderSide(color: AppColors.sand)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Material(
-                  color: AppColors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(
+    // The sheet's footer slot provides the bar, padding and safe area.
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Material(
+            color: AppColors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: AppColors.espresso, width: 1.5),
+            ),
+            child: InkWell(
+              onTap: onSave,
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 56,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.favorite_border,
+                      size: 18,
                       color: AppColors.espresso,
-                      width: 1.5,
                     ),
-                  ),
-                  child: InkWell(
-                    onTap: onSave,
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox(
-                      height: 56,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.favorite_border,
-                            size: 18,
-                            color: AppColors.espresso,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Save',
-                            style: text.titleSmall?.copyWith(
-                              fontSize: 15,
-                              color: AppColors.espresso,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(width: 6),
+                    Text(
+                      'Save',
+                      style: text.titleSmall?.copyWith(
+                        fontSize: 15,
+                        color: AppColors.espresso,
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 3,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF7B5238), AppColors.espresso],
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x406B4530),
-                        blurRadius: 16,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: InkWell(
-                      onTap: onWear,
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        height: 56,
-                        child: Center(
-                          child: busy
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.white,
-                                  ),
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.checkroom,
-                                      size: 20,
-                                      color: AppColors.white,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Wear this',
-                                      style: text.titleSmall?.copyWith(
-                                        fontSize: 15,
-                                        color: AppColors.white,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 3,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF7B5238), AppColors.espresso],
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x406B4530),
+                  blurRadius: 16,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: onWear,
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  height: 56,
+                  child: Center(
+                    child: busy
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.white,
+                            ),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.checkroom,
+                                size: 20,
+                                color: AppColors.white,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Wear this',
+                                style: text.titleSmall?.copyWith(
+                                  fontSize: 15,
+                                  color: AppColors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

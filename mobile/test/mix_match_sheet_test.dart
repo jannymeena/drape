@@ -8,6 +8,7 @@ import 'package:mobile/modules/today/today_service.dart';
 import 'package:mobile/modules/today/widgets/mix_match_sheet.dart';
 import 'package:mobile/modules/wardrobe/models/wardrobe_item.dart';
 import 'package:mobile/modules/wardrobe/wardrobe_service.dart';
+import 'package:mobile/shared/widgets/app_bottom_sheet.dart';
 
 /// Records what the sheet sends.
 class _Today extends TodayService {
@@ -134,10 +135,13 @@ void main() {
   testWidgets('shows the mock layout for the outfit', (tester) async {
     await _open(tester);
 
-    // 80% of the screen, and the body scrolls (header + bar stay put).
-    final sheet = tester.getSize(find.byKey(MixMatchSheet.panelKey));
-    expect(sheet.height, closeTo(844 * 0.8, 1));
-    expect(find.byType(CustomScrollView), findsOneWidget);
+    // Built on the shared sheet: 60% tall, text title, no close button.
+    expect(find.byType(AppBottomSheet), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(AppBottomSheet)).height,
+      closeTo(844 * 0.6, 1),
+    );
+    expect(find.byIcon(Icons.close), findsNothing);
 
     expect(find.text('Mix & match'), findsOneWidget);
     expect(find.text('Reset'), findsOneWidget);
@@ -151,11 +155,8 @@ void main() {
     expect(find.text('None'), findsOneWidget);
     expect(find.text('Wool Blazer'), findsOneWidget);
     expect(find.text('Best fit'), findsNWidgets(2)); // coat + blazer
-    await tester.scrollUntilVisible(
-      find.text('Add more in Wardrobe'),
-      150,
-      scrollable: find.byType(Scrollable).last,
-    );
+    await tester.ensureVisible(find.text('Add more in Wardrobe'));
+    await tester.pumpAndSettle();
     expect(find.text('Add more in Wardrobe'), findsOneWidget);
     expect(find.text('Save'), findsOneWidget);
     expect(find.text('Wear this'), findsOneWidget);
@@ -167,11 +168,8 @@ void main() {
     final today = await _open(tester);
 
     // The grid sits below the preview + tabs: scroll the sheet down to it.
-    await tester.scrollUntilVisible(
-      find.text('Denim Jacket'),
-      150,
-      scrollable: find.byType(Scrollable).last,
-    );
+    await tester.ensureVisible(find.text('Denim Jacket'));
+    await tester.pumpAndSettle();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Denim Jacket'));
     await tester.pump();
@@ -198,6 +196,8 @@ void main() {
   ) async {
     final today = await _open(tester);
 
+    await tester.ensureVisible(find.text('Wool Blazer'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Wool Blazer'));
     await tester.pump();
     await tester.tap(find.text('Reset'));
@@ -213,10 +213,14 @@ void main() {
   testWidgets('None and empty slots explain they are coming', (tester) async {
     await _open(tester);
 
+    await tester.ensureVisible(find.text('None'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('None'));
     await tester.pump();
     expect(find.text('Removing a piece is coming soon.'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Shoes'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Shoes'));
     await tester.pump();
     expect(find.text('Shoes · 0 options · Swapping is free'), findsOneWidget);

@@ -77,7 +77,9 @@ final result = await AppBottomSheet.show<String>(
 - Long lists of hundreds of rows belong on a screen, not in a sheet (the
   content isn't lazy).
 
-**Uses it:** Plan a day (`modules/today/widgets/plan_day_sheet.dart`).
-**Not yet migrated:** Mix & match, Shop the look, product options, privacy,
+**Uses it:** Plan a day (`modules/today/widgets/plan_day_sheet.dart`), Mix &
+match (`modules/today/widgets/mix_match_sheet.dart` — its Reset lives on the
+grid's helper line, since the title row is text-only).
+**Not yet migrated:** Shop the look, product options, privacy,
 skip confirmation, cancellation reason, settings sheets, and the wardrobe
 pickers and scanner sheets.
