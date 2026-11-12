@@ -70,7 +70,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     ref.read(analyticsProvider).capture(AnalyticsEvents.todayDashboardViewed);
     // Defer past the first frame so we don't mutate the provider during build.
     Future.microtask(
-        () => ref.read(todayControllerProvider.notifier).loadFrame());
+      () => ref.read(todayControllerProvider.notifier).loadFrame(),
+    );
     // One-time OS notification prompt, deliberately here (post-onboarding
     // home) and not at launch/login — see MOBILE_CHANGES P3. No-op after the
     // first ask, and on platforms where push is off.
@@ -121,8 +122,9 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
 
   Future<void> _onLogWorn(String outfitId) async {
     try {
-      final result =
-          await ref.read(todayControllerProvider.notifier).logWorn(outfitId);
+      final result = await ref
+          .read(todayControllerProvider.notifier)
+          .logWorn(outfitId);
       if (!mounted) return;
       // The log also wears each item, which moves the Profile stats.
       ref.invalidate(profileIntelligenceProvider);
@@ -179,10 +181,10 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   /// Weekly free-tier cap hit (429 `limit_reached`). The backend message already
   /// names the count + reset time; the CTA points at the (unbuilt) paywall.
   void _showLimitDialog(ApiException e) {
-    ref.read(analyticsProvider).capture(
-      AnalyticsEvents.usageLimitReached,
-      {'feature': 'outfits', 'source': 'generate'},
-    );
+    ref.read(analyticsProvider).capture(AnalyticsEvents.usageLimitReached, {
+      'feature': 'outfits',
+      'source': 'generate',
+    });
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -222,10 +224,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
 
     return Scaffold(
       backgroundColor: AppColors.ivory,
-      body: SafeArea(
-        bottom: false,
-        child: _body(state),
-      ),
+      body: SafeArea(bottom: false, child: _body(state)),
     );
   }
 
@@ -235,8 +234,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
       if (state.frameError != null) {
         return _DashboardError(
           message: state.frameError!.message,
-          onRetry: () =>
-              ref.read(todayControllerProvider.notifier).loadFrame(),
+          onRetry: () => ref.read(todayControllerProvider.notifier).loadFrame(),
         );
       }
       return const SizedBox.shrink();
@@ -266,7 +264,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
                 ),
                 ..._contextChips(dashboard),
                 ..._resumeBanner(),
-                ..._starterBanner(),
+                ..._starterBanner(dashboard),
                 const SizedBox(height: 20),
                 if (!dashboard.wardrobeReady) const _AddItemsEmptyState(),
               ]),
@@ -281,10 +279,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
                 ..._usageMeter(state.usage),
                 const SizedBox(height: 32),
                 _weekStrip(dashboard),
-                if (shop != null) ...[
-                  const SizedBox(height: 32),
-                  shop,
-                ],
+                if (shop != null) ...[const SizedBox(height: 32), shop],
                 if (dashboard.weather != null &&
                     dashboard.weatherAttribution != null) ...[
                   const SizedBox(height: 12),
@@ -339,18 +334,24 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
       cards.add(OutfitCardSkeleton(occasionLabel: _occasionLabel(occasion)));
     }
     for (final occasion in state.failedOccasions.keys.toList()..sort(byRank)) {
-      cards.add(OutfitOccasionRetryCard(
-        occasionLabel: _occasionLabel(occasion),
-        message: state.failedOccasions[occasion]!.message,
-        onRetry: () => ref
-            .read(todayControllerProvider.notifier)
-            .generateOccasion(occasion),
-      ));
+      cards.add(
+        OutfitOccasionRetryCard(
+          occasionLabel: _occasionLabel(occasion),
+          message: state.failedOccasions[occasion]!.message,
+          onRetry: () => ref
+              .read(todayControllerProvider.notifier)
+              .generateOccasion(occasion),
+        ),
+      );
     }
     return cards;
   }
 
-  Widget _outfitCard(TodayState state, Outfit outfit, {required bool featured}) {
+  Widget _outfitCard(
+    TodayState state,
+    Outfit outfit, {
+    required bool featured,
+  }) {
     return OutfitCard(
       outfit: OutfitCardData.fromOutfit(outfit),
       featured: featured,
@@ -380,7 +381,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     final condition = weatherConditionLabel(w.condition);
     return TodayContextChip(
       icon: weatherConditionIcon(w.condition),
-      label: '${w.tempC.round()}°C, feels ${w.feelsLikeC.round()}°'
+      label:
+          '${w.tempC.round()}°C, feels ${w.feelsLikeC.round()}°'
           '${condition == null ? '' : ' · $condition'}',
     );
   }
@@ -396,7 +398,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
         child: TodayContextChip(
           icon: plan.occasion.icon,
           tone: TodayChipTone.plan,
-          label: '${plan.note.isEmpty ? plan.occasion.label : plan.note}'
+          label:
+              '${plan.note.isEmpty ? plan.occasion.label : plan.note}'
               ' · ${plan.dress.label}',
           onTap: () => _planDay(dashboard, DateTime.now()),
         ),
@@ -449,21 +452,28 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   }
 
   /// "Unlock real wardrobe mode" card: the app is meant to run on the user's
-  /// own clothes, so this stays up (not dismissible) while starter items are
-  /// still in the wardrobe and the user has <10 real items — the point where
-  /// outfit generation drops starter items. Same wardrobe-wide counts as the
-  /// Wardrobe tab's banner; hidden while the capacity fetch is loading/failed.
-  List<Widget> _starterBanner() {
+  /// own clothes, so this stays up (not dismissible) while the user has <10
+  /// real items — the point where outfit generation stops borrowing pieces —
+  /// and outfits are coming from something else: starter items, or (with no
+  /// starter wardrobe, e.g. onboarding closed at the wardrobe step) shop
+  /// products. With nothing to borrow either, [_AddItemsEmptyState] shows
+  /// instead. Same wardrobe-wide counts as the Wardrobe tab's banner; hidden
+  /// while the capacity fetch is loading/failed.
+  List<Widget> _starterBanner(TodayDashboard dashboard) {
     final capacity = ref.watch(wardrobeCapacityProvider).valueOrNull;
-    if (capacity == null || capacity.activeStarterItems == 0) return const [];
+    if (capacity == null) return const [];
     final real = capacity.used;
     if (real >= 10) return const [];
+    final starter = capacity.activeStarterItems > 0;
+    if (!starter && !dashboard.wardrobeReady) return const [];
     return [
       const SizedBox(height: 20),
       AnalyticsScreenView(
         event: AnalyticsEvents.starterWardrobeBannerShown,
+        properties: {'source': starter ? 'starter' : 'shop'},
         child: StarterWardrobeBanner(
           realItems: real,
+          fromStarter: starter,
           onAdd: () {
             ref
                 .read(analyticsProvider)
@@ -481,10 +491,9 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     if (usage == null || usage.isPro) return const [];
     final c = usage.outfits;
     void upgrade() {
-      ref.read(analyticsProvider).capture(
-        AnalyticsEvents.upgradeTapped,
-        {'source': 'usage_banner'},
-      );
+      ref.read(analyticsProvider).capture(AnalyticsEvents.upgradeTapped, {
+        'source': 'usage_banner',
+      });
       context.goNamed(ComparePlansScreen.name);
     }
 
@@ -527,8 +536,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
           status: i == 0
               ? WeekDayStatus.today
               : (plans[date] == null
-                  ? WeekDayStatus.open
-                  : WeekDayStatus.planned),
+                    ? WeekDayStatus.open
+                    : WeekDayStatus.planned),
           icon: plans[date]?.occasion.icon ?? Icons.checkroom,
         ),
     ];
@@ -566,37 +575,40 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
         final url = item.productUrl;
         final cents = item.priceCents;
         if (url == null || cents == null || !seen.add(url)) continue;
-        picks.add(ShopPick(
-          name: item.name,
-          imageUrl: item.primaryImageUrl,
-          category: item.category,
-          priceText: ShopPick.formatPrice(cents, item.currency ?? 'CAD'),
-          url: url,
-        ));
+        picks.add(
+          ShopPick(
+            name: item.name,
+            imageUrl: item.primaryImageUrl,
+            category: item.category,
+            priceText: ShopPick.formatPrice(cents, item.currency ?? 'CAD'),
+            url: url,
+          ),
+        );
       }
     }
     final feed = ref.watch(shopFeedProvider).valueOrNull;
     for (final p in feed?.products ?? const []) {
       if (picks.length >= 3) break;
       if (p.productUrl.isEmpty || !seen.add(p.productUrl)) continue;
-      picks.add(ShopPick(
-        name: p.name,
-        imageUrl: p.imageUrl,
-        category: p.category,
-        priceText: ShopPick.formatPrice(p.priceCents, p.currency),
-        url: p.productUrl,
-      ));
+      picks.add(
+        ShopPick(
+          name: p.name,
+          imageUrl: p.imageUrl,
+          category: p.category,
+          priceText: ShopPick.formatPrice(p.priceCents, p.currency),
+          url: p.productUrl,
+        ),
+      );
     }
 
-    final topGap =
-        ref.watch(gapAnalysisProvider).valueOrNull?.gaps.firstOrNull;
+    final topGap = ref.watch(gapAnalysisProvider).valueOrNull?.gaps.firstOrNull;
     final gap = topGap == null
         ? null
         : GapPick(
             title: 'Fill a gap: ${topGap.category}',
             body: topGap.outfitsUnlocked > 1
                 ? '${topGap.reason} One new piece unlocks about '
-                    '${topGap.outfitsUnlocked} outfits with what you own.'
+                      '${topGap.outfitsUnlocked} outfits with what you own.'
                 : topGap.reason,
           );
 
@@ -608,7 +620,6 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
       onViewGap: () => context.goNamed(GapAnalysisScreen.name),
     );
   }
-
 }
 
 /// Pinned "Today" bar: serif title, notifications bell, favourites heart.
@@ -640,9 +651,9 @@ class _TodayAppBar extends StatelessWidget {
       title: Text(
         'Today',
         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              color: AppColors.espressoDark,
-              fontWeight: FontWeight.w500,
-            ),
+          color: AppColors.espressoDark,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       actions: [
         IconButton(
@@ -653,15 +664,19 @@ class _TodayAppBar extends StatelessWidget {
             isLabelVisible: unreadNotifications > 0,
             smallSize: 8,
             backgroundColor: const Color(0xFFC24040),
-            child: const Icon(Icons.notifications_none,
-                color: AppColors.espressoDark),
+            child: const Icon(
+              Icons.notifications_none,
+              color: AppColors.espressoDark,
+            ),
           ),
           onPressed: onNotifications,
         ),
         IconButton(
           tooltip: 'Favourites',
-          icon: const Icon(Icons.favorite_border,
-              color: AppColors.espressoDark),
+          icon: const Icon(
+            Icons.favorite_border,
+            color: AppColors.espressoDark,
+          ),
           onPressed: onFavourites,
         ),
         const SizedBox(width: 8),
@@ -743,8 +758,11 @@ class _DashboardError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_outlined,
-                color: AppColors.taupe, size: 48),
+            const Icon(
+              Icons.cloud_off_outlined,
+              color: AppColors.taupe,
+              size: 48,
+            ),
             const SizedBox(height: 16),
             Text(
               message,
@@ -776,7 +794,11 @@ class _AddItemsEmptyState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Icon(Icons.checkroom_outlined, color: AppColors.taupe, size: 44),
+          const Icon(
+            Icons.checkroom_outlined,
+            color: AppColors.taupe,
+            size: 44,
+          ),
           const SizedBox(height: 12),
           Text(
             'Add a few wardrobe items to start getting daily outfits.',
@@ -787,10 +809,9 @@ class _AddItemsEmptyState extends StatelessWidget {
           Text(
             'Head to the Wardrobe tab to add or scan your clothes.',
             textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: AppColors.taupe),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.taupe),
           ),
         ],
       ),
@@ -816,8 +837,8 @@ class _Greeting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final date =
-        '${weekdayShort(now)}, ${monthShort(now)} ${now.day}'.toUpperCase();
+    final date = '${weekdayShort(now)}, ${monthShort(now)} ${now.day}'
+        .toUpperCase();
     final text = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

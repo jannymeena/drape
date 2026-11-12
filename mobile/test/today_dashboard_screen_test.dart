@@ -22,6 +22,9 @@ import 'package:mobile/modules/shop/shop_service.dart';
 import 'package:mobile/modules/today/widgets/outfit_card_skeleton.dart';
 import 'package:mobile/modules/today/widgets/outfit_carousel.dart';
 import 'package:mobile/modules/today/widgets/resume_banner.dart';
+import 'package:mobile/modules/today/widgets/starter_wardrobe_banner.dart';
+import 'package:mobile/modules/wardrobe/models/wardrobe_mutations.dart';
+import 'package:mobile/modules/wardrobe/wardrobe_service.dart';
 import 'package:mobile/shared/providers/network_provider.dart';
 import 'package:mobile/shared/services/dashboard_cache.dart';
 
@@ -71,6 +74,7 @@ class _NullCache extends DashboardCache {
 TodayDashboard _frame(
   List<String> pending, {
   List<String> outfitOccasions = const [],
+  bool wardrobeReady = true,
 }) => TodayDashboard.fromJson({
   'user': {'name': 'Alex'},
   'outfits': [
@@ -84,7 +88,7 @@ TodayDashboard _frame(
   ],
   'usage': {'outfits_generated_today': 0},
   'banners': <String, dynamic>{},
-  'wardrobe_ready': true,
+  'wardrobe_ready': wardrobeReady,
   'pending_occasions': pending,
   // What the backend's occasion rulebook sends (a subset is enough here).
   'occasions': [
@@ -115,8 +119,11 @@ Widget _host(
   GapAnalysis? gaps,
   List<DayPlan> plans = const [],
   List<AppNotification> notifications = const [],
+  WardrobeCapacity? capacity,
 }) => ProviderScope(
   overrides: [
+    if (capacity != null)
+      wardrobeCapacityProvider.overrideWith((ref) async => capacity),
     notificationsProvider.overrideWith(
       (ref) => NotificationsController(notifications),
     ),
@@ -169,6 +176,76 @@ void _stubGeolocator(WidgetTester tester) {
 }
 
 void main() {
+  group('add-your-items banner', () {
+    Future<void> pump(
+      WidgetTester tester, {
+      required WardrobeCapacity capacity,
+      bool wardrobeReady = true,
+    }) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(
+        _host(
+          _StubService(_frame([], wardrobeReady: wardrobeReady)),
+          capacity: capacity,
+        ),
+      );
+      await _settle(tester);
+    }
+
+    testWidgets('no wardrobe yet, outfits from shop pieces: shown', (
+      tester,
+    ) async {
+      // Onboarding closed on the wardrobe step: no items, no starter set.
+      await pump(
+        tester,
+        capacity: const WardrobeCapacity(used: 0, isPro: false),
+      );
+      expect(find.byType(StarterWardrobeBanner), findsOneWidget);
+      expect(find.textContaining('built from shop pieces'), findsOneWidget);
+      expect(find.text('Add Your First Item'), findsOneWidget);
+    });
+
+    testWidgets('starter wardrobe: starter wording', (tester) async {
+      await pump(
+        tester,
+        capacity: const WardrobeCapacity(
+          used: 2,
+          isPro: false,
+          visibleTotal: 14,
+        ),
+      );
+      expect(find.textContaining('from a starter wardrobe'), findsOneWidget);
+      expect(
+        find.text('2/10 ITEMS TO UNLOCK REAL WARDROBE MODE'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('nothing to build outfits from: the empty state instead', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        capacity: const WardrobeCapacity(used: 0, isPro: false),
+        wardrobeReady: false,
+      );
+      expect(find.byType(StarterWardrobeBanner), findsNothing);
+      expect(
+        find.text('Add a few wardrobe items to start getting daily outfits.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('ten real items: hidden', (tester) async {
+      await pump(
+        tester,
+        capacity: const WardrobeCapacity(used: 10, isPro: false),
+      );
+      expect(find.byType(StarterWardrobeBanner), findsNothing);
+    });
+  });
+
   testWidgets('renders the shell + scoped skeletons, no full-screen spinner', (
     tester,
   ) async {
@@ -302,22 +379,30 @@ void main() {
       };
     _tallSurface(tester);
     _stubGeolocator(tester);
-    await tester.pumpWidget(
-      _host(_StubService(TodayDashboard.fromJson(json))),
-    );
+    await tester.pumpWidget(_host(_StubService(TodayDashboard.fromJson(json))));
     await _settle(tester);
 
     expect(find.text('7°C, feels 4° · Rain'), findsOneWidget);
     // Date on the left, weather on the right of the same line.
-    final date = tester.getRect(find.textContaining(RegExp(r'^[A-Z]{3}, [A-Z]{3} \d+$')));
+    final date = tester.getRect(
+      find.textContaining(RegExp(r'^[A-Z]{3}, [A-Z]{3} \d+$')),
+    );
     final pill = tester.getRect(find.text('7°C, feels 4° · Rain'));
     expect((date.center.dy - pill.center.dy).abs(), lessThan(4));
     expect(pill.left, greaterThan(date.right));
-    expect(pill.right, closeTo(1200 - 16 - 12, 2)); // pill's padding inside the gutter
+    expect(
+      pill.right,
+      closeTo(1200 - 16 - 12, 2),
+    ); // pill's padding inside the gutter
     final credit = tester.getTopLeft(find.text('Data sources')).dy;
-    expect(credit, greaterThan(tester.getTopLeft(find.text('Your next 7 days')).dy));
-    expect(credit,
-        greaterThan(tester.getTopLeft(find.text('7°C, feels 4° · Rain')).dy));
+    expect(
+      credit,
+      greaterThan(tester.getTopLeft(find.text('Your next 7 days')).dy),
+    );
+    expect(
+      credit,
+      greaterThan(tester.getTopLeft(find.text('7°C, feels 4° · Rain')).dy),
+    );
   });
 
   testWidgets('a planned tomorrow fills the strip and the tomorrow card', (

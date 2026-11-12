@@ -8,6 +8,10 @@ import '../../../shared/theme/app_colors.dart';
 /// grid (with [realItems]/[goalItems] progress toward real-wardrobe mode).
 class StarterWardrobeBanner extends StatelessWidget {
   final int? realItems;
+
+  /// Outfits borrow from a starter wardrobe; false = from shop pieces (no
+  /// starter wardrobe was set up). Only the wording changes.
+  final bool fromStarter;
   final int goalItems;
   final VoidCallback onAdd;
   final VoidCallback? onDismiss;
@@ -16,6 +20,7 @@ class StarterWardrobeBanner extends StatelessWidget {
     super.key,
     this.realItems,
     this.goalItems = 10,
+    this.fromStarter = true,
     required this.onAdd,
     this.onDismiss,
   });
@@ -36,13 +41,19 @@ class StarterWardrobeBanner extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.palette_outlined,
-                  color: Color(0xFFC8901C), size: 20),
+              const Icon(
+                Icons.palette_outlined,
+                color: Color(0xFFC8901C),
+                size: 20,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  "You're seeing outfits from a starter wardrobe. Add your "
-                  'real items for personalized suggestions.',
+                  fromStarter
+                      ? "You're seeing outfits from a starter wardrobe. Add "
+                            'your real items for personalized suggestions.'
+                      : "You're seeing outfits built from shop pieces. Add "
+                            'your real items for personalized suggestions.',
                   style: textTheme.bodyMedium,
                 ),
               ),
@@ -58,8 +69,9 @@ class StarterWardrobeBanner extends StatelessWidget {
                     : (realItems! / goalItems).clamp(0.0, 1.0),
                 minHeight: 6,
                 backgroundColor: AppColors.sand,
-                valueColor:
-                    const AlwaysStoppedAnimation<Color>(Color(0xFFC8901C)),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFFC8901C),
+                ),
               ),
             ),
             const SizedBox(height: 4),
@@ -83,7 +95,9 @@ class StarterWardrobeBanner extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     child: Text(
                       'Add Your First Item',
                       style: textTheme.labelLarge?.copyWith(
