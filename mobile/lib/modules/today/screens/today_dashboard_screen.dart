@@ -88,6 +88,8 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
     if (lifecycle == AppLifecycleState.resumed) {
       ref.read(todayControllerProvider.notifier).refreshIfStale();
+      // Cheap, and the week may have moved on (or changed on another device).
+      ref.read(dayPlansProvider.notifier).load();
     }
   }
 
@@ -246,7 +248,10 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     return RefreshIndicator(
       onRefresh: () {
         ref.invalidate(onboardingStatusProvider);
-        return ref.read(todayControllerProvider.notifier).loadFrame();
+        return Future.wait([
+          ref.read(todayControllerProvider.notifier).loadFrame(),
+          ref.read(dayPlansProvider.notifier).load(),
+        ]);
       },
       child: CustomScrollView(
         slivers: [

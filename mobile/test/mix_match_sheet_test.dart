@@ -9,6 +9,9 @@ import 'package:mobile/modules/today/widgets/mix_match_sheet.dart';
 import 'package:mobile/modules/wardrobe/models/wardrobe_item.dart';
 import 'package:mobile/modules/wardrobe/wardrobe_service.dart';
 import 'package:mobile/shared/widgets/app_bottom_sheet.dart';
+import 'package:mobile/modules/today/day_plans_service.dart';
+
+import 'support/fake_day_plans_service.dart';
 
 /// Records what the sheet sends.
 class _Today extends TodayService {
@@ -113,6 +116,7 @@ Future<_Today> _open(WidgetTester tester) async {
       overrides: [
         todayServiceProvider.overrideWithValue(today),
         wardrobeServiceProvider.overrideWithValue(_Wardrobe()),
+        dayPlansServiceProvider.overrideWithValue(FakeDayPlansService()),
       ],
       child: MaterialApp(
         home: Scaffold(

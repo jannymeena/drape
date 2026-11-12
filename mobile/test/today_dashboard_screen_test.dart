@@ -10,7 +10,7 @@ import 'package:mobile/modules/onboarding/models/onboarding_status.dart';
 import 'package:mobile/modules/onboarding/onboarding_service.dart';
 import 'package:mobile/modules/notifications/models/app_notification.dart';
 import 'package:mobile/modules/notifications/notifications_controller.dart';
-import 'package:mobile/modules/today/day_plans_controller.dart';
+import 'package:mobile/modules/today/day_plans_service.dart';
 import 'package:mobile/modules/today/models/day_plan.dart';
 import 'package:mobile/modules/today/models/outfit.dart';
 import 'package:mobile/modules/today/models/today_dashboard.dart';
@@ -24,6 +24,8 @@ import 'package:mobile/modules/today/widgets/outfit_carousel.dart';
 import 'package:mobile/modules/today/widgets/resume_banner.dart';
 import 'package:mobile/shared/providers/network_provider.dart';
 import 'package:mobile/shared/services/dashboard_cache.dart';
+
+import 'support/fake_day_plans_service.dart';
 
 /// Returns the frame, then never completes per-occasion generation so the
 /// skeletons stay on screen for the assertions.
@@ -118,11 +120,9 @@ Widget _host(
     notificationsProvider.overrideWith(
       (ref) => NotificationsController(notifications),
     ),
-    dayPlansProvider.overrideWith((ref) {
-      final c = DayPlansController();
-      plans.forEach(c.save);
-      return c;
-    }),
+    dayPlansServiceProvider.overrideWithValue(
+      FakeDayPlansService(plans: plans),
+    ),
     // Shop the look stays off the network: no feed, and gaps only when given.
     shopFeedProvider.overrideWith((ref) => Completer<ShopFeed>().future),
     gapAnalysisProvider.overrideWith(

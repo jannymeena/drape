@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/app_bottom_sheet.dart';
 import '../../onboarding/widgets/pipeda_note.dart';
@@ -8,26 +9,41 @@ import '../day_plans_controller.dart';
 import '../models/day_plan.dart';
 import 'outfit_card.dart';
 
-/// What the sheet hands back: a plan to save, or "clear this day".
+/// What the sheet hands back: a plan to save, or a clear — each with the
+/// days it applies to.
 sealed class _PlanResult {
   const _PlanResult();
 }
 
 class _Saved extends _PlanResult {
   final DayPlan plan;
-  const _Saved(this.plan);
+  final DayPlanScope scope;
+  const _Saved(this.plan, this.scope);
+}
+
+/// "Repeat every …" switched off on a repeating day: stop the repeat, keep
+/// this day's plan.
+class _SavedStopRepeat extends _PlanResult {
+  final DayPlan plan;
+  const _SavedStopRepeat(this.plan);
 }
 
 class _Cleared extends _PlanResult {
-  const _Cleared();
+  final DayPlanScope scope;
+  const _Cleared(this.scope);
 }
 
 /// Plan the day (Stitch `plan_the_day_thursday_nov_5`): what's on (one of 12
 /// occasions), how dressed up (5 stops, defaulted by the occasion), a note,
-/// repeat-weekly, then Save. UI-only — saves go to [dayPlansProvider].
+/// repeat-weekly, then Save. Saves go through [dayPlansProvider] to
+/// `/today/plans`; on a day a repeat covers, Save and Clear ask "just this
+/// one, or every one?" first.
 class PlanDaySheet extends StatefulWidget {
   final DateTime date;
   final DayPlan? existing;
+
+  /// A weekly repeat covers this day (planned, or cleared just this once).
+  final bool repeats;
 
   /// e.g. "6°C · Rain" — only known for today until the frame carries a
   /// forecast; hidden when null.
@@ -38,12 +54,14 @@ class PlanDaySheet extends StatefulWidget {
     super.key,
     required this.date,
     this.existing,
+    this.repeats = false,
     this.weatherLabel,
     this.weatherIcon,
   });
 
-  /// Opens the sheet for [date], applies the result, and confirms with an
-  /// undoable toast ("Planned: Work day, Thursday…").
+  /// Opens the sheet for [date], saves the result, and confirms with a toast
+  /// ("Planned: Work day, Thursday…") — with Undo when the day can be put
+  /// back exactly.
   static Future<void> open(
     BuildContext context,
     WidgetRef ref,
@@ -59,21 +77,63 @@ class PlanDaySheet extends StatefulWidget {
       builder: (_) => PlanDaySheet(
         date: date,
         existing: previous,
+        repeats: controller.repeats(date),
         weatherLabel: weatherLabel,
         weatherIcon: weatherIcon,
       ),
     );
     if (result == null) return;
 
+    final weekday = weekdayLong(date);
     final String message;
-    switch (result) {
-      case _Saved(:final plan):
-        controller.save(plan);
-        message = _plannedMessage(plan);
-      case _Cleared():
-        controller.clear(date);
-        message = 'Plan cleared for ${_dayName(date)}.';
+    var undoable = false;
+    try {
+      switch (result) {
+        case _Saved(:final plan, scope: DayPlanScope.day):
+          await controller.save(plan);
+          message = _plannedMessage(plan);
+          undoable = controller.canRestore(previous);
+        case _Saved(:final plan, scope: DayPlanScope.fromNow):
+          await controller.save(plan, scope: DayPlanScope.fromNow);
+          message = 'Planned: ${plan.occasion.label}, every $weekday.';
+        case _SavedStopRepeat(:final plan):
+          await controller.stopRepeatAndSave(plan);
+          message =
+              'Planned: ${plan.occasion.label}, ${_dayName(date)}. '
+              '$weekday repeat stopped.';
+        case _Cleared(scope: DayPlanScope.day):
+          await controller.clear(date);
+          message = 'Plan cleared for ${_dayName(date)}.';
+          undoable = controller.canRestore(previous);
+        case _Cleared(scope: DayPlanScope.fromNow):
+          await controller.clear(date, scope: DayPlanScope.fromNow);
+          message = '$weekday repeat stopped.';
+      }
+    } on ApiException catch (e) {
+      _toast(messenger, e.message);
+      return;
     }
+    _toast(
+      messenger,
+      message,
+      onUndo: undoable
+          ? () => controller
+                .restore(date, previous)
+                .catchError(
+                  (Object e) => _toast(
+                    messenger,
+                    e is ApiException ? e.message : 'Could not undo that.',
+                  ),
+                )
+          : null,
+    );
+  }
+
+  static void _toast(
+    ScaffoldMessengerState messenger,
+    String message, {
+    VoidCallback? onUndo,
+  }) {
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -85,11 +145,13 @@ class PlanDaySheet extends StatefulWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'Undo',
-            textColor: AppColors.white,
-            onPressed: () => controller.restore(date, previous),
-          ),
+          action: onUndo == null
+              ? null
+              : SnackBarAction(
+                  label: 'Undo',
+                  textColor: AppColors.white,
+                  onPressed: onUndo,
+                ),
         ),
       );
   }
@@ -130,7 +192,7 @@ class _PlanDaySheetState extends State<PlanDaySheet> {
     _dress = e?.dress ?? DressLevel.smartCasual;
     _note = TextEditingController(text: e?.note ?? '')
       ..addListener(() => setState(() {}));
-    _repeat = e?.repeatWeekly ?? false;
+    _repeat = widget.repeats;
   }
 
   @override
@@ -172,20 +234,45 @@ class _PlanDaySheetState extends State<PlanDaySheet> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
     final o = _occasion;
     if (o == null) return;
-    Navigator.of(context).pop(
-      _Saved(
-        DayPlan(
-          date: widget.date,
-          occasion: o,
-          dress: _dress,
-          note: _note.text.trim(),
-          repeatWeekly: _repeat,
-        ),
-      ),
+    final plan = DayPlan(
+      date: widget.date,
+      occasion: o,
+      dress: _dress,
+      note: _note.text.trim(),
     );
+    final _PlanResult result;
+    if (!widget.repeats) {
+      // No repeat yet: the switch decides.
+      result = _Saved(plan, _repeat ? DayPlanScope.fromNow : DayPlanScope.day);
+    } else if (!_repeat) {
+      result = _SavedStopRepeat(plan);
+    } else {
+      final scope = await _RepeatScopeSheet.ask(
+        context,
+        widget.date,
+        clearing: false,
+      );
+      if (scope == null || !mounted) return; // back to the sheet, edits kept
+      result = _Saved(plan, scope);
+    }
+    if (mounted) Navigator.of(context).pop(result);
+  }
+
+  Future<void> _clear() async {
+    var scope = DayPlanScope.day;
+    if (widget.repeats) {
+      final picked = await _RepeatScopeSheet.ask(
+        context,
+        widget.date,
+        clearing: true,
+      );
+      if (picked == null || !mounted) return;
+      scope = picked;
+    }
+    if (mounted) Navigator.of(context).pop(_Cleared(scope));
   }
 
   @override
@@ -236,7 +323,7 @@ class _PlanDaySheetState extends State<PlanDaySheet> {
             const SizedBox(height: 16),
             Center(
               child: TextButton(
-                onPressed: () => Navigator.of(context).pop(const _Cleared()),
+                onPressed: _clear,
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.error,
                   minimumSize: const Size(48, 48),
@@ -694,5 +781,98 @@ class _RingThumbShape extends SliderComponentShape {
         ..strokeWidth = 2,
     );
     canvas.drawCircle(center, 3, Paint()..color = AppColors.espresso);
+  }
+}
+
+/// "Which Thursdays?" — asked when saving or clearing a day a weekly repeat
+/// covers. Resolves to the scope, or null when dismissed (back to the
+/// plan, edits kept).
+class _RepeatScopeSheet extends StatelessWidget {
+  final DateTime date;
+  final bool clearing;
+  const _RepeatScopeSheet({required this.date, required this.clearing});
+
+  static Future<DayPlanScope?> ask(
+    BuildContext context,
+    DateTime date, {
+    required bool clearing,
+  }) {
+    return AppBottomSheet.show<DayPlanScope>(
+      context,
+      builder: (_) => _RepeatScopeSheet(date: date, clearing: clearing),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final weekday = weekdayLong(date);
+    final day = '${monthShort(date)} ${date.day}';
+    return AppBottomSheet(
+      title: 'Which ${weekday}s?',
+      heightFactor: 0.42,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ScopeOption(
+            title: 'Just this $weekday',
+            body: clearing
+                ? '$day only. Your repeat carries on next week.'
+                : '$day only. Your repeat stays as it is.',
+            onTap: () => Navigator.of(context).pop(DayPlanScope.day),
+          ),
+          const SizedBox(height: 10),
+          _ScopeOption(
+            title: clearing ? 'Stop repeating' : 'Every $weekday from now on',
+            body: 'From $day on. Past ${weekday}s stay as they were.',
+            onTap: () => Navigator.of(context).pop(DayPlanScope.fromNow),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScopeOption extends StatelessWidget {
+  final String title;
+  final String body;
+  final VoidCallback onTap;
+  const _ScopeOption({
+    required this.title,
+    required this.body,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: AppColors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: text.titleSmall?.copyWith(color: AppColors.ink),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(body, style: text.bodySmall),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.taupe),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

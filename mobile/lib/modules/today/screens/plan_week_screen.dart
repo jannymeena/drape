@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/models/api_error.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/drape_toast.dart';
@@ -12,8 +13,8 @@ import '../widgets/plan_day_sheet.dart';
 import '../widgets/weather_chip.dart';
 
 /// Plan your week (Stitch `plan_your_week_zoura`): progress, quick-start
-/// presets, one row per day (tap → Plan the day), Done. UI-only — plans
-/// live in [dayPlansProvider].
+/// presets, one row per day (tap → Plan the day), Done. Plans live in
+/// [dayPlansProvider] (`/today/plans`).
 class PlanWeekScreen extends ConsumerWidget {
   static const path = 'plan-week';
   static const name = 'plan_week';
@@ -37,23 +38,26 @@ class PlanWeekScreen extends ConsumerWidget {
     );
   }
 
-  void _preset(
+  Future<void> _preset(
     BuildContext context,
     WidgetRef ref,
     List<DateTime> days, {
     required bool Function(DateTime) when,
     required DayOccasion occasion,
-  }) {
-    final filled = ref
-        .read(dayPlansProvider.notifier)
-        .fill(days, when: when, occasion: occasion);
-    showDrapeToast(
-      context,
-      filled == 0
+  }) async {
+    String message;
+    try {
+      final filled = await ref
+          .read(dayPlansProvider.notifier)
+          .fill(days, when: when, occasion: occasion);
+      message = filled == 0
           ? 'Those days already have plans.'
-          : 'Planned ${filled == 1 ? '1 day' : '$filled days'} as ${occasion.label}.',
-      background: AppColors.espressoDeep,
-    );
+          : 'Planned ${filled == 1 ? '1 day' : '$filled days'} as ${occasion.label}.';
+    } on ApiException catch (e) {
+      message = e.message;
+    }
+    if (!context.mounted) return;
+    showDrapeToast(context, message, background: AppColors.espressoDeep);
   }
 
   static bool _isWeekday(DateTime d) => d.weekday <= DateTime.friday;

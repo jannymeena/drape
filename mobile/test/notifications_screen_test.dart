@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/modules/notifications/models/app_notification.dart';
 import 'package:mobile/modules/notifications/notifications_controller.dart';
 import 'package:mobile/modules/notifications/screens/notifications_screen.dart';
+import 'package:mobile/modules/today/day_plans_service.dart';
 import 'package:mobile/modules/today/widgets/plan_day_sheet.dart';
+
+import 'support/fake_day_plans_service.dart';
 
 Future<ProviderContainer> _pump(
   WidgetTester tester, {
@@ -16,6 +19,7 @@ Future<ProviderContainer> _pump(
   addTearDown(tester.view.resetDevicePixelRatio);
   final container = ProviderContainer(
     overrides: [
+      dayPlansServiceProvider.overrideWithValue(FakeDayPlansService()),
       notificationsProvider.overrideWith(
         (ref) => NotificationsController(
           feed ?? sampleNotifications(DateTime.now()),
