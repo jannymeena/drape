@@ -30,14 +30,17 @@ class _ThighMeasurementScreenState
   @override
   void initState() {
     super.initState();
-    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.thigh);
+    _cm = ref
+        .read(onboardingControllerProvider)
+        .measurements
+        .get(MeasurementField.thigh);
   }
 
   void _onContinue() {
     if (_cm == null) return;
     ref
         .read(onboardingControllerProvider.notifier)
-        .setMeasurement(MeasurementField.thigh, _cm, imperial: _imperial);
+        .saveMeasurement(MeasurementField.thigh, _cm, imperial: _imperial);
     context.pushNamed(ShouldersScreen.name);
   }
 

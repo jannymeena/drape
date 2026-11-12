@@ -27,8 +27,9 @@ const Object _unset = Object();
 /// backend columns.
 ///
 /// [measurements] is filled by the eight measurement screens, which are no
-/// longer part of onboarding — they're entered from the Shop/Profile tabs and
-/// submitted in a single `POST /profile/measurements`.
+/// longer part of onboarding — they're entered from the Shop/Profile tabs.
+/// Each answer is saved as it's entered ([saveMeasurement]), and the last
+/// screen submits the whole set in one `POST /profile/measurements`.
 /// [nextStep] holds the most recent backend `next_step` literal.
 class OnboardingState {
   const OnboardingState({
@@ -80,11 +81,18 @@ class OnboardingState {
 }
 
 class OnboardingController extends StateNotifier<OnboardingState> {
-  OnboardingController(this._service, this._analytics)
-    : super(const OnboardingState());
+  OnboardingController(
+    this._service,
+    this._analytics, {
+    this.onMeasurementsSaved,
+  }) : super(const OnboardingState());
 
   final OnboardingService _service;
   final AnalyticsService _analytics;
+
+  /// Called after a background measurement save lands, so anything showing
+  /// saved progress (Today's "Complete your ZOURA profile" card) refetches.
+  final void Function()? onMeasurementsSaved;
 
   // ─── Background saves ──────────────────────────────────────────────────
   //
@@ -372,6 +380,23 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     );
   }
 
+  /// One measurement step's answer: stores it in the draft and, when there
+  /// is a value, saves it to the profile in the background like
+  /// [saveMeasurements] — so a user who stops halfway keeps what they
+  /// entered, and Today's "Complete your ZOURA profile" card counts it. An
+  /// empty optional step (weight) only clears the draft.
+  void saveMeasurement(
+    MeasurementField field,
+    double? metric, {
+    required bool imperial,
+  }) {
+    if (metric == null) {
+      setMeasurement(field, null, imperial: imperial);
+      return;
+    }
+    saveMeasurements({field: metric}, imperial: imperial);
+  }
+
   /// Measurements given to [saveMeasurements] and not yet saved, metric.
   final _unsentMeasurements = <MeasurementField, double>{};
   var _unsentUnits = 'metric';
@@ -412,6 +437,7 @@ class OnboardingController extends StateNotifier<OnboardingState> {
       try {
         await _service.saveSomeMeasurements(batch, unitSystem: _unsentUnits);
         sent();
+        onMeasurementsSaved?.call();
       } on ApiException catch (e) {
         final status = e.statusCode;
         // Rejected (bad values, signed out): retrying won't change that.
@@ -480,5 +506,6 @@ final onboardingControllerProvider =
       return OnboardingController(
         ref.read(onboardingServiceProvider),
         ref.read(analyticsProvider),
+        onMeasurementsSaved: () => ref.invalidate(onboardingStatusProvider),
       );
     });

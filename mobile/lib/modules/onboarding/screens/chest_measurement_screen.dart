@@ -19,7 +19,8 @@ class ChestMeasurementScreen extends ConsumerStatefulWidget {
       _ChestMeasurementScreenState();
 }
 
-class _ChestMeasurementScreenState extends ConsumerState<ChestMeasurementScreen> {
+class _ChestMeasurementScreenState
+    extends ConsumerState<ChestMeasurementScreen> {
   double? _cm;
   // Metric default, consistent with every other measurement step.
   bool _imperial = false;
@@ -27,14 +28,17 @@ class _ChestMeasurementScreenState extends ConsumerState<ChestMeasurementScreen>
   @override
   void initState() {
     super.initState();
-    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.chest);
+    _cm = ref
+        .read(onboardingControllerProvider)
+        .measurements
+        .get(MeasurementField.chest);
   }
 
   void _onContinue() {
     if (_cm == null) return;
     ref
         .read(onboardingControllerProvider.notifier)
-        .setMeasurement(MeasurementField.chest, _cm, imperial: _imperial);
+        .saveMeasurement(MeasurementField.chest, _cm, imperial: _imperial);
     context.pushNamed(WaistMeasurementScreen.name);
   }
 
@@ -45,7 +49,8 @@ class _ChestMeasurementScreenState extends ConsumerState<ChestMeasurementScreen>
       stepLabel: 'CHEST',
       bodyPart: 'chest',
       title: 'Chest / Bust',
-      description: 'Tape around the fullest part of your chest. Breathe normally.',
+      description:
+          'Tape around the fullest part of your chest. Breathe normally.',
       canContinue: _cm != null,
       onContinue: _onContinue,
       input: MeasurementInput(

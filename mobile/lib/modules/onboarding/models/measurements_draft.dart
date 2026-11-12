@@ -1,12 +1,23 @@
 /// The body measurements collected one-per-screen during onboarding, held in
-/// the controller until the single bulk `POST /profile/measurements`.
+/// the controller. Each screen's answer is also saved as it's entered
+/// (`PATCH /profile/measurements`), and the last screen submits the whole set
+/// (`POST /profile/measurements`).
 ///
 /// Values are stored canonically in **metric** (cm for lengths, kg for weight) —
 /// screens convert imperial input before storing. `weight` is optional; the
 /// other seven are required by the backend, so [hasAllRequired] gates the submit.
 library;
 
-enum MeasurementField { height, weight, shoulders, chest, waist, inseam, thigh, hips }
+enum MeasurementField {
+  height,
+  weight,
+  shoulders,
+  chest,
+  waist,
+  inseam,
+  thigh,
+  hips,
+}
 
 /// The seven measurements the backend requires (everything except weight).
 const _required = [
@@ -26,10 +37,7 @@ String formatMeasurement(double v) {
 }
 
 class MeasurementsDraft {
-  const MeasurementsDraft({
-    this.values = const {},
-    this.unitSystem = 'metric',
-  });
+  const MeasurementsDraft({this.values = const {}, this.unitSystem = 'metric'});
 
   /// Builds a draft from the `GET /profile/measurements` response (metric
   /// values + the stored `unit_system` display hint). Omitted/null fields are
@@ -88,14 +96,14 @@ class MeasurementsDraft {
 
   /// Wire shape for `MeasurementsRequest`. weight_kg may be null (optional).
   Map<String, dynamic> toJson() => {
-        'height_cm': values[MeasurementField.height],
-        'weight_kg': values[MeasurementField.weight],
-        'shoulders_cm': values[MeasurementField.shoulders],
-        'chest_cm': values[MeasurementField.chest],
-        'waist_cm': values[MeasurementField.waist],
-        'inseam_cm': values[MeasurementField.inseam],
-        'thigh_cm': values[MeasurementField.thigh],
-        'hips_cm': values[MeasurementField.hips],
-        'unit_system': unitSystem,
-      };
+    'height_cm': values[MeasurementField.height],
+    'weight_kg': values[MeasurementField.weight],
+    'shoulders_cm': values[MeasurementField.shoulders],
+    'chest_cm': values[MeasurementField.chest],
+    'waist_cm': values[MeasurementField.waist],
+    'inseam_cm': values[MeasurementField.inseam],
+    'thigh_cm': values[MeasurementField.thigh],
+    'hips_cm': values[MeasurementField.hips],
+    'unit_system': unitSystem,
+  };
 }

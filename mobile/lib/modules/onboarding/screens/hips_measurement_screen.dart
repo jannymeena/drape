@@ -26,14 +26,17 @@ class _HipsMeasurementScreenState extends ConsumerState<HipsMeasurementScreen> {
   @override
   void initState() {
     super.initState();
-    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.hips);
+    _cm = ref
+        .read(onboardingControllerProvider)
+        .measurements
+        .get(MeasurementField.hips);
   }
 
   void _onContinue() {
     if (_cm == null) return;
     ref
         .read(onboardingControllerProvider.notifier)
-        .setMeasurement(MeasurementField.hips, _cm, imperial: _imperial);
+        .saveMeasurement(MeasurementField.hips, _cm, imperial: _imperial);
     context.pushNamed(InseamMeasurementScreen.name);
   }
 

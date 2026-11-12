@@ -25,14 +25,17 @@ class _HeightInputScreenState extends ConsumerState<HeightInputScreen> {
   @override
   void initState() {
     super.initState();
-    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.height);
+    _cm = ref
+        .read(onboardingControllerProvider)
+        .measurements
+        .get(MeasurementField.height);
   }
 
   void _onContinue() {
     if (_cm == null) return;
     ref
         .read(onboardingControllerProvider.notifier)
-        .setMeasurement(MeasurementField.height, _cm, imperial: _imperial);
+        .saveMeasurement(MeasurementField.height, _cm, imperial: _imperial);
     context.pushNamed(WeightInputScreen.name);
   }
 

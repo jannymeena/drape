@@ -113,4 +113,46 @@ void main() {
     await settle();
     expect(service.saved.single.$1, const {MeasurementField.height: 165.0});
   });
+  test('each measurement step saves its answer as it is entered', () async {
+    controller.saveMeasurement(MeasurementField.height, 165, imperial: false);
+    await settle();
+    controller.saveMeasurement(MeasurementField.chest, 92, imperial: false);
+    await settle();
+
+    expect(service.saved.map((s) => s.$1), [
+      const {MeasurementField.height: 165.0},
+      const {MeasurementField.chest: 92.0},
+    ]);
+    expect(controller.state.measurements.values[MeasurementField.chest], 92);
+  });
+
+  test('a landed save tells the app to refresh saved progress', () async {
+    var refreshes = 0;
+    final c = OnboardingController(
+      service,
+      DebugAnalyticsService(),
+      onMeasurementsSaved: () => refreshes++,
+    );
+    addTearDown(c.dispose);
+
+    service.failWith = _offline;
+    c.saveMeasurement(MeasurementField.height, 165, imperial: false);
+    await settle();
+    expect(refreshes, 0);
+
+    service.failWith = null;
+    c.saveMeasurement(MeasurementField.chest, 92, imperial: false);
+    await settle();
+    expect(refreshes, 1);
+  });
+
+  test('an empty optional step only clears the draft', () async {
+    controller.saveMeasurement(MeasurementField.weight, 60, imperial: false);
+    await settle();
+    controller.saveMeasurement(MeasurementField.weight, null, imperial: false);
+    await settle();
+
+    expect(service.saved.single.$1, const {MeasurementField.weight: 60.0});
+    expect(controller.state.measurements.get(MeasurementField.weight), isNull);
+  });
 }

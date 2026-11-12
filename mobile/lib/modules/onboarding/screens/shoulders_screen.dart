@@ -9,8 +9,9 @@ import '../onboarding_controller.dart';
 import '../widgets/measurement_input.dart';
 import '../widgets/measurement_step_scaffold.dart';
 
-/// Final measurement screen (step 8). "Keep Going" stores the shoulders value and
-/// then submits the whole set in one `POST /profile/measurements`; on success
+/// Final measurement screen (step 8). "Keep Going" saves the shoulders value
+/// (like every step) and then submits the whole set in one
+/// `POST /profile/measurements`; on success
 /// the flow lands on the Profile tab's measurements screen so the user can see
 /// what was saved. (Measurements sit outside onboarding — this flow is the
 /// guided alternative to that screen's single-page form.)
@@ -32,13 +33,20 @@ class _ShouldersScreenState extends ConsumerState<ShouldersScreen> {
   @override
   void initState() {
     super.initState();
-    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.shoulders);
+    _cm = ref
+        .read(onboardingControllerProvider)
+        .measurements
+        .get(MeasurementField.shoulders);
   }
 
   Future<void> _onSubmit() async {
     if (_cm == null || _submitting) return;
     final notifier = ref.read(onboardingControllerProvider.notifier);
-    notifier.setMeasurement(MeasurementField.shoulders, _cm, imperial: _imperial);
+    notifier.saveMeasurement(
+      MeasurementField.shoulders,
+      _cm,
+      imperial: _imperial,
+    );
 
     setState(() => _submitting = true);
     try {
@@ -47,8 +55,9 @@ class _ShouldersScreenState extends ConsumerState<ShouldersScreen> {
       context.goNamed(EditMeasurementsScreen.name);
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

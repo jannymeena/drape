@@ -29,13 +29,16 @@ class _WeightInputScreenState extends ConsumerState<WeightInputScreen> {
   @override
   void initState() {
     super.initState();
-    _kg = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.weight);
+    _kg = ref
+        .read(onboardingControllerProvider)
+        .measurements
+        .get(MeasurementField.weight);
   }
 
   void _onContinue() {
     ref
         .read(onboardingControllerProvider.notifier)
-        .setMeasurement(MeasurementField.weight, _kg, imperial: _imperial);
+        .saveMeasurement(MeasurementField.weight, _kg, imperial: _imperial);
     context.pushNamed(ChestMeasurementScreen.name);
   }
 
@@ -46,8 +49,7 @@ class _WeightInputScreenState extends ConsumerState<WeightInputScreen> {
       stepLabel: 'WEIGHT',
       bodyPart: 'weight',
       title: 'Weight',
-      description:
-          'Optional. Helps with fit recommendations but not required.',
+      description: 'Optional. Helps with fit recommendations but not required.',
       // Optional measurement → the button stays enabled even when empty.
       canContinue: true,
       onContinue: _onContinue,

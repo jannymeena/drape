@@ -19,21 +19,25 @@ class WaistMeasurementScreen extends ConsumerStatefulWidget {
       _WaistMeasurementScreenState();
 }
 
-class _WaistMeasurementScreenState extends ConsumerState<WaistMeasurementScreen> {
+class _WaistMeasurementScreenState
+    extends ConsumerState<WaistMeasurementScreen> {
   double? _cm;
   bool _imperial = false;
 
   @override
   void initState() {
     super.initState();
-    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.waist);
+    _cm = ref
+        .read(onboardingControllerProvider)
+        .measurements
+        .get(MeasurementField.waist);
   }
 
   void _onContinue() {
     if (_cm == null) return;
     ref
         .read(onboardingControllerProvider.notifier)
-        .setMeasurement(MeasurementField.waist, _cm, imperial: _imperial);
+        .saveMeasurement(MeasurementField.waist, _cm, imperial: _imperial);
     context.pushNamed(HipsMeasurementScreen.name);
   }
 

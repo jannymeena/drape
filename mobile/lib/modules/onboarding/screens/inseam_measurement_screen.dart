@@ -27,14 +27,17 @@ class _InseamMeasurementScreenState
   @override
   void initState() {
     super.initState();
-    _cm = ref.read(onboardingControllerProvider).measurements.get(MeasurementField.inseam);
+    _cm = ref
+        .read(onboardingControllerProvider)
+        .measurements
+        .get(MeasurementField.inseam);
   }
 
   void _onContinue() {
     if (_cm == null) return;
     ref
         .read(onboardingControllerProvider.notifier)
-        .setMeasurement(MeasurementField.inseam, _cm, imperial: _imperial);
+        .saveMeasurement(MeasurementField.inseam, _cm, imperial: _imperial);
     context.pushNamed(ThighMeasurementScreen.name);
   }
 
