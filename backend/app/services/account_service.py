@@ -5,7 +5,7 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Outfit, User, WardrobeItem
+from app.db.models import DayPlan, Outfit, User, WardrobeItem, WeeklyPlanRule
 from app.schemas.settings import SettingsResponse
 from app.services import measurements_service, settings_service
 from app.services.providers.crypto.base import Encryptor
@@ -20,6 +20,20 @@ def export_user_data(db: Session, *, user: User, encryptor: Encryptor) -> dict:
     measurements = measurements_service.get_for_user(db, encryptor=encryptor, user=user)
     items = list(
         db.scalars(select(WardrobeItem).where(WardrobeItem.user_id == user.id)).all()
+    )
+    day_plans = list(
+        db.scalars(
+            select(DayPlan)
+            .where(DayPlan.user_id == user.id)
+            .order_by(DayPlan.plan_date)
+        ).all()
+    )
+    plan_rules = list(
+        db.scalars(
+            select(WeeklyPlanRule)
+            .where(WeeklyPlanRule.user_id == user.id)
+            .order_by(WeeklyPlanRule.weekday, WeeklyPlanRule.starts_on)
+        ).all()
     )
     outfit_count = int(
         db.scalar(select(func.count(Outfit.id)).where(Outfit.user_id == user.id)) or 0
@@ -61,6 +75,27 @@ def export_user_data(db: Session, *, user: User, encryptor: Encryptor) -> dict:
                 "created_at": i.created_at.isoformat() if i.created_at else None,
             }
             for i in items
+        ],
+        "day_plans": [
+            {
+                "date": p.plan_date.isoformat(),
+                "occasion": p.occasion,
+                "dress_level": p.dress_level,
+                "note": p.note,
+                "skipped": p.skipped,
+            }
+            for p in day_plans
+        ],
+        "weekly_plan_rules": [
+            {
+                "weekday": r.weekday,
+                "occasion": r.occasion,
+                "dress_level": r.dress_level,
+                "note": r.note,
+                "starts_on": r.starts_on.isoformat(),
+                "ends_on": r.ends_on.isoformat() if r.ends_on else None,
+            }
+            for r in plan_rules
         ],
         "stats": {"wardrobe_items": len(items), "outfits_generated": outfit_count},
     }

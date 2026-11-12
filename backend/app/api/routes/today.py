@@ -10,6 +10,7 @@ calls when no outfits exist yet, so behaviour is consistent.
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -33,10 +34,17 @@ from app.schemas.outfit import (
     WeatherContext,
     payload_to_outfit_items,
 )
-from app.core.localtime import next_day_rollover_utc
+from app.core.localtime import next_day_rollover_utc, user_today
 from app.data import occasion_rules
 from app.core.providers import providers
-from app.services import banner_service, outfit_service, push_service, usage_service
+from app.api.routes.day_plans import to_day_response
+from app.services import (
+    banner_service,
+    day_plan_service,
+    outfit_service,
+    push_service,
+    usage_service,
+)
 from app.services.outfit_service import (
     DAILY_OUTFIT_TARGET,
     DEFAULT_OCCASIONS,
@@ -144,6 +152,7 @@ async def dashboard(
 
     weather_ctx = await outfit_service.current_weather(weather, lat=lat, lon=lon)
     attribution = weather.attribution if weather_ctx is not None else None
+    today = user_today(user)
 
     return TodayDashboardResponse(
         user=TodayUser(
@@ -170,6 +179,12 @@ async def dashboard(
         occasions=[
             OccasionOption(key=k, label=occasion_rules.label(k), daily=k in DEFAULT_OCCASIONS)
             for k in occasion_rules.occasion_keys()
+        ],
+        day_plans=[
+            to_day_response(d)
+            for d in day_plan_service.resolve_range(
+                db, user=user, start=today, end=today + timedelta(days=1)
+            )
         ],
     )
 

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum as PyEnum
 from typing import Optional
 
@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     Numeric,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -966,3 +967,65 @@ class AIResponseCache(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class DayPlan(Base, TimestampMixin):
+    """What the user said about one specific day (Plan a day / Plan your
+    week): an override of the weekday's repeat rule, or a one-off plan.
+
+    `plan_date` is the user's local app day (`core.localtime.user_today`).
+    `skipped` marks "nothing planned this day" — it hides a weekly rule for
+    that one date; occasion/dress are null then. Occasion and dress values
+    are checked by the Pydantic Literals in `app/schemas/day_plan.py`, not
+    DB CHECKs (same policy as `users`)."""
+
+    __tablename__ = "day_plans"
+    __table_args__ = (UniqueConstraint("user_id", "plan_date"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    plan_date: Mapped[date] = mapped_column(Date, nullable=False)
+    occasion: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    dress_level: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    note: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    skipped: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+
+
+class WeeklyPlanRule(Base, TimestampMixin):
+    """"Repeat every <weekday>": the plan a weekday gets when that date has no
+    `day_plans` row of its own.
+
+    Effective-dated so changing a repeat never rewrites the past: a permanent
+    change ends the old rule (`ends_on`) and starts a new one (`starts_on`).
+    At most one rule covers any (user, weekday, date) — enforced by
+    `day_plan_service`, which serializes a user's plan writes."""
+
+    __tablename__ = "weekly_plan_rules"
+    __table_args__ = (UniqueConstraint("user_id", "weekday", "starts_on"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # Monday = 0 … Sunday = 6 (Python's date.weekday()).
+    weekday: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    occasion: Mapped[str] = mapped_column(String(30), nullable=False)
+    dress_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    note: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    starts_on: Mapped[date] = mapped_column(Date, nullable=False)
+    # Last day the rule applies; null = no end.
+    ends_on: Mapped[Optional[date]] = mapped_column(Date, nullable=True)

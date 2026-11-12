@@ -16,6 +16,7 @@ from uuid import UUID
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
+from app.schemas.day_plan import DayPlanDayResponse
 from app.data import occasion_rules
 
 
@@ -185,6 +186,9 @@ class TodayDashboardResponse(BaseModel):
     pending_occasions: list[Occasion] = Field(default_factory=list)
     # Every occasion the rulebook defines — the app's occasion chips.
     occasions: list[OccasionOption] = Field(default_factory=list)
+    # Today's and tomorrow's plans (Plan a day), so the frame can show the
+    # plan pill without a second call. The week comes from GET /today/plans.
+    day_plans: list[DayPlanDayResponse] = Field(default_factory=list)
 
 
 class ReasoningItem(BaseModel):

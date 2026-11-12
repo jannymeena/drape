@@ -22,6 +22,7 @@ from app.api.routes import (
     users,
     wardrobe,
     billing,
+    day_plans,
     devices,
     shop,
 )
@@ -102,6 +103,7 @@ app.include_router(profile.router, prefix=settings.api_v1_prefix)
 app.include_router(wardrobe.router, prefix=settings.api_v1_prefix)
 app.include_router(starter_wardrobe.router, prefix=settings.api_v1_prefix)
 app.include_router(today.router, prefix=settings.api_v1_prefix)
+app.include_router(day_plans.router, prefix=settings.api_v1_prefix)
 app.include_router(outfits.router, prefix=settings.api_v1_prefix)
 app.include_router(usage.router, prefix=settings.api_v1_prefix)
 app.include_router(analytics.router, prefix=settings.api_v1_prefix)

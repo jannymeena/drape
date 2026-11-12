@@ -1,6 +1,7 @@
 """init schema 6d usage
 
 Squashed init covering Phases 1–6d (per feedback_preprod_schema), plus the
+day plans + weekly plan rules (Plan your week), the
 AWIN catalog tags on `products` and AWIN-product starter wardrobes
 (`wardrobe_items.product_id`; the static starter templates are gone).
 
@@ -132,6 +133,7 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_outfits_is_logged'), 'outfits', ['is_logged'], unique=False)
+    op.create_index(op.f('ix_outfits_is_favorite'), 'outfits', ['is_favorite'], unique=False)
     op.create_index(op.f('ix_outfits_user_id'), 'outfits', ['user_id'], unique=False)
     op.create_table('password_reset_tokens',
     sa.Column('id', sa.UUID(), nullable=False),
@@ -288,6 +290,37 @@ def upgrade() -> None:
     sa.UniqueConstraint('user_id', 'banner')
     )
     op.create_index(op.f('ix_banner_dismissals_user_id'), 'banner_dismissals', ['user_id'], unique=False)
+    op.create_table('day_plans',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('plan_date', sa.Date(), nullable=False),
+    sa.Column('occasion', sa.String(length=30), nullable=True),
+    sa.Column('dress_level', sa.String(length=20), nullable=True),
+    sa.Column('note', sa.String(length=100), nullable=True),
+    sa.Column('skipped', sa.Boolean(), server_default='false', nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'plan_date')
+    )
+    op.create_index(op.f('ix_day_plans_user_id'), 'day_plans', ['user_id'], unique=False)
+    op.create_table('weekly_plan_rules',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('weekday', sa.SmallInteger(), nullable=False),
+    sa.Column('occasion', sa.String(length=30), nullable=False),
+    sa.Column('dress_level', sa.String(length=20), nullable=False),
+    sa.Column('note', sa.String(length=100), nullable=True),
+    sa.Column('starts_on', sa.Date(), nullable=False),
+    sa.Column('ends_on', sa.Date(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'weekday', 'starts_on')
+    )
+    op.create_index(op.f('ix_weekly_plan_rules_user_id'), 'weekly_plan_rules', ['user_id'], unique=False)
     op.create_table('outfit_history',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -488,6 +521,10 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_feature_request_votes_user_id'), table_name='feature_request_votes')
     op.drop_index(op.f('ix_feature_request_votes_ticket_id'), table_name='feature_request_votes')
     op.drop_table('feature_request_votes')
+    op.drop_index(op.f('ix_weekly_plan_rules_user_id'), table_name='weekly_plan_rules')
+    op.drop_table('weekly_plan_rules')
+    op.drop_index(op.f('ix_day_plans_user_id'), table_name='day_plans')
+    op.drop_table('day_plans')
     op.drop_index(op.f('ix_banner_dismissals_user_id'), table_name='banner_dismissals')
     op.drop_table('banner_dismissals')
     op.drop_index('ix_trend_briefs_audience_created', table_name='trend_briefs')
@@ -526,6 +563,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_password_reset_tokens_token_hash'), table_name='password_reset_tokens')
     op.drop_table('password_reset_tokens')
     op.drop_index(op.f('ix_outfits_user_id'), table_name='outfits')
+    op.drop_index(op.f('ix_outfits_is_favorite'), table_name='outfits')
     op.drop_index(op.f('ix_outfits_is_logged'), table_name='outfits')
     op.drop_table('outfits')
     op.drop_index(op.f('ix_users_google_id'), table_name='users')
