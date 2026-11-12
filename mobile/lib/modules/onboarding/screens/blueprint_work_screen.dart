@@ -194,11 +194,10 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           _OtherField(controller: _otherText, max: _otherMax),
         ],
         const SizedBox(height: 24),
-        BlueprintSubQuestion(
+        BlueprintQuestion(
           key: _dressCodeQuestion,
-          'What’s the dress code like?',
-          note: 'Skipped automatically if you’re not currently working',
-          italic: false,
+          title: 'What’s the dress code like?',
+          subtitle: 'Skipped automatically if you’re not currently working',
         ),
         const SizedBox(height: 12),
         // Not working: nothing to ask, so the chips are switched off.
@@ -226,9 +225,9 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           ),
         ),
         const SizedBox(height: 28),
-        BlueprintSubQuestion(
+        BlueprintQuestion(
           key: _dayQuestion,
-          'How dressed up is a typical day?',
+          title: 'How dressed up is a typical day?',
         ),
         const SizedBox(height: 16),
         _FormalitySlider(
@@ -239,8 +238,8 @@ class _BlueprintWorkScreenState extends ConsumerState<BlueprintWorkScreen> {
           },
         ),
         const SizedBox(height: 28),
-        const BlueprintSubQuestion(
-          'Where do you want to make a better impression?',
+        const BlueprintQuestion(
+          title: 'Where do you want to make a better impression?',
         ),
         const SizedBox(height: 12),
         for (final i in _impressions) ...[

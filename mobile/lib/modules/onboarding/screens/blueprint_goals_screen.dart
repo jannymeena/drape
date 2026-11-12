@@ -110,11 +110,10 @@ class _BlueprintGoalsScreenState extends ConsumerState<BlueprintGoalsScreen> {
           if (value != _feelings.last.$1) const SizedBox(height: 12),
         ],
         const SizedBox(height: 28),
-        const BlueprintSubQuestion(
-          'What matters most to you right now?',
-          note: 'Pick as many as you like. This shapes how Zoura styles you.',
-          italic: false,
-          size: 20,
+        const BlueprintQuestion(
+          title: 'What matters most to you right now?',
+          subtitle:
+              'Pick as many as you like. This shapes how Zoura styles you.',
         ),
         const SizedBox(height: 16),
         for (final (value, label) in _goals) ...[

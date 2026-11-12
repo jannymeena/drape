@@ -24,7 +24,7 @@ const int kBlueprintSteps = 8;
 class BlueprintText {
   BlueprintText._();
 
-  /// A Style Blueprint question heading (steps 1–7 and the shape finder):
+  /// A Style Blueprint question heading (every step and the shape finder):
   /// Newsreader 26 semibold, tight, as the blueprint mockups set it. The
   /// rest of the app's headings are Cormorant Garamond ([question]).
   static TextStyle heading(BuildContext context) => GoogleFonts.newsreader(
@@ -67,55 +67,8 @@ class BlueprintText {
   ).textTheme.labelMedium!.copyWith(color: AppColors.inkSoft);
 }
 
-/// A second question on a step, under the main one: DM Sans semibold (18 by
-/// default),
-/// with an optional line under it ([italic] for an aside).
-class BlueprintSubQuestion extends StatelessWidget {
-  const BlueprintSubQuestion(
-    this.text, {
-    super.key,
-    this.note,
-    this.italic = true,
-    this.size = 18,
-  });
-
-  final String text;
-  final String? note;
-  final bool italic;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final body = BlueprintText.optionSupport(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          text,
-          style: body.copyWith(
-            fontSize: size,
-            fontWeight: FontWeight.w600,
-            height: 1.375,
-            color: AppColors.ink,
-          ),
-        ),
-        if (note case final n?) ...[
-          const SizedBox(height: 2),
-          Text(
-            n,
-            style: body.copyWith(
-              fontSize: 12,
-              fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-              color: AppColors.inkSoft,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
 /// A question heading plus its optional explanatory line, at the shared scale.
+/// Every question on a step uses it — the first and any after it alike.
 class BlueprintQuestion extends StatelessWidget {
   final String title;
   final String? subtitle;

@@ -194,11 +194,10 @@ class _BlueprintShoppingScreenState
         const SizedBox(height: 20),
         const _InsightCard(),
         const SizedBox(height: 32),
-        BlueprintSubQuestion(
+        BlueprintQuestion(
           key: _accessoryQuestion,
-          'How do you feel about accessories?',
-          note: 'From understated accents to intentional centerpieces.',
-          italic: false,
+          title: 'How do you feel about accessories?',
+          subtitle: 'From understated accents to intentional centerpieces.',
         ),
         const SizedBox(height: 16),
         for (final a in _accessories) ...[
@@ -220,9 +219,9 @@ class _BlueprintShoppingScreenState
           if (a != _accessories.last) const SizedBox(height: 12),
         ],
         const SizedBox(height: 32),
-        BlueprintSubQuestion(
+        BlueprintQuestion(
           key: _brandQuestion,
-          'Which types of brands do you prefer?',
+          title: 'Which types of brands do you prefer?',
         ),
         const SizedBox(height: 16),
         Container(

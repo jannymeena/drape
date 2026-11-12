@@ -295,10 +295,9 @@ class _ShapeMeasureScreenState extends ConsumerState<ShapeMeasureScreen> {
             controller: _text[_specs[i].field]!,
             unit: finder.imperial ? 'in' : 'cm',
             valid: finder.cm[_specs[i].field] != null,
-            rangeHint:
+            range:
                 '${_display(_specs[i].minCm, imperial: finder.imperial)}–'
-                '${_display(_specs[i].maxCm, imperial: finder.imperial)} '
-                '${finder.imperial ? 'in' : 'cm'}',
+                '${_display(_specs[i].maxCm, imperial: finder.imperial)}',
             onChanged: (t) => _onChanged(_specs[i], t),
           ),
           const SizedBox(height: 12),
@@ -384,7 +383,7 @@ class _MeasureCard extends StatelessWidget {
     required this.controller,
     required this.unit,
     required this.valid,
-    required this.rangeHint,
+    required this.range,
     required this.onChanged,
   });
 
@@ -394,7 +393,9 @@ class _MeasureCard extends StatelessWidget {
   final TextEditingController controller;
   final String unit;
   final bool valid;
-  final String rangeHint;
+
+  /// The accepted range in the display unit, e.g. `60–180`.
+  final String range;
   final ValueChanged<String> onChanged;
 
   @override
@@ -481,17 +482,39 @@ class _MeasureCard extends StatelessWidget {
                     isDense: true,
                     filled: true,
                     fillColor: AppColors.ivoryWarm,
-                    hintText: spec.required ? rangeHint : 'Skip anytime',
-                    hintStyle: caption.copyWith(fontSize: 14),
-                    suffixText: unit,
-                    suffixStyle: caption.copyWith(fontSize: 14),
-                    suffixIcon: valid
-                        ? const Icon(
-                            Icons.check_circle,
-                            color: AppColors.sage,
-                            size: 20,
-                          )
-                        : null,
+                    // A placeholder, not a value: light and regular weight.
+                    hintText: range,
+                    hintStyle: BlueprintText.option(context).copyWith(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.taupe,
+                    ),
+                    // The unit stays put whether or not the field has text.
+                    suffixIcon: Padding(
+                      padding: const EdgeInsets.only(left: 8, right: 14),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            unit,
+                            style: caption.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.taupe,
+                            ),
+                          ),
+                          if (valid) ...[
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.check_circle,
+                              color: AppColors.sage,
+                              size: 20,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    suffixIconConstraints: const BoxConstraints(),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 12,
@@ -508,7 +531,7 @@ class _MeasureCard extends StatelessWidget {
                       ),
                     ),
                     errorText: controller.text.trim().isNotEmpty && !valid
-                        ? 'Enter $rangeHint'
+                        ? 'Enter $range $unit'
                         : null,
                   ),
                 ),
