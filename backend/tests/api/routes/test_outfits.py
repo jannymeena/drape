@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 
-from app.core.localtime import user_today
+from app.core.localtime import user_day_start_utc, user_today
 from app.db.models import Outfit
 from app.services import outfit_service
 
@@ -633,7 +633,10 @@ def test_regenerating_supersedes_its_own_card_not_another_occasion(
     The dashboard now shows the newest generation per occasion.
     """
     user = authed_client.test_user
-    now = datetime.now(timezone.utc)
+    # Inside today's app day even just after its 5 am rollover.
+    now = max(
+        datetime.now(timezone.utc), user_day_start_utc(user) + timedelta(minutes=31)
+    )
 
     # Three occasions generated this morning...
     for i, occasion in enumerate(["work", "casual", "date_night"]):
