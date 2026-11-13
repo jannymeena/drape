@@ -530,7 +530,11 @@ class _OutfitTile extends StatelessWidget {
     final card = OutfitCardData.fromOutfit(outfit);
     return _TileShell(
       // The tile's AspectRatio sizes it; photo if there is one, else collage.
-      image: OutfitImage(imageUrl: outfit.imageUrl, cells: card.items),
+      image: OutfitImage(
+        imageUrl: outfit.imageUrl,
+        cells: card.items,
+        seed: outfit.id,
+      ),
       title: card.title,
       subtitle: '${card.occasion} · ${_wornLabel(outfit.wornCount)}',
       onUnsave: onUnsave,

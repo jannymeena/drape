@@ -418,10 +418,14 @@ class _WornCard extends StatelessWidget {
                     color: AppColors.ivoryWarm,
                     child: OutfitImage(
                       imageUrl: entry.imageUrl,
+                      seed: entry.outfitId,
                       cells: [
                         for (final i in entry.items)
                           GarmentCell(
                             imageUrl: i.primaryImageUrl,
+                            cutoutUrl: i.cutoutUrl,
+                            cutoutBox: i.cutoutBox,
+                            priority: i.dressPriority,
                             category: i.category,
                             color: garmentColorFromName(i.colorName),
                           ),

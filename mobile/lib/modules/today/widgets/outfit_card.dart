@@ -93,6 +93,9 @@ class OutfitCardData {
         for (final i in outfit.items)
           GarmentCell(
             imageUrl: i.primaryImageUrl,
+            cutoutUrl: i.cutoutUrl,
+            cutoutBox: i.cutoutBox,
+            priority: i.dressPriority,
             category: i.category,
             color: garmentColorFromName(i.colorName),
             buyUrl: i.productUrl,
@@ -187,7 +190,7 @@ class OutfitCard extends StatelessWidget {
         children: [
           Stack(
             children: [
-              OutfitCollage(cells: outfit.items),
+              OutfitCollage(cells: outfit.items, seed: outfit.id),
               if (regenerating)
                 Positioned.fill(
                   child: ClipRRect(

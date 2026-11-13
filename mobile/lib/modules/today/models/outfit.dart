@@ -10,7 +10,11 @@ class OutfitItem {
     required this.itemId,
     required this.name,
     required this.category,
+    this.subcategory,
     this.primaryImageUrl,
+    this.cutoutUrl,
+    this.cutoutBox,
+    this.dressPriority = defaultDressPriority,
     this.colorName,
     this.formality,
     this.whyItWorks,
@@ -25,7 +29,23 @@ class OutfitItem {
   final String itemId;
   final String name;
   final String category;
+  final String? subcategory;
   final String? primaryImageUrl;
+
+  /// The piece alone on a transparent square, for the outfit picture; null
+  /// for shop products and pieces without one.
+  final String? cutoutUrl;
+
+  /// Where the piece sits on [cutoutUrl]'s square: `[x, y, width, height]`,
+  /// each 0–1.
+  final List<double>? cutoutBox;
+
+  /// 0–1000: how much of the outfit picture the piece may claim (bigger =
+  /// bigger slot). Only the order matters to the layouts.
+  final int dressPriority;
+
+  /// What the backend's table gives anything it doesn't list.
+  static const defaultDressPriority = 500;
   final String? colorName;
   final String? formality;
   final String? whyItWorks;
@@ -61,7 +81,12 @@ class OutfitItem {
       itemId: json['item_id'] as String,
       name: json['name'] as String,
       category: json['category'] as String,
+      subcategory: json['subcategory'] as String?,
       primaryImageUrl: ApiConfig.resolveImageUrl(json['primary_image_url'] as String?),
+      cutoutUrl: ApiConfig.resolveImageUrl(json['cutout_url'] as String?),
+      cutoutBox: _box(json['cutout_box']),
+      dressPriority:
+          (json['dress_priority'] as num?)?.toInt() ?? defaultDressPriority,
       colorName: json['color_name'] as String?,
       formality: json['formality'] as String?,
       whyItWorks: json['why_it_works'] as String?,
@@ -78,7 +103,11 @@ class OutfitItem {
         'item_id': itemId,
         'name': name,
         'category': category,
+        'subcategory': subcategory,
         'primary_image_url': primaryImageUrl,
+        'cutout_url': cutoutUrl,
+        'cutout_box': cutoutBox,
+        'dress_priority': dressPriority,
         'color_name': colorName,
         'formality': formality,
         'why_it_works': whyItWorks,
@@ -89,6 +118,13 @@ class OutfitItem {
         'currency': currency,
         'retailer': retailer,
       };
+
+  /// A 4-number box, or null when it's missing or malformed.
+  static List<double>? _box(Object? raw) {
+    if (raw is! List || raw.length != 4) return null;
+    final box = [for (final v in raw) if (v is num) v.toDouble()];
+    return box.length == 4 ? box : null;
+  }
 }
 
 class WeatherContext {
