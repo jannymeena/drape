@@ -7,6 +7,8 @@ Future<Future<String?>> _open(
   double heightFactor = 0.8,
   String? title,
   bool withActions = true,
+  int rows = 30,
+  bool actionsBorder = true,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1.0;
@@ -24,6 +26,7 @@ Future<Future<String?>> _open(
               builder: (context) => AppBottomSheet(
                 heightFactor: heightFactor,
                 title: title,
+                actionsBorder: actionsBorder,
                 actions: withActions
                     ? FilledButton(
                         onPressed: () => Navigator.of(context).pop('saved'),
@@ -32,7 +35,7 @@ Future<Future<String?>> _open(
                     : null,
                 child: Column(
                   children: [
-                    for (var i = 0; i < 30; i++)
+                    for (var i = 0; i < rows; i++)
                       SizedBox(height: 60, child: Text('Row $i')),
                   ],
                 ),
@@ -50,7 +53,9 @@ Future<Future<String?>> _open(
 }
 
 void main() {
-  testWidgets('80% tall by default, with the grabber on top', (tester) async {
+  testWidgets('long content: capped at 80% by default, grabber on top', (
+    tester,
+  ) async {
     await _open(tester);
     expect(
       tester.getSize(find.byType(AppBottomSheet)).height,
@@ -67,12 +72,25 @@ void main() {
     expect(tester.getCenter(grabber).dx, closeTo(195, 1));
   });
 
-  testWidgets('height factor is configurable', (tester) async {
+  testWidgets('the cap is configurable', (tester) async {
     await _open(tester, heightFactor: 0.5);
     expect(
       tester.getSize(find.byType(AppBottomSheet)).height,
       closeTo(844 * 0.5, 1),
     );
+  });
+
+  testWidgets('short content: the sheet shrinks to fit it', (tester) async {
+    await _open(tester, title: 'Title', rows: 2);
+    final sheet = tester.getRect(find.byType(AppBottomSheet));
+    expect(sheet.height, lessThan(844 * 0.8));
+    // Still anchored to the bottom, with everything on screen.
+    expect(sheet.bottom, closeTo(844, 1));
+    expect(find.text('Row 1').hitTestable(), findsOneWidget);
+    expect(find.text('Save').hitTestable(), findsOneWidget);
+    // Nothing to scroll.
+    final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+    expect(scroll.position.maxScrollExtent, 0);
   });
 
   testWidgets('content scrolls; header and actions stay fixed', (tester) async {
@@ -87,6 +105,26 @@ void main() {
     expect(tester.getTopLeft(find.text('Title')).dy, headerY);
     expect(tester.getTopLeft(find.text('Save')).dy, saveY);
     expect(tester.getTopLeft(find.text('Row 0')).dy, lessThan(rowY));
+  });
+
+  testWidgets('a border above the actions, unless turned off', (tester) async {
+    Border? footerBorder() {
+      final footer = tester.widget<Container>(
+        find
+            .ancestor(of: find.text('Save'), matching: find.byType(Container))
+            .first,
+      );
+      return (footer.decoration as BoxDecoration?)?.border as Border?;
+    }
+
+    await _open(tester);
+    expect(footerBorder()?.top.width, 1);
+    expect(footerBorder()?.top.style, BorderStyle.solid);
+
+    await tester.tapAt(const Offset(195, 40)); // close
+    await tester.pumpAndSettle();
+    await _open(tester, actionsBorder: false);
+    expect(footerBorder(), isNull);
   });
 
   testWidgets('title is text only, in the fixed screen-title style', (

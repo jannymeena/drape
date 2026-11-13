@@ -12,11 +12,13 @@ import '../theme/app_typography.dart';
 /// │ ┌──────────────────────────────────┐ │
 /// │ │ child                            │ │  scrolls
 /// │ └──────────────────────────────────┘ │
+/// ├──────────────────────────────────────┤  border — [actionsBorder]
 /// │ [actions]                            │  fixed footer — optional
 /// └──────────────────────────────────────┘
 /// ```
 ///
-/// - [heightFactor] of the screen tall (default 80%), rounded top, ivory.
+/// - As tall as its content, up to [heightFactor] of the screen (default
+///   80%) — past that the body scrolls. Rounded top, ivory.
 /// - Lifts above the keyboard; tapping blank space in the content closes it.
 /// - No close button: drag it down or tap outside to dismiss.
 ///
@@ -43,6 +45,7 @@ class AppBottomSheet extends StatelessWidget {
     required this.child,
     this.title,
     this.actions,
+    this.actionsBorder = true,
     this.heightFactor = 0.8,
     this.contentPadding = const EdgeInsets.fromLTRB(20, 0, 20, 16),
     this.scrollController,
@@ -61,7 +64,11 @@ class AppBottomSheet extends StatelessWidget {
   /// home-indicator inset added below it.
   final Widget? actions;
 
-  /// Share of the screen height the sheet takes (0–1).
+  /// A hairline above [actions], separating the footer from the body.
+  final bool actionsBorder;
+
+  /// The most of the screen height the sheet may take (0–1). A shorter
+  /// body shrinks the sheet to fit; a longer one scrolls.
   final double heightFactor;
 
   /// Padding around [child] inside the scroll view.
@@ -103,18 +110,22 @@ class AppBottomSheet extends StatelessWidget {
       duration: const Duration(milliseconds: 150),
       padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
       child: Container(
-        height: media.size.height * heightFactor,
+        constraints: BoxConstraints(
+          maxHeight: media.size.height * heightFactor,
+        ),
         clipBehavior: Clip.antiAlias,
         decoration: const BoxDecoration(
           color: AppColors.ivory,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _Grabber(),
             if (title != null) _Title(title!),
-            Expanded(
+            // Loose: the body takes only what it needs, up to the cap.
+            Flexible(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: () => FocusScope.of(context).unfocus(),
@@ -127,7 +138,12 @@ class AppBottomSheet extends StatelessWidget {
             ),
             if (actions != null)
               Container(
-                color: AppColors.ivory.withValues(alpha: 0.95),
+                decoration: BoxDecoration(
+                  color: AppColors.ivory.withValues(alpha: 0.95),
+                  border: actionsBorder
+                      ? const Border(top: BorderSide(color: AppColors.sand))
+                      : null,
+                ),
                 padding: EdgeInsets.fromLTRB(
                   20,
                   12,
