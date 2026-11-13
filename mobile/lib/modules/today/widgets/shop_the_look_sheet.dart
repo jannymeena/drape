@@ -14,6 +14,7 @@ class ShopTheLookSheet extends StatelessWidget {
   static Future<void> show(BuildContext context, Outfit outfit) {
     return showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true, // over the tab bar, like AppBottomSheet
       backgroundColor: AppColors.ivory,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(

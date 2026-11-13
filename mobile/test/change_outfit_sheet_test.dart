@@ -48,17 +48,21 @@ Future<void> _tap(WidgetTester tester, String label) async {
 }
 
 void main() {
-  testWidgets('the mock layout on the shared sheet, 60% tall', (tester) async {
+  testWidgets('the mock layout on the shared sheet, default 80% tall', (
+    tester,
+  ) async {
     await _open(tester);
 
     expect(find.byType(AppBottomSheet), findsOneWidget);
     expect(
       tester.getSize(find.byType(AppBottomSheet)).height,
-      closeTo(844 * 0.6, 1),
+      closeTo(844 * 0.8, 1),
     );
     expect(find.text('What would you change?'), findsOneWidget);
-    expect(find.text('Tell us what feels off and we will fix it.'),
-        findsOneWidget);
+    expect(
+      find.text('Tell us what feels off and we will fix it.'),
+      findsOneWidget,
+    );
     expect(find.text('Pick up to 3'), findsOneWidget);
     for (final r in ChangeReason.values) {
       expect(find.text(r.label), findsOneWidget, reason: r.label);

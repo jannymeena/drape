@@ -139,11 +139,11 @@ void main() {
   testWidgets('shows the mock layout for the outfit', (tester) async {
     await _open(tester);
 
-    // Built on the shared sheet: 60% tall, text title, no close button.
+    // Built on the shared sheet: default 80% tall, text title, no close button.
     expect(find.byType(AppBottomSheet), findsOneWidget);
     expect(
       tester.getSize(find.byType(AppBottomSheet)).height,
-      closeTo(844 * 0.6, 1),
+      closeTo(844 * 0.8, 1),
     );
     expect(find.byIcon(Icons.close), findsNothing);
 

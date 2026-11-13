@@ -274,7 +274,6 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
     // preview, fit line, tabs, grid), Save / Wear this in the footer.
     return AppBottomSheet(
       title: 'Mix & match',
-      heightFactor: 0.6,
       actions: _BottomBar(
         busy: _busy,
         onSave: _busy ? null : _save,

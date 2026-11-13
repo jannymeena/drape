@@ -54,7 +54,7 @@ class ChangeUpdate extends ChangeOutfitResult {
 }
 
 /// Change it (Stitch `change_outfit_what_would_you_change`), on the shared
-/// [AppBottomSheet] at 60% height: what feels off (up to 3 reasons, "Other"
+/// [AppBottomSheet] at the default height: what feels off (up to 3 reasons, "Other"
 /// opens a note), pieces to keep, "Not for me", then Update this outfit or
 /// Regenerate. Returns the choice; the caller acts on it.
 class ChangeOutfitSheet extends StatefulWidget {
@@ -121,7 +121,6 @@ class _ChangeOutfitSheetState extends State<ChangeOutfitSheet> {
     final text = Theme.of(context).textTheme;
     return AppBottomSheet(
       title: 'What would you change?',
-      heightFactor: 0.6,
       actions: _Footer(
         canUpdate: _canUpdate,
         onUpdate: _update,

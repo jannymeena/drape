@@ -78,9 +78,14 @@ class AppBottomSheet extends StatelessWidget {
     required WidgetBuilder builder,
     bool isDismissible = true,
     bool enableDrag = true,
+    // Over the whole screen, tab bar included — a tab's own navigator ends
+    // above the bar, so a sheet opened there rises from the bar. Pass false
+    // to keep the sheet inside the current tab.
+    bool useRootNavigator = true,
   }) {
     return showModalBottomSheet<T>(
       context: context,
+      useRootNavigator: useRootNavigator,
       isScrollControlled: true,
       useSafeArea: true,
       isDismissible: isDismissible,
