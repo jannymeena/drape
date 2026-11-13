@@ -236,6 +236,8 @@ def upgrade() -> None:
     sa.Column('subcategory', sa.String(length=50), nullable=True),
     sa.Column('images', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('primary_image_url', sa.String(length=500), nullable=True),
+    sa.Column('cutout_url', sa.String(length=500), nullable=True),
+    sa.Column('cutout_box', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('color_hex', sa.String(length=7), nullable=True),
     sa.Column('color_name', sa.String(length=50), nullable=True),
     sa.Column('pattern', sa.String(length=50), nullable=True),

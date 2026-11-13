@@ -5,6 +5,8 @@ from app.services.providers.ai.anthropic import AnthropicProvider
 from app.services.providers.ai.base import AIProvider
 from app.services.providers.ai.caching import CachingAIProvider
 from app.services.providers.ai.mock import MockAIProvider
+from app.services.providers.background_removal.base import BackgroundRemover
+from app.services.providers.background_removal.chroma_key import ChromaKeyRemover
 from app.services.providers.crypto.base import Encryptor
 from app.services.providers.crypto.kms_envelope import KmsEnvelopeEncryptor
 from app.services.providers.crypto.local_aes import LocalAesEncryptor
@@ -49,6 +51,8 @@ class Providers:
         self.image_storage: ImageStorageProvider = self._build_image_storage(s)
         self.ai: AIProvider = self._build_ai(s)
         self.garment_images: GarmentImageProvider = self._build_garment_images(s)
+        # Same in every env: keys out the flat backdrop the image model draws.
+        self.background_remover: BackgroundRemover = ChromaKeyRemover()
         self.weather: WeatherProvider = self._build_weather(s)
         self.payment: PaymentProvider | None = self._build_payment(s)
         self.push: PushProvider | None = self._build_push(s)
@@ -63,6 +67,7 @@ class Providers:
             image_storage=type(self.image_storage).__name__,
             ai=type(self.ai).__name__,
             garment_images=type(self.garment_images).__name__,
+            background_remover=type(self.background_remover).__name__,
             weather=type(getattr(self.weather, "inner", self.weather)).__name__,
             payment=type(self.payment).__name__ if self.payment else None,
             push=type(self.push).__name__ if self.push else None,

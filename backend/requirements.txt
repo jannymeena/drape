@@ -24,3 +24,7 @@ anthropic
 
 # Outfit rulebook (app/data/occasion_rules.yaml)
 pyyaml
+
+# Wardrobe cut-outs: colour-key the image model's backdrop out (no model)
+Pillow>=10
+numpy>=1.26

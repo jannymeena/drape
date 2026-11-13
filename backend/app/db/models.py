@@ -521,6 +521,10 @@ class WardrobeItem(Base, TimestampMixin):
     # Images — uploaded via POST /wardrobe/items/{id}/images (Phase 5e).
     images: Mapped[Optional[list[str]]] = mapped_column(JSONB, nullable=True)
     primary_image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    # The piece alone on a transparent square (cutout_service): for pictures
+    # of several pieces at once. Box = (x, y, w, h) of the piece on it, 0–1.
+    cutout_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    cutout_box: Mapped[Optional[list[float]]] = mapped_column(JSONB, nullable=True)
 
     # Attributes
     color_hex: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)

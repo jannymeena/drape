@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.providers import (
     get_ai_provider,
+    get_background_remover,
     get_garment_image_provider,
     get_image_storage,
 )
@@ -31,6 +32,7 @@ from app.schemas.wardrobe import (
 )
 from app.services import scanner_service, wardrobe_service
 from app.services.providers.ai.base import AIProvider
+from app.services.providers.background_removal.base import BackgroundRemover
 from app.services.providers.garment_image.base import GarmentImageProvider
 from app.services.providers.image.base import ImageStorageProvider
 from app.services.scanner_service import MAX_BATCH_SIZE, ScannerError, suggest_manual_entry
@@ -178,6 +180,7 @@ async def add_images(
     user: User = Depends(get_current_user),
     storage: ImageStorageProvider = Depends(get_image_storage),
     garment_images: GarmentImageProvider = Depends(get_garment_image_provider),
+    remover: BackgroundRemover = Depends(get_background_remover),
 ) -> WardrobeItemResponse:
     if not files:
         raise HTTPException(
@@ -193,6 +196,7 @@ async def add_images(
             uploads=uploads,
             storage=storage,
             garment_images=garment_images,
+            remover=remover,
         )
     except WardrobeError as e:
         raise _translate(e)

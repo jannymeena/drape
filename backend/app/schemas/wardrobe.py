@@ -10,7 +10,9 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+
+from app.services import dress_priority as _dress_priority
 
 Category = Literal[
     "tops", "bottoms", "dresses", "shoes", "outerwear", "accessories", "bags", "jewelry"
@@ -119,8 +121,18 @@ class WardrobeItemResponse(WardrobeItemBase):
     product_url: str | None = None
     added_via: AddedVia
     ai_detection_confidence: int | None
+    # The piece alone on a transparent square, for outfit pictures; box =
+    # (x, y, w, h) of the piece on it, 0–1. Null until one is made.
+    cutout_url: str | None = None
+    cutout_box: list[float] | None = None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def dress_priority(self) -> int:
+        """0–1000: how much of an outfit picture the piece may claim."""
+        return _dress_priority.resolve(self.category, self.subcategory)
 
 
 class WardrobeListQuery(BaseModel):

@@ -1,5 +1,6 @@
 from app.core.providers import providers
 from app.services.providers.ai.base import AIProvider
+from app.services.providers.background_removal.base import BackgroundRemover
 from app.services.providers.crypto.base import Encryptor
 from app.services.providers.email.base import EmailProvider
 from app.services.providers.garment_image.base import GarmentImageProvider
@@ -38,6 +39,10 @@ def get_ai_provider() -> AIProvider:
 
 def get_garment_image_provider() -> GarmentImageProvider:
     return providers.garment_images
+
+
+def get_background_remover() -> BackgroundRemover:
+    return providers.background_remover
 
 
 def get_weather_provider() -> WeatherProvider:

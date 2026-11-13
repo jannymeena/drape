@@ -14,10 +14,11 @@ from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, computed_field
 
 from app.schemas.day_plan import DayPlanDayResponse
 from app.data import occasion_rules
+from app.services import dress_priority as _dress_priority
 
 
 def _known_occasion(value: str) -> str:
@@ -41,7 +42,12 @@ class OutfitItem(BaseModel):
     item_id: UUID
     name: str
     category: str
+    subcategory: str | None = None
     primary_image_url: str | None = None
+    # The piece alone on a transparent square, for the outfit picture (box =
+    # x, y, w, h on it, 0–1). Null for shop products and pieces without one.
+    cutout_url: str | None = None
+    cutout_box: list[float] | None = None
     color_name: str | None = None
     formality: str | None = None
     why_it_works: str | None = None
@@ -53,6 +59,13 @@ class OutfitItem(BaseModel):
     price_cents: int | None = None
     currency: str | None = None
     retailer: str | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def dress_priority(self) -> int:
+        """0–1000: how much of the outfit picture the piece may claim.
+        Resolved on read, so a re-tuned table applies to old outfits too."""
+        return _dress_priority.resolve(self.category, self.subcategory)
 
 
 class WeatherContext(BaseModel):
