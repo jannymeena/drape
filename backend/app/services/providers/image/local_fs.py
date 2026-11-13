@@ -48,6 +48,15 @@ class LocalFsStorage(ImageStorageProvider):
         )
         return f"{self._base_url}/{filename}"
 
+    def read(self, *, url: str) -> tuple[bytes, str] | None:
+        if not url.startswith(self._base_url + "/"):
+            return None
+        path = self._root / url[len(self._base_url) + 1 :]
+        if not path.is_file():
+            return None
+        by_ext = {ext: ct for ct, ext in self._EXT.items()}
+        return path.read_bytes(), by_ext.get(path.suffix, "application/octet-stream")
+
     def delete(self, *, url: str) -> None:
         if not url.startswith(self._base_url + "/"):
             return None

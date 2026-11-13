@@ -58,6 +58,16 @@ class S3ImageStorage(ImageStorageProvider):
         )
         return url
 
+    def read(self, *, url: str) -> tuple[bytes, str] | None:
+        key = self._key_from_url(url)
+        if key is None:
+            return None
+        try:
+            obj = self._client.get_object(Bucket=self._bucket, Key=key)
+        except self._client.exceptions.NoSuchKey:
+            return None
+        return obj["Body"].read(), obj.get("ContentType") or "application/octet-stream"
+
     def delete(self, *, url: str) -> None:
         key = self._key_from_url(url)
         if key is None:

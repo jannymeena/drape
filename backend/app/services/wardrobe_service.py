@@ -7,7 +7,6 @@ through this API surface — there's no item-by-id-without-user lookup.
 """
 from __future__ import annotations
 
-import asyncio
 from datetime import date, datetime, timezone
 from typing import Optional
 from uuid import UUID
@@ -26,8 +25,7 @@ from app.schemas.wardrobe import (
     WardrobeItemUpdate,
     WardrobeListQuery,
 )
-from app.services import cutout_service, starter_wardrobe_service
-from app.services.providers.background_removal.base import BackgroundRemover
+from app.services import cutout_service, image_job_service, starter_wardrobe_service
 from app.services.providers.garment_image.base import (
     GarmentImageError,
     GarmentImageProvider,
@@ -325,94 +323,31 @@ def add_images(
     return item
 
 
-# What the image model is asked to make of each garment photo.
-GHOST_MANNEQUIN_PROMPT = (
-    "Display your garment on a 3D ghost mannequin with professional styling"
-)
-
-
-async def add_images_with_mannequin(
+def add_images_and_queue(
     db: Session,
     *,
     user: User,
     item_id: UUID,
     uploads: list[tuple[bytes, str]],
     storage: ImageStorageProvider,
-    garment_images: GarmentImageProvider,
-    remover: BackgroundRemover,
+    make_images: bool,
 ) -> WardrobeItem:
-    """`add_images`, with each photo also shown on a ghost mannequin: the
-    generated image goes in just before its photo, so a first photo's
-    mannequin shot becomes the item's primary image.
-
-    The first photo of an item without a cut-out is also made into one
-    (cutout_service: folded, keyed out, on a transparent square) for the
-    multi-piece outfit pictures. It runs alongside the mannequin shots and
-    lives in its own field, outside the photo count.
-
-    The mannequin shots count toward MAX_IMAGES_PER_ITEM, so they're only
-    made while there's room beside the photos themselves. A failed or
-    refused generation just leaves that photo on its own (or the item
-    without a cut-out) — the upload never fails over it."""
-    item = _get_owned(db, user=user, item_id=item_id)  # before paying Google
-    existing = len(item.images or [])
-    if not garment_images.enabled or existing + len(uploads) > MAX_IMAGES_PER_ITEM:
-        # Nothing to generate, or add_images refuses the upload anyway.
-        return add_images(
-            db, user=user, item_id=item_id, uploads=uploads, storage=storage
-        )
-
-    async def mannequin_shots() -> list[tuple[bytes, str]]:
-        room = MAX_IMAGES_PER_ITEM - existing - len(uploads)
-        with_shots: list[tuple[bytes, str]] = []
-        for content, content_type in uploads:
-            if room > 0:
-                try:
-                    shot = await garment_images.generate(
-                        content,
-                        media_type=content_type,
-                        prompt=GHOST_MANNEQUIN_PROMPT,
-                    )
-                except GarmentImageError as e:
-                    _log.warning(
-                        "wardrobe.item.mannequin_failed",
-                        user_id=str(user.id),
-                        item_id=str(item_id),
-                        code=e.code,
-                        error=str(e),
-                    )
-                else:
-                    with_shots.append((shot.content, shot.content_type))
-                    room -= 1
-            with_shots.append((content, content_type))
-        return with_shots
-
-    async def cutout() -> cutout_service.Cutout | None:
-        if item.cutout_url or not uploads:
-            return None
-        content, content_type = uploads[0]
-        return await cutout_service.make_cutout(
-            content,
-            media_type=content_type,
-            color_hex=item.color_hex,
-            category=item.category,
-            garment_images=garment_images,
-            remover=remover,
-        )
-
-    wants_cutout = not item.cutout_url and bool(uploads)
-    with_shots, cut = await asyncio.gather(mannequin_shots(), cutout())
-    if wants_cutout and cut is None:
-        # The reason is logged by cutout_service (cutout.*_failed); this
-        # ties it to the item.
-        _log.warning(
-            "wardrobe.item.cutout_missing", user_id=str(user.id), item_id=str(item_id)
-        )
+    """`add_images`, then — when an image model is set up ([make_images]) —
+    queues each new photo's ghost-mannequin shot and the item's cut-out for
+    the image worker (image_job_service). The upload doesn't wait for them:
+    they land on the item as they're made."""
+    before = len(_get_owned(db, user=user, item_id=item_id).images or [])
     item = add_images(
-        db, user=user, item_id=item_id, uploads=with_shots, storage=storage
+        db, user=user, item_id=item_id, uploads=uploads, storage=storage
     )
-    if cut is not None:
-        save_cutout(db, item=item, cut=cut, storage=storage)
+    if make_images:
+        image_job_service.enqueue_for_upload(
+            db,
+            item=item,
+            photo_urls=list(item.images or [])[before:],
+            max_images=MAX_IMAGES_PER_ITEM,
+        )
+        db.refresh(item)
     return item
 
 

@@ -65,12 +65,34 @@ def _start_trend_worker() -> asyncio.Task | None:
     return asyncio.create_task(worker.run(), name="trend-worker")
 
 
+def _start_image_worker() -> asyncio.Task | None:
+    from app.core.providers import providers
+
+    # No image model: nothing is ever queued.
+    if not settings.image_worker_enabled or not providers.garment_images.enabled:
+        return None
+    from app.db.session import SessionLocal
+    from app.workers.image_worker import ImageWorker
+
+    worker = ImageWorker(
+        session_factory=SessionLocal,
+        storage=providers.image_storage,
+        garment_images=providers.garment_images,
+        remover=providers.background_remover,
+    )
+    return asyncio.create_task(worker.run(), name="image-worker")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # uvicorn (re)installs its own log handlers between import-time configure_logging()
     # and the app starting; reset them so all logs flow through structlog.
     bridge_uvicorn_logging()
-    tasks = [t for t in (_start_catalog_worker(), _start_trend_worker()) if t is not None]
+    tasks = [
+        t
+        for t in (_start_catalog_worker(), _start_trend_worker(), _start_image_worker())
+        if t is not None
+    ]
     yield
     for task in tasks:
         task.cancel()

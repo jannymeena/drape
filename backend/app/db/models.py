@@ -738,6 +738,49 @@ class WardrobeTransitionTracking(Base):
     )
 
 
+class ImageJob(Base, TimestampMixin):
+    """One image to make for a wardrobe item, off the upload's request path
+    (image_job_service + workers/image_worker.py): a ghost-mannequin shot of
+    a photo (`kind="mannequin"`), or the item's folded cut-out
+    (`kind="cutout"`), from the photo at `source_url`.
+
+    `status`: pending → running → done | failed. A failed try (Google busy,
+    a backdrop that won't key) goes back to pending with a later
+    `next_attempt_at`, until the attempts run out. Values are the
+    service's Literals, not a DB CHECK."""
+
+    __tablename__ = "image_jobs"
+    __table_args__ = (Index("ix_image_jobs_due", "status", "next_attempt_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("wardrobe_items.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="pending", server_default="pending"
+    )
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    last_error: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+
+
 class Outfit(Base, TimestampMixin):
     """A generated outfit suggestion. Items reference wardrobe_items by id but
     are denormalized into JSONB so that historical outfits remain readable even

@@ -18,6 +18,12 @@ class ImageStorageProvider(ABC):
         """Persist `content` and return a stable, fetchable URL."""
 
     @abstractmethod
+    def read(self, *, url: str) -> tuple[bytes, str] | None:
+        """The stored bytes and content type at `url` (one `upload()`
+        returned), or None if it isn't there. The background image jobs
+        read the user's photo back with it."""
+
+    @abstractmethod
     def delete(self, *, url: str) -> None:
         """Idempotent — no-op if the URL is unknown."""
 

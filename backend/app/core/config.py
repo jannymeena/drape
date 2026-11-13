@@ -85,6 +85,10 @@ class Settings(BaseSettings):
     # Catalog worker: syncs the affiliate catalog on start + every 6 h and
     # AI-tags new products one at a time. Off in tests (they sync explicitly).
     catalog_worker_enabled: bool = True
+    # Image worker: makes wardrobe items' mannequin shots and cut-outs in the
+    # background, one at a time with retries. Off in tests (they run jobs
+    # explicitly).
+    image_worker_enabled: bool = True
     # Cheap model for the one-line-per-product tagging calls.
     catalog_tag_model: str = "claude-haiku-4-5-20251001"
 
