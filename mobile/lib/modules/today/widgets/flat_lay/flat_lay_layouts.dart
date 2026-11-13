@@ -264,13 +264,14 @@ const Map<int, List<FlatLayVariant>> flatLayVariants = {
 /// left out.
 const int flatLayMaxPieces = 10;
 
-/// The surfaces a picture is laid on (`assets/outfit_backgrounds/`).
+/// The surfaces a picture is laid on (`assets/outfit_backgrounds/`) — all
+/// cloth, stone or paper; hard wood read badly under folded clothes.
 const List<String> flatLayBackgrounds = [
   'assets/outfit_backgrounds/bg_01_linen_oatmeal.webp',
   'assets/outfit_backgrounds/bg_02_linen_cream.webp',
   'assets/outfit_backgrounds/bg_03_linen_greige.webp',
   'assets/outfit_backgrounds/bg_04_canvas_raw.webp',
-  'assets/outfit_backgrounds/bg_05_oak_light.webp',
+  'assets/outfit_backgrounds/bg_05_muslin_sand.webp',
   'assets/outfit_backgrounds/bg_06_plaster_warm.webp',
   'assets/outfit_backgrounds/bg_07_travertine.webp',
   'assets/outfit_backgrounds/bg_08_marble_white.webp',

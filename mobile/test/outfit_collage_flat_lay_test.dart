@@ -62,9 +62,10 @@ void main() {
   ) async {
     await _pump(tester, const [_shoes, _coat]);
 
-    // Each cut-out: the piece plus its shadow (the same image, darkened).
-    expect(_network('http://img/coat.webp'), findsNWidgets(2));
-    expect(_network('http://img/shoes.webp'), findsNWidgets(2));
+    // Each cut-out: the piece plus its two shadows (the same image,
+    // darkened): a soft one and a contact one.
+    expect(_network('http://img/coat.webp'), findsNWidgets(3));
+    expect(_network('http://img/shoes.webp'), findsNWidgets(3));
 
     // The coat (900) gets the bigger slot than the shoes (400), so its
     // piece — the square's width × its box width — is drawn bigger.

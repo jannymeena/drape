@@ -110,7 +110,8 @@ class OutfitCollage extends StatelessWidget {
 }
 
 /// A cut-out fitted (whole, not cropped) into its slot by the piece's own
-/// outline, with a soft shadow under it — lying on the surface.
+/// outline, with a soft shadow and a contact shadow under it — lying on
+/// the surface.
 class _CutoutPiece extends StatelessWidget {
   final GarmentCell cell;
   final double side;
@@ -153,15 +154,21 @@ class _CutoutPiece extends StatelessWidget {
       // Couldn't load the cut-out: the plain photo instead.
       errorWidget: (_, _, _) => _PlainPiece(cell),
     );
-    // The shadow: the same image, flattened to dark, blurred and nudged
-    // down-right — every piece lit from the same side.
-    final shadow = Transform.translate(
-      offset: Offset(side * 0.008, side * 0.016),
+    // Two shadows, as a folded piece casts on cloth — the light from the
+    // upper left, same as the piece's own shading:
+    //   * a soft, wide one falling down-right (its height off the cloth);
+    //   * a tight, darker one hugging the edge (where it touches).
+    Widget shadow({
+      required double alpha,
+      required double blur,
+      required Offset offset,
+    }) => Transform.translate(
+      offset: offset * side,
       child: ImageFiltered(
-        imageFilter: _blur(side * 0.012),
+        imageFilter: _blur(side * blur),
         child: ColorFiltered(
           colorFilter: ColorFilter.mode(
-            AppColors.espressoDeep.withValues(alpha: 0.32),
+            AppColors.espressoDeep.withValues(alpha: alpha),
             BlendMode.srcIn,
           ),
           child: CachedNetworkImage(
@@ -175,7 +182,16 @@ class _CutoutPiece extends StatelessWidget {
         ),
       ),
     );
-    return _Buyable(cell, child: Stack(children: [shadow, image]));
+    return _Buyable(
+      cell,
+      child: Stack(
+        children: [
+          shadow(alpha: 0.25, blur: 0.025, offset: const Offset(0.012, 0.028)),
+          shadow(alpha: 0.38, blur: 0.005, offset: const Offset(0.003, 0.006)),
+          image,
+        ],
+      ),
+    );
   }
 }
 
