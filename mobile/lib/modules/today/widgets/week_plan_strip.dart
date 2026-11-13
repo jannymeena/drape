@@ -8,10 +8,8 @@ import '../models/day_plan.dart';
 import 'outfit_card.dart';
 
 enum WeekDayStatus {
-  /// Today — always styled, drawn as the filled espresso marker.
-  today,
-
-  /// A plan exists for the day; [WeekDayCell.icon] names it.
+  /// A plan exists for the day: filled espresso marker, [WeekDayCell.icon]
+  /// names it.
   planned,
 
   /// Nothing planned yet — dashed "+" marker.
@@ -22,12 +20,16 @@ class WeekDayCell {
   final DateTime date;
   final WeekDayStatus status;
 
+  /// Today's cell is highlighted; its marker follows [status] like any day.
+  final bool isToday;
+
   /// The plan's icon (e.g. work → briefcase); ignored for [WeekDayStatus.open].
   final IconData icon;
 
   const WeekDayCell({
     required this.date,
     required this.status,
+    this.isToday = false,
     this.icon = Icons.checkroom,
   });
 }
@@ -120,7 +122,9 @@ class WeekPlanStrip extends StatelessWidget {
             children: [
               for (final (i, d) in days.indexed) ...[
                 if (i > 0) const SizedBox(width: 6),
-                Expanded(child: _DayCell(day: d, onTap: () => onDayTap(d.date))),
+                Expanded(
+                  child: _DayCell(day: d, onTap: () => onDayTap(d.date)),
+                ),
               ],
             ],
           ),
@@ -142,10 +146,11 @@ class _DayCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final isToday = day.status == WeekDayStatus.today;
+    final isToday = day.isToday;
     return Semantics(
       button: true,
-      label: '${weekdayShort(day.date)} ${day.date.day}, '
+      label:
+          '${weekdayShort(day.date)} ${day.date.day}, '
           '${day.status == WeekDayStatus.open ? 'needs a plan' : 'planned'}',
       excludeSemantics: true,
       child: Material(
@@ -197,7 +202,7 @@ class _DayMarker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     switch (day.status) {
-      case WeekDayStatus.today:
+      case WeekDayStatus.planned:
         return Container(
           width: 24,
           height: 24,
@@ -206,16 +211,6 @@ class _DayMarker extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: Icon(day.icon, size: 13, color: AppColors.white),
-        );
-      case WeekDayStatus.planned:
-        return Container(
-          width: 24,
-          height: 24,
-          decoration: const BoxDecoration(
-            color: AppColors.ivoryWarm,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(day.icon, size: 13, color: AppColors.espressoDark),
         );
       case WeekDayStatus.open:
         return CustomPaint(
@@ -282,7 +277,9 @@ class _TomorrowCard extends StatelessWidget {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: summary.planned ? AppColors.sage : AppColors.taupeSoft,
+                        color: summary.planned
+                            ? AppColors.sage
+                            : AppColors.taupeSoft,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -315,10 +312,15 @@ class _TomorrowCard extends StatelessWidget {
               onTap: onAction,
               borderRadius: BorderRadius.circular(8),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 child: Text(
                   summary.actionLabel,
-                  style: text.labelMedium?.copyWith(color: AppColors.espressoDark),
+                  style: text.labelMedium?.copyWith(
+                    color: AppColors.espressoDark,
+                  ),
                 ),
               ),
             ),

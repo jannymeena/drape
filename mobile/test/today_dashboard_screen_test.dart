@@ -176,6 +176,43 @@ void _stubGeolocator(WidgetTester tester) {
 }
 
 void main() {
+  group('week strip', () {
+    Finder needsPlan() => find.bySemanticsLabel(RegExp(r', needs a plan$'));
+    Finder planned() => find.bySemanticsLabel(RegExp(r', planned$'));
+
+    testWidgets('today with no plan is dashed like the other days', (
+      tester,
+    ) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(_host(_StubService(_frame([]))));
+      await _settle(tester);
+      expect(needsPlan(), findsNWidgets(7));
+      expect(planned(), findsNothing);
+    });
+
+    testWidgets("today's plan fills its marker", (tester) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(
+        _host(
+          _StubService(_frame([])),
+          plans: [
+            DayPlan(
+              date: DateTime.now(),
+              occasion: DayOccasion.workDay,
+              dress: DressLevel.smartCasual,
+            ),
+          ],
+        ),
+      );
+      await _settle(tester);
+      expect(planned(), findsOneWidget);
+      expect(needsPlan(), findsNWidgets(6));
+      expect(find.byIcon(DayOccasion.workDay.icon), findsWidgets);
+    });
+  });
+
   group('add-your-items banner', () {
     Future<void> pump(
       WidgetTester tester, {

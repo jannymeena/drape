@@ -533,11 +533,10 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
       for (final (i, date) in dates.indexed)
         WeekDayCell(
           date: date,
-          status: i == 0
-              ? WeekDayStatus.today
-              : (plans[date] == null
-                    ? WeekDayStatus.open
-                    : WeekDayStatus.planned),
+          status: plans[date] == null
+              ? WeekDayStatus.open
+              : WeekDayStatus.planned,
+          isToday: i == 0,
           icon: plans[date]?.occasion.icon ?? Icons.checkroom,
         ),
     ];
