@@ -11,6 +11,12 @@ add a soft drop shadow however it's asked not to:
     of its colour that leans toward the backdrop, compared with the clean
     piece further in — so shading and patterns survive, the pink cast
     doesn't;
+  * then the whole piece is despilled the classic way: shiny leather, glass
+    and satin reflect the backdrop anywhere, not just at the outline, so
+    any pixel leaning toward the backdrop colour is pulled back. Safe
+    because the backdrop is chosen away from the piece's own colour
+    (cutout_service.pick_backdrop): on magenta, a magenta lean can only be
+    reflection;
   * an edge pixel is a blend of piece and backdrop. Its piece colour is
     taken from the solid piece pixels right next to it, and its alpha is how
     far along the line from backdrop to that colour it sits — so a soft knit
@@ -178,9 +184,8 @@ def _despill(
     compared with the clean piece further in (the mean of the solid pixels
     past the band, within reach). Only the part of the difference that
     points toward the backdrop colour is removed; brightness and any other
-    colour variation (a stripe, a print) are kept. Where there's no clean
-    piece within reach (a thin strap), the classic green-screen despill
-    instead: the backdrop's strong channels pulled down to the weak ones."""
+    colour variation (a stripe, a print) are kept. Then reflections of the
+    backdrop are despilled everywhere ([_reflections])."""
     # Solid pixels with a non-solid one within _EDGE_BAND.
     band = opaque & (_box_sum((~opaque).astype(np.float32), _EDGE_BAND) > 0)
     core = opaque & ~band
@@ -204,13 +209,20 @@ def _despill(
     out = rgb.copy()
     borrow = band & (weight > 0)
     out[borrow] = cleaned[borrow]
+    return np.clip(_reflections(out, backdrop), 0.0, 255.0)
 
+
+def _reflections(rgb: np.ndarray, backdrop: tuple[int, int, int]) -> np.ndarray:
+    """The classic green-screen despill over the whole image: wherever the
+    backdrop's strong channels (red+blue for magenta, green for green) all
+    stand above its weak ones, they're pulled down to them."""
     strong = [i for i, c in enumerate(backdrop) if c >= 128]
     weak = [i for i, c in enumerate(backdrop) if c < 128]
-    lone = band & (weight == 0)
-    if strong and weak and lone.any():
-        spill = out[..., strong].min(axis=2) - out[..., weak].max(axis=2)
-        spill = np.where(lone & (spill > 0), spill, 0.0)
-        for i in strong:
-            out[..., i] -= spill
-    return np.clip(out, 0.0, 255.0)
+    if not strong or not weak:
+        return rgb
+    spill = rgb[..., strong].min(axis=2) - rgb[..., weak].max(axis=2)
+    spill = np.maximum(spill, 0.0)
+    out = rgb.copy()
+    for i in strong:
+        out[..., i] -= spill
+    return out

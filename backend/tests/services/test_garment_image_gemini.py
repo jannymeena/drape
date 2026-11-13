@@ -129,3 +129,67 @@ async def test_a_network_failure_raises(monkeypatch):
     with pytest.raises(GarmentImageError) as e:
         await _provider().generate(_PHOTO, media_type="image/jpeg", prompt="p")
     assert e.value.code == "call_failed"
+
+
+class _BusyThenOk(_Google):
+    """429 for the first [busy] calls, then an image."""
+
+    def __init__(self, busy: int, retry_after: str | None = None) -> None:
+        super().__init__()
+        self.busy = busy
+        self.retry_after = retry_after
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        if len(self.requests) <= self.busy:
+            headers = {"retry-after": self.retry_after} if self.retry_after else {}
+            return httpx.Response(429, json={"error": {"code": 429}}, headers=headers)
+        return httpx.Response(200, json=self.body)
+
+
+def _patched(monkeypatch, handler) -> tuple[GeminiGarmentImageProvider, list[float]]:
+    real_client = httpx.AsyncClient
+    transport = httpx.MockTransport(handler)
+    monkeypatch.setattr(
+        httpx, "AsyncClient", lambda **kwargs: real_client(transport=transport)
+    )
+    provider = _provider()
+    slept: list[float] = []
+
+    async def sleep(seconds: float) -> None:
+        slept.append(seconds)
+
+    provider._sleep = sleep  # type: ignore[method-assign]
+    return provider, slept
+
+
+async def test_a_rate_limit_is_waited_out(monkeypatch):
+    handler = _BusyThenOk(busy=2)
+    provider, slept = _patched(monkeypatch, handler)
+
+    image = await provider.generate(_PHOTO, media_type="image/jpeg", prompt="p")
+
+    assert image.content == _SHOT
+    assert len(handler.requests) == 3
+    assert slept == list(provider.retry_waits[:2])  # growing waits
+
+
+async def test_googles_retry_after_is_honoured_up_to_the_cap(monkeypatch):
+    handler = _BusyThenOk(busy=2, retry_after="7")
+    provider, slept = _patched(monkeypatch, handler)
+    provider.retry_waits = (5.0, 6.0)
+
+    await provider.generate(_PHOTO, media_type="image/jpeg", prompt="p")
+
+    assert slept == [6.0, 6.0]  # 7 s asked, capped at the longest wait
+
+
+async def test_a_rate_limit_that_lasts_gives_up(monkeypatch):
+    handler = _BusyThenOk(busy=99)
+    provider, slept = _patched(monkeypatch, handler)
+
+    with pytest.raises(GarmentImageError) as e:
+        await provider.generate(_PHOTO, media_type="image/jpeg", prompt="p")
+
+    assert e.value.code == "call_failed" and "429" in str(e.value)
+    assert len(handler.requests) == len(provider.retry_waits) + 1

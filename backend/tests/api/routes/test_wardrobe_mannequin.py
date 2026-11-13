@@ -20,7 +20,7 @@ from app.services.providers.garment_image.base import (
 )
 from app.services.cutout_service import CANVAS, FOLDED_PROMPT
 from app.services.wardrobe_service import GHOST_MANNEQUIN_PROMPT
-from tests.factories import make_wardrobe_item
+from tests.factories import make_outfit, make_wardrobe_item
 
 _TINY_PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
@@ -168,3 +168,20 @@ def test_items_carry_their_dress_priority(authed_client, db):
 
     assert r.status_code == 200, r.text
     assert r.json()["dress_priority"] == 900
+
+
+def test_a_new_cut_out_reaches_outfits_already_made(
+    authed_client, db, garment_images
+):
+    # The outfit was made before the shirt had a cut-out.
+    shirt = make_wardrobe_item(db, authed_client.test_user, name="Shirt")
+    jeans = make_wardrobe_item(db, authed_client.test_user, category="bottoms")
+    outfit = make_outfit(db, authed_client.test_user, items=[shirt, jeans])
+
+    body = _upload(authed_client, shirt.id).json()
+
+    db.refresh(outfit)
+    pieces = {p["item_id"]: p for p in outfit.items}
+    assert pieces[str(shirt.id)]["cutout_url"] == body["cutout_url"]
+    assert pieces[str(shirt.id)]["cutout_box"] == body["cutout_box"]
+    assert pieces[str(jeans.id)].get("cutout_url") is None

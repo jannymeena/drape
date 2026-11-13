@@ -77,6 +77,22 @@ def test_dark_pieces_are_not_mistaken_for_shadow(colour):
     assert px[100, 100, 3] == 255
 
 
+def test_reflections_of_the_backdrop_inside_the_piece_go():
+    # Shiny brown leather with a patch reflecting the magenta backdrop, well
+    # inside the outline.
+    img = Image.new("RGB", (200, 200), MAGENTA)
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([40, 40, 160, 160], fill=(139, 69, 19))
+    draw.rectangle([80, 80, 120, 120], fill=(150, 40, 90))
+    px = _rgba(ChromaKeyRemover().remove(img, backdrop=MAGENTA))
+
+    r, g, b, a = px[100, 100]
+    assert a == 255
+    assert min(r, b) <= g + 1  # no magenta lean left
+    # The plain leather is untouched.
+    assert np.allclose(px[50, 50, :3], (139, 69, 19), atol=2)
+
+
 def test_pink_piece_on_green():
     px = _rgba(ChromaKeyRemover().remove(_piece_on(GREEN, PINK), backdrop=GREEN))
     assert px[5, 5, 3] == 0

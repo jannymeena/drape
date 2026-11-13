@@ -34,12 +34,20 @@ _log = structlog.get_logger("cutout")
 # The fold itself; the backdrop line is added per piece.
 FOLDED_PROMPT = "Show this exact garment neatly folded"
 
+# Things that don't fold (a folded trainer comes out crumpled) are laid out
+# as they are instead.
+LAID_OUT_PROMPT = "Show this exact item neatly arranged, seen from above"
+UNFOLDABLE = frozenset({"shoes", "bags", "jewelry", "accessories"})
+
 # Side of the square canvas every cut-out is placed on, and the empty margin
 # around the piece (each side, as a share of the side).
 CANVAS = 1024
 MARGIN = 0.04
 
 CONTENT_TYPE = "image/webp"
+
+# Drawings tried before giving up when the backdrop won't key.
+KEY_ATTEMPTS = 2
 
 
 @dataclass(frozen=True)
@@ -77,9 +85,12 @@ def pick_backdrop(color_hex: str | None) -> Backdrop:
     return MAGENTA
 
 
-def folded_prompt(backdrop: Backdrop) -> str:
+def folded_prompt(backdrop: Backdrop, category: str | None = None) -> str:
+    """Folded for clothes; arranged as they are for shoes, bags and
+    accessories."""
+    lead = LAID_OUT_PROMPT if category in UNFOLDABLE else FOLDED_PROMPT
     return (
-        f"{FOLDED_PROMPT}, alone on a flat, evenly lit, solid pure "
+        f"{lead}, alone on a flat, evenly lit, solid pure "
         f"{backdrop.name} ({backdrop.hex}) background that fills the whole "
         "frame. No shadow, no surface texture, no props, no text."
     )
@@ -92,25 +103,38 @@ async def make_cutout(
     color_hex: str | None,
     garment_images: GarmentImageProvider,
     remover: BackgroundRemover,
+    category: str | None = None,
 ) -> Cutout | None:
     """The piece in [photo], folded, keyed out and placed on the canvas — or
     None when the model or the key fails (logged; the piece just has no
     cut-out)."""
     backdrop = pick_backdrop(color_hex)
-    try:
-        shot = await garment_images.generate(
-            photo, media_type=media_type, prompt=folded_prompt(backdrop)
-        )
-        image = Image.open(io.BytesIO(shot.content))
-        image.load()
-        keyed = remover.remove(image, backdrop=backdrop.rgb)
-        return place_on_canvas(keyed)
-    except GarmentImageError as e:
-        _log.warning("cutout.generate_failed", code=e.code, error=str(e))
-    except BackgroundRemovalError as e:
-        _log.warning("cutout.key_failed", code=e.code, backdrop=backdrop.name)
-    except (OSError, ValueError) as e:  # not an image Pillow can read
-        _log.warning("cutout.unreadable", error=str(e))
+    for attempt in range(1, KEY_ATTEMPTS + 1):
+        try:
+            shot = await garment_images.generate(
+                photo,
+                media_type=media_type,
+                prompt=folded_prompt(backdrop, category),
+            )
+            image = Image.open(io.BytesIO(shot.content))
+            image.load()
+            keyed = remover.remove(image, backdrop=backdrop.rgb)
+            return place_on_canvas(keyed)
+        except GarmentImageError as e:
+            # Rate limits are already retried by the provider.
+            _log.warning("cutout.generate_failed", code=e.code, error=str(e))
+            return None
+        except BackgroundRemovalError as e:
+            # The model drew a backdrop that won't key (uneven, wrong
+            # colour): a fresh drawing usually comes out right.
+            _log.warning(
+                "cutout.key_failed",
+                code=e.code,
+                backdrop=backdrop.name,
+                attempt=attempt,
+            )
+        except (OSError, ValueError) as e:  # not an image Pillow can read
+            _log.warning("cutout.unreadable", error=str(e), attempt=attempt)
     return None
 
 

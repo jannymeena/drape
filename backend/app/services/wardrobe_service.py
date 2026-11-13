@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from sqlalchemy import select  # noqa: F401  -- used below
 
-from app.db.models import User, WardrobeItem, WardrobeWearLog
+from app.db.models import Outfit, User, WardrobeItem, WardrobeWearLog
 from app.schemas.wardrobe import (
     LogWornRequest,
     WardrobeItemCreate,
@@ -395,6 +395,7 @@ async def add_images_with_mannequin(
             content,
             media_type=content_type,
             color_hex=item.color_hex,
+            category=item.category,
             garment_images=garment_images,
             remover=remover,
         )
@@ -411,17 +412,49 @@ async def add_images_with_mannequin(
         db, user=user, item_id=item_id, uploads=with_shots, storage=storage
     )
     if cut is not None:
-        item.cutout_url = storage.upload(
-            content=cut.content,
-            content_type=cut.content_type,
-            key_hint=f"wardrobe/{user.id}/{item.id}-cutout",
+        save_cutout(db, item=item, cut=cut, storage=storage)
+    return item
+
+
+def save_cutout(
+    db: Session,
+    *,
+    item: WardrobeItem,
+    cut: cutout_service.Cutout,
+    storage: ImageStorageProvider,
+) -> WardrobeItem:
+    """Stores [cut] as [item]'s cut-out, and puts it on the saved outfits
+    that hold the item — they carry a snapshot of their pieces, made when
+    the outfit was, so an item that gets its cut-out later shows it there
+    too."""
+    item.cutout_url = storage.upload(
+        content=cut.content,
+        content_type=cut.content_type,
+        key_hint=f"wardrobe/{item.user_id}/{item.id}-cutout",
+    )
+    item.cutout_box = list(cut.box)
+    item_id = str(item.id)
+    outfits = db.scalars(
+        select(Outfit).where(
+            Outfit.user_id == item.user_id,
+            Outfit.items.contains([{"item_id": item_id}]),
         )
-        item.cutout_box = list(cut.box)
-        db.commit()
-        db.refresh(item)
-        _log.info(
-            "wardrobe.item.cutout_added", user_id=str(user.id), item_id=str(item.id)
-        )
+    ).all()
+    for outfit in outfits:
+        outfit.items = [
+            {**piece, "cutout_url": item.cutout_url, "cutout_box": item.cutout_box}
+            if piece.get("item_id") == item_id
+            else piece
+            for piece in outfit.items or []
+        ]
+    db.commit()
+    db.refresh(item)
+    _log.info(
+        "wardrobe.item.cutout_added",
+        user_id=str(item.user_id),
+        item_id=item_id,
+        outfits_updated=len(outfits),
+    )
     return item
 
 

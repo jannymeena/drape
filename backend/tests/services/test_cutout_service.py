@@ -44,6 +44,20 @@ def test_backdrop_steers_clear_of_the_piece_colour(color_hex, expected):
     assert pick_backdrop(color_hex) == expected
 
 
+@pytest.mark.parametrize("category", ["shoes", "bags", "jewelry", "accessories"])
+def test_things_that_dont_fold_are_laid_out_instead(category):
+    p = folded_prompt(MAGENTA, category)
+    assert p.startswith("Show this exact item neatly arranged, seen from above")
+    assert "magenta (#FF00FF)" in p
+
+
+@pytest.mark.parametrize("category", ["tops", "bottoms", "dresses", "outerwear", None])
+def test_clothes_are_folded(category):
+    assert folded_prompt(MAGENTA, category).startswith(
+        "Show this exact garment neatly folded"
+    )
+
+
 def test_prompt_is_the_fold_plus_the_backdrop():
     p = folded_prompt(MAGENTA)
     assert p.startswith("Show this exact garment neatly folded")
@@ -144,9 +158,24 @@ async def test_a_refused_generation_means_no_cut_out():
     assert await _make(_Folds(fail=True)) is None
 
 
-async def test_a_backdrop_that_cant_be_keyed_means_no_cut_out():
-    # The model ignored the backdrop and drew on white.
-    assert await _make(_Folds(backdrop=(255, 255, 255))) is None
+async def test_a_backdrop_that_cant_be_keyed_is_drawn_again():
+    class _WhiteFirst(_Folds):
+        async def generate(self, image_bytes, *, media_type, prompt):
+            self.backdrop = (255, 255, 255) if not self.prompts else None
+            return await super().generate(
+                image_bytes, media_type=media_type, prompt=prompt
+            )
+
+    folds = _WhiteFirst()
+    assert await _make(folds) is not None
+    assert len(folds.prompts) == 2
+
+
+async def test_a_backdrop_that_never_keys_means_no_cut_out():
+    # The model keeps ignoring the backdrop and drawing on white.
+    folds = _Folds(backdrop=(255, 255, 255))
+    assert await _make(folds) is None
+    assert len(folds.prompts) == 2
 
 
 async def test_an_unreadable_image_means_no_cut_out():
