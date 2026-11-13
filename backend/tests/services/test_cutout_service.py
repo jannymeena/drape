@@ -62,7 +62,9 @@ def test_prompt_is_the_fold_plus_the_backdrop():
     p = folded_prompt(MAGENTA)
     assert p.startswith("Show this exact garment neatly folded")
     assert "magenta (#FF00FF)" in p
-    assert "No shadow" in p
+    # Depth on the piece, nothing cast on the backdrop (it's keyed out).
+    assert "3D" in p
+    assert "No shadow on the background" in p
 
 
 def _rgba_piece(w: int, h: int, *, at=(30, 50), size=(400, 300)) -> Image.Image:

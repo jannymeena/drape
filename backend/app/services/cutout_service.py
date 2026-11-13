@@ -87,12 +87,17 @@ def pick_backdrop(color_hex: str | None) -> Backdrop:
 
 def folded_prompt(backdrop: Backdrop, category: str | None = None) -> str:
     """Folded for clothes; arranged as they are for shoes, bags and
-    accessories."""
+    accessories. Lit from one side so it reads in 3D (shading across the
+    folds and the fabric's thickness) — but nothing cast on the backdrop,
+    which is keyed out."""
     lead = LAID_OUT_PROMPT if category in UNFOLDABLE else FOLDED_PROMPT
     return (
-        f"{lead}, alone on a flat, evenly lit, solid pure "
+        f"{lead}, alone on a flat, evenly coloured, solid pure "
         f"{backdrop.name} ({backdrop.hex}) background that fills the whole "
-        "frame. No shadow, no surface texture, no props, no text."
+        "frame. Soft studio light from the upper left gives it natural "
+        "depth: gentle shading across the folds and edges shows its "
+        "thickness and texture in 3D. No shadow on the background, no "
+        "surface texture, no props, no text."
     )
 
 
