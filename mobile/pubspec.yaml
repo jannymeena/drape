@@ -146,6 +146,8 @@ flutter:
     - assets/onboarding/shapes/neutral/
     # Photos for the debug-only sample cards (Favourites / My Outfits).
     - assets/samples/
+    # The 10 surfaces outfit pictures are laid out on (top-down, 1024², WebP).
+    - assets/outfit_backgrounds/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
