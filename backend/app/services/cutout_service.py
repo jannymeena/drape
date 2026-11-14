@@ -17,6 +17,7 @@ import colorsys
 import io
 from dataclasses import dataclass
 
+import numpy as np
 import structlog
 from PIL import Image
 
@@ -31,7 +32,11 @@ from app.services.providers.garment_image.base import (
 
 _log = structlog.get_logger("cutout")
 
-# The fold itself; the backdrop line is added per piece.
+# The fold itself; the backdrop line is added per piece. Folded into a tidy
+# block squared up with the frame, shot straight down: the app lays pieces
+# side by side in rows, which only looks right when every piece's edges run
+# parallel to the picture's (a coat drawn at an angle reads as a diamond and
+# leaves empty corners).
 FOLDED_PROMPT = "Show this exact garment neatly folded"
 
 # Things that don't fold (a folded trainer comes out crumpled) are laid out
@@ -39,12 +44,61 @@ FOLDED_PROMPT = "Show this exact garment neatly folded"
 LAID_OUT_PROMPT = "Show this exact item neatly arranged, seen from above"
 UNFOLDABLE = frozenset({"shoes", "bags", "jewelry", "accessories"})
 
+_ONE = "one single garment only, never a pile or stack of several copies"
+_ABOVE = "photographed straight down from directly above"
+
+# The shape each kind of piece is folded or set down in. The picture is a
+# little wider than tall and the app packs pieces into two rows (a coat
+# across the top, the rest below), which fills it only when the pieces are
+# square or wider than tall — a coat folded wide, a top and trousers folded
+# into squares, shoes lying on their sides. Tall shapes leave the picture
+# half empty.
+_SHAPES: dict[str, str] = {
+    "outerwear": (
+        " in half across its middle, shoulders down to the hem, with the "
+        "sleeves folded in behind, so it lies as a wide, short landscape "
+        "rectangle clearly wider than tall — about 1.7 times as wide as it "
+        f"is tall — as in a shop display: {_ONE}, {_ABOVE}"
+    ),
+    "tops": (
+        " with the sleeves folded in behind into a neat square block, about "
+        f"as wide as it is tall, as in a shop display: {_ONE}, {_ABOVE}"
+    ),
+    "bottoms": (
+        " in half lengthwise and then in half again into a compact block "
+        f"about as wide as it is tall, as in a shop display: {_ONE}, {_ABOVE}"
+    ),
+}
+_FOLD = f" into a neat flat rectangle, as in a shop display: {_ONE}, {_ABOVE}"
+
+# Shoes as the pair lying on their sides, one above the other — a landscape
+# shape, like a pair set down in a flat-lay — even when the photo shows one.
+_PAIR = (
+    ": the matching pair lying on their sides, one just above the other, "
+    f"both toes pointing to the right, {_ABOVE}"
+)
+_LAY = f", {_ABOVE}"
+
+# Every piece: square to the frame, not turned.
+_SQUARE = (
+    "Its edges run straight and parallel to the edges of the frame; it is "
+    "not rotated, tilted or at an angle."
+)
+
 # Side of the square canvas every cut-out is placed on, and the empty margin
 # around the piece (each side, as a share of the side).
 CANVAS = 1024
 MARGIN = 0.04
 
 CONTENT_TYPE = "image/webp"
+
+# Alpha above which a pixel counts as part of the piece.
+ALPHA_FLOOR = 25
+
+# Stray specks: blobs smaller than this share of the biggest one are
+# cleared, looked for on a grid this many cells across.
+SPECK_SHARE = 0.05
+SPECK_GRID = 64
 
 # Drawings tried before giving up when the backdrop won't key.
 KEY_ATTEMPTS = 2
@@ -86,15 +140,22 @@ def pick_backdrop(color_hex: str | None) -> Backdrop:
 
 
 def folded_prompt(backdrop: Backdrop, category: str | None = None) -> str:
-    """Folded for clothes; arranged as they are for shoes, bags and
-    accessories. Lit from one side so it reads in 3D (shading across the
-    folds and the fabric's thickness) — but nothing cast on the backdrop,
+    """Folded for clothes, each kind into its own shape (_SHAPES); arranged
+    as they are for shoes (as the pair, on their sides), bags and
+    accessories — squared up with the frame, seen from above. Lit from one
+    side so it reads in 3D (shading across the folds and the fabric's
+    thickness) — but nothing cast on the backdrop,
     which is keyed out."""
-    lead = LAID_OUT_PROMPT if category in UNFOLDABLE else FOLDED_PROMPT
+    if category == "shoes":
+        lead = LAID_OUT_PROMPT + _PAIR
+    elif category in UNFOLDABLE:
+        lead = LAID_OUT_PROMPT + _LAY
+    else:
+        lead = FOLDED_PROMPT + _SHAPES.get(category or "", _FOLD)
     return (
         f"{lead}, alone on a flat, evenly coloured, solid pure "
         f"{backdrop.name} ({backdrop.hex}) background that fills the whole "
-        "frame. Soft studio light from the upper left gives it natural "
+        f"frame. {_SQUARE} Soft studio light from the upper left gives it natural "
         "depth: gentle shading across the folds and edges shows its "
         "thickness and texture in 3D. No shadow on the background, no "
         "surface texture, no props, no text."
@@ -147,7 +208,8 @@ def place_on_canvas(rgba: Image.Image) -> Cutout:
     """Trims [rgba] to the piece and centres it, scaled to fit inside the
     margin, on the transparent CANVAS square. Raises BackgroundRemovalError
     if nothing is opaque."""
-    alpha = rgba.getchannel("A").point(lambda a: 255 if a > 25 else 0)
+    rgba = _drop_specks(rgba)
+    alpha = rgba.getchannel("A").point(lambda a: 255 if a > ALPHA_FLOOR else 0)
     bbox = alpha.getbbox()
     if bbox is None:
         raise BackgroundRemovalError("no_subject", "Nothing left after keying.")
@@ -167,6 +229,55 @@ def place_on_canvas(rgba: Image.Image) -> Cutout:
     canvas.save(out, format="WEBP", quality=90, alpha_quality=100, method=4)
     box = tuple(round(v / CANVAS, 4) for v in (x, y, size[0], size[1]))
     return Cutout(content=out.getvalue(), content_type=CONTENT_TYPE, box=box)  # type: ignore[arg-type]
+
+
+def _drop_specks(rgba: Image.Image) -> Image.Image:
+    """[rgba] with stray specks the key left behind cleared: blobs (found
+    on a coarse grid, so a gap of a few pixels still separates them) under
+    SPECK_SHARE of the biggest one. Otherwise a speck far from the piece
+    stretches its box, and the app draws the piece too small. Parts of the
+    piece that stand apart (two shoes, a strap) are far bigger and stay."""
+    a = np.asarray(rgba.getchannel("A")) > ALPHA_FLOOR
+    h, w = a.shape
+    cell = max(1, -(-max(h, w) // SPECK_GRID))
+    gh, gw = -(-h // cell), -(-w // cell)
+    padded = np.zeros((gh * cell, gw * cell), dtype=bool)
+    padded[:h, :w] = a
+    counts = padded.reshape(gh, cell, gw, cell).sum(axis=(1, 3))
+
+    # Label the occupied cells, 8-connected.
+    labels = np.zeros((gh, gw), dtype=np.int32)
+    sizes = [0]
+    for start in zip(*np.nonzero(counts)):
+        if labels[start]:
+            continue
+        label = len(sizes)
+        labels[start] = label
+        stack, size = [start], 0
+        while stack:
+            y, x = stack.pop()
+            size += int(counts[y, x])
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    ny, nx = y + dy, x + dx
+                    if (
+                        0 <= ny < gh
+                        and 0 <= nx < gw
+                        and counts[ny, nx]
+                        and not labels[ny, nx]
+                    ):
+                        labels[ny, nx] = label
+                        stack.append((ny, nx))
+        sizes.append(size)
+    if len(sizes) <= 2:  # nothing, or one blob
+        return rgba
+
+    keep = np.array(sizes) >= max(sizes) * SPECK_SHARE
+    keep[0] = False
+    fine = np.repeat(np.repeat(keep[labels], cell, axis=0), cell, axis=1)[:h, :w]
+    out = np.array(rgba)
+    out[..., 3] = np.where(fine, out[..., 3], 0)
+    return Image.fromarray(out, "RGBA")
 
 
 def _parse_hex(value: str | None) -> tuple[int, int, int] | None:

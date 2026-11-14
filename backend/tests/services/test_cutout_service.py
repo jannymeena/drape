@@ -58,6 +58,37 @@ def test_clothes_are_folded(category):
     )
 
 
+def test_a_folded_garment_is_one_piece_not_a_pile():
+    p = folded_prompt(MAGENTA, "tops")
+    assert "one single garment only" in p
+    assert "never a pile or stack" in p
+
+
+def test_each_kind_of_garment_is_folded_to_a_shape_that_packs():
+    coat = folded_prompt(MAGENTA, "outerwear")
+    assert "landscape rectangle clearly wider than tall" in coat
+    assert "square block" in folded_prompt(MAGENTA, "tops")
+    assert "about as wide as it is tall" in folded_prompt(MAGENTA, "bottoms")
+    # Anything else: a plain rectangle.
+    assert "neat flat rectangle" in folded_prompt(MAGENTA, "dresses")
+    for category in ("outerwear", "tops", "bottoms", "dresses"):
+        assert "one single garment only" in folded_prompt(MAGENTA, category)
+
+
+def test_shoes_are_shown_as_the_pair_on_their_sides():
+    p = folded_prompt(MAGENTA, "shoes")
+    assert "the matching pair lying on their sides" in p
+    assert "pair" not in folded_prompt(MAGENTA, "bags")
+
+
+@pytest.mark.parametrize("category", ["tops", "outerwear", "shoes", "bags", None])
+def test_every_piece_is_squared_up_and_seen_from_above(category):
+    p = folded_prompt(MAGENTA, category)
+    assert "parallel to the edges of the frame" in p
+    assert "not rotated, tilted or at an angle" in p
+    assert "straight down from directly above" in p
+
+
 def test_prompt_is_the_fold_plus_the_backdrop():
     p = folded_prompt(MAGENTA)
     assert p.startswith("Show this exact garment neatly folded")
@@ -102,6 +133,32 @@ def test_a_tall_piece_fills_the_height():
     x, y, w, h = place_on_canvas(_rgba_piece(500, 900, size=(200, 600))).box
     assert h == pytest.approx(1 - 2 * MARGIN, abs=0.002)
     assert x + w / 2 == pytest.approx(0.5, abs=0.002)
+
+
+def test_a_stray_speck_left_by_the_key_is_dropped():
+    # The piece, plus a 12 px speck far above it.
+    img = _rgba_piece(1000, 1000, at=(300, 400), size=(400, 500))
+    ImageDraw.Draw(img).rectangle([250, 40, 261, 80], fill=(200, 0, 200, 255))
+    cut = place_on_canvas(img)
+    x, y, w, h = cut.box
+    # Boxed as the piece alone: its own shape, filling the height.
+    assert w / h == pytest.approx(400 / 500, abs=0.01)
+    assert h == pytest.approx(1 - 2 * MARGIN, abs=0.002)
+    # And the speck is gone from the image.
+    out = _decode(cut.content).getchannel("A")
+    assert out.getbbox() == pytest.approx(
+        (round(x * CANVAS), round(y * CANVAS),
+         round((x + w) * CANVAS), round((y + h) * CANVAS)),
+        abs=2,
+    )
+
+
+def test_parts_of_a_piece_that_stand_apart_are_kept():
+    # A pair of shoes: two equal blobs with a gap between them.
+    img = _rgba_piece(1000, 1000, at=(100, 300), size=(300, 400))
+    ImageDraw.Draw(img).rectangle([600, 300, 899, 699], fill=(20, 30, 80, 255))
+    x, y, w, h = place_on_canvas(img).box
+    assert w / h == pytest.approx(800 / 400, abs=0.01)
 
 
 def _png(image: Image.Image) -> bytes:

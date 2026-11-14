@@ -1,7 +1,11 @@
 """Dev tool: queues a cut-out for every wardrobe item that has a photo but no
 cut-out (and none queued), for the image worker to make.
 
-    python scripts/fill_missing_cutouts.py [--email dev@example.com] [--run]
+    python scripts/fill_missing_cutouts.py [--email dev@example.com] [--category tops ...] [--redo] [--run]
+
+`--redo` remakes the items' existing cut-outs too (after the cut-out prompt
+changes): it drops each one's cut-out and queues a new one. Saved outfits
+keep showing the old one until the new one lands.
 
 The running API's image worker picks the jobs up by itself. `--run` works
 through the queue here instead (when the server isn't running), one job at
@@ -30,6 +34,12 @@ async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--email", help="only this user's items")
     parser.add_argument("--run", action="store_true", help="work the queue here")
+    parser.add_argument(
+        "--redo", action="store_true", help="remake existing cut-outs too"
+    )
+    parser.add_argument(
+        "--category", action="append", help="only these categories (repeatable)"
+    )
     args = parser.parse_args()
 
     if not providers.garment_images.enabled:
@@ -37,15 +47,22 @@ async def main() -> None:
 
     db = SessionLocal()
     query = select(WardrobeItem).where(
-        WardrobeItem.cutout_url.is_(None),
         WardrobeItem.is_starter_wardrobe.is_(False),
     )
+    if not args.redo:
+        query = query.where(WardrobeItem.cutout_url.is_(None))
+    if args.category:
+        query = query.where(WardrobeItem.category.in_(args.category))
     if args.email:
         query = query.join(User, User.id == WardrobeItem.user_id).where(
             User.email == args.email
         )
     queued = 0
     for item in db.scalars(query).all():
+        if args.redo and item.cutout_url:
+            item.cutout_url = None
+            item.cutout_box = None
+            db.commit()
         if image_job_service.enqueue_cutout(db, item=item):
             queued += 1
             print(f"queued: {item.name} ({item.category})")
