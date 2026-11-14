@@ -57,7 +57,7 @@ void main() {
     expect(background, findsOneWidget);
   });
 
-  testWidgets('cut-outs get a shadow and are sized by priority', (
+  testWidgets('cut-outs get a shadow and are drawn at real-world size', (
     tester,
   ) async {
     await _pump(tester, const [_shoes, _coat]);
@@ -67,8 +67,8 @@ void main() {
     expect(_network('http://img/coat.webp'), findsNWidgets(3));
     expect(_network('http://img/shoes.webp'), findsNWidgets(3));
 
-    // The coat (900) gets the bigger slot than the shoes (400), so its
-    // piece — the square's width × its box width — is drawn bigger.
+    // A folded coat is bigger than a pair of shoes, so its piece — the
+    // square's width × its box width — is drawn bigger.
     double pieceWidth(String url, double boxWidth) =>
         tester.getSize(_network(url).first).width * boxWidth;
     expect(

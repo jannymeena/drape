@@ -41,7 +41,7 @@ class OutfitItem {
   final List<double>? cutoutBox;
 
   /// 0–1000: how much of the outfit picture the piece may claim (bigger =
-  /// bigger slot). Only the order matters to the layouts.
+  /// bigger, earlier place in the picture). Only the order matters there.
   final int dressPriority;
 
   /// What the backend's table gives anything it doesn't list.

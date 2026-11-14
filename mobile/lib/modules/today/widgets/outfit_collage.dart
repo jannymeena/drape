@@ -6,16 +6,16 @@ import 'package:flutter/material.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/buy_pill.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
-import 'flat_lay/flat_lay_layouts.dart';
-import 'flat_lay/flat_lay_plan.dart';
+import 'flat_lay/flat_lay_compose.dart';
 
 /// One garment in an outfit picture.
 ///
 /// [cutoutUrl] + [cutoutBox] are the piece alone on a transparent square
 /// (with where it sits on it) — what the picture is made of. Without them
 /// (shop products) the piece shows as its [imageUrl] photo, unframed, or a
-/// [GarmentPlaceholder] drawn from [category] + [color]. [priority] (dress priority, 0–1000) decides how
-/// big a slot it gets. [buyUrl] is set for pieces the user doesn't own
+/// [GarmentPlaceholder] drawn from [category] + [color]. [category] sets
+/// its real-world size in the picture; [priority] (dress priority, 0–1000)
+/// the order it's laid in (the highest leads the top row). [buyUrl] is set for pieces the user doesn't own
 /// (AWIN products): the piece gets a "Buy" pill.
 class GarmentCell {
   final String? imageUrl;
@@ -37,13 +37,22 @@ class GarmentCell {
   });
 
   bool get hasCutout => cutoutUrl != null && cutoutBox?.length == 4;
+
+  /// The piece's own width ÷ height, from its cut-out's box; null without
+  /// one.
+  double? get aspect {
+    if (!hasCutout) return null;
+    final [_, _, w, h] = cutoutBox!;
+    return h > 0 ? w / h : null;
+  }
 }
 
 /// An outfit's picture, composed on the device as a flat-lay: the pieces
-/// laid on one of the bundled surfaces, in one of the layouts for that many
-/// pieces (flat_lay_layouts.dart), biggest piece in the biggest slot.
+/// laid on one of the bundled surfaces at their real-world sizes, in rows
+/// with the shoes tucked over the trousers and small things at the edge
+/// (flat_lay_compose.dart).
 ///
-/// [seed] (the outfit's id) fixes the layout variant and surface, so the
+/// [seed] (the outfit's id) fixes the arrangement and surface, so the
 /// same outfit always looks the same. Everything is straight — no tilt, no
 /// frames: transparent cut-outs with one soft drawn shadow each, so pieces
 /// made separately lie on the surface together like on a table.
@@ -77,9 +86,18 @@ class OutfitCollage extends StatelessWidget {
   }
 
   Widget _scene(Size size) {
-    final plan = FlatLayPlan.of([
-      for (final c in cells) c.priority,
-    ], seed: seed);
+    final plan = FlatLayComposition.of(
+      [
+        for (final c in cells)
+          FlatLayPiece(
+            category: c.category,
+            priority: c.priority,
+            aspect: c.aspect,
+          ),
+      ],
+      seed: seed,
+      size: size,
+    );
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -90,20 +108,13 @@ class OutfitCollage extends StatelessWidget {
             errorBuilder: (_, _, _) => const SizedBox.shrink(),
           ),
         ),
-        // Largest first, so smaller pieces overlap bigger ones.
-        for (var i = 0; i < plan.order.length; i++)
-          _place(cells[plan.order[i]], plan.variant[i], size),
+        // Rows first, then the shoes over the trousers, then the edge.
+        for (final p in plan.placements) _place(cells[p.index], p.rect),
       ],
     );
   }
 
-  Widget _place(GarmentCell cell, FlatLaySlot slot, Size size) {
-    final rect = Rect.fromLTWH(
-      slot.x * size.width,
-      slot.y * size.height,
-      slot.w * size.width,
-      slot.h * size.height,
-    );
+  Widget _place(GarmentCell cell, Rect rect) {
     if (cell.hasCutout) return _CutoutPiece.positioned(cell, rect);
     return Positioned.fromRect(rect: rect, child: _PlainPiece(cell));
   }
