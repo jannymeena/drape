@@ -103,6 +103,8 @@ class RunwareGarmentImageProvider(GarmentImageProvider):
                 "settings": {
                     "background": "transparent" if transparent else "opaque"
                 },
+                # The reply then carries the task's cost (USD), logged below.
+                "includeCost": True,
             }
         ]
         started = time.monotonic()
@@ -162,7 +164,7 @@ class RunwareGarmentImageProvider(GarmentImageProvider):
             transparent=transparent,
             latency_ms=latency_ms,
             size_bytes=len(content),
-            cost=(result or {}).get("cost"),
+            cost_usd=(result or {}).get("cost"),
         )
         return GeneratedImage(content=content, content_type=content_type)
 

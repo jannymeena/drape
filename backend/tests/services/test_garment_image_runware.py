@@ -8,6 +8,7 @@ import json
 
 import httpx
 import pytest
+import structlog.testing
 from PIL import Image
 
 from app.services.providers.garment_image.base import GarmentImageError
@@ -104,6 +105,7 @@ async def test_sends_the_photo_and_prompt_and_returns_the_image(runware):
     assert task["outputType"] == "base64Data"
     assert task["outputFormat"] == "PNG"
     assert task["numberResults"] == 1
+    assert task["includeCost"] is True
     assert (task["width"], task["height"]) == output_size(_PHOTO)
 
 
@@ -156,6 +158,14 @@ def test_the_mannequin_size_is_one_runware_can_make():
     from app.services.providers.garment_image.runware import _check_size
 
     _check_size(*MANNEQUIN_SIZE)  # raises if not
+
+
+async def test_the_cost_runware_reports_is_logged(runware):
+    with structlog.testing.capture_logs() as logs:
+        await _provider().generate(_PHOTO, media_type="image/jpeg", prompt="p")
+
+    [generated] = [e for e in logs if e["event"] == "garment_image.generated"]
+    assert generated["cost_usd"] == 0.01
 
 
 async def test_jpg_output_is_asked_for_and_labelled(runware):
