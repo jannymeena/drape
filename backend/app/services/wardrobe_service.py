@@ -188,6 +188,9 @@ def update_item(
         setattr(item, k, v)
     if "purchase_price" in changes:
         item.cost_per_wear = _compute_cost_per_wear(item.purchase_price, item.worn_count)
+    if "images" in changes:
+        # A shot removed (or the last photo) moves the state on.
+        image_job_service.sync_mannequin_state(db, item)
     db.commit()
     db.refresh(item)
     _log.info(

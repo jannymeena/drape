@@ -24,7 +24,8 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.db.models import ImageJob, WardrobeItem
-from app.services import cutout_service
+from app.schemas.wardrobe import MannequinState
+from app.services import cutout_service, mannequin_shots
 from app.services.providers.background_removal.base import BackgroundRemover
 from app.services.providers.garment_image.base import (
     GarmentImageError,
@@ -36,6 +37,7 @@ _log = structlog.get_logger("image_jobs")
 
 JobKind = Literal["mannequin", "cutout"]
 JobStatus = Literal["pending", "running", "done", "failed"]
+_ACTIVE: tuple[JobStatus, ...] = ("pending", "running")
 
 # What the image model is asked to make of each garment photo.
 GHOST_MANNEQUIN_PROMPT = (
@@ -104,6 +106,8 @@ def enqueue_for_upload(
         jobs.append(_job(item, "cutout", photo_urls[0]))
 
     db.add_all(jobs)
+    db.flush()
+    sync_mannequin_state(db, item)
     db.commit()
     if jobs:
         _log.info(
@@ -113,6 +117,39 @@ def enqueue_for_upload(
             kinds=[j.kind for j in jobs],
         )
     return jobs
+
+
+def sync_mannequin_state(db: Session, item: WardrobeItem) -> MannequinState:
+    """Sets [item]'s mannequin_state from its mannequin jobs and images (the
+    caller commits): processing while a job is pending or running, completed
+    once it has a shot, failed when its jobs gave up without one, else
+    not_started. Called whenever either side changes."""
+    statuses = set(
+        db.scalars(
+            select(ImageJob.status).where(
+                ImageJob.item_id == item.id, ImageJob.kind == "mannequin"
+            )
+        ).all()
+    )
+    state: MannequinState
+    if statuses & set(_ACTIVE):
+        state = "processing"
+    elif any(mannequin_shots.is_shot(u, item.id) for u in item.images or []):
+        state = "completed"
+    elif "failed" in statuses:
+        state = "failed"
+    else:
+        state = "not_started"
+    if item.mannequin_state != state:
+        _log.info(
+            "wardrobe.item.mannequin_state",
+            user_id=str(item.user_id),
+            item_id=str(item.id),
+            previous=item.mannequin_state,
+            state=state,
+        )
+        item.mannequin_state = state
+    return state
 
 
 def enqueue_cutout(db: Session, *, item: WardrobeItem) -> ImageJob | None:
@@ -250,7 +287,8 @@ async def _mannequin(
     url = storage.upload(
         content=shot.content,
         content_type=shot.content_type,
-        key_hint=f"wardrobe/{item.user_id}/{item.id}",
+        # Named as a shot, so the item can tell it from the user's photos.
+        key_hint=mannequin_shots.key_hint(item.user_id, item.id),
     )
     # Just before its photo; a first photo's shot becomes the item's picture.
     images = list(item.images or [])
@@ -304,18 +342,31 @@ def _read(storage: ImageStorageProvider, url: str) -> tuple[bytes, str]:
 
 def _finish(db: Session, job: ImageJob, status: JobStatus) -> None:
     job.status = status
+    _sync_item(db, job)
     db.commit()
+
+
+def _sync_item(db: Session, job: ImageJob) -> None:
+    """A mannequin job moved on: the item's mannequin_state follows."""
+    if job.kind != "mannequin":
+        return
+    db.flush()
+    item = db.get(WardrobeItem, job.item_id)
+    if item is not None:
+        sync_mannequin_state(db, item)
 
 
 def _retry_or_give_up(db: Session, job: ImageJob, error: str, log) -> None:
     job.last_error = error[:300]
     if job.attempts >= MAX_ATTEMPTS:
         job.status = "failed"
+        _sync_item(db, job)
         db.commit()
         log.warning("image_job.failed", error=error)
         return
     wait = RETRY_WAITS[job.attempts - 1]
     job.status = "pending"
     job.next_attempt_at = _now() + wait
+    _sync_item(db, job)
     db.commit()
     log.info("image_job.retry", error=error, wait_s=int(wait.total_seconds()))

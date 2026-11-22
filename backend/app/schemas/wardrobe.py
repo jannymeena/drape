@@ -13,6 +13,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from app.services import dress_priority as _dress_priority
+from app.services import mannequin_shots as _mannequin_shots
 
 Category = Literal[
     "tops", "bottoms", "dresses", "shoes", "outerwear", "accessories", "bags", "jewelry"
@@ -21,6 +22,9 @@ Formality = Literal["casual", "smart_casual", "formal"]
 Pattern = Literal["solid", "striped", "plaid", "floral", "graphic", "abstract", "other"]
 Season = Literal["spring", "summer", "fall", "winter"]
 AddedVia = Literal["manual", "scan", "batch_upload", "starter_seed"]
+# The item's ghost-mannequin shot: none asked for yet (or nothing to make it
+# from), being made, made, or given up after every retry.
+MannequinState = Literal["not_started", "processing", "completed", "failed"]
 
 # Categorical filters use exact-match. Pagination caps at 200 — the tab is
 # scrolled list, not a CSV export.
@@ -128,6 +132,7 @@ class WardrobeItemResponse(WardrobeItemBase):
     # A mannequin shot or the cut-out is still being made in the background:
     # read the item again shortly to pick them up.
     images_pending: bool = False
+    mannequin_state: MannequinState = "not_started"
     created_at: datetime
     updated_at: datetime
 
@@ -136,6 +141,13 @@ class WardrobeItemResponse(WardrobeItemBase):
     def dress_priority(self) -> int:
         """0–1000: how much of an outfit picture the piece may claim."""
         return _dress_priority.resolve(self.category, self.subcategory)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def mannequin_images(self) -> list[str]:
+        """Which of [images] are ghost-mannequin shots (transparent: the app
+        lays them on a background); the rest are the user's photos."""
+        return [u for u in self.images or [] if _mannequin_shots.is_shot(u, self.id)]
 
 
 class WardrobeListQuery(BaseModel):

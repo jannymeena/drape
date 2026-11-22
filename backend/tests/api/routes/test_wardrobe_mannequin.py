@@ -175,6 +175,26 @@ async def test_the_item_says_when_its_images_have_landed(
     assert len(one["images"]) == 2  # the shot, then the photo
 
 
+async def test_the_item_says_which_images_are_mannequin_shots(
+    authed_client, db, garment_images, image_storage
+):
+    item = make_wardrobe_item(db, authed_client.test_user)
+    photo_url = _upload(authed_client, item.id).json()["images"][0]
+    before = authed_client.get(f"/api/v1/wardrobe/items/{item.id}").json()
+    assert before["mannequin_images"] == []  # just the photo so far
+
+    await _work(db, image_storage, garment_images)
+
+    after = authed_client.get(f"/api/v1/wardrobe/items/{item.id}").json()
+    shot = after["images"][0]
+    assert after["mannequin_images"] == [shot]
+    assert shot != photo_url and after["primary_image_url"] == shot
+    # The cut-out isn't one of the images, so never listed.
+    assert after["cutout_url"] not in after["mannequin_images"]
+    listed = authed_client.get("/api/v1/wardrobe").json()["items"][0]
+    assert listed["mannequin_images"] == [shot]
+
+
 async def test_a_job_given_up_no_longer_counts_as_pending(
     authed_client, db, garment_images, image_storage
 ):
@@ -364,3 +384,109 @@ async def test_a_new_cut_out_reaches_outfits_already_made(
     assert pieces[str(shirt.id)]["cutout_url"] == shirt.cutout_url
     assert pieces[str(shirt.id)]["cutout_box"] == shirt.cutout_box
     assert pieces[str(jeans.id)].get("cutout_url") is None
+
+
+# ---------------------------------------------------------------------------
+# mannequin_state
+# ---------------------------------------------------------------------------
+
+
+def _state(client, item_id) -> str:
+    return client.get(f"/api/v1/wardrobe/items/{item_id}").json()["mannequin_state"]
+
+
+async def test_mannequin_state_follows_the_shot_from_upload_to_done(
+    authed_client, db, garment_images, image_storage
+):
+    item = make_wardrobe_item(db, authed_client.test_user)
+    assert _state(authed_client, item.id) == "not_started"
+
+    r = _upload(authed_client, item.id)
+    assert r.json()["mannequin_state"] == "processing"
+    assert _state(authed_client, item.id) == "processing"
+
+    await _work(db, image_storage, garment_images)
+    assert _state(authed_client, item.id) == "completed"
+    listed = authed_client.get("/api/v1/wardrobe").json()["items"][0]
+    assert listed["mannequin_state"] == "completed"
+
+
+async def test_a_retry_stays_processing_and_giving_up_is_failed(
+    authed_client, db, garment_images, image_storage
+):
+    item = make_wardrobe_item(db, authed_client.test_user)
+    _upload(authed_client, item.id)
+    garment_images.fail = 99
+
+    await _work(db, image_storage, garment_images)
+    assert _state(authed_client, item.id) == "processing"  # a retry is due
+
+    for _ in range(MAX_ATTEMPTS - 1):
+        _make_due(db, item.id)
+        await _work(db, image_storage, garment_images)
+    assert {j.status for j in _jobs(db, item.id)} == {"failed"}
+    assert _state(authed_client, item.id) == "failed"
+
+
+async def test_a_new_photo_after_a_failure_starts_over(
+    authed_client, db, garment_images, image_storage
+):
+    item = make_wardrobe_item(db, authed_client.test_user)
+    _upload(authed_client, item.id)
+    garment_images.fail = 99
+    for _ in range(MAX_ATTEMPTS):
+        await _work(db, image_storage, garment_images)
+        _make_due(db, item.id)
+    assert _state(authed_client, item.id) == "failed"
+
+    garment_images.fail = 0
+    _upload(authed_client, item.id)
+    assert _state(authed_client, item.id) == "processing"
+    await _work(db, image_storage, garment_images)
+    assert _state(authed_client, item.id) == "completed"
+
+
+async def test_a_second_photo_is_processing_again_until_its_shot_lands(
+    authed_client, db, garment_images, image_storage
+):
+    item = make_wardrobe_item(db, authed_client.test_user)
+    _upload(authed_client, item.id)
+    await _work(db, image_storage, garment_images)
+    assert _state(authed_client, item.id) == "completed"
+
+    _upload(authed_client, item.id)
+    assert _state(authed_client, item.id) == "processing"
+    await _work(db, image_storage, garment_images)
+    assert _state(authed_client, item.id) == "completed"
+    body = authed_client.get(f"/api/v1/wardrobe/items/{item.id}").json()
+    assert len(body["mannequin_images"]) == 2
+
+
+async def test_removing_the_shot_takes_the_item_back_to_not_started(
+    authed_client, db, garment_images, image_storage
+):
+    item = make_wardrobe_item(db, authed_client.test_user)
+    _upload(authed_client, item.id)
+    await _work(db, image_storage, garment_images)
+    body = authed_client.get(f"/api/v1/wardrobe/items/{item.id}").json()
+    photos = [u for u in body["images"] if u not in body["mannequin_images"]]
+
+    r = authed_client.patch(
+        f"/api/v1/wardrobe/items/{item.id}",
+        json={"images": photos, "primary_image_url": photos[0]},
+    )
+
+    assert r.status_code == 200, r.text
+    assert r.json()["mannequin_state"] == "not_started"
+
+
+def test_without_an_image_model_nothing_is_started(
+    authed_client, db, garment_images
+):
+    garment_images.enabled = False  # no RUNWARE_API_KEY
+    item = make_wardrobe_item(db, authed_client.test_user)
+
+    r = _upload(authed_client, item.id)
+
+    assert r.json()["mannequin_state"] == "not_started"
+    assert _jobs(db, item.id) == []

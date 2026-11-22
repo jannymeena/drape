@@ -526,6 +526,12 @@ class WardrobeItem(Base, TimestampMixin):
     # of several pieces at once. Box = (x, y, w, h) of the piece on it, 0–1.
     cutout_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     cutout_box: Mapped[Optional[list[float]]] = mapped_column(JSONB, nullable=True)
+    # The ghost-mannequin shot's progress: not_started | processing |
+    # completed | failed (schemas.wardrobe.MannequinState). Kept in step with
+    # the item's mannequin jobs by image_job_service.sync_mannequin_state.
+    mannequin_state: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="not_started", server_default="not_started"
+    )
 
     # Attributes
     color_hex: Mapped[Optional[str]] = mapped_column(String(7), nullable=True)
