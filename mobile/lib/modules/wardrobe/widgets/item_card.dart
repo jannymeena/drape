@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
+import 'wardrobe_picture.dart';
 
 class WardrobeItemData {
   final String id;
@@ -10,7 +10,13 @@ class WardrobeItemData {
   final String category;
   final String? imageUrl;
 
-  /// Asset laid under [imageUrl]: shows around a transparent mannequin shot.
+  /// [imageUrl] is a mannequin shot: laid whole on [backgroundAsset].
+  /// Otherwise it's the user's photo, shown as it is.
+  final bool mannequinShot;
+
+  /// The mannequin shot is still being made: a loading indicator over the
+  /// photo.
+  final bool processing;
   final String? backgroundAsset;
   final String? colorHex;
   final bool favorited;
@@ -21,6 +27,8 @@ class WardrobeItemData {
     required this.name,
     required this.category,
     this.imageUrl,
+    this.mannequinShot = false,
+    this.processing = false,
     this.backgroundAsset,
     this.colorHex,
     this.favorited = false,
@@ -40,7 +48,7 @@ class ItemCard extends StatelessWidget {
     this.onFavorite,
   });
 
-  static const _imagePadding = EdgeInsets.all(12);
+  static const _shotPadding = EdgeInsets.all(12);
 
   Widget _placeholder() => GarmentPlaceholder(
         category: item.category,
@@ -63,28 +71,16 @@ class ItemCard extends StatelessWidget {
                   Positioned.fill(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(14),
-                      child: item.imageUrl == null
-                          ? _placeholder()
-                          : Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                if (item.backgroundAsset != null)
-                                  Image.asset(
-                                    item.backgroundAsset!,
-                                    fit: BoxFit.cover,
-                                  ),
-                                // The whole picture, clear of the card's edges
-                                // (and the star badge).
-                                Padding(
-                                  padding: _imagePadding,
-                                  child: CachedNetworkImage(
-                                    imageUrl: item.imageUrl!,
-                                    fit: BoxFit.contain,
-                                    errorWidget: (_, _, _) => _placeholder(),
-                                  ),
-                                ),
-                              ],
-                            ),
+                      child: WardrobePicture(
+                        imageUrl: item.imageUrl,
+                        placeholder: _placeholder(),
+                        mannequinShot: item.mannequinShot,
+                        processing: item.processing,
+                        backgroundAsset: item.backgroundAsset,
+                        // The whole shot, clear of the card's edges (and the
+                        // star badge).
+                        shotPadding: _shotPadding,
+                      ),
                     ),
                   ),
                   if (item.starter)

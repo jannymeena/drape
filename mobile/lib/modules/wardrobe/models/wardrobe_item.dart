@@ -35,6 +35,7 @@ class WardrobeItem {
     this.productUrl,
     this.aiDetectionConfidence,
     this.imagesPending = false,
+    this.mannequinImages = const [],
   });
 
   final String id;
@@ -67,6 +68,10 @@ class WardrobeItem {
   /// A mannequin shot or the cut-out is still being made on the server: the
   /// app reads the item again shortly to pick them up.
   final bool imagesPending;
+
+  /// Which of [images] are ghost-mannequin shots (transparent, shown on a
+  /// background); the rest are the user's photos.
+  final List<String> mannequinImages;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -109,6 +114,7 @@ class WardrobeItem {
       addedVia: addedVia,
       aiDetectionConfidence: aiDetectionConfidence,
       imagesPending: imagesPending,
+      mannequinImages: mannequinImages,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -123,6 +129,17 @@ class WardrobeItem {
     if (imgs != null && imgs.isNotEmpty) return imgs.first;
     return null;
   }
+
+  /// The picture shown is a mannequin shot (laid on a background, whole);
+  /// otherwise it's the user's photo, shown as it is.
+  bool get showsMannequinShot {
+    final url = displayImageUrl;
+    return url != null && mannequinImages.contains(url);
+  }
+
+  /// The mannequin shot is still on its way: the photo is shown meanwhile,
+  /// with a loading indicator over it.
+  bool get awaitingMannequinShot => imagesPending && !showsMannequinShot;
 
   /// `outerwear` → "Outerwear".
   String get categoryLabel => _titleCase(category);
@@ -184,6 +201,9 @@ class WardrobeItem {
       addedVia: json['added_via'] as String? ?? 'manual',
       aiDetectionConfidence: json['ai_detection_confidence'] as int?,
       imagesPending: json['images_pending'] as bool? ?? false,
+      mannequinImages: (json['mannequin_images'] as List<dynamic>? ?? const [])
+          .map((e) => ApiConfig.resolveImageUrl(e as String)!)
+          .toList(),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );

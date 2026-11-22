@@ -328,6 +328,8 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
         name: item.name,
         category: item.category,
         imageUrl: item.displayImageUrl,
+        mannequinShot: item.showsMannequinShot,
+        processing: item.awaitingMannequinShot,
         backgroundAsset: wardrobeBackgroundFor(item.id),
         colorHex: item.colorHex,
         favorited: item.isFavorite,

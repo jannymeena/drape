@@ -61,6 +61,55 @@ void main() {
     expect(pending.copyWith(isFavorite: false).imagesPending, isTrue);
   });
 
+  group('mannequin shot or photo', () {
+    Map<String, dynamic> withImages({
+      required String primary,
+      required List<String> shots,
+      bool pending = false,
+    }) =>
+        fullItem()
+          ..['images'] = ['https://img/shot.png', 'https://img/photo.jpg']
+          ..['primary_image_url'] = primary
+          ..['mannequin_images'] = shots
+          ..['images_pending'] = pending;
+
+    test('the shot arrived and is the picture', () {
+      final item = WardrobeItem.fromJson(withImages(
+        primary: 'https://img/shot.png',
+        shots: ['https://img/shot.png'],
+        pending: true, // the cut-out may still be on its way
+      ));
+      expect(item.mannequinImages, ['https://img/shot.png']);
+      expect(item.showsMannequinShot, isTrue);
+      expect(item.awaitingMannequinShot, isFalse);
+    });
+
+    test('the shot is on its way: the photo, awaiting it', () {
+      final item = WardrobeItem.fromJson(withImages(
+        primary: 'https://img/photo.jpg',
+        shots: [],
+        pending: true,
+      ));
+      expect(item.showsMannequinShot, isFalse);
+      expect(item.awaitingMannequinShot, isTrue);
+    });
+
+    test('no shot coming (none made, or given up): just the photo', () {
+      final item = WardrobeItem.fromJson(withImages(
+        primary: 'https://img/photo.jpg',
+        shots: [],
+      ));
+      expect(item.showsMannequinShot, isFalse);
+      expect(item.awaitingMannequinShot, isFalse);
+    });
+
+    test('an older API without the field reads as no shots', () {
+      final item = WardrobeItem.fromJson(fullItem());
+      expect(item.mannequinImages, isEmpty);
+      expect(item.showsMannequinShot, isFalse);
+    });
+  });
+
   test('displayImageUrl falls back to the first image when no primary', () {
     final json = fullItem()..['primary_image_url'] = null;
     final item = WardrobeItem.fromJson(json);

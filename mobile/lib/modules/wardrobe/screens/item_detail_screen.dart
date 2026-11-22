@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,6 +15,7 @@ import '../wardrobe_backgrounds.dart';
 import '../wardrobe_controller.dart';
 import '../wardrobe_service.dart';
 import '../widgets/remove_confirmation_modal.dart';
+import '../widgets/wardrobe_picture.dart';
 import 'manual_entry_screen.dart';
 import '../../../shared/widgets/zoura_header.dart';
 
@@ -290,20 +290,18 @@ class _HeroImage extends StatelessWidget {
           aspectRatio: 4 / 5,
           child: Stack(
             children: [
-              // Same background as the item's card: it shows around a
-              // transparent mannequin shot.
-              if (imageUrl != null && background != null)
-                Positioned.fill(
-                  child: Image.asset(background, fit: BoxFit.cover),
-                ),
+              // As on the item's card: a mannequin shot whole on its
+              // background, a photo as it is (with a loading indicator while
+              // the shot is being made).
               Positioned.fill(
-                child: imageUrl == null
-                    ? placeholder
-                    : CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, _, _) => placeholder,
-                      ),
+                child: WardrobePicture(
+                  imageUrl: imageUrl,
+                  placeholder: placeholder,
+                  mannequinShot: item.showsMannequinShot,
+                  processing: item.awaitingMannequinShot,
+                  backgroundAsset: background,
+                  shotPadding: const EdgeInsets.all(12),
+                ),
               ),
               Positioned(
                 top: 12,
