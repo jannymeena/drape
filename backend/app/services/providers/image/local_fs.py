@@ -7,7 +7,7 @@ from typing import Iterator
 
 import structlog
 
-from app.services.providers.image.base import ImageStorageProvider
+from app.services.providers.image.base import ImageStorageProvider, image_dimensions
 
 _log = structlog.get_logger("provider.image.local_fs")
 
@@ -39,12 +39,15 @@ class LocalFsStorage(ImageStorageProvider):
         if not path.exists():
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(content)
+        width, height = image_dimensions(content)
         _log.info(
             "image.uploaded",
             backend="local_fs",
             filename=filename,
             bytes=len(content),
             content_type=content_type,
+            width=width,
+            height=height,
         )
         return f"{self._base_url}/{filename}"
 

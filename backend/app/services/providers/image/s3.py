@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import boto3
 import structlog
 
-from app.services.providers.image.base import ImageStorageProvider
+from app.services.providers.image.base import ImageStorageProvider, image_dimensions
 
 _log = structlog.get_logger("provider.image.s3")
 
@@ -48,6 +48,7 @@ class S3ImageStorage(ImageStorageProvider):
             ContentType=content_type,
         )
         url = self._public_url(key)
+        width, height = image_dimensions(content)
         _log.info(
             "image.uploaded",
             backend="s3",
@@ -55,6 +56,8 @@ class S3ImageStorage(ImageStorageProvider):
             key=key,
             bytes=len(content),
             content_type=content_type,
+            width=width,
+            height=height,
         )
         return url
 

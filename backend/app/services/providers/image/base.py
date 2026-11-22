@@ -1,8 +1,22 @@
 from __future__ import annotations
 
+import io
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Iterator
+
+from PIL import Image
+
+
+def image_dimensions(content: bytes) -> tuple[int | None, int | None]:
+    """(width, height) in pixels, read from the image's header only — or
+    (None, None) if it isn't an image Pillow can read. For logging; never
+    raises."""
+    try:
+        with Image.open(io.BytesIO(content)) as im:
+            return im.size
+    except Exception:  # noqa: BLE001 — unreadable: just no dimensions
+        return None, None
 
 
 class ImageStorageProvider(ABC):
