@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/models/api_error.dart';
@@ -81,11 +83,26 @@ class WardrobeState {
 }
 
 class WardrobeController extends StateNotifier<WardrobeState> {
-  WardrobeController(this._service) : super(const WardrobeState());
+  WardrobeController(
+    this._service, {
+    this.pendingFastPoll = const Duration(seconds: 4),
+    this.pendingSlowPoll = const Duration(seconds: 30),
+  }) : super(const WardrobeState());
 
   final WardrobeService _service;
 
   static const _pageSize = 50;
+
+  /// Re-reading items whose mannequin shot / cut-out are still being made:
+  /// every few seconds at first (they usually land within half a minute),
+  /// then slower (a failed try is retried later on the server), and not past
+  /// [_pendingGiveUp] — the next load starts the watch again.
+  final Duration pendingFastPoll;
+  final Duration pendingSlowPoll;
+  static const _pendingFastFor = Duration(minutes: 2);
+  static const _pendingGiveUp = Duration(minutes: 15);
+  Timer? _pendingTimer;
+  DateTime? _pendingSince;
 
   /// The whole unfiltered wardrobe, when one page held all of it. Lets a chip
   /// switch paint its items instantly (filtered locally) while the server
@@ -133,6 +150,8 @@ class WardrobeController extends StateNotifier<WardrobeState> {
         total: result.total,
       );
       if (_isUnfilteredComplete(state)) _allItems = state.items;
+      _pendingSince = null; // a fresh load gets the full watch again
+      _watchPending();
     } on ApiException catch (e) {
       if (!stillCurrent()) return;
       state = state.copyWith(loading: false, settled: true, error: e);
@@ -194,6 +213,7 @@ class WardrobeController extends StateNotifier<WardrobeState> {
         items: [...state.items, ...result.items],
         total: result.total,
       );
+      _watchPending();
     } on ApiException {
       state = state.copyWith(loadingMore: false);
     }
@@ -325,6 +345,8 @@ class WardrobeController extends StateNotifier<WardrobeState> {
     _allItems = null;
     final updated = await _service.addImages(itemId, images);
     _replaceItem(itemId, updated);
+    _pendingSince = null;
+    _watchPending();
     return updated;
   }
 
@@ -353,6 +375,51 @@ class WardrobeController extends StateNotifier<WardrobeState> {
         for (final i in state.items) i.id == itemId ? item : i,
       ],
     );
+  }
+
+  /// Schedules the next re-read of the loaded items whose images are still
+  /// being made, unless one is already scheduled, none are pending, or the
+  /// watch has run its course.
+  void _watchPending() {
+    if (_pendingTimer != null) return;
+    if (!state.items.any((i) => i.imagesPending)) {
+      _pendingSince = null;
+      return;
+    }
+    final since = _pendingSince ??= DateTime.now();
+    final watched = DateTime.now().difference(since);
+    if (watched >= _pendingGiveUp) return;
+    _pendingTimer = Timer(
+      watched < _pendingFastFor ? pendingFastPoll : pendingSlowPoll,
+      _refreshPending,
+    );
+  }
+
+  /// Re-reads each pending item, one at a time, and swaps it into the grid —
+  /// its card picks up the mannequin shot as soon as it lands.
+  Future<void> _refreshPending() async {
+    _pendingTimer = null;
+    final ids = [
+      for (final i in state.items)
+        if (i.imagesPending) i.id,
+    ];
+    for (final id in ids) {
+      try {
+        final fresh = await _service.getItem(id);
+        if (!mounted) return;
+        _allItems = null;
+        _replaceItem(id, fresh);
+      } on ApiException {
+        // Deleted meanwhile, or offline: the next round tries again.
+      }
+    }
+    if (mounted) _watchPending();
+  }
+
+  @override
+  void dispose() {
+    _pendingTimer?.cancel();
+    super.dispose();
   }
 }
 

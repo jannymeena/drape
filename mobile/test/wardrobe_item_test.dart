@@ -53,6 +53,14 @@ void main() {
     expect(item.addedLabel, 'March 2024');
   });
 
+  test('images_pending says whether its images are still being made', () {
+    expect(WardrobeItem.fromJson(fullItem()).imagesPending, isFalse);
+    final pending = WardrobeItem.fromJson(fullItem()..['images_pending'] = true);
+    expect(pending.imagesPending, isTrue);
+    // Kept through a favourite / log-worn fold-in.
+    expect(pending.copyWith(isFavorite: false).imagesPending, isTrue);
+  });
+
   test('displayImageUrl falls back to the first image when no primary', () {
     final json = fullItem()..['primary_image_url'] = null;
     final item = WardrobeItem.fromJson(json);

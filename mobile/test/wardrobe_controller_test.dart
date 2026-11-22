@@ -93,6 +93,17 @@ class _FakeWardrobeService extends WardrobeService {
   Future<void> deleteItem(String itemId) async {
     deletedId = itemId;
   }
+
+  /// Per-id answers to getItem, served in order (the last one repeats).
+  final Map<String, List<WardrobeItem>> itemReads = {};
+  final List<String> getItemCalls = [];
+
+  @override
+  Future<WardrobeItem> getItem(String itemId) async {
+    getItemCalls.add(itemId);
+    final answers = itemReads[itemId]!;
+    return answers.length > 1 ? answers.removeAt(0) : answers.first;
+  }
 }
 
 WardrobeItem _item(
@@ -100,11 +111,15 @@ WardrobeItem _item(
   String name = 'Item',
   String category = 'tops',
   bool isFavorite = false,
+  bool imagesPending = false,
+  String? primaryImageUrl,
 }) =>
     WardrobeItem(
       id: id,
       name: name,
       category: category,
+      primaryImageUrl: primaryImageUrl,
+      imagesPending: imagesPending,
       wornCount: 0,
       isFavorite: isFavorite,
       isStarterWardrobe: false,
@@ -460,6 +475,83 @@ void main() {
       expect(controller.state.settled, isFalse);
       service.gates['tops']!.complete();
       await switching;
+    });
+  });
+
+  group('items whose images are still being made', () {
+    late WardrobeController polling;
+
+    setUp(() {
+      polling = WardrobeController(
+        service,
+        pendingFastPoll: const Duration(milliseconds: 10),
+      );
+    });
+
+    tearDown(() => polling.dispose());
+
+    Future<void> settle() =>
+        Future<void>.delayed(const Duration(milliseconds: 80));
+
+    test('are re-read until their mannequin shot lands, then left alone',
+        () async {
+      service.byCategory = {
+        null: [_item('a', imagesPending: true), _item('b')],
+      };
+      service.itemReads['a'] = [
+        _item('a', imagesPending: true),
+        _item('a', primaryImageUrl: 'http://x/shot.png'),
+      ];
+
+      await polling.load();
+      await settle();
+
+      // Only the pending item, and only until it stopped being pending.
+      expect(service.getItemCalls, ['a', 'a']);
+      final a = polling.state.items.firstWhere((i) => i.id == 'a');
+      expect(a.primaryImageUrl, 'http://x/shot.png');
+      expect(a.imagesPending, isFalse);
+    });
+
+    test('nothing is re-read when nothing is pending', () async {
+      service.byCategory = {
+        null: [_item('a'), _item('b')],
+      };
+
+      await polling.load();
+      await settle();
+
+      expect(service.getItemCalls, isEmpty);
+    });
+
+    test('adding photos starts the watch for that item', () async {
+      service.byCategory = {
+        null: [_item('a')],
+      };
+      await polling.load();
+      service.addImagesResult = _item('a', imagesPending: true);
+      service.itemReads['a'] = [_item('a', primaryImageUrl: 'http://x/s.png')];
+
+      await polling.addImages('a', const []);
+      await settle();
+
+      expect(service.getItemCalls, ['a']);
+      expect(polling.state.items.single.primaryImageUrl, 'http://x/s.png');
+    });
+
+    test('stops when disposed', () async {
+      service.byCategory = {
+        null: [_item('a', imagesPending: true)],
+      };
+      service.itemReads['a'] = [_item('a', imagesPending: true)];
+
+      await polling.load();
+      polling.dispose();
+      final calls = service.getItemCalls.length;
+      await settle();
+
+      expect(service.getItemCalls.length, calls);
+      polling = WardrobeController(service); // tearDown disposes this one
     });
   });
 }

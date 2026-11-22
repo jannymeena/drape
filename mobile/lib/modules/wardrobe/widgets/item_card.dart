@@ -9,6 +9,9 @@ class WardrobeItemData {
   final String name;
   final String category;
   final String? imageUrl;
+
+  /// Asset laid under [imageUrl]: shows around a transparent mannequin shot.
+  final String? backgroundAsset;
   final String? colorHex;
   final bool favorited;
   final bool starter;
@@ -18,6 +21,7 @@ class WardrobeItemData {
     required this.name,
     required this.category,
     this.imageUrl,
+    this.backgroundAsset,
     this.colorHex,
     this.favorited = false,
     this.starter = false,
@@ -35,6 +39,8 @@ class ItemCard extends StatelessWidget {
     this.onTap,
     this.onFavorite,
   });
+
+  static const _imagePadding = EdgeInsets.all(12);
 
   Widget _placeholder() => GarmentPlaceholder(
         category: item.category,
@@ -59,10 +65,25 @@ class ItemCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                       child: item.imageUrl == null
                           ? _placeholder()
-                          : CachedNetworkImage(
-                              imageUrl: item.imageUrl!,
-                              fit: BoxFit.cover,
-                              errorWidget: (_, _, _) => _placeholder(),
+                          : Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (item.backgroundAsset != null)
+                                  Image.asset(
+                                    item.backgroundAsset!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                // The whole picture, clear of the card's edges
+                                // (and the star badge).
+                                Padding(
+                                  padding: _imagePadding,
+                                  child: CachedNetworkImage(
+                                    imageUrl: item.imageUrl!,
+                                    fit: BoxFit.contain,
+                                    errorWidget: (_, _, _) => _placeholder(),
+                                  ),
+                                ),
+                              ],
                             ),
                     ),
                   ),

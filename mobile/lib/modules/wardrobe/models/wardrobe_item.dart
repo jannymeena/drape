@@ -34,6 +34,7 @@ class WardrobeItem {
     this.favoritedAt,
     this.productUrl,
     this.aiDetectionConfidence,
+    this.imagesPending = false,
   });
 
   final String id;
@@ -62,6 +63,10 @@ class WardrobeItem {
   final String? productUrl;
   final String addedVia; // manual | scan | batch_upload | starter_seed
   final int? aiDetectionConfidence;
+
+  /// A mannequin shot or the cut-out is still being made on the server: the
+  /// app reads the item again shortly to pick them up.
+  final bool imagesPending;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -103,6 +108,7 @@ class WardrobeItem {
       productUrl: productUrl,
       addedVia: addedVia,
       aiDetectionConfidence: aiDetectionConfidence,
+      imagesPending: imagesPending,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -177,6 +183,7 @@ class WardrobeItem {
       productUrl: json['product_url'] as String?,
       addedVia: json['added_via'] as String? ?? 'manual',
       aiDetectionConfidence: json['ai_detection_confidence'] as int?,
+      imagesPending: json['images_pending'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );

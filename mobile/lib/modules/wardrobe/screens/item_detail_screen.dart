@@ -12,6 +12,7 @@ import '../../../shared/widgets/drape_toast.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../image_pick.dart';
 import '../models/wardrobe_item.dart';
+import '../wardrobe_backgrounds.dart';
 import '../wardrobe_controller.dart';
 import '../wardrobe_service.dart';
 import '../widgets/remove_confirmation_modal.dart';
@@ -276,6 +277,7 @@ class _HeroImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = item.displayImageUrl;
+    final background = wardrobeBackgroundFor(item.id);
     final placeholder = GarmentPlaceholder(
       category: item.category,
       color: garmentColorFromHex(item.colorHex),
@@ -288,6 +290,12 @@ class _HeroImage extends StatelessWidget {
           aspectRatio: 4 / 5,
           child: Stack(
             children: [
+              // Same background as the item's card: it shows around a
+              // transparent mannequin shot.
+              if (imageUrl != null && background != null)
+                Positioned.fill(
+                  child: Image.asset(background, fit: BoxFit.cover),
+                ),
               Positioned.fill(
                 child: imageUrl == null
                     ? placeholder

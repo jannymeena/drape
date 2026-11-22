@@ -148,6 +148,9 @@ flutter:
     - assets/samples/
     # The 10 surfaces outfit pictures are laid out on (top-down, 1024², WebP).
     - assets/outfit_backgrounds/
+    # Backgrounds the wardrobe lays transparent mannequin shots on; the ones
+    # in use are listed in lib/modules/wardrobe/wardrobe_backgrounds.dart.
+    - assets/wardrobe_backgrounds/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

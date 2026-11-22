@@ -10,6 +10,7 @@ import '../../../shared/services/analytics/analytics_events.dart';
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/analytics_screen_view.dart';
 import '../models/wardrobe_item.dart';
+import '../wardrobe_backgrounds.dart';
 import '../wardrobe_controller.dart';
 import '../wardrobe_service.dart';
 import '../widgets/add_to_wardrobe_chooser.dart';
@@ -327,6 +328,7 @@ class _WardrobeScreenState extends ConsumerState<WardrobeScreen> {
         name: item.name,
         category: item.category,
         imageUrl: item.displayImageUrl,
+        backgroundAsset: wardrobeBackgroundFor(item.id),
         colorHex: item.colorHex,
         favorited: item.isFavorite,
         starter: item.isStarterWardrobe,

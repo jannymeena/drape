@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -256,10 +258,21 @@ final wardrobeServiceProvider = Provider<WardrobeService>((ref) {
 /// Read-once item detail, keyed by id (same pattern as the Today reasoning
 /// provider). `AsyncValue` gives the detail screen loading/error/data for free.
 final wardrobeItemProvider =
-    FutureProvider.family<WardrobeItem, String>((ref, itemId) {
+    FutureProvider.family<WardrobeItem, String>((ref, itemId) async {
   ref.watch(sessionEpochProvider);
-  return ref.read(wardrobeServiceProvider).getItem(itemId);
+  final item = await ref.read(wardrobeServiceProvider).getItem(itemId);
+  // Its mannequin shot / cut-out are still being made: read it again shortly
+  // (the screen keeps showing this copy meanwhile). Only re-read while
+  // something watches it — an invalidated provider nobody reads stays put.
+  if (item.imagesPending) {
+    final timer = Timer(imagesPendingPollInterval, ref.invalidateSelf);
+    ref.onDispose(timer.cancel);
+  }
+  return item;
 });
+
+/// How often an item whose images are still being made is read again.
+const imagesPendingPollInterval = Duration(seconds: 4);
 
 /// Wardrobe-wide counts for the banners: the real (non-starter) item count
 /// (free-tier cap), the visible total (real + active starter items) and the
