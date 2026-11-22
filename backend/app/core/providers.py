@@ -17,7 +17,7 @@ from app.services.providers.garment_image.base import GarmentImageProvider
 from app.services.providers.garment_image.disabled import (
     DisabledGarmentImageProvider,
 )
-from app.services.providers.garment_image.gemini import GeminiGarmentImageProvider
+from app.services.providers.garment_image.runware import RunwareGarmentImageProvider
 from app.services.providers.hash.base import PasswordHasher
 from app.services.providers.hash.bcrypt import BcryptPasswordHasher
 from app.services.providers.image.base import ImageStorageProvider
@@ -195,11 +195,9 @@ class Providers:
     @staticmethod
     def _build_garment_images(s: Settings) -> GarmentImageProvider:
         # Key presence decides, in every env: no key = photos as uploaded.
-        if s.google_ai_api_key:
-            return GeminiGarmentImageProvider(
-                s.google_ai_api_key,
-                model=s.garment_image_model,
-                endpoint=s.google_ai_endpoint,
+        if s.runware_api_key:
+            return RunwareGarmentImageProvider(
+                s.runware_api_key, model=s.garment_image_model
             )
         return DisabledGarmentImageProvider()
 

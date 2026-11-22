@@ -18,10 +18,11 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    exists,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
 from app.schemas.user import Role
@@ -779,6 +780,20 @@ class ImageJob(Base, TimestampMixin):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     last_error: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
+
+
+# Whether a mannequin shot or cut-out is still being made for the item (a job
+# pending or running): the app re-reads such items until their images land.
+# Loaded with the item (an EXISTS on the indexed item_id); set here because
+# ImageJob is declared after WardrobeItem.
+WardrobeItem.images_pending = column_property(
+    exists()
+    .where(
+        ImageJob.item_id == WardrobeItem.id,
+        ImageJob.status.in_(("pending", "running")),
+    )
+    .correlate_except(ImageJob)
+)
 
 
 class Outfit(Base, TimestampMixin):

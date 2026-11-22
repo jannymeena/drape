@@ -125,6 +125,9 @@ class WardrobeItemResponse(WardrobeItemBase):
     # (x, y, w, h) of the piece on it, 0–1. Null until one is made.
     cutout_url: str | None = None
     cutout_box: list[float] | None = None
+    # A mannequin shot or the cut-out is still being made in the background:
+    # read the item again shortly to pick them up.
+    images_pending: bool = False
     created_at: datetime
     updated_at: datetime
 

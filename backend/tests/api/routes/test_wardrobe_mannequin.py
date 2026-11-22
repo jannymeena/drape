@@ -2,8 +2,8 @@
 item's folded cut-out made in the background (image_job_service), retried
 when they fail.
 
-The image provider is faked here; the Gemini REST layer has its own tests in
-tests/services/test_garment_image_gemini.py.
+The image provider is faked here; the Runware REST layer has its own tests in
+tests/services/test_garment_image_runware.py.
 """
 
 from __future__ import annotations
@@ -19,12 +19,17 @@ from sqlalchemy import select
 from app.db.models import ImageJob
 from app.services import image_job_service
 from app.services.cutout_service import CANVAS, FOLDED_PROMPT
-from app.services.image_job_service import GHOST_MANNEQUIN_PROMPT, MAX_ATTEMPTS
+from app.services.image_job_service import (
+    GHOST_MANNEQUIN_PROMPT,
+    MANNEQUIN_SIZE,
+    MAX_ATTEMPTS,
+)
 from app.services.providers.background_removal.chroma_key import ChromaKeyRemover
 from app.services.providers.garment_image.base import (
     GarmentImageError,
     GarmentImageProvider,
     GeneratedImage,
+    OutputFormat,
 )
 from tests.factories import make_outfit, make_wardrobe_item
 
@@ -53,15 +58,26 @@ class _FakeGarmentImages(GarmentImageProvider):
 
     def __init__(self) -> None:
         self.calls: list[tuple[bytes, str, str]] = []
+        self.formats: dict[str, tuple[str, bool]] = {}
+        self.sizes: dict[str, tuple[int, int] | None] = {}
         self.fail = 0
 
     async def generate(
-        self, image_bytes: bytes, *, media_type: str, prompt: str
+        self,
+        image_bytes: bytes,
+        *,
+        media_type: str,
+        prompt: str,
+        output_format: OutputFormat = "png",
+        transparent: bool = False,
+        size: tuple[int, int] | None = None,
     ) -> GeneratedImage:
         self.calls.append((image_bytes, media_type, prompt))
+        self.formats[prompt] = (output_format, transparent)
+        self.sizes[prompt] = size
         if self.fail > 0:
             self.fail -= 1
-            raise GarmentImageError("call_failed", "Gemini image call returned 429")
+            raise GarmentImageError("call_failed", "Runware image call returned 429")
         if prompt.startswith(FOLDED_PROMPT):
             return GeneratedImage(content=_folded_on_magenta(), content_type="image/png")
         return GeneratedImage(content=_MANNEQUIN, content_type="image/png")
@@ -132,6 +148,44 @@ def test_the_upload_returns_without_waiting_for_images(
     assert garment_images.calls == []
     # Queued: its mannequin shot and the item's cut-out.
     assert sorted(j.kind for j in _jobs(db, item.id)) == ["cutout", "mannequin"]
+    # …which the app is told, so it reads the item again until they land.
+    assert body["images_pending"] is True
+
+
+async def test_the_item_says_when_its_images_have_landed(
+    authed_client, db, garment_images, image_storage
+):
+    item = make_wardrobe_item(db, authed_client.test_user)
+    other = make_wardrobe_item(db, authed_client.test_user)
+    _upload(authed_client, item.id)
+
+    def pending() -> dict[str, bool]:
+        listed = authed_client.get("/api/v1/wardrobe").json()["items"]
+        return {i["id"]: i["images_pending"] for i in listed}
+
+    assert pending() == {str(item.id): True, str(other.id): False}
+    one = authed_client.get(f"/api/v1/wardrobe/items/{item.id}").json()
+    assert one["images_pending"] is True
+
+    await _work(db, image_storage, garment_images)
+
+    assert pending() == {str(item.id): False, str(other.id): False}
+    one = authed_client.get(f"/api/v1/wardrobe/items/{item.id}").json()
+    assert one["images_pending"] is False and one["cutout_url"]
+    assert len(one["images"]) == 2  # the shot, then the photo
+
+
+async def test_a_job_given_up_no_longer_counts_as_pending(
+    authed_client, db, garment_images, image_storage
+):
+    item = make_wardrobe_item(db, authed_client.test_user)
+    _upload(authed_client, item.id)
+    for job in _jobs(db, item.id):
+        job.status = "failed"
+    db.commit()
+
+    one = authed_client.get(f"/api/v1/wardrobe/items/{item.id}").json()
+    assert one["images_pending"] is False
 
 
 async def test_the_worker_puts_the_mannequin_shot_first(
@@ -148,6 +202,14 @@ async def test_the_worker_puts_the_mannequin_shot_first(
     assert item.primary_image_url == item.images[0]
     assert _stored(image_storage, item.images[0]) == _MANNEQUIN
     assert garment_images.prompts(GHOST_MANNEQUIN_PROMPT) == [GHOST_MANNEQUIN_PROMPT]
+    # The shot on a transparent background (the app adds its own); the
+    # cut-out on an opaque backdrop that gets keyed out.
+    assert garment_images.formats[GHOST_MANNEQUIN_PROMPT] == ("png", True)
+    [folded] = garment_images.prompts(FOLDED_PROMPT)
+    assert garment_images.formats[folded] == ("png", False)
+    # Every shot the same 4:5 shape; the cut-out sized from the photo.
+    assert garment_images.sizes[GHOST_MANNEQUIN_PROMPT] == MANNEQUIN_SIZE
+    assert garment_images.sizes[folded] is None
     assert all(j.status == "done" for j in _jobs(db, item.id))
 
 
@@ -251,7 +313,7 @@ def test_one_cut_out_per_item(authed_client, db, garment_images):
 
 
 def test_no_image_model_no_jobs(authed_client, db, garment_images):
-    garment_images.enabled = False  # no GOOGLE_AI_API_KEY
+    garment_images.enabled = False  # no RUNWARE_API_KEY
     item = make_wardrobe_item(db, authed_client.test_user)
     assert _upload(authed_client, item.id).status_code == 200
     assert _jobs(db, item.id) == []

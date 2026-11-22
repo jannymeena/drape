@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Literal
+
+# PNG is lossless (the cut-out keys out the backdrop the model draws);
+# JPG is far smaller, for shots shown as they are.
+OutputFormat = Literal["png", "jpg"]
 
 
 class GarmentImageError(Exception):
@@ -28,6 +33,16 @@ class GarmentImageProvider(ABC):
 
     @abstractmethod
     async def generate(
-        self, image_bytes: bytes, *, media_type: str, prompt: str
+        self,
+        image_bytes: bytes,
+        *,
+        media_type: str,
+        prompt: str,
+        output_format: OutputFormat = "png",
+        transparent: bool = False,
+        size: tuple[int, int] | None = None,
     ) -> GeneratedImage:
-        """Returns the generated image, or raises GarmentImageError."""
+        """Returns the generated image in [output_format] — with a
+        transparent background when [transparent] (PNG only), [size] (width,
+        height) pixels when given, else the provider's own pick — or raises
+        GarmentImageError."""

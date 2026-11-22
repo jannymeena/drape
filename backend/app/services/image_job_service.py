@@ -39,8 +39,16 @@ JobStatus = Literal["pending", "running", "done", "failed"]
 
 # What the image model is asked to make of each garment photo.
 GHOST_MANNEQUIN_PROMPT = (
-    "Display your garment on a 3D ghost mannequin with professional styling"
+    "Display your garment on a 3D ghost mannequin with professional styling. "
+    # Without this the model styles the piece — a shirt and tie in an open
+    # blazer, a pocket square — showing clothes the user doesn't own.
+    "Show only this garment; do not add any other clothing or accessories."
 )
+
+# Every shot the same shape — the shape of the cards and the item picture
+# (4:5) — and about 1 MP: sharp on the item screen, near Runware's 0.66 MP
+# floor. The photo's own shape no longer decides it.
+MANNEQUIN_SIZE = (896, 1120)
 
 # The wait before each retry (after the 1st failure, the 2nd, …); one try
 # more than there are waits, then the job is given up.
@@ -229,7 +237,13 @@ async def _mannequin(
     photo, media_type = _read(storage, job.source_url)
     try:
         shot = await garment_images.generate(
-            photo, media_type=media_type, prompt=GHOST_MANNEQUIN_PROMPT
+            photo,
+            media_type=media_type,
+            prompt=GHOST_MANNEQUIN_PROMPT,
+            # The app lays the shot on a background of its own.
+            output_format="png",
+            transparent=True,
+            size=MANNEQUIN_SIZE,
         )
     except GarmentImageError as e:
         raise JobFailed(f"{e.code}: {e}") from e

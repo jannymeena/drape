@@ -170,8 +170,8 @@ def image_storage(tmp_path):
 
 @pytest.fixture
 def garment_images():
-    """No image model by default, so a GOOGLE_AI_API_KEY in a developer's
-    .env never reaches Google from the tests. Override this fixture (or the
+    """No image model by default, so a RUNWARE_API_KEY in a developer's
+    .env never reaches Runware from the tests. Override this fixture (or the
     dependency) with a fake to exercise the mannequin shots."""
     from app.services.providers.garment_image.disabled import (
         DisabledGarmentImageProvider,
