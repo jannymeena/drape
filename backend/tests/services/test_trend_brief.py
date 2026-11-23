@@ -12,7 +12,7 @@ from app.services import outfit_service, trend_service
 from app.services.providers.ai.anthropic import AnthropicProvider
 from app.services.providers.ai.base import AIProviderError, ResearchResult
 from app.workers.trend_worker import TrendWorker
-from tests.services.test_outfit_shop_fill import _PickAll
+from tests.services.fakes import PickAll as _PickAll
 
 NOW = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
 
@@ -105,7 +105,6 @@ def test_outfit_system_prompt_carries_the_brief(db):
     system = outfit_service._build_system_context(
         items=[],
         style_goals=None,
-        using_starter_wardrobe=False,
         trends=trend_service.prompt_block([brief]),
     )
     assert "What's in fashion right now" in system

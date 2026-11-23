@@ -167,7 +167,6 @@ def test_system_context_carries_the_stable_content():
     system = outfit_service._build_system_context(
         items=items,
         style_goals=["polished"],
-        using_starter_wardrobe=False,
         body_analysis=None,
     )
     assert "You are Zoura" in system  # persona
@@ -194,7 +193,7 @@ def test_system_context_is_byte_stable_across_calls():
     # identically or every call would write a fresh cache entry.
     items = [_item()]
     kwargs = dict(
-        items=items, style_goals=["casual"], using_starter_wardrobe=True, body_analysis=None
+        items=items, style_goals=["casual"], body_analysis=None
     )
     assert outfit_service._build_system_context(
         **kwargs
@@ -227,13 +226,12 @@ class _RecordingAI:
 def test_outfit_generation_requests_system_caching():
     ai = _RecordingAI()
     asyncio.run(
-        outfit_service._ask_ai_for_outfit(
+        outfit_service._stylist_reply(
             ai,
             occasion="work",
             items=[_item(), _item("Grey Chinos")],
             weather=None,
             style_goals=None,
-            using_starter_wardrobe=False,
         )
     )
     call = ai.calls[0]

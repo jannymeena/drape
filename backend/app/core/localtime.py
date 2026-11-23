@@ -7,12 +7,15 @@ same notion of "the user's current day" — a log at 1 AM local counts toward
 the evening before, and a user in Toronto isn't flipped to tomorrow at 8 PM
 because UTC rolled over.
 
-Falls back to UTC when `users.timezone` is null or unparseable (same policy
-as the weekly usage window).
+`users.timezone` is an IANA zone ("Asia/Kolkata") or a UTC offset
+("+05:30") — the app reports the device's offset on every request
+(`X-Timezone`, see `user_service.sync_timezone`). Falls back to UTC when null
+or unparseable (same policy as the weekly usage window).
 """
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta, timezone
+import re
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -28,13 +31,31 @@ _log = structlog.get_logger("localtime")
 DAY_ROLLOVER_HOUR = 5
 
 
-def user_tz(user: "User") -> ZoneInfo:
-    if user.timezone:
-        try:
-            return ZoneInfo(user.timezone)
-        except ZoneInfoNotFoundError:
-            _log.warning("localtime.bad_tz", user_id=str(user.id), tz=user.timezone)
-    return ZoneInfo("UTC")
+_OFFSET_RE = re.compile(r"^([+-])(\d{2}):(\d{2})$")
+
+
+def parse_tz(value: str | None) -> tzinfo | None:
+    """An IANA zone ("Asia/Kolkata") or a UTC offset ("+05:30", "-04:00");
+    None when it's neither."""
+    if not value:
+        return None
+    if match := _OFFSET_RE.match(value):
+        sign, hours, minutes = match.group(1), int(match.group(2)), int(match.group(3))
+        if hours > 14 or minutes >= 60:
+            return None
+        offset = timedelta(hours=hours, minutes=minutes)
+        return timezone(-offset if sign == "-" else offset)
+    try:
+        return ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError):
+        return None
+
+
+def user_tz(user: "User") -> tzinfo:
+    tz = parse_tz(user.timezone)
+    if tz is None and user.timezone:
+        _log.warning("localtime.bad_tz", user_id=str(user.id), tz=user.timezone)
+    return tz or ZoneInfo("UTC")
 
 
 def as_user_day(user: "User", at_utc: datetime) -> date:

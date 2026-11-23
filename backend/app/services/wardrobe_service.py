@@ -25,7 +25,12 @@ from app.schemas.wardrobe import (
     WardrobeItemUpdate,
     WardrobeListQuery,
 )
-from app.services import cutout_service, image_job_service, starter_wardrobe_service
+from app.services import (
+    cutout_service,
+    image_job_service,
+    item_occasion_service,
+    starter_wardrobe_service,
+)
 from app.services.providers.garment_image.base import (
     GarmentImageError,
     GarmentImageProvider,
@@ -188,6 +193,10 @@ def update_item(
         setattr(item, k, v)
     if "purchase_price" in changes:
         item.cost_per_wear = _compute_cost_per_wear(item.purchase_price, item.worn_count)
+    if item_occasion_service.CLASSIFIED_FIELDS & changes.keys():
+        # What the piece is changed: classify its occasions again before
+        # it's next styled.
+        item.occasions = None
     if "images" in changes:
         # A shot removed (or the last photo) moves the state on.
         image_job_service.sync_mannequin_state(db, item)

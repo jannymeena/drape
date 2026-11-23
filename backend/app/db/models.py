@@ -540,6 +540,11 @@ class WardrobeItem(Base, TimestampMixin):
     material: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     formality: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     season: Mapped[Optional[list[str]]] = mapped_column(JSONB, nullable=True)
+    # Every occasion (occasion_rules.yaml keys) the piece suits, from the AI
+    # (item_occasion_service). Null = not classified yet — done before the
+    # piece is next styled; an edit to what it is clears it. Outfit prompts
+    # offer only the pieces that suit the occasion.
+    occasions: Mapped[Optional[list[str]]] = mapped_column(JSONB, nullable=True)
 
     # Brand & purchase
     brand: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -824,6 +829,13 @@ class Outfit(Base, TimestampMixin):
         index=True,
     )
     occasion: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Today's outfits are styled for the day's plan (Plan a day): the plan's
+    # occasion + dress level it was built for, and which of the day's up-to-3
+    # looks it is (0-2). Null on outfits made outside Today (force-generate);
+    # a plan change hides the old plan's outfits from Today.
+    day_occasion: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    dress_level: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    slot: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
     items: Mapped[list[dict]] = mapped_column(JSONB, nullable=False)
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     ai_reasoning_short: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
@@ -1065,6 +1077,36 @@ class DayPlan(Base, TimestampMixin):
     note: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     skipped: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
+    )
+
+
+class DayStylingRun(Base):
+    """One styling of a day's plan for Today: how many looks the stylist
+    made (0-3) and, with none, what the wardrobe is missing. Today asks the
+    AI once per plan; a 0 stays until the wardrobe changes
+    (`wardrobe_sig`), so the empty state doesn't re-ask on every open."""
+
+    __tablename__ = "day_styling_runs"
+    __table_args__ = (Index("ix_day_styling_runs_user_day", "user_id", "plan_date"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    plan_date: Mapped[date] = mapped_column(Date, nullable=False)
+    day_occasion: Mapped[str] = mapped_column(String(30), nullable=False)
+    dress_level: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # starter | wardrobe — which pieces it styled from.
+    mode: Mapped[str] = mapped_column(String(20), nullable=False)
+    looks: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    missing: Mapped[Optional[list[str]]] = mapped_column(JSONB, nullable=True)
+    wardrobe_sig: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 

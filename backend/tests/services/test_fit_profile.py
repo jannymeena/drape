@@ -158,7 +158,6 @@ def test_outfit_system_prompt_includes_fit_only_via_gate(db, make_user):
         return outfit_service._build_system_context(
             items=[],
             style_goals=None,
-            using_starter_wardrobe=False,
             fit=measurements_service.fit_profile_for_user(db, user=user),
         )
 

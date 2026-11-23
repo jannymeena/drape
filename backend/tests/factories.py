@@ -73,6 +73,40 @@ def make_starter_wardrobe(db: Session, user: User, *, count: int = 9) -> list[Wa
     return items
 
 
+def make_real_wardrobe(db: Session, user: User, *, count: int = 9) -> list[WardrobeItem]:
+    """`count` of the user's own items (tops, bottoms, shoes, outerwear in
+    turn) — what outfit generation builds from."""
+    categories = ["tops", "bottoms", "shoes", "outerwear"]
+    return [
+        make_wardrobe_item(
+            db,
+            user,
+            name=f"Item {i}",
+            category=categories[i % len(categories)],
+            color_name=["white", "black", "navy", "beige"][i % 4],
+            formality=["casual", "smart_casual", "formal"][i % 3],
+        )
+        for i in range(count)
+    ]
+
+
+def make_today_plan(
+    db: Session,
+    user: User,
+    *,
+    occasion: str = "work_day",
+    dress_level: str = "business",
+    note: str | None = None,
+) -> None:
+    """Plan today (Plan a day) — Today styles outfits only for a planned day."""
+    from app.core.localtime import user_today
+    from app.services import day_plan_service
+
+    day_plan_service.save(
+        db, user=user, day=user_today(user), occasion=occasion, dress_level=dress_level, note=note
+    )
+
+
 def make_outfit(
     db: Session,
     user: User,
@@ -81,6 +115,9 @@ def make_outfit(
     items: list[WardrobeItem] | None = None,
     compatibility_score: int = 80,
     is_logged: bool = False,
+    slot: int | None = None,
+    day_occasion: str | None = None,
+    dress_level: str | None = None,
 ) -> Outfit:
     """Persist an outfit with a denormalized item snapshot. Caller can pass
     real wardrobe items or rely on a placeholder shape."""
@@ -102,6 +139,9 @@ def make_outfit(
     outfit = Outfit(
         user_id=user.id,
         occasion=occasion,
+        slot=slot,
+        day_occasion=day_occasion,
+        dress_level=dress_level,
         items=item_payload,
         ai_reasoning_short="Test reasoning short.",
         ai_reasoning_full="Test reasoning full text — three sentences worth.",

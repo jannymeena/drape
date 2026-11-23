@@ -1,11 +1,13 @@
 """Phase 6c — Today dashboard + force-generate.
 
-Two endpoints:
+Endpoints:
   - GET  /today/dashboard           composite payload for the home tab
-  - POST /today/generate-outfits    force-generate (used by Empty/Error states)
+  - POST /today/outfits             today's looks for the day's plan (one call)
+  - POST /today/generate-outfits    force-generate per occasion (off-dashboard)
 
-Generation uses the same `outfit_service.generate_for_user` path the dashboard
-calls when no outfits exist yet, so behaviour is consistent.
+Today's outfits are styled for the day's plan (Plan a day): from the starter
+wardrobe only while it's active (one look), else from the user's own pieces
+only (up to 3 — as many as the stylist finds distinct, suitable looks).
 """
 from __future__ import annotations
 
@@ -21,7 +23,8 @@ from app.db.models import User
 from app.db.session import get_db
 from app.schemas.outfit import (
     BannerDismissResponse,
-    GenerateOccasionRequest,
+    StyleTodayRequest,
+    StyleTodayResponse,
     GenerateOutfitsRequest,
     GenerateOutfitsResponse,
     OccasionOption,
@@ -46,7 +49,6 @@ from app.services import (
     usage_service,
 )
 from app.services.outfit_service import (
-    DAILY_OUTFIT_TARGET,
     DEFAULT_OCCASIONS,
     OutfitError,
     _starter_wardrobe_banner,  # type: ignore[attr-defined]
@@ -109,6 +111,9 @@ def _to_outfit_response(outfit) -> OutfitResponse:
         id=outfit.id,
         user_id=outfit.user_id,
         occasion=outfit.occasion,
+        day_occasion=outfit.day_occasion,
+        dress_level=outfit.dress_level,
+        slot=outfit.slot,
         items=items,
         shop_the_look=any(i.product_url for i in items),
         image_url=outfit.image_url,
@@ -142,13 +147,11 @@ async def dashboard(
     user: User = Depends(get_current_user),
     weather: WeatherProvider = Depends(get_weather_provider),
 ) -> TodayDashboardResponse:
-    # Read-only frame: the shell + any outfits already generated today + the
-    # occasions still pending. Generation happens out-of-band via
-    # POST /today/outfits, so the client paints the shell instantly and fills
-    # each card as its AI call returns. No AI provider needed here.
-    outfits = outfit_service.todays_outfits(db, user=user)
-    ready = outfit_service.wardrobe_ready(db, user=user)
-    pending = outfit_service.pending_occasions(db, user=user) if ready else []
+    # Read-only frame: the shell + today's looks if already styled.
+    # Styling happens out-of-band via POST /today/outfits, so the client
+    # paints the shell instantly and fills the cards when the AI call
+    # returns. No AI provider needed here.
+    state = outfit_service.today_outfits_state(db, user=user)
 
     weather_ctx = await outfit_service.current_weather(weather, lat=lat, lon=lon)
     attribution = weather.attribution if weather_ctx is not None else None
@@ -164,18 +167,21 @@ async def dashboard(
         weather_attribution=(
             WeatherAttributionResponse(**asdict(attribution)) if attribution else None
         ),
-        outfits=[_to_outfit_response(o) for o in outfits],
+        outfits=[_to_outfit_response(o) for o in state.outfits],
         usage=TodayUsage(
             outfits_generated_today=_outfits_generated_today(db, user=user),
-            outfit_target_per_day=DAILY_OUTFIT_TARGET,
+            outfit_target_per_day=outfit_service.max_looks(state.mode),
             resets_at=next_day_rollover_utc(user),
         ),
         banners=TodayBanners(
             starter_wardrobe=_starter_wardrobe_banner(db, user_id=user.id),
             incomplete_profile=_profile_incomplete(db, user_id=user.id),
         ),
-        wardrobe_ready=ready,
-        pending_occasions=pending,
+        wardrobe_mode=state.mode,
+        wardrobe_ready=state.wardrobe_ready,
+        needs_plan=state.styling is None,
+        needs_styling=state.needs_styling,
+        missing_roles=state.missing_roles,
         occasions=[
             OccasionOption(key=k, label=occasion_rules.label(k), daily=k in DEFAULT_OCCASIONS)
             for k in occasion_rules.occasion_keys()
@@ -189,32 +195,37 @@ async def dashboard(
     )
 
 
-@router.post("/outfits", response_model=OutfitResponse)
-async def generate_occasion(
-    payload: GenerateOccasionRequest,
+@router.post("/outfits", response_model=StyleTodayResponse)
+async def style_today(
+    payload: StyleTodayRequest | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     ai: AIProvider = Depends(get_ai_provider),
     weather: WeatherProvider = Depends(get_weather_provider),
-) -> OutfitResponse:
-    """Generate (or return the existing) outfit for ONE occasion — the Today
-    dashboard's per-occasion fill. Idempotent for an occasion already generated
-    today. Part of the free daily set: it does NOT consume a weekly outfit
-    credit (mirrors the old inline dashboard generation). Manual regeneration
-    via POST /outfits/{id}/regenerate is what counts against the limit."""
+) -> StyleTodayResponse:
+    """Today's looks for the day's plan, styled in ONE AI call: 0-3 from the
+    user's own pieces (1 in starter mode), only pieces that suit the
+    occasion; with none, what's missing. Idempotent: once styled it returns
+    the same looks without an AI call. 400 without a plan for today
+    (`no_plan`). Part of the free daily set: it does NOT consume a weekly
+    outfit credit. Manual regeneration via POST /outfits/{id}/regenerate is
+    what counts against the limit."""
+    request = payload or StyleTodayRequest()
     try:
-        outfit = await outfit_service.ensure_one(
+        looks = await outfit_service.style_today(
             db=db,
             user=user,
             ai=ai,
             weather=weather,
-            occasion=payload.occasion,
-            lat=payload.lat,
-            lon=payload.lon,
+            lat=request.lat,
+            lon=request.lon,
         )
     except OutfitError as e:
         raise _translate(e)
-    return _to_outfit_response(outfit)
+    return StyleTodayResponse(
+        outfits=[_to_outfit_response(o) for o in looks.outfits],
+        missing_roles=looks.missing_roles,
+    )
 
 
 @router.post("/generate-outfits", response_model=GenerateOutfitsResponse)
@@ -225,8 +236,9 @@ async def generate_outfits(
     ai: AIProvider = Depends(get_ai_provider),
     weather: WeatherProvider = Depends(get_weather_provider),
 ) -> GenerateOutfitsResponse:
-    """Force-generate the daily set of 3 outfits. Each outfit counts as one
-    `outfits` usage tick — 21/wk free, unlimited Pro."""
+    """Force-generate one outfit per occasion (default: the `daily` ones),
+    outside today's plan — they don't show on the dashboard. Each outfit
+    counts as one `outfits` usage tick — 21/wk free, unlimited Pro."""
     request = payload or GenerateOutfitsRequest()
     occasions = tuple(request.occasions or outfit_service.DEFAULT_OCCASIONS)
     try:

@@ -160,7 +160,7 @@ def prompt_block(occasion: str, rule: Rule) -> str:
     shapes = "; or ".join(_human(s) for s in rule.complete_when)
     lines = [
         f"Occasion: {label(occasion)}.",
-        f"A complete outfit for it is: {shapes}.",
+        f"A complete outfit for it is usually: {shapes}.",
     ]
     if rule.optional:
         lines.append(f"Optional, only if it improves the look: {', '.join(rule.optional)}.")

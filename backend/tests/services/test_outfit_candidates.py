@@ -51,7 +51,6 @@ def test_item_lines_carry_the_last_worn_date():
     system = outfit_service._build_system_context(
         items=[_item(name="Blue Shirt", last_worn=date(2026, 9, 28))],
         style_goals=None,
-        using_starter_wardrobe=False,
     )
     assert 'name="Blue Shirt" [tops | casual | last worn 2026-09-28]' in system
 
@@ -64,7 +63,7 @@ def test_item_lines_carry_the_last_worn_date():
 def test_system_prompt_lists_items_by_short_ref():
     items = [_item(name="Blue Shirt"), _item(name="Grey Chinos")]
     system = outfit_service._build_system_context(
-        items=items, style_goals=None, using_starter_wardrobe=False
+        items=items, style_goals=None
     )
     assert 'id=1 name="Blue Shirt"' in system
     assert 'id=2 name="Grey Chinos"' in system

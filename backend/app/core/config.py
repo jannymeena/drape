@@ -89,7 +89,8 @@ class Settings(BaseSettings):
     # background, one at a time with retries. Off in tests (they run jobs
     # explicitly).
     image_worker_enabled: bool = True
-    # Cheap model for the one-line-per-product tagging calls.
+    # Cheap model for the one-line-per-product tagging calls, and for
+    # classifying which occasions each wardrobe piece suits.
     catalog_tag_model: str = "claude-haiku-4-5-20251001"
 
     # Apple WeatherKit REST (weather). Required in tbd/prd; in dev, all four set

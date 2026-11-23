@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.localtime import parse_tz
 from app.db.models import User
 from app.schemas.user import UserUpdate
 
@@ -46,6 +47,22 @@ def update_user(db: Session, user: User, payload: UserUpdate) -> User:
     db.commit()
     db.refresh(user)
     return user
+
+
+def sync_timezone(db: Session, user: User, reported: str | None) -> None:
+    """Keeps `user.timezone` on the device's clock: [reported] is the app's
+    `X-Timezone` (a UTC offset like "+05:30", or an IANA zone). Ignored when
+    unparseable or when the stored zone already reads the same time now (a
+    stored IANA zone isn't replaced by its own offset)."""
+    tz = parse_tz(reported)
+    if tz is None or reported == user.timezone:
+        return
+    now = datetime.now(timezone.utc)
+    current = parse_tz(user.timezone)
+    if current is not None and now.astimezone(current).utcoffset() == now.astimezone(tz).utcoffset():
+        return
+    user.timezone = reported
+    db.commit()
 
 
 def delete_user(db: Session, user: User) -> None:

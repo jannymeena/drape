@@ -3,11 +3,12 @@
 Brand-new users have no items, so outfit generation has nothing to draw on.
 Assigning a starter wardrobe picks a capsule of tagged catalog products in the
 user's genders and materializes them into the wardrobe with
-`is_starter_wardrobe=true` and a `product_id` link (price + buy link). They
-generate outfits like any other item; the user doesn't own them, so outfits
-using them are "shop the look". As the user adds their own pieces, the
-transition-tracking row shifts the blending ratio so generation favours real
-items; at AUTO_DEACTIVATE_REAL_ITEMS the starter assignment auto-deactivates.
+`is_starter_wardrobe=true` and a `product_id` link (price + buy link). While
+the assignment is active the user is in starter mode: outfits come only from
+these pieces (one look a day on Today, to shop), never mixed with their own.
+The transition-tracking row counts real vs starter items; at
+AUTO_DEACTIVATE_REAL_ITEMS the starter assignment auto-deactivates and
+outfits switch to the user's own pieces.
 
 Capsule selection is deterministic in shape (a per-gender role mix) and
 greedy in content: each pick favours occasions, warmths and colours the
@@ -42,8 +43,8 @@ _log = structlog.get_logger("starter_wardrobe")
 # 10, not 15. The handoff docs disagree — CTO doc 2 (Today tab) says 15, doc 3
 # (Wardrobe tab) says 10 — and 10 is the number every other part of the system
 # already uses: the client banner counts down to it ("n/10 ITEMS TO UNLOCK REAL
-# WARDROBE MODE"), doc 3's banner logic hides at `real_items >= 10`, and
-# `outfit_service._blend_pool` switches to real-only at 10. Deactivating at 15
+# WARDROBE MODE") and doc 3's banner logic hides at `real_items >= 10`
+# (outfit generation used to switch to real-only at 10). Deactivating at 15
 # meant the app promised a threshold it then refused to honour.
 AUTO_DEACTIVATE_REAL_ITEMS = 10
 

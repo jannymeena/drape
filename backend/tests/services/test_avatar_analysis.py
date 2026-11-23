@@ -64,7 +64,6 @@ def test_system_context_includes_wearer_block_when_analysis_present():
     system = outfit_service._build_system_context(
         items=[],
         style_goals=None,
-        using_starter_wardrobe=False,
         body_analysis={"body_type": "hourglass", "skin_tone": "cool/fair"},
     )
     assert "Wearer:" in system
@@ -76,7 +75,6 @@ def test_system_context_omits_wearer_block_when_no_analysis():
     system = outfit_service._build_system_context(
         items=[],
         style_goals=None,
-        using_starter_wardrobe=False,
         body_analysis=None,
     )
     assert "Wearer" not in system

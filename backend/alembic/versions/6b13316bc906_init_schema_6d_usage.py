@@ -114,6 +114,9 @@ def upgrade() -> None:
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
     sa.Column('occasion', sa.String(length=50), nullable=False),
+    sa.Column('day_occasion', sa.String(length=30), nullable=True),
+    sa.Column('dress_level', sa.String(length=20), nullable=True),
+    sa.Column('slot', sa.SmallInteger(), nullable=True),
     sa.Column('items', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('image_url', sa.String(length=500), nullable=True),
     sa.Column('ai_reasoning_short', sa.String(length=500), nullable=True),
@@ -245,6 +248,7 @@ def upgrade() -> None:
     sa.Column('material', sa.String(length=100), nullable=True),
     sa.Column('formality', sa.String(length=20), nullable=True),
     sa.Column('season', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('occasions', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('brand', sa.String(length=100), nullable=True),
     sa.Column('purchase_price', sa.Numeric(precision=10, scale=2), nullable=True),
     sa.Column('purchase_date', sa.Date(), nullable=True),
@@ -308,6 +312,21 @@ def upgrade() -> None:
     sa.UniqueConstraint('user_id', 'plan_date')
     )
     op.create_index(op.f('ix_day_plans_user_id'), 'day_plans', ['user_id'], unique=False)
+    op.create_table('day_styling_runs',
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('plan_date', sa.Date(), nullable=False),
+    sa.Column('day_occasion', sa.String(length=30), nullable=False),
+    sa.Column('dress_level', sa.String(length=20), nullable=True),
+    sa.Column('mode', sa.String(length=20), nullable=False),
+    sa.Column('looks', sa.SmallInteger(), nullable=False),
+    sa.Column('missing', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('wardrobe_sig', sa.String(length=80), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('ix_day_styling_runs_user_day', 'day_styling_runs', ['user_id', 'plan_date'], unique=False)
     op.create_table('weekly_plan_rules',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
@@ -545,6 +564,8 @@ def downgrade() -> None:
     op.drop_table('feature_request_votes')
     op.drop_index(op.f('ix_weekly_plan_rules_user_id'), table_name='weekly_plan_rules')
     op.drop_table('weekly_plan_rules')
+    op.drop_index('ix_day_styling_runs_user_day', table_name='day_styling_runs')
+    op.drop_table('day_styling_runs')
     op.drop_index(op.f('ix_day_plans_user_id'), table_name='day_plans')
     op.drop_table('day_plans')
     op.drop_index(op.f('ix_banner_dismissals_user_id'), table_name='banner_dismissals')

@@ -1,7 +1,7 @@
 from uuid import UUID
 
 import structlog
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from app.core.security import InvalidToken, decode_access_token
 from app.db.models import User
 from app.db.session import get_db
 from app.schemas.user import Role
+from app.services import user_service
 
 _security = HTTPBearer(auto_error=False)
 
@@ -24,6 +25,7 @@ def _unauthorized(detail: str) -> HTTPException:
 async def get_current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_security),
     db: Session = Depends(get_db),
+    x_timezone: str | None = Header(default=None, alias="X-Timezone"),
 ) -> User:
     # Async on purpose (the body is cheap sync work): a sync dependency runs
     # in a threadpool with a *copied* context, so the user_id bound below
@@ -46,6 +48,9 @@ async def get_current_user(
     # From here every log line in this request — domain events and the
     # middleware's request.completed — carries the caller's user_id.
     structlog.contextvars.bind_contextvars(user_id=str(user.id))
+    # The app reports the device's clock on every request: the user's "today"
+    # (5am-to-5am local) follows it, so it matches the day the app shows.
+    user_service.sync_timezone(db, user, x_timezone)
     return user
 
 

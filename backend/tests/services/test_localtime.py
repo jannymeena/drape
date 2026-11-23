@@ -113,3 +113,47 @@ def test_streak_consecutive_local_evenings_are_consecutive_app_days():
     d2 = localtime.as_user_day(user, tuesday_evening)
     assert (d1, d2) == (date(2026, 7, 6), date(2026, 7, 7))
     assert (d2 - d1).days == 1  # exactly what _advance_streak needs to see
+
+
+# ---------------------------------------------------------------------------
+# UTC offsets the app reports (X-Timezone)
+# ---------------------------------------------------------------------------
+
+
+def test_an_offset_timezone_sets_the_app_day():
+    # 00:30 in India is 19:00 UTC the day before; the app day there is still
+    # the 23rd until 05:00 local — and the 24th after it.
+    user = _user("+05:30")
+    assert localtime.as_user_day(user, _utc(2026, 11, 23, 19, 0)) == date(2026, 11, 23)
+    assert localtime.as_user_day(user, _utc(2026, 11, 23, 23, 45)) == date(2026, 11, 24)
+    assert localtime.as_user_day(_user("-04:00"), _utc(2026, 11, 24, 3, 0)) == date(2026, 11, 23)
+
+
+def test_parse_tz_takes_zones_and_offsets_only():
+    assert localtime.parse_tz("Asia/Kolkata") is not None
+    assert localtime.parse_tz("+05:30") is not None
+    for bad in (None, "", "IST", "+5:30", "+15:00", "+05:75", "../etc/passwd"):
+        assert localtime.parse_tz(bad) is None
+
+
+def test_the_app_reports_its_timezone_on_every_request(authed_client, db):
+    user = authed_client.test_user
+    authed_client.get("/api/v1/today/dashboard", headers={"X-Timezone": "+05:30"})
+    db.refresh(user)
+    assert user.timezone == "+05:30"
+    # Garbage is ignored.
+    authed_client.get("/api/v1/today/dashboard", headers={"X-Timezone": "Mars/Base"})
+    db.refresh(user)
+    assert user.timezone == "+05:30"
+
+
+def test_a_stored_zone_is_not_replaced_by_its_own_offset(db, make_user):
+    from app.services import user_service
+
+    user = make_user()
+    user.timezone = "Asia/Kolkata"
+    db.commit()
+    user_service.sync_timezone(db, user, "+05:30")
+    assert user.timezone == "Asia/Kolkata"
+    user_service.sync_timezone(db, user, "-04:00")  # travelled
+    assert user.timezone == "-04:00"

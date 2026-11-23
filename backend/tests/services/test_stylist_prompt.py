@@ -13,7 +13,7 @@ from app.schemas.wardrobe import AIDetection
 from app.data import occasion_rules
 from app.services import outfit_service, stylist_prompt
 from tests.factories import make_wardrobe_item
-from tests.services.test_outfit_shop_fill import _PickAll, _Weather
+from tests.services.fakes import PickAll as _PickAll, Weather as _Weather
 
 
 def _item(category: str, name: str, **kw) -> WardrobeItem:
@@ -32,7 +32,6 @@ def test_system_prompt_is_a_personal_stylist_who_knows_the_wearer():
             )
         ],
         style_goals=["look polished"],
-        using_starter_wardrobe=False,
         shopping_style="womens",
         age_range="45-54",
         style_profile={"body_shape": "pear", "undertone": "warm", "occupation": "Nurse"},
@@ -130,7 +129,8 @@ async def test_generated_dress_outfit_never_keeps_jeans(db, make_user):
     for category, name in (("dresses", "Dress"), ("bottoms", "Jeans"), ("shoes", "Boots")):
         make_wardrobe_item(db, user, name=name, category=category)
     outfit = await outfit_service.generate_one(
-        db=db, user=user, ai=_DressWithJeans(), weather=_Weather(15.0), occasion="casual"
+        db=db, user=user, ai=_DressWithJeans(), weather=_Weather(15.0),
+        styling=outfit_service.DayStyling(occasion="casual"),
     )
     assert {i.name for i in payload_to_outfit_items(outfit.items)} == {"Dress", "Boots"}
 

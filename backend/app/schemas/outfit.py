@@ -92,6 +92,11 @@ class OutfitResponse(BaseModel):
     id: UUID
     user_id: UUID
     occasion: Occasion
+    # Today's outfits: the day plan they were styled for (Plan a day's
+    # occasion key + dress level) and which of the day's looks (0-2) they are.
+    day_occasion: str | None = None
+    dress_level: str | None = None
+    slot: int | None = None
     items: list[OutfitItem]
     image_url: str | None
     ai_reasoning_short: str | None
@@ -132,17 +137,22 @@ class GenerateOutfitsResponse(BaseModel):
     using_starter_wardrobe: bool
 
 
-class GenerateOccasionRequest(BaseModel):
-    """Single-occasion generation for the Today dashboard's incremental fill.
+class StyleTodayRequest(BaseModel):
+    """Today's looks for the day's plan, styled in one call (POST
+    /today/outfits). Unlike `/today/generate-outfits`, this is part of the
+    free daily set and does not consume a weekly outfit credit."""
 
-    The client fires one of these per pending occasion (in parallel) so each
-    outfit card resolves independently instead of waiting on a 3-call batch.
-    Unlike `/today/generate-outfits`, this is part of the free daily fill and
-    does not consume a weekly outfit credit."""
-
-    occasion: Occasion
     lat: float | None = None
     lon: float | None = None
+
+
+class StyleTodayResponse(BaseModel):
+    """0 to 3 looks (1 in starter mode). With none, `missing_roles` names
+    what the wardrobe would need for one (top, bottom, dress, outerwear,
+    shoes, accessory)."""
+
+    outfits: list[OutfitResponse]
+    missing_roles: list[str] = Field(default_factory=list)
 
 
 class TodayUser(BaseModel):
@@ -190,13 +200,21 @@ class TodayDashboardResponse(BaseModel):
     outfits: list[OutfitResponse]
     usage: TodayUsage
     banners: TodayBanners
-    # The dashboard is now read-only: it no longer generates outfits inline.
-    # `wardrobe_ready` tells the client whether outfit generation is possible at
-    # all (>= 2 items); `pending_occasions` is the set of occasions that still
-    # need a today-outfit. The client renders a skeleton per pending occasion and
-    # fills each via POST /today/outfits. Defaults keep older clients compatible.
+    # The dashboard is read-only: it doesn't generate outfits inline. Outfits
+    # are styled for today's plan:
+    # * `wardrobe_mode` — `starter`: from the starter wardrobe only, one look;
+    #   `wardrobe`: from the user's own pieces only, up to three.
+    # * `needs_plan` — today isn't planned: the client asks the user to pick
+    #   what's on (Plan a day) instead of showing outfits.
+    # * `needs_styling` — the plan's looks aren't styled yet: the client
+    #   shows a skeleton and asks for them via POST /today/outfits (one call).
+    # * `wardrobe_ready` — False: nothing suitable for the plan ('add items'
+    #   empty state); `missing_roles` names what would complete a look.
+    wardrobe_mode: Literal["starter", "wardrobe"] = "wardrobe"
     wardrobe_ready: bool = False
-    pending_occasions: list[Occasion] = Field(default_factory=list)
+    needs_plan: bool = False
+    needs_styling: bool = False
+    missing_roles: list[str] = Field(default_factory=list)
     # Every occasion the rulebook defines — the app's occasion chips.
     occasions: list[OccasionOption] = Field(default_factory=list)
     # Today's and tomorrow's plans (Plan a day), so the frame can show the

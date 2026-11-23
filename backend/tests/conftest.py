@@ -128,6 +128,22 @@ def db(session_factory) -> Iterator[Session]:
 
 
 @pytest.fixture(autouse=True)
+def _skip_occasion_classification(request, monkeypatch):
+    """Most tests script the stylist's replies one call at a time; the
+    wardrobe occasion classifier's call would take one of them. It's a no-op
+    unless the test is marked `classify_occasions` (pieces stay
+    unclassified, which the stylist is offered as suiting everything)."""
+    if request.node.get_closest_marker("classify_occasions"):
+        return
+    from app.services import item_occasion_service
+
+    async def _skip(db, *, ai, items, model=None):
+        return None
+
+    monkeypatch.setattr(item_occasion_service, "ensure_classified", _skip)
+
+
+@pytest.fixture(autouse=True)
 def _truncate_after_test(engine):
     """Wipe per-test state after each test. Preserves `alembic_version` —
     Alembic's bookkeeping row.

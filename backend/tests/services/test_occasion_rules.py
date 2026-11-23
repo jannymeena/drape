@@ -16,7 +16,7 @@ from app.data import occasion_rules as rules
 from app.schemas.outfit import payload_to_outfit_items
 from app.services import outfit_service
 from tests.factories import make_wardrobe_item
-from tests.services.test_outfit_shop_fill import _PickAll, _Weather
+from tests.services.fakes import PickAll as _PickAll, Weather as _Weather
 
 ALL_ROLES = {"top", "bottom", "dress", "outerwear", "shoes", "accessory"}
 
@@ -112,7 +112,7 @@ def test_gap_offers_every_nearest_shape():
 def test_prompt_block_reads_like_the_rulebook():
     block = rules.prompt_block("beach", rules.rule_for("beach", "mens"))
     assert block.startswith("Occasion: Beach.")
-    assert "A complete outfit for it is: bottom." in block
+    assert "A complete outfit for it is usually: bottom." in block
     assert "Swim or linen shorts on their own are fine" in block
 
 
@@ -149,7 +149,8 @@ def _wardrobe(db, user):
 
 async def _generate(db, user, ai, occasion):
     outfit = await outfit_service.generate_one(
-        db=db, user=user, ai=ai, weather=_Weather(24.0), occasion=occasion
+        db=db, user=user, ai=ai, weather=_Weather(24.0),
+        styling=outfit_service.DayStyling(occasion=occasion),
     )
     return {i.name for i in payload_to_outfit_items(outfit.items)}
 
@@ -159,22 +160,17 @@ async def test_prompt_carries_the_occasions_rule(db, make_user):
     _wardrobe(db, user)
     ai = _Scripted(["Tee", "Shorts", "Sandals"])
     await _generate(db, user, ai, "casual")
-    assert "Occasion: Casual.\nA complete outfit for it is: top + bottom + shoes" in ai.prompts[0]
+    assert "Occasion: Casual.\nA complete outfit for it is usually: top + bottom + shoes" in ai.prompts[0]
 
 
-async def test_incomplete_outfit_is_retried_with_what_the_rule_needs(db, make_user):
+async def test_the_stylist_decides_what_complete_is(db, make_user):
+    # The rulebook is a guide in the prompt, not a check: the stylist's
+    # outfit is kept as it is, with no retry.
     user = make_user()
     _wardrobe(db, user)
-    ai = _Scripted(["Shorts", "Belt"], ["Tee", "Shorts", "Sandals"])
-    assert await _generate(db, user, ai, "casual") == {"Tee", "Shorts", "Sandals"}
-    assert "A previous attempt left out: top and shoes." in ai.prompts[1]
-
-
-async def test_still_incomplete_gets_a_rule_shaped_fallback(db, make_user):
-    user = make_user()
-    _wardrobe(db, user)
-    ai = _Scripted(["Shorts", "Belt"], ["Shorts", "Belt"])
-    assert await _generate(db, user, ai, "casual") == {"Tee", "Shorts", "Sandals"}
+    ai = _Scripted(["Shorts", "Belt"])
+    assert await _generate(db, user, ai, "casual") == {"Shorts", "Belt"}
+    assert len(ai.prompts) == 1
 
 
 def test_fallback_fills_the_nearest_shape_when_none_fits():
@@ -205,7 +201,7 @@ async def test_menswear_beach_shorts_alone_need_no_retry(db, make_user):
 
 
 def test_unknown_occasion_is_rejected(authed_client):
-    r = authed_client.post("/api/v1/today/outfits", json={"occasion": "moon_landing"})
+    r = authed_client.post("/api/v1/today/generate-outfits", json={"occasions": ["moon_landing"]})
     assert r.status_code == 422
     assert "unknown occasion" in r.text
 

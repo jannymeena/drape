@@ -35,7 +35,7 @@ Each script prints `[PASS]` / `[FAIL]` lines and exits non-zero on failure.
 | `02_profile.sh` | the 7-step Style Blueprint (identity → fit → aesthetics → color → lifestyle → habits → goals → complete), then measurements; PATCH /users/{id} for tz+location | advances dev user's onboarding |
 | `03_starter_wardrobe.sh` | assign an AWIN capsule (polls while the catalog is tagged), buy links, idempotency check, deactivate | materializes ~10–12 starter items |
 | `04_wardrobe.sh` | manual CRUD, log-worn idempotency, favorites, scanner (mock), cross-user IDOR → 404 | creates + deletes test items |
-| `05_today.sh` | dashboard (3 outfits), generate-outfits force, weather + banners | generates outfits today |
+| `05_today.sh` | own items, plan today, dashboard (needs_plan → needs_styling), one-call styling (idempotent), generate-outfits force | adds 4 items, plans today, generates outfits |
 | `06_outfits.sh` | reasoning, regenerate, mix-and-match, log → toast=default, history filter | logs an outfit (advances streak) |
 | `07_usage.sh` | /usage/current-week, drive 22nd → 429, restore counter | bumps + restores `usage_tracking` |
 | `08_analytics.sh` | cost-per-wear, utilization, weekly-report, intelligence Pro gate (402 → 200) | flips `subscription_tier` and back |
