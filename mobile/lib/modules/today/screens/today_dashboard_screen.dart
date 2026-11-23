@@ -17,6 +17,7 @@ import '../../onboarding/onboarding_service.dart';
 import '../../profile/profile_service.dart';
 import '../../profile/screens/compare_plans_screen.dart';
 import '../../profile/screens/edit_measurements_screen.dart';
+import '../../shop/models/shop.dart';
 import '../../shop/screens/gap_analysis_screen.dart';
 import '../../shop/shop_service.dart';
 import '../../wardrobe/screens/wardrobe_screen.dart';
@@ -253,7 +254,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
 
     final dashboard = state.dashboard!;
     final cards = _carouselCards(state, dashboard);
-    final shop = _shopSection(dashboard);
+    final shop = _shopSection(state);
     return RefreshIndicator(
       onRefresh: () {
         ref.invalidate(onboardingStatusProvider);
@@ -570,41 +571,27 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   /// "Shop the look": unowned pieces from today's outfits first (they are
   /// literally this look), topped up from the Shop feed; plus the biggest
   /// wardrobe gap. Both sources are best-effort — hidden while loading/failed.
-  Widget? _shopSection(TodayDashboard dashboard) {
-    final picks = <ShopPick>[];
-    final seen = <String>{};
-    for (final outfit in dashboard.outfits) {
-      for (final item in outfit.items) {
-        final url = item.productUrl;
-        final cents = item.priceCents;
-        if (url == null || cents == null || !seen.add(url)) continue;
-        picks.add(
+  /// "Shop the look": the server's picks for today (`GET /today/shop` —
+  /// the starter look's pieces, what today or the wardrobe is missing, then
+  /// pieces for today's weather or occasion) under its heading, and the top
+  /// wardrobe gap — except when the picks already are what today needs.
+  Widget? _shopSection(TodayState state) {
+    final shop = state.shop;
+    final picks = [
+      for (final p in shop?.products ?? const <ShopProduct>[])
+        if (p.productUrl.isNotEmpty)
           ShopPick(
-            name: item.name,
-            imageUrl: item.primaryImageUrl,
-            category: item.category,
-            priceText: ShopPick.formatPrice(cents, item.currency ?? 'CAD'),
-            url: url,
+            name: p.name,
+            imageUrl: p.imageUrl,
+            category: p.category,
+            priceText: ShopPick.formatPrice(p.priceCents, p.currency),
+            url: p.productUrl,
           ),
-        );
-      }
-    }
-    final feed = ref.watch(shopFeedProvider).valueOrNull;
-    for (final p in feed?.products ?? const []) {
-      if (picks.length >= 3) break;
-      if (p.productUrl.isEmpty || !seen.add(p.productUrl)) continue;
-      picks.add(
-        ShopPick(
-          name: p.name,
-          imageUrl: p.imageUrl,
-          category: p.category,
-          priceText: ShopPick.formatPrice(p.priceCents, p.currency),
-          url: p.productUrl,
-        ),
-      );
-    }
+    ];
 
-    final topGap = ref.watch(gapAnalysisProvider).valueOrNull?.gaps.firstOrNull;
+    final topGap = shop?.kind == 'missing'
+        ? null
+        : ref.watch(gapAnalysisProvider).valueOrNull?.gaps.firstOrNull;
     final gap = topGap == null
         ? null
         : GapPick(
@@ -617,6 +604,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
 
     if (picks.isEmpty && gap == null) return null;
     return TodayShopSection(
+      subtitle: picks.isEmpty ? null : shop?.title,
       picks: picks,
       gap: gap,
       onPickTap: (p) => openProductLink(context, p.url),

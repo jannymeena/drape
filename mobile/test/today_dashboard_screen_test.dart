@@ -28,6 +28,7 @@ import 'package:mobile/modules/today/widgets/resume_banner.dart';
 import 'package:mobile/modules/today/widgets/starter_wardrobe_banner.dart';
 import 'package:mobile/modules/wardrobe/models/wardrobe_mutations.dart';
 import 'package:mobile/modules/wardrobe/wardrobe_service.dart';
+import 'package:mobile/shared/models/api_error.dart';
 import 'package:mobile/shared/providers/network_provider.dart';
 import 'package:mobile/shared/services/dashboard_cache.dart';
 
@@ -36,8 +37,13 @@ import 'support/fake_day_plans_service.dart';
 /// Returns the frame, then never completes per-slot generation so the
 /// skeletons stay on screen for the assertions.
 class _StubService extends TodayService {
-  _StubService(this.frame) : super(Dio());
+  _StubService(this.frame, {this.shop}) : super(Dio());
   final TodayDashboard frame;
+  final TodayShop? shop;
+
+  @override
+  Future<TodayShop> getShop({double? lat, double? lon}) async =>
+      shop ?? (throw const ApiException(code: 'offline', message: 'offline'));
   final Completer<TodayLooks> _never = Completer<TodayLooks>();
 
   @override
@@ -600,6 +606,68 @@ void main() {
     // No picks count pill and no commission line on Today.
     expect(find.textContaining(RegExp(r'picks? for you')), findsNothing);
     expect(find.textContaining('commission'), findsNothing);
+  });
+
+  testWidgets("shop the look shows today's picks under why", (tester) async {
+    _tallSurface(tester);
+    _stubGeolocator(tester);
+    TodayShop shop(String kind, String title) => TodayShop.fromJson({
+      'kind': kind,
+      'title': title,
+      'products': [
+        for (final n in ['Mac', 'Cap'])
+          {
+            'id': 'p-$n',
+            'name': n,
+            'brand': 'boohoo',
+            'category': 'outerwear',
+            'price_cents': 4500,
+            'currency': 'USD',
+            'image_url': '',
+            'product_url': 'https://www.awin1.com/$n',
+            'retailer': 'boohoo',
+          },
+      ],
+    });
+    const gaps = GapAnalysis(
+      gaps: [
+        GapItem(
+          category: 'shoes',
+          have: 0,
+          recommended: 3,
+          reason: 'You have 0 shoes.',
+          outfitsUnlocked: 6,
+        ),
+      ],
+      isTeaser: false,
+    );
+    await tester.pumpWidget(
+      _host(
+        _StubService(_frame(), shop: shop('rain', "For today's rain")),
+        gaps: gaps,
+      ),
+    );
+    await _settle(tester);
+    expect(find.text("For today's rain"), findsOneWidget);
+    expect(find.text('Mac'), findsOneWidget);
+    expect(find.text('Cap'), findsOneWidget);
+    expect(find.text('\$45 USD'), findsNWidgets(2));
+    expect(find.text('Fill a gap: shoes'), findsOneWidget);
+
+    // What today's plan is missing: the gap card would only repeat it.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      _host(
+        _StubService(
+          _frame(),
+          shop: shop('missing', "To complete today's look"),
+        ),
+        gaps: gaps,
+      ),
+    );
+    await _settle(tester);
+    expect(find.text("To complete today's look"), findsOneWidget);
+    expect(find.text('Fill a gap: shoes'), findsNothing);
   });
 
   testWidgets('weather credit sits at the bottom, below the week strip', (

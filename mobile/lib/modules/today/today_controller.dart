@@ -38,6 +38,7 @@ class TodayState {
     this.frameError,
     this.styling = false,
     this.stylingError,
+    this.shop,
     this.regeneratingIds = const {},
     this.loggingIds = const {},
   });
@@ -48,6 +49,9 @@ class TodayState {
   final ApiException? frameError;
   final bool styling;
   final ApiException? stylingError;
+
+  /// Today's "Shop the look" (best-effort; null until loaded or on error).
+  final TodayShop? shop;
   final Set<String> regeneratingIds;
   final Set<String> loggingIds;
 
@@ -63,6 +67,7 @@ class TodayState {
     CurrentWeekUsage? usage,
     bool? styling,
     ApiException? Function()? stylingError,
+    TodayShop? shop,
     Set<String>? regeneratingIds,
     Set<String>? loggingIds,
   }) {
@@ -74,6 +79,7 @@ class TodayState {
       styling: styling ?? this.styling,
       stylingError:
           stylingError != null ? stylingError() : this.stylingError,
+      shop: shop ?? this.shop,
       regeneratingIds: regeneratingIds ?? this.regeneratingIds,
       loggingIds: loggingIds ?? this.loggingIds,
     );
@@ -120,6 +126,7 @@ class TodayController extends StateNotifier<TodayState> {
       usage: state.usage,
       styling: state.styling,
       stylingError: state.stylingError,
+      shop: state.shop,
       regeneratingIds: state.regeneratingIds,
       loggingIds: state.loggingIds,
     );
@@ -161,12 +168,27 @@ class TodayController extends StateNotifier<TodayState> {
       dashboard: frame,
       usage: usage,
       styling: frame.needsStyling,
+      shop: state.shop,
       regeneratingIds: state.regeneratingIds,
       loggingIds: state.loggingIds,
     );
     _persist();
 
     if (fire) unawaited(_style());
+    unawaited(_loadShop());
+  }
+
+  /// Loads Today's "Shop the look" — after the frame, and again once the
+  /// day's looks are styled (they decide what's missing). Best-effort: a
+  /// failure keeps whatever was shown.
+  Future<void> _loadShop() async {
+    final epoch = _planEpoch;
+    try {
+      final shop = await _service.getShop(lat: _coords?.lat, lon: _coords?.lon);
+      if (epoch == _planEpoch) state = state.copyWith(shop: shop);
+    } catch (_) {
+      // Best-effort; the section keeps its last picks (or stays hidden).
+    }
   }
 
   /// Called when the app returns to the foreground: reloads the frame if it's
@@ -193,6 +215,7 @@ class TodayController extends StateNotifier<TodayState> {
       usage: usage ?? state.usage,
       styling: state.styling,
       stylingError: state.stylingError,
+      shop: state.shop,
       regeneratingIds: state.regeneratingIds,
       loggingIds: state.loggingIds,
     );
@@ -223,6 +246,7 @@ class TodayController extends StateNotifier<TodayState> {
         stylingError: () => null,
       );
       _persist();
+      unawaited(_loadShop());
     } on ApiException catch (e) {
       if (epoch == _planEpoch) _markStylingFailed(e);
     } catch (_) {
@@ -263,6 +287,7 @@ class TodayController extends StateNotifier<TodayState> {
     state = TodayState(
       dashboard: state.dashboard,
       usage: state.usage,
+      shop: state.shop,
       regeneratingIds: state.regeneratingIds,
       loggingIds: state.loggingIds,
     );

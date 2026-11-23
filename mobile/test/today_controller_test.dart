@@ -31,6 +31,18 @@ class _FakeTodayService extends TodayService {
   /// When set, styling waits on it (to hold the call in flight).
   Future<void>? gate;
 
+  int shopCalls = 0;
+
+  @override
+  Future<TodayShop> getShop({double? lat, double? lon}) async {
+    shopCalls++;
+    return TodayShop.fromJson({
+      'kind': 'picks',
+      'title': 'Picked for you $shopCalls',
+      'products': <dynamic>[],
+    });
+  }
+
   Outfit? regenResult;
   ApiException? regenError;
   LogOutfitResult? logResult;
@@ -152,6 +164,20 @@ void main() {
     expect(controller.state.dashboard!.needsStyling, isFalse);
     expect(service.styleCalls, 1);
     expect(cache.saved!.outfits, hasLength(3)); // persisted for next start
+  });
+
+  test('shop picks load with the frame and again once styled', () async {
+    service.frame = _dashboard([], needsStyling: true);
+    final release = Completer<void>();
+    service.gate = release.future;
+    await controller.loadFrame();
+    await pumpEventQueue();
+    expect(controller.state.shop?.title, 'Picked for you 1');
+    release.complete();
+    await pumpEventQueue();
+    // The looks decide what's missing: the picks are asked for again.
+    expect(service.shopCalls, 2);
+    expect(controller.state.shop?.title, 'Picked for you 2');
   });
 
   test('a frame that needs no styling asks for nothing', () async {

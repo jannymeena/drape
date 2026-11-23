@@ -1,3 +1,4 @@
+import '../../shop/models/shop.dart';
 import 'outfit.dart';
 
 /// Mirrors the backend `TodayDashboardResponse` (`GET /today/dashboard`).
@@ -163,6 +164,31 @@ class TodayLooks {
             .toList(),
         missingRoles: (json['missing_roles'] as List<dynamic>? ?? const [])
             .map((e) => e as String)
+            .toList(),
+      );
+}
+
+/// Mirrors the backend `TodayShopResponse` (`GET /today/shop`): Today's
+/// "Shop the look" — up to three products and why they were picked.
+class TodayShop {
+  const TodayShop({
+    required this.kind,
+    required this.title,
+    required this.products,
+  });
+
+  /// look | missing | gap | rain | sun | cold | heat | occasion | picks.
+  final String kind;
+
+  /// The heading for [kind], e.g. "For today's rain".
+  final String title;
+  final List<ShopProduct> products;
+
+  factory TodayShop.fromJson(Map<String, dynamic> json) => TodayShop(
+        kind: json['kind'] as String? ?? 'picks',
+        title: json['title'] as String? ?? '',
+        products: (json['products'] as List<dynamic>? ?? const [])
+            .map((e) => ShopProduct.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 }

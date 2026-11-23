@@ -40,9 +40,11 @@ class GapPick {
   const GapPick({required this.title, required this.body});
 }
 
-/// "Shop the look": up to three affiliate picks and a wardrobe-gap card.
-/// Hidden by the caller when there's nothing to show.
+/// "Shop the look": up to three affiliate picks under why they were picked
+/// ([subtitle], e.g. "For today's rain") and a wardrobe-gap card. Hidden by
+/// the caller when there's nothing to show.
 class TodayShopSection extends StatelessWidget {
+  final String? subtitle;
   final List<ShopPick> picks;
   final GapPick? gap;
   final ValueChanged<ShopPick> onPickTap;
@@ -52,6 +54,7 @@ class TodayShopSection extends StatelessWidget {
     super.key,
     required this.picks,
     required this.onPickTap,
+    this.subtitle,
     this.gap,
     this.onViewGap,
   });
@@ -66,6 +69,15 @@ class TodayShopSection extends StatelessWidget {
           'Shop the look',
           style: AppTypography.sectionTitle,
         ),
+        if (subtitle case final subtitle? when subtitle.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.taupe),
+          ),
+        ],
         if (shown.isNotEmpty) ...[
           const SizedBox(height: 12),
           Row(

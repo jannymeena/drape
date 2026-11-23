@@ -82,6 +82,26 @@ class TodayService {
     }
   }
 
+  /// `GET /today/shop` — Today's "Shop the look": up to three products for
+  /// the day (the starter look, what's missing, then pieces for today's
+  /// weather or occasion) and why. No AI call.
+  Future<TodayShop> getShop({double? lat, double? lon}) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/today/shop',
+        queryParameters: {'lat': ?lat, 'lon': ?lon},
+      );
+      return TodayShop.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    } catch (_) {
+      throw const ApiException(
+        code: 'parse_error',
+        message: 'Could not read today\'s shop picks.',
+      );
+    }
+  }
+
   /// `GET /usage/current-week` — weekly free-tier counters for the usage banner.
   /// `POST /today/banners/{banner}/dismiss` — hides a dashboard banner for
   /// 7 days server-side (`starter_wardrobe` | `incomplete_profile`).
