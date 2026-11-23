@@ -39,7 +39,7 @@ class _TagAI(AIProvider):
     def __init__(self, reply: dict | str | None = None, fail: bool = False) -> None:
         self.reply = reply if reply is not None else {
             "gender": "women", "role": "top", "warmth": "light",
-            "formality": "casual", "occasions": ["casual", "brunch"], "color_name": "White",
+            "formality": "casual", "occasions": ["casual", "brunch", "moon_landing"], "color_name": "White",
         }
         self.fail = fail
         self.calls: list[str] = []
@@ -120,7 +120,7 @@ async def test_tag_next_tags_one_product_with_validated_tags(db):
     row = await catalog_service.tag_next(db, ai=ai, model="claude-haiku-4-5-20251001")
     assert len(ai.calls) == 1 and "Item" in ai.calls[0]
     assert (row.role, row.warmth, row.formality, row.color_name) == ("top", "light", "casual", "White")
-    assert row.occasions == ["casual"]  # "brunch" is off-vocabulary
+    assert row.occasions == ["brunch", "casual"]  # rulebook occasions only
     assert row.gender == "women" and row.tagged_at is not None
     assert sum(1 for p in _rows(db).values() if p.tagged_at) == 1
 

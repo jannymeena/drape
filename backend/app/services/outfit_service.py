@@ -3,9 +3,11 @@
 Architecture:
 
   * Two modes, never mixed (`wardrobe_mode`): while the user's starter
-    wardrobe is active, outfits come only from its pieces (catalog products
-    they can shop) and Today styles one look; otherwise only from the
-    user's own pieces, up to `DAILY_OUTFIT_TARGET` looks.
+    wardrobe is active, outfits come only from its pieces (the whole catalog
+    for their genders, to shop) and Today styles one look; otherwise only
+    from the user's own pieces, up to `DAILY_OUTFIT_TARGET` looks. A starter
+    wardrobe without shoes (menswear) styles complete outfits without them
+    (`_shoeless`, `_NO_SHOES_NOTE`).
   * Every piece is classified with the occasions it suits
     (item_occasion_service); the stylist is offered only the pieces that
     suit the occasion.
@@ -815,6 +817,27 @@ def _prompt_items(pool: list[WardrobeItem]) -> list[WardrobeItem]:
     return ranked[:_MAX_PROMPT_ITEMS]
 
 
+_NO_SHOES_NOTE = (
+    "These pieces are from a shop's starter collection, which has no shoes: "
+    "style complete outfits without shoes, and never list shoes as missing."
+)
+
+
+def _shoeless(rule: occasion_rules.Rule) -> occasion_rules.Rule:
+    """[rule] with shoes left out of what makes an outfit complete — for a
+    starter wardrobe whose catalog has none (boohooMAN's feed carries no
+    shoes), so the stylist, the heuristic look and the 'missing' list don't
+    hold an outfit back for want of them."""
+    shapes = [[r for r in shape if r != "shoes"] for shape in rule.complete_when]
+    return rule.model_copy(update={"complete_when": [s for s in shapes if s] or [["top", "bottom"]]})
+
+
+def _starter_without_shoes(mode: str, items: Sequence[WardrobeItem]) -> bool:
+    return mode == MODE_STARTER and "shoes" not in occasion_rules.roles_of(
+        i.category for i in items
+    )
+
+
 _REPEAT_NOTE = (
     "A previous attempt repeated the top and bottom (or the dress) of one of "
     "today's other outfits. Build the outfit again with a different top, "
@@ -1003,6 +1026,8 @@ def today_outfits_state(db: Session, *, user: User) -> TodayOutfits:
         # Nothing to style yet; with enough pieces the client asks the user
         # to plan the day.
         casual = occasion_rules.rule_for("casual", user.shopping_style)
+        if _starter_without_shoes(mode, items):
+            casual = _shoeless(casual)
         missing = _missing_for(casual, items) if too_few else []
         return TodayOutfits(None, mode, [], False, not too_few, missing)
 
@@ -1010,6 +1035,8 @@ def today_outfits_state(db: Session, *, user: User) -> TodayOutfits:
     if outfits:
         return TodayOutfits(styling, mode, outfits, False, True, [])
     rule = occasion_rules.rule_for(styling.occasion, user.shopping_style)
+    if _starter_without_shoes(mode, items):
+        rule = _shoeless(rule)
     if too_few:
         return TodayOutfits(styling, mode, [], False, False, _missing_for(rule, items))
     run = _last_run(db, user=user, styling=styling, mode=mode)
@@ -1052,6 +1079,9 @@ async def style_today(
     await item_occasion_service.ensure_classified(db, ai=ai, items=items)
     candidates = _prompt_items(item_occasion_service.applicable(items, occasion))
     limit = max_looks(mode)
+    no_shoes = _starter_without_shoes(mode, items)
+    if no_shoes:
+        rule = _shoeless(rule)
 
     proposals: list[StructuredOutfitProposal] = []
     missing: list[str] = []
@@ -1067,10 +1097,13 @@ async def style_today(
                 today=user_today(user, now_utc=_now()),
                 rule=rule,
                 styling=styling,
+                note=_NO_SHOES_NOTE if no_shoes else "",
                 looks=limit,
                 **_wearer(db, user=user),
             )
             proposals, missing = _parse_looks(text, _item_ref_map(candidates), occasion)
+            if no_shoes:
+                missing = [r for r in missing if r != "shoes"]
         except OutfitError as exc:
             if exc.code != "parse_failed" or next(_complete_looks(candidates, rule), None) is None:
                 raise
@@ -1176,6 +1209,9 @@ async def generate_one(
         raise OutfitError("no_wardrobe", "Add a few of your own pieces to get outfits.")
     occasion = styling.occasion
     rule = occasion_rules.rule_for(occasion, user.shopping_style)
+    no_shoes = _starter_without_shoes(mode, all_items)
+    if no_shoes:
+        rule = _shoeless(rule)
     await item_occasion_service.ensure_classified(db, ai=ai, items=all_items)
     suited = item_occasion_service.applicable(all_items, occasion)
     if len(suited) < _MIN_ITEMS_PER_OUTFIT:
@@ -1223,7 +1259,7 @@ async def generate_one(
             rule=rule,
             styling=styling,
             other_sections=other_sections,
-            note=note,
+            note="\n\n".join(n for n in (_NO_SHOES_NOTE if no_shoes else "", note) if n),
             **wearer,
         )
         return _parse_proposal(text, _item_ref_map(candidates), occasion)

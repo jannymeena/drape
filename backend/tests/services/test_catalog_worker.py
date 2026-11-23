@@ -33,3 +33,32 @@ async def test_failures_back_off_instead_of_crashing(session_factory):
     ok = _worker(session_factory, _Feed(_p("a")), _TagAI(fail=True))
     ok._sync_once()
     assert await ok._tag_once() == catalog_worker.AI_BACKOFF_S
+
+
+async def test_newly_tagged_products_join_active_starter_wardrobes(
+    session_factory, db, make_user
+):
+    from datetime import datetime, timezone
+
+    from app.db.models import UserStarterWardrobe, WardrobeItem
+
+    user = make_user()
+    user.shopping_style = "womens"
+    db.add(UserStarterWardrobe(user_id=user.id, is_active=True, assigned_at=datetime.now(timezone.utc)))
+    db.commit()
+
+    def starter_products():
+        db.expire_all()
+        return {
+            i.product_id
+            for i in db.query(WardrobeItem).filter_by(user_id=user.id, is_starter_wardrobe=True)
+        }
+
+    worker = _worker(session_factory, _Feed(_p("a"), _p("b")), _TagAI())
+    worker._sync_once()
+    assert starter_products() == set()  # nothing tagged yet
+    await worker._tag_once()
+    await worker._tag_once()
+    assert starter_products() == set()  # mid-run: below REFRESH_EVERY_TAGS
+    assert await worker._tag_once() == catalog_worker.IDLE_S  # run done → refresh
+    assert starter_products() == {p.id for p in _rows(db).values()}

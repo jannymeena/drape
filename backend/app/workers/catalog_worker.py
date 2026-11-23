@@ -9,6 +9,9 @@ Started from the app lifespan (main.py). One asyncio task per process:
 - between syncs, tag one untagged product every `TAG_INTERVAL_S`, idling
   `IDLE_S` when there's nothing to tag and backing off `AI_BACKOFF_S` after
   an AI outage — never a burst of AI calls.
+- after each sync, every `REFRESH_EVERY_TAGS` products tagged, and when a
+  tagging run finishes, active starter wardrobes are brought in step with
+  the catalog (`starter_wardrobe_service.refresh_all`).
 
 Several processes are safe: the sync takes a Postgres advisory lock and
 tagging claims rows with SKIP LOCKED.
@@ -25,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Product
 
-from app.services import catalog_service
+from app.services import catalog_service, starter_wardrobe_service
 from app.services.providers.affiliate.base import AffiliateProvider
 from app.services.providers.ai.base import AIProvider, AIProviderError
 
@@ -36,6 +39,7 @@ SYNC_RETRY_S = 300
 TAG_INTERVAL_S = 3
 IDLE_S = 60
 AI_BACKOFF_S = 120
+REFRESH_EVERY_TAGS = 25
 
 
 class CatalogWorker:
@@ -53,6 +57,7 @@ class CatalogWorker:
         self._ai = ai
         self._tag_model = tag_model
         self._genders = advertiser_genders
+        self._tagged_since_refresh = 0
 
     def _sync_once(self) -> bool:
         db = self._session_factory()
@@ -68,6 +73,17 @@ class CatalogWorker:
         finally:
             db.close()
 
+    def _refresh_starters(self) -> None:
+        db = self._session_factory()
+        try:
+            n = starter_wardrobe_service.refresh_all(db)
+            _log.info("catalog.starters_refreshed", wardrobes=n)
+        except Exception as exc:  # noqa: BLE001 — keep the loop alive
+            db.rollback()
+            _log.warning("catalog.starters_refresh_failed", error=str(exc))
+        finally:
+            db.close()
+
     def _catalog_empty(self) -> bool:
         db = self._session_factory()
         try:
@@ -80,6 +96,14 @@ class CatalogWorker:
         db = self._session_factory()
         try:
             row = await catalog_service.tag_next(db, ai=self._ai, model=self._tag_model)
+            if row is not None:
+                self._tagged_since_refresh += 1
+            if self._tagged_since_refresh and (
+                row is None or self._tagged_since_refresh >= REFRESH_EVERY_TAGS
+            ):
+                # Newly tagged products join starter wardrobes.
+                self._tagged_since_refresh = 0
+                await asyncio.to_thread(self._refresh_starters)
             return TAG_INTERVAL_S if row is not None else IDLE_S
         except AIProviderError as exc:
             _log.warning("catalog.tag_ai_failed", code=exc.code, error=str(exc))
@@ -101,6 +125,8 @@ class CatalogWorker:
             )
             if due:
                 ok = await asyncio.to_thread(self._sync_once)
+                if ok:
+                    await asyncio.to_thread(self._refresh_starters)
                 last_sync = time.monotonic()
                 next_sync = last_sync + (SYNC_INTERVAL_S if ok else SYNC_RETRY_S)
             delay = await self._tag_once()

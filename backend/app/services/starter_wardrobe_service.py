@@ -1,23 +1,25 @@
 """Phase 5d — starter wardrobe assignment, built from AWIN products.
 
 Brand-new users have no items, so outfit generation has nothing to draw on.
-Assigning a starter wardrobe picks a capsule of tagged catalog products in the
-user's genders and materializes them into the wardrobe with
-`is_starter_wardrobe=true` and a `product_id` link (price + buy link). While
-the assignment is active the user is in starter mode: outfits come only from
-these pieces (one look a day on Today, to shop), never mixed with their own.
-The transition-tracking row counts real vs starter items; at
+The starter wardrobe is everything we can offer: every active, tagged
+catalog product in the user's genders (menswear, womenswear or both),
+materialized into the wardrobe with `is_starter_wardrobe=true` and a
+`product_id` link (price + buy link). Each piece carries its product's
+occasions (tagged once per product by the catalog worker), so outfit
+filtering needs no per-user classification.
+
+It follows the catalog: after each feed sync and tagging run the catalog
+worker calls `refresh_all`, which adds newly tagged products, drops pieces
+whose product left the feed, and copies re-tagged fields onto the rest.
+
+While the assignment is active the user is in starter mode: outfits come
+only from these pieces (one look a day on Today, to shop), never mixed with
+their own. The transition-tracking row counts real vs starter items; at
 AUTO_DEACTIVATE_REAL_ITEMS the starter assignment auto-deactivates and
 outfits switch to the user's own pieces.
-
-Capsule selection is deterministic in shape (a per-gender role mix) and
-greedy in content: each pick favours occasions, warmths and colours the
-capsule doesn't cover yet, so a small capsule still dresses work, casual and
-date night across the weather.
 """
 from __future__ import annotations
 
-import random
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
@@ -64,14 +66,6 @@ def _now() -> datetime:
 # Response slug for the (single) capsule kind; the client shows it verbatim.
 CAPSULE_ID = "awin_capsule"
 
-# Pieces per role. Men's feeds carry no shoes — their own shoes join outfits
-# once uploaded. "both" (or no answer) mixes the two catalogs.
-_CAPSULE_SHAPE: dict[str, dict[str, int]] = {
-    "mens": {"top": 4, "bottom": 3, "outerwear": 2, "accessory": 1},
-    "womens": {"top": 3, "bottom": 2, "dress": 2, "outerwear": 2, "shoes": 1, "accessory": 1},
-    "both": {"top": 3, "bottom": 2, "dress": 1, "outerwear": 2, "shoes": 1, "accessory": 1},
-}
-
 _SEASONS_BY_WARMTH = {
     "light": ["spring", "summer"],
     "mid": ["spring", "fall"],
@@ -79,44 +73,9 @@ _SEASONS_BY_WARMTH = {
 }
 
 
-def _capsule_shape(user: User) -> dict[str, int]:
-    return _CAPSULE_SHAPE.get(user.shopping_style or "", _CAPSULE_SHAPE["both"])
-
-
-def _pick_capsule(products: list[Product], shape: dict[str, int]) -> list[Product]:
-    """Greedy per role: each pick maximises newly covered occasions (x2),
-    warmths and colours; random tie-break so users don't all get the same kit."""
-    by_role: dict[str, list[Product]] = {}
-    for p in products:
-        by_role.setdefault(p.role or "", []).append(p)
-    occasions: set[str] = set()
-    warmths: set[str] = set()
-    colours: set[str] = set()
-    picked: list[Product] = []
-    for role, count in shape.items():
-        pool = list(by_role.get(role, []))
-        random.shuffle(pool)
-        for _ in range(count):
-            if not pool:
-                break
-            best = max(
-                pool,
-                key=lambda p: (
-                    2 * len(set(p.occasions or []) - occasions)
-                    + (p.warmth not in warmths)
-                    + ((p.color_name or "").lower() not in colours)
-                ),
-            )
-            pool.remove(best)
-            picked.append(best)
-            occasions.update(best.occasions or [])
-            warmths.add(best.warmth or "")
-            colours.add((best.color_name or "").lower())
-    return picked
-
-
-def _capsule_is_wearable(picked: list[Product]) -> bool:
-    roles = [p.role for p in picked]
+def _catalog_is_ready(products: list[Product]) -> bool:
+    """Enough is tagged to dress anyone: two tops and a bottom or a dress."""
+    roles = [p.role for p in products]
     return roles.count("top") >= 2 and ("bottom" in roles or "dress" in roles)
 
 
@@ -144,34 +103,40 @@ def _starter_item_count(db: Session, *, user_id: UUID) -> int:
     )
 
 
+def _copy_product(item: WardrobeItem, p: Product) -> None:
+    """The product's current details onto its starter piece."""
+    item.name = catalog_service.display_name(p)
+    item.category = catalog_service.CATEGORY_BY_ROLE.get(p.role or "", p.category)
+    item.images = [p.image_url]
+    item.primary_image_url = p.image_url
+    item.color_name = p.color_name
+    item.formality = p.formality
+    item.season = _SEASONS_BY_WARMTH.get(p.warmth or "")
+    item.brand = p.brand
+    item.occasions = list(p.occasions) if p.occasions else None
+
+
 def _materialize_items(
     db: Session, *, user: User, products: list[Product]
 ) -> list[WardrobeItem]:
-    rows = [
-        WardrobeItem(
+    rows = []
+    for p in products:
+        row = WardrobeItem(
             user_id=user.id,
-            name=catalog_service.display_name(p),
-            category=catalog_service.CATEGORY_BY_ROLE.get(p.role or "", p.category),
-            images=[p.image_url],
-            primary_image_url=p.image_url,
-            color_name=p.color_name,
-            formality=p.formality,
-            season=_SEASONS_BY_WARMTH.get(p.warmth or ""),
-            brand=p.brand,
             worn_count=0,
             is_favorite=False,
             is_starter_wardrobe=True,
             product_id=p.id,
             added_via="starter_seed",
         )
-        for p in products
-    ]
+        _copy_product(row, p)
+        rows.append(row)
     db.add_all(rows)
     return rows
 
 
 def _delete_starter_items(db: Session, *, user_id: UUID) -> int:
-    """Used when re-picking the capsule. Returns the count deleted."""
+    """Used when re-assigning. Returns the count deleted."""
     rows = db.scalars(
         select(WardrobeItem).where(
             WardrobeItem.user_id == user_id,
@@ -253,15 +218,14 @@ def recompute_transition(
 def assign(
     db: Session, *, user: User
 ) -> tuple[UserStarterWardrobe, list[WardrobeItem], bool]:
-    """Pick a capsule of catalog products and materialize it.
+    """Materialize the whole catalog for the user's genders.
 
     Idempotency rules:
       - No prior assignment        -> create + materialize.
-      - Prior assignment, 0 real   -> re-pick (delete old starter items,
+      - Prior assignment, 0 real   -> re-assign (delete old starter items,
                                        reactivate, re-materialize).
       - Prior assignment, >=1 real -> no-op; return existing assignment.
-        (Swapping the kit after the user has personalized their wardrobe
-        would silently mutate items they may have ranked or worn.)
+        (The catalog keeps it current — `refresh`.)
 
     Raises StarterWardrobeError("catalog_not_ready") while too few products
     are tagged for the user's genders to dress anyone (right after a fresh
@@ -281,15 +245,15 @@ def assign(
         _log.info("starter_wardrobe.assign.noop", user_id=str(user.id), real_items=real)
         return existing, [], False
 
-    picked = _pick_capsule(catalog_service.tagged_products(db, user=user), _capsule_shape(user))
-    if not _capsule_is_wearable(picked):
+    picked = catalog_service.tagged_products(db, user=user)
+    if not _catalog_is_ready(picked):
         raise StarterWardrobeError(
             "catalog_not_ready",
             "The starter wardrobe is still being prepared — try again in a few minutes.",
         )
 
     if existing is not None:
-        # 0 real items: clear old starter items and re-pick.
+        # 0 real items: clear old starter items and re-assign.
         _delete_starter_items(db, user_id=user.id)
         existing.is_active = True
         existing.assigned_at = _now()
@@ -319,6 +283,79 @@ def assign(
         items=len(items),
     )
     return assignment, items, True
+
+
+def refresh(db: Session, *, user: User) -> tuple[int, int]:
+    """Keeps an active starter wardrobe in step with the catalog: adds every
+    tagged product in the user's genders it lacks, drops pieces whose
+    product left the feed (inactive or deleted), and copies tagged products'
+    current details onto the rest. Products being re-tagged (untagged for a
+    moment) are left as they are. Returns (added, removed); commits."""
+    assignment = get_assignment(db, user_id=user.id)
+    if assignment is None or not assignment.is_active:
+        return 0, 0
+    items = list(
+        db.scalars(
+            select(WardrobeItem).where(
+                WardrobeItem.user_id == user.id,
+                WardrobeItem.is_starter_wardrobe.is_(True),
+            )
+        ).all()
+    )
+    genders = catalog_service.genders_for(user)
+    held = {i.product_id for i in items if i.product_id is not None}
+    products = {
+        p.id: p
+        for p in db.scalars(
+            select(Product).where(
+                Product.id.in_(held)
+                | (
+                    Product.is_active.is_(True)
+                    & Product.tagged_at.is_not(None)
+                    & Product.gender.in_(genders)
+                )
+            )
+        ).all()
+    }
+    removed = 0
+    for item in items:
+        p = products.get(item.product_id) if item.product_id else None
+        if p is None or not p.is_active or p.gender not in genders:
+            db.delete(item)
+            removed += 1
+        elif p.tagged_at is not None:
+            _copy_product(item, p)
+    new = [
+        p
+        for pid, p in products.items()
+        if pid not in held and p.is_active and p.tagged_at is not None and p.gender in genders
+    ]
+    new.sort(key=lambda p: p.external_id)
+    _materialize_items(db, user=user, products=new)
+    db.flush()
+    recompute_transition(db, user=user)
+    db.commit()
+    if new or removed:
+        _log.info(
+            "starter_wardrobe.refreshed",
+            user_id=str(user.id),
+            added=len(new),
+            removed=removed,
+        )
+    return len(new), removed
+
+
+def refresh_all(db: Session) -> int:
+    """`refresh` for every active starter wardrobe (the catalog worker, after
+    a sync or a tagging run). Returns how many were refreshed."""
+    users = db.scalars(
+        select(User)
+        .join(UserStarterWardrobe, UserStarterWardrobe.user_id == User.id)
+        .where(UserStarterWardrobe.is_active.is_(True))
+    ).all()
+    for user in users:
+        refresh(db, user=user)
+    return len(users)
 
 
 def deactivate(

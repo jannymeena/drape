@@ -29,6 +29,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.db.models import Product, User
+from app.services import item_occasion_service
 from app.services.providers.affiliate.base import AffiliateProduct, AffiliateProvider
 from app.services.providers.ai.base import AIProvider, AIProviderError
 
@@ -41,7 +42,9 @@ GENDERS = ("women", "men", "unisex")
 ROLES = ("top", "bottom", "dress", "outerwear", "shoes", "accessory")
 WARMTHS = ("light", "mid", "heavy")
 FORMALITIES = ("casual", "smart_casual", "formal")
-OCCASIONS = ("work", "casual", "date_night")
+# Every occasion in the rulebook (less the catch-all `other`), so a starter
+# piece carries its product's occasions straight into outfit filtering.
+OCCASIONS = tuple(item_occasion_service.vocabulary())
 
 # Shop category -> outfit role, and back (wardrobe categories are the shop's).
 ROLE_BY_CATEGORY = {
@@ -144,12 +147,14 @@ _TAG_SYSTEM = (
     '"role": "top|bottom|dress|outerwear|shoes|accessory", '
     '"warmth": "light|mid|heavy", '
     '"formality": "casual|smart_casual|formal", '
-    '"occasions": ["work", "casual", "date_night"], '
+    '"occasions": ["work", "casual", ...], '
     '"color_name": "one or two words"}\n'
     "role: dress also covers jumpsuits and playsuits. warmth: light = summer "
     "wear (linen, shorts, vests, sandals), heavy = winter wear (coats, puffers, "
-    "knits, boots), else mid. occasions: every one of work / casual / "
-    "date_night the piece genuinely suits — at least one."
+    "knits, boots), else mid. occasions: EVERY one of these the piece could "
+    "genuinely be worn to as part of a suitable outfit — at least one; honest "
+    "(a slogan tee isn't for an interview) but not narrow (plain jeans suit "
+    f"casual, brunch, travel and many date nights): {', '.join(OCCASIONS)}."
 )
 
 

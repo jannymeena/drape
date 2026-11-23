@@ -263,6 +263,46 @@ async def test_starter_mode_styles_one_look_from_starter_pieces_only(db, make_us
     assert all(i.is_starter_wardrobe and i.product_url for i in items)
 
 
+async def test_a_shoeless_starter_wardrobe_styles_without_shoes(db, make_user):
+    """boohooMAN's feed has no shoes: a menswear starter look is complete
+    without them, and shoes are never reported missing."""
+    user = make_user()
+    user.shopping_style = "mens"
+    db.commit()
+    make_catalog(db, genders=("men",))
+    starter_wardrobe_service.assign(db, user=user)
+    _plan_today(db, user, occasion="day_off", dress_level="casual")
+
+    ai = _Stylist()
+    [outfit] = (await _style(db, user, ai)).outfits
+    assert "no shoes" in ai.prompts[0]
+    assert "A complete outfit for it is usually: top + bottom." in ai.prompts[0]
+    assert {i.category for i in payload_to_outfit_items(outfit.items)} >= {"tops", "bottoms"}
+
+    # The stylist finds nothing and asks for shoes: not something this
+    # wardrobe can ever have, so it's left off.
+    _plan_today(db, user, occasion="date_dinner", dress_level="smart_casual")
+    none = await _style(db, user, _Stylist(missing=["shoes", "top"]))
+    assert none.outfits == [] and none.missing_roles == ["top"]
+    # Too little to ask about (nothing for a wedding): the rulebook's guess
+    # leaves shoes off too.
+    _plan_today(db, user, occasion="formal_event", dress_level="formal")
+    state = outfit_service.today_outfits_state(db, user=user)
+    assert state.needs_styling is True
+    looks = await _style(db, user, _Stylist())
+    assert looks.outfits == [] and "shoes" not in looks.missing_roles
+
+
+async def test_own_wardrobe_without_shoes_still_needs_them(db, make_user):
+    user = make_user()
+    _plan_today(db, user)
+    _wardrobe(db, user, tops=2, bottoms=1, shoes=0)
+    ai = _Stylist(missing=["shoes"])
+    looks = await _style(db, user, ai)
+    assert "no shoes" not in ai.prompts[0]
+    assert looks.missing_roles == ["shoes"]
+
+
 async def test_turning_starter_off_switches_to_own_pieces(db, make_user):
     user = make_user()
     make_catalog(db)
