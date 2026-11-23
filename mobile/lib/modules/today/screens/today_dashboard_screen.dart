@@ -34,9 +34,11 @@ import '../today_controller.dart';
 import '../widgets/change_outfit_sheet.dart';
 import '../widgets/mix_match_sheet.dart';
 import '../widgets/outfit_card.dart';
+import '../widgets/outfit_card_sized.dart';
 import '../widgets/outfit_card_skeleton.dart';
 import '../widgets/outfit_carousel.dart';
 import '../widgets/plan_day_sheet.dart';
+import '../widgets/plan_today_card.dart';
 import '../widgets/resume_banner.dart';
 import '../widgets/shop_the_look_sheet.dart';
 import '../widgets/starter_wardrobe_banner.dart';
@@ -221,6 +223,16 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(todayControllerProvider);
+    // Today's outfits are styled for the day's plan: when it's saved or
+    // cleared (here, on Plan your week, or in Mix & match), restyle.
+    ref.listen<String?>(_todayPlanKey, (_, next) {
+      final today = ref.read(todayControllerProvider);
+      final dashboard = today.dashboard;
+      if (dashboard == null || today.frameLoading) return;
+      if (next != dashboard.planKey) {
+        ref.read(todayControllerProvider.notifier).planChanged();
+      }
+    });
 
     return Scaffold(
       backgroundColor: AppColors.ivory,
@@ -266,12 +278,10 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
                 ..._resumeBanner(),
                 ..._starterBanner(dashboard),
                 const SizedBox(height: 20),
-                if (!dashboard.wardrobeReady) const _AddItemsEmptyState(),
               ]),
             ),
           ),
-          if (dashboard.wardrobeReady)
-            SliverToBoxAdapter(child: OutfitCarousel(children: cards)),
+          SliverToBoxAdapter(child: OutfitCarousel(children: cards)),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, 16),
             sliver: SliverList(
@@ -308,39 +318,45 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     );
   }
 
-  String _occasionLabel(String occasion) => occasion
-      .split('_')
-      .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
-      .join(' ');
+  /// Today's plan as the frame keys it (`occasion|dress_level`); null when
+  /// today isn't planned.
+  static final _todayPlanKey = dayPlansProvider.select((plans) {
+    final plan = plans[appToday()];
+    return plan == null
+        ? null
+        : TodayDashboard.planKeyOf(plan.occasion.wire, plan.dress.wire);
+  });
 
-  /// Position in the backend's occasion order (unknown ones last).
-  int _occasionRank(TodayDashboard dashboard, String occasion) {
-    final i = dashboard.occasions.indexWhere((o) => o.key == occasion);
-    return i == -1 ? dashboard.occasions.length : i;
-  }
-
-  /// The carousel: real outfit cards, then a skeleton per occasion still
-  /// generating, then a retry card per occasion that failed.
+  /// The carousel: with nothing to style, the add-items card; with no plan
+  /// for today, the "What's on today?" card; otherwise today's looks in slot
+  /// order, a skeleton while they're being styled, or a retry card when that
+  /// failed. The stand-in cards are an outfit card's height.
   List<Widget> _carouselCards(TodayState state, TodayDashboard dashboard) {
+    if (!dashboard.wardrobeReady) {
+      return [
+        OutfitCardSized(
+          child: _AddItemsEmptyState(missingRoles: dashboard.missingRoles),
+        ),
+      ];
+    }
+    if (dashboard.needsPlan) {
+      return [PlanTodayCard(onPlan: () => _planDay(dashboard, appToday()))];
+    }
+    final planLabel =
+        ref.watch(dayPlansProvider)[appToday()]?.occasion.label;
     final cards = <Widget>[
       for (final (i, outfit) in dashboard.outfits.indexed)
         _outfitCard(state, outfit, featured: i == 0),
     ];
-
-    int byRank(String a, String b) =>
-        _occasionRank(dashboard, a).compareTo(_occasionRank(dashboard, b));
-
-    for (final occasion in state.pendingOccasions.toList()..sort(byRank)) {
-      cards.add(OutfitCardSkeleton(occasionLabel: _occasionLabel(occasion)));
-    }
-    for (final occasion in state.failedOccasions.keys.toList()..sort(byRank)) {
+    if (state.styling) {
+      cards.add(OutfitCardSkeleton(occasionLabel: planLabel));
+    } else if (state.stylingError case final error?) {
       cards.add(
         OutfitOccasionRetryCard(
-          occasionLabel: _occasionLabel(occasion),
-          message: state.failedOccasions[occasion]!.message,
-          onRetry: () => ref
-              .read(todayControllerProvider.notifier)
-              .generateOccasion(occasion),
+          occasionLabel: planLabel ?? "today's",
+          message: error.message,
+          onRetry: () =>
+              ref.read(todayControllerProvider.notifier).retryStyling(),
         ),
       );
     }
@@ -389,7 +405,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
 
   /// Today's plan pill, on its own line under the date + weather.
   List<Widget> _contextChips(TodayDashboard dashboard) {
-    final plan = ref.watch(dayPlansProvider)[dayOnly(DateTime.now())];
+    final plan = ref.watch(dayPlansProvider)[appToday()];
     if (plan == null) return const [];
     return [
       const SizedBox(height: 10),
@@ -401,7 +417,7 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
           label:
               '${plan.note.isEmpty ? plan.occasion.label : plan.note}'
               ' · ${plan.dress.label}',
-          onTap: () => _planDay(dashboard, DateTime.now()),
+          onTap: () => _planDay(dashboard, appToday()),
         ),
       ),
     ];
@@ -451,29 +467,20 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
     ];
   }
 
-  /// "Unlock real wardrobe mode" card: the app is meant to run on the user's
-  /// own clothes, so this stays up (not dismissible) while the user has <10
-  /// real items — the point where outfit generation stops borrowing pieces —
-  /// and outfits are coming from something else: starter items, or (with no
-  /// starter wardrobe, e.g. onboarding closed at the wardrobe step) shop
-  /// products. With nothing to borrow either, [_AddItemsEmptyState] shows
-  /// instead. Same wardrobe-wide counts as the Wardrobe tab's banner; hidden
-  /// while the capacity fetch is loading/failed.
+  /// "Unlock real wardrobe mode": while Today styles from the starter
+  /// wardrobe (until the user owns 10 pieces, or turns it off), so the look
+  /// is made of pieces to shop, never their own. Not dismissible; progress
+  /// is the Wardrobe tab's own-item count (left out while that loads).
   List<Widget> _starterBanner(TodayDashboard dashboard) {
-    final capacity = ref.watch(wardrobeCapacityProvider).valueOrNull;
-    if (capacity == null) return const [];
-    final real = capacity.used;
-    if (real >= 10) return const [];
-    final starter = capacity.activeStarterItems > 0;
-    if (!starter && !dashboard.wardrobeReady) return const [];
+    if (dashboard.wardrobeMode != WardrobeMode.starter) return const [];
+    final real = ref.watch(wardrobeCapacityProvider).valueOrNull?.used;
     return [
       const SizedBox(height: 20),
       AnalyticsScreenView(
         event: AnalyticsEvents.starterWardrobeBannerShown,
-        properties: {'source': starter ? 'starter' : 'shop'},
+        properties: const {'source': 'starter'},
         child: StarterWardrobeBanner(
           realItems: real,
-          fromStarter: starter,
           onAdd: () {
             ref
                 .read(analyticsProvider)
@@ -780,10 +787,37 @@ class _DashboardError extends StatelessWidget {
 /// Shown when the wardrobe is too small to generate outfits — distinct from the
 /// generating (skeleton) and error states.
 class _AddItemsEmptyState extends StatelessWidget {
-  const _AddItemsEmptyState();
+  /// Roles that would complete a look (`bottom`, `shoes`…) — named in the
+  /// copy when there are a few.
+  final List<String> missingRoles;
+
+  const _AddItemsEmptyState({this.missingRoles = const []});
+
+  static const _names = {
+    'top': 'a top',
+    'bottom': 'a bottom',
+    'dress': 'a dress',
+    'shoes': 'shoes',
+    'outerwear': 'a layer',
+    'accessory': 'an accessory',
+  };
+
+  /// "a bottom", "a bottom and shoes", "a top, a bottom or a dress"… — the
+  /// pieces of the nearest complete look ([missingRoles] lists ties too, so
+  /// a dress or a bottom both count).
+  String? get _missing {
+    final names = [
+      for (final r in missingRoles)
+        if (_names[r] != null) _names[r]!,
+    ];
+    if (names.isEmpty || names.length > 3) return null;
+    if (names.length == 1) return names.single;
+    return '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final missing = _missing;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
       decoration: BoxDecoration(
@@ -792,6 +826,7 @@ class _AddItemsEmptyState extends StatelessWidget {
         boxShadow: todayCardShadow,
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(
             Icons.checkroom_outlined,
@@ -800,13 +835,16 @@ class _AddItemsEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Add a few wardrobe items to start getting daily outfits.',
+            missing == null
+                ? 'Add a few wardrobe items to start getting daily outfits.'
+                : 'Add $missing to your wardrobe to complete a look for today.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 6),
           Text(
-            'Head to the Wardrobe tab to add or scan your clothes.',
+            'Outfits are styled from your own clothes. Head to the Wardrobe '
+            'tab to add or scan them.',
             textAlign: TextAlign.center,
             style: Theme.of(
               context,

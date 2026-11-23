@@ -95,7 +95,17 @@ void main() {
       expect(d.weatherAttribution!.logoLightUrl, 'https://x/light.png');
       expect(d.weatherAttribution!.legalUrl, 'https://x/legal');
     }
-    expect(parsed.copyWith(pendingOccasions: []).weatherAttribution, isNotNull);
+    expect(parsed.copyWith(needsStyling: false).weatherAttribution, isNotNull);
+  });
+
+  test('TodayLooks parses the styled looks and what is missing', () {
+    final looks = TodayLooks.fromJson({
+      'outfits': [(dashboardJson['outfits'] as List).first],
+      'missing_roles': ['shoes'],
+    });
+    expect(looks.outfits.single.occasion, 'date_night');
+    expect(looks.missingRoles, ['shoes']);
+    expect(TodayLooks.fromJson({'outfits': []}).missingRoles, isEmpty);
   });
 
   test('CurrentWeekUsage parses counters + tier', () {
@@ -112,25 +122,58 @@ void main() {
     expect(u.isPro, isFalse);
   });
 
-  test('TodayDashboard parses wardrobe_ready and pending_occasions', () {
+  test('TodayDashboard parses the plan-driven outfit fields', () {
     final json = Map<String, dynamic>.from(dashboardJson)
       ..['wardrobe_ready'] = true
-      ..['pending_occasions'] = ['work', 'casual'];
+      ..['needs_plan'] = false
+      ..['needs_styling'] = true
+      ..['wardrobe_mode'] = 'starter'
+      ..['missing_roles'] = <String>[]
+      ..['day_plans'] = [
+        {
+          'date': '2026-11-23',
+          'plan': {'occasion': 'work_day', 'dress_level': 'business', 'note': null},
+          'source': 'day',
+          'repeats_weekly': false,
+        },
+      ];
     final d = TodayDashboard.fromJson(json);
     expect(d.wardrobeReady, isTrue);
-    expect(d.pendingOccasions, ['work', 'casual']);
+    expect(d.needsPlan, isFalse);
+    expect(d.needsStyling, isTrue);
+    expect(d.wardrobeMode, WardrobeMode.starter);
+    expect(d.planKey, 'work_day|business');
   });
 
-  test('wardrobe_ready and pending_occasions default when absent', () {
-    final d = TodayDashboard.fromJson(dashboardJson); // omits both
+  test('outfit fields default when absent; an unplanned day has no key', () {
+    final json = Map<String, dynamic>.from(dashboardJson)
+      ..['day_plans'] = [
+        {'date': '2026-11-23', 'plan': null, 'source': null, 'repeats_weekly': false},
+      ];
+    final d = TodayDashboard.fromJson(json);
     expect(d.wardrobeReady, isFalse);
-    expect(d.pendingOccasions, isEmpty);
+    expect(d.needsPlan, isFalse);
+    expect(d.needsStyling, isFalse);
+    expect(d.wardrobeMode, WardrobeMode.wardrobe);
+    expect(d.missingRoles, isEmpty);
+    expect(d.planKey, isNull);
   });
 
   test('toJson round-trips through fromJson (cache fidelity)', () {
     final json = Map<String, dynamic>.from(dashboardJson)
       ..['wardrobe_ready'] = true
-      ..['pending_occasions'] = ['date_night'];
+      ..['needs_plan'] = true
+      ..['needs_styling'] = true
+      ..['wardrobe_mode'] = 'starter'
+      ..['missing_roles'] = ['shoes']
+      ..['day_plans'] = [
+        {
+          'date': '2026-11-23',
+          'plan': {'occasion': 'day_off', 'dress_level': 'casual'},
+          'source': 'weekly',
+          'repeats_weekly': true,
+        },
+      ];
     final roundTripped =
         TodayDashboard.fromJson(TodayDashboard.fromJson(json).toJson());
     expect(roundTripped.user.name, 'Alex');
@@ -141,6 +184,10 @@ void main() {
     expect(roundTripped.weather!.tempC, 14.0);
     expect(roundTripped.usage.outfitsGeneratedToday, 3);
     expect(roundTripped.wardrobeReady, isTrue);
-    expect(roundTripped.pendingOccasions, ['date_night']);
+    expect(roundTripped.needsPlan, isTrue);
+    expect(roundTripped.needsStyling, isTrue);
+    expect(roundTripped.wardrobeMode, WardrobeMode.starter);
+    expect(roundTripped.missingRoles, ['shoes']);
+    expect(roundTripped.planKey, 'day_off|casual');
   });
 }

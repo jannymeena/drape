@@ -512,3 +512,24 @@ class _GarmentFlatPainter extends CustomPainter {
   bool shouldRepaint(_GarmentFlatPainter old) =>
       old.category != category || old.color != color;
 }
+
+/// Where a shop product's photo goes while it can't be shown (still loading,
+/// offline, a broken feed link): a plain tile, never a drawn garment — a shop
+/// piece is a real product, so it's shown only by its own photo.
+class ShopPhotoPlaceholder extends StatelessWidget {
+  const ShopPhotoPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: AppColors.ivoryWarm,
+      child: Center(
+        child: Icon(
+          Icons.image_outlined,
+          size: 28,
+          color: AppColors.taupeSoft,
+        ),
+      ),
+    );
+  }
+}

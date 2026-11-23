@@ -12,15 +12,20 @@ import 'package:mobile/modules/notifications/models/app_notification.dart';
 import 'package:mobile/modules/notifications/notifications_controller.dart';
 import 'package:mobile/modules/today/day_plans_service.dart';
 import 'package:mobile/modules/today/models/day_plan.dart';
-import 'package:mobile/modules/today/models/outfit.dart';
 import 'package:mobile/modules/today/models/today_dashboard.dart';
 import 'package:mobile/modules/today/models/usage.dart';
 import 'package:mobile/modules/today/screens/today_dashboard_screen.dart';
 import 'package:mobile/modules/today/today_service.dart';
 import 'package:mobile/modules/shop/models/shop.dart';
 import 'package:mobile/modules/shop/shop_service.dart';
+import 'package:mobile/modules/today/widgets/outfit_card.dart';
+import 'package:mobile/modules/today/widgets/outfit_card_sized.dart';
 import 'package:mobile/modules/today/widgets/outfit_card_skeleton.dart';
 import 'package:mobile/modules/today/widgets/outfit_carousel.dart';
+import 'package:mobile/modules/today/widgets/outfit_collage.dart';
+import 'package:mobile/modules/today/widgets/outfit_garment_grid.dart';
+import 'package:mobile/modules/today/widgets/plan_day_sheet.dart';
+import 'package:mobile/modules/today/widgets/plan_today_card.dart';
 import 'package:mobile/modules/today/widgets/resume_banner.dart';
 import 'package:mobile/modules/today/widgets/starter_wardrobe_banner.dart';
 import 'package:mobile/modules/wardrobe/models/wardrobe_mutations.dart';
@@ -30,12 +35,12 @@ import 'package:mobile/shared/services/dashboard_cache.dart';
 
 import 'support/fake_day_plans_service.dart';
 
-/// Returns the frame, then never completes per-occasion generation so the
+/// Returns the frame, then never completes per-slot generation so the
 /// skeletons stay on screen for the assertions.
 class _StubService extends TodayService {
   _StubService(this.frame) : super(Dio());
   final TodayDashboard frame;
-  final Completer<Outfit> _never = Completer<Outfit>();
+  final Completer<TodayLooks> _never = Completer<TodayLooks>();
 
   @override
   Future<TodayDashboard> getFrame({double? lat, double? lon}) async => frame;
@@ -55,11 +60,7 @@ class _StubService extends TodayService {
       });
 
   @override
-  Future<Outfit> generateOccasion(
-    String occasion, {
-    double? lat,
-    double? lon,
-  }) => _never.future;
+  Future<TodayLooks> styleToday({double? lat, double? lon}) => _never.future;
 }
 
 class _NullCache extends DashboardCache {
@@ -71,10 +72,15 @@ class _NullCache extends DashboardCache {
   Future<void> clear() async {}
 }
 
-TodayDashboard _frame(
-  List<String> pending, {
+TodayDashboard _frame({
+  bool needsStyling = false,
+  String wardrobeMode = 'wardrobe',
   List<String> outfitOccasions = const [],
+  List<Map<String, dynamic>> items = const [],
   bool wardrobeReady = true,
+  bool needsPlan = false,
+  List<String> missingRoles = const [],
+  DayPlan? plan,
 }) => TodayDashboard.fromJson({
   'user': {'name': 'Alex'},
   'outfits': [
@@ -82,14 +88,27 @@ TodayDashboard _frame(
       {
         'id': 'outfit-$i',
         'occasion': occasion,
-        'items': <dynamic>[],
+        'slot': i,
+        'items': items,
         'ai_reasoning_short': 'Works well.',
       },
   ],
   'usage': {'outfits_generated_today': 0},
   'banners': <String, dynamic>{},
   'wardrobe_ready': wardrobeReady,
-  'pending_occasions': pending,
+  'needs_plan': needsPlan,
+  'needs_styling': needsStyling,
+  'wardrobe_mode': wardrobeMode,
+  'missing_roles': missingRoles,
+  // The plan the frame was styled for, as the backend sends it.
+  'day_plans': [
+    {
+      'date': '2026-11-23',
+      'plan': plan == null
+          ? null
+          : {'occasion': plan.occasion.wire, 'dress_level': plan.dress.wire},
+    },
+  ],
   // What the backend's occasion rulebook sends (a subset is enough here).
   'occasions': [
     for (final (key, label, daily) in const [
@@ -101,6 +120,21 @@ TodayDashboard _frame(
       {'key': key, 'label': label, 'daily': daily},
   ],
 });
+
+/// One outfit piece as the backend sends it.
+Map<String, dynamic> _piece(
+  String name,
+  String category, {
+  int priority = 500,
+  Map<String, Object?> extra = const {},
+}) => {
+  'item_id': 'item-$name',
+  'name': name,
+  'category': category,
+  'primary_image_url': null,
+  'dress_priority': priority,
+  ...extra,
+};
 
 /// Backend onboarding-status payload driving the resume banner. [next] null
 /// means the 7 required measurements are in (nudge hidden).
@@ -185,7 +219,7 @@ void main() {
     ) async {
       _tallSurface(tester);
       _stubGeolocator(tester);
-      await tester.pumpWidget(_host(_StubService(_frame([]))));
+      await tester.pumpWidget(_host(_StubService(_frame())));
       await _settle(tester);
       expect(needsPlan(), findsNWidgets(7));
       expect(planned(), findsNothing);
@@ -196,10 +230,10 @@ void main() {
       _stubGeolocator(tester);
       await tester.pumpWidget(
         _host(
-          _StubService(_frame([])),
+          _StubService(_frame()),
           plans: [
             DayPlan(
-              date: DateTime.now(),
+              date: appToday(),
               occasion: DayOccasion.workDay,
               dress: DressLevel.smartCasual,
             ),
@@ -213,73 +247,260 @@ void main() {
     });
   });
 
-  group('add-your-items banner', () {
-    Future<void> pump(
-      WidgetTester tester, {
-      required WardrobeCapacity capacity,
-      bool wardrobeReady = true,
-    }) async {
+  group('outfits from the day\'s plan', () {
+    DayPlan workDay() => DayPlan(
+      date: appToday(),
+      occasion: DayOccasion.workDay,
+      dress: DressLevel.smartCasual,
+    );
+
+    testWidgets('no plan for today: the card asks what\'s on', (tester) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(_host(_StubService(_frame(needsPlan: true))));
+      await _settle(tester);
+
+      expect(find.byType(PlanTodayCard), findsOneWidget);
+      expect(find.text("What's on today?"), findsOneWidget);
+      expect(find.text('Plan today'), findsOneWidget);
+      // No skeleton cards — just the plan card's hidden sizing one.
+      expect(
+        find.descendant(
+          of: find.byType(PlanTodayCard),
+          matching: find.byType(OutfitCardSkeleton),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(OutfitCardSkeleton), findsOneWidget);
+    });
+
+    testWidgets('the plan card is an outfit card\'s height', (tester) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(_host(_StubService(_frame(needsPlan: true))));
+      await _settle(tester);
+      final planCard = tester.getSize(find.byType(PlanTodayCard)).height;
+
+      await tester.pumpWidget(
+        _host(_StubService(_frame(needsStyling: true, plan: workDay())), plans: [workDay()]),
+      );
+      await _settle(tester);
+      final skeleton = tester.getSize(find.byType(OutfitCardSkeleton)).height;
+      expect(planCard, closeTo(skeleton, 0.5));
+    });
+
+    testWidgets('tapping the plan card opens Plan the day', (tester) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(_host(_StubService(_frame(needsPlan: true))));
+      await _settle(tester);
+
+      await tester.tap(find.byType(PlanTodayCard));
+      await _settle(tester);
+      expect(find.byType(PlanDaySheet), findsOneWidget);
+    });
+
+    testWidgets('own-wardrobe looks: no starter-wardrobe banner', (
+      tester,
+    ) async {
       _tallSurface(tester);
       _stubGeolocator(tester);
       await tester.pumpWidget(
         _host(
-          _StubService(_frame([], wardrobeReady: wardrobeReady)),
-          capacity: capacity,
+          _StubService(_frame()),
+          capacity: const WardrobeCapacity(
+            used: 2,
+            isPro: false,
+            visibleTotal: 14,
+          ),
         ),
       );
       await _settle(tester);
-    }
-
-    testWidgets('no wardrobe yet, outfits from shop pieces: shown', (
-      tester,
-    ) async {
-      // Onboarding closed on the wardrobe step: no items, no starter set.
-      await pump(
-        tester,
-        capacity: const WardrobeCapacity(used: 0, isPro: false),
-      );
-      expect(find.byType(StarterWardrobeBanner), findsOneWidget);
-      expect(find.textContaining('built from shop pieces'), findsOneWidget);
-      expect(find.text('Add Your First Item'), findsOneWidget);
+      expect(find.byType(StarterWardrobeBanner), findsNothing);
     });
 
-    testWidgets('starter wardrobe: starter wording', (tester) async {
-      await pump(
-        tester,
-        capacity: const WardrobeCapacity(
-          used: 2,
-          isPro: false,
-          visibleTotal: 14,
+    testWidgets('starter mode: the banner counts toward real wardrobe mode', (
+      tester,
+    ) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(
+        _host(
+          _StubService(_frame(wardrobeMode: 'starter')),
+          capacity: const WardrobeCapacity(
+            used: 2,
+            isPro: false,
+            visibleTotal: 14,
+          ),
         ),
       );
-      expect(find.textContaining('from a starter wardrobe'), findsOneWidget);
-      expect(
-        find.text('2/10 ITEMS TO UNLOCK REAL WARDROBE MODE'),
-        findsOneWidget,
-      );
+      await _settle(tester);
+      expect(find.byType(StarterWardrobeBanner), findsOneWidget);
+      expect(find.text('2/10 ITEMS TO UNLOCK REAL WARDROBE MODE'), findsOneWidget);
     });
 
-    testWidgets('nothing to build outfits from: the empty state instead', (
+    testWidgets('a look of cut-outs lies as a flat-lay', (tester) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      final cutout = {
+        'cutout_url': 'https://img.example/c.png',
+        'cutout_box': [0.1, 0.1, 0.8, 0.8],
+      };
+      await tester.pumpWidget(
+        _host(
+          _StubService(
+            _frame(
+              outfitOccasions: ['work'],
+              items: [
+                _piece('Shirt', 'tops', extra: cutout),
+                _piece('Trousers', 'bottoms', extra: cutout),
+              ],
+            ),
+          ),
+        ),
+      );
+      await _settle(tester);
+      expect(find.byType(OutfitCollage), findsOneWidget);
+      expect(find.byType(OutfitGarmentGrid), findsNothing);
+    });
+
+    testWidgets('pieces not cut out yet show as a garment grid', (
       tester,
     ) async {
-      await pump(
-        tester,
-        capacity: const WardrobeCapacity(used: 0, isPro: false),
-        wardrobeReady: false,
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(
+        _host(
+          _StubService(
+            _frame(
+              outfitOccasions: ['work'],
+              items: [
+                _piece('Loafers', 'shoes'),
+                _piece('Camel Blazer', 'outerwear', priority: 900),
+                _piece('Trousers', 'bottoms'),
+              ],
+            ),
+          ),
+        ),
       );
-      expect(find.byType(StarterWardrobeBanner), findsNothing);
+      await _settle(tester);
+      expect(find.byType(OutfitGarmentGrid), findsOneWidget);
+      expect(find.byType(OutfitCollage), findsNothing);
+      // The lead tile is the piece that leads the look, named.
+      expect(find.text('CAMEL BLAZER'), findsOneWidget);
+    });
+
+    testWidgets('a starter look shows as a grid with buy pills', (
+      tester,
+    ) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      const shop = {'product_url': 'https://shop.example/p'};
+      await tester.pumpWidget(
+        _host(
+          _StubService(
+            _frame(
+              wardrobeMode: 'starter',
+              outfitOccasions: ['casual'],
+              items: [
+                _piece('Tee', 'tops', extra: shop),
+                _piece('Jeans', 'bottoms', extra: shop),
+              ],
+            ),
+          ),
+        ),
+      );
+      await _settle(tester);
+      expect(find.byType(OutfitGarmentGrid), findsOneWidget);
+      expect(find.text('BUY'), findsNWidgets(2));
+    });
+
+    testWidgets('no complete look: the empty state names what to add', (
+      tester,
+    ) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(
+        _host(
+          _StubService(
+            _frame(wardrobeReady: false, missingRoles: ['bottom', 'shoes']),
+          ),
+        ),
+      );
+      await _settle(tester);
+      expect(
+        find.text(
+          'Add a bottom and shoes to your wardrobe to complete a look for today.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(OutfitCard), findsNothing);
+    });
+
+    testWidgets('the add-items card is an outfit card\'s height', (
+      tester,
+    ) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(_host(_StubService(_frame(needsPlan: true))));
+      await _settle(tester);
+      final planCard = tester.getSize(find.byType(PlanTodayCard)).height;
+
+      await tester.pumpWidget(const SizedBox()); // a fresh ProviderScope next
+      await tester.pumpWidget(
+        _host(_StubService(_frame(wardrobeReady: false))),
+      );
+      await _settle(tester);
+      final empty = tester
+          .getSize(
+            find.ancestor(
+              of: find.text(
+                'Add a few wardrobe items to start getting daily outfits.',
+              ),
+              matching: find.byType(OutfitCardSized),
+            ),
+          )
+          .height;
+      expect(empty, closeTo(planCard, 0.5));
+    });
+
+    testWidgets('nothing to say what\'s missing: the generic empty state', (
+      tester,
+    ) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(
+        _host(_StubService(_frame(wardrobeReady: false))),
+      );
+      await _settle(tester);
       expect(
         find.text('Add a few wardrobe items to start getting daily outfits.'),
         findsOneWidget,
       );
     });
 
-    testWidgets('ten real items: hidden', (tester) async {
-      await pump(
-        tester,
-        capacity: const WardrobeCapacity(used: 10, isPro: false),
+    testWidgets('more than one look: page dots under the carousel', (
+      tester,
+    ) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(
+        _host(
+          _StubService(_frame(outfitOccasions: ['work', 'work', 'work'])),
+        ),
       );
-      expect(find.byType(StarterWardrobeBanner), findsNothing);
+      await _settle(tester);
+      expect(find.bySemanticsLabel('Look 1 of 3'), findsOneWidget);
+    });
+
+    testWidgets('a single look: no dots', (tester) async {
+      _tallSurface(tester);
+      _stubGeolocator(tester);
+      await tester.pumpWidget(
+        _host(_StubService(_frame(outfitOccasions: ['work']))),
+      );
+      await _settle(tester);
+      expect(find.bySemanticsLabel(RegExp(r'^Look \d of \d$')), findsNothing);
     });
   });
 
@@ -288,7 +509,7 @@ void main() {
   ) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
-    await tester.pumpWidget(_host(_StubService(_frame(['work', 'casual']))));
+    await tester.pumpWidget(_host(_StubService(_frame(needsStyling: true))));
     await _settle(tester);
 
     // The old full-screen spinner is gone for good.
@@ -301,7 +522,7 @@ void main() {
     // Favourites took the profile avatar's place (Profile is in the nav).
     expect(find.byTooltip('Favourites'), findsOneWidget);
     expect(find.byTooltip('Notifications'), findsOneWidget);
-    // Scoped skeletons (one per pending occasion) are shown.
+    // A scoped skeleton shows while the day's looks are styled.
     expect(find.byType(OutfitCardSkeleton), findsWidgets);
   });
 
@@ -311,7 +532,7 @@ void main() {
     _tallSurface(tester);
     _stubGeolocator(tester);
     await tester.pumpWidget(
-      _host(_StubService(_frame([], outfitOccasions: ['work', 'casual']))),
+      _host(_StubService(_frame(outfitOccasions: ['work', 'casual']))),
     );
     await _settle(tester);
 
@@ -330,22 +551,29 @@ void main() {
     expect(title.letterSpacing, -0.6);
   });
 
-  testWidgets('pending occasions show a skeleton each in the carousel', (
+  testWidgets('while the looks are styled: one skeleton, labelled with the plan', (
     tester,
   ) async {
+    final plan = DayPlan(
+      date: appToday(),
+      occasion: DayOccasion.workDay,
+      dress: DressLevel.smartCasual,
+    );
     _tallSurface(tester);
     _stubGeolocator(tester);
-    await tester.pumpWidget(_host(_StubService(_frame(['work', 'casual']))));
+    await tester.pumpWidget(
+      _host(_StubService(_frame(needsStyling: true, plan: plan)), plans: [plan]),
+    );
     await _settle(tester);
 
-    expect(find.byType(OutfitCardSkeleton), findsNWidgets(2));
-    expect(find.text('STYLING WORK…'), findsOneWidget);
+    expect(find.byType(OutfitCardSkeleton), findsOneWidget);
+    expect(find.text('STYLING WORK DAY…'), findsOneWidget);
   });
 
   testWidgets('shows the weekly usage meter for free users', (tester) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
-    await tester.pumpWidget(_host(_StubService(_frame([]))));
+    await tester.pumpWidget(_host(_StubService(_frame())));
     await _settle(tester);
 
     // Shows "of 10" (display-only) though the stub's backend cap is 21.
@@ -356,7 +584,7 @@ void main() {
   testWidgets('shows the next 7 days with today filled', (tester) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
-    await tester.pumpWidget(_host(_StubService(_frame([]))));
+    await tester.pumpWidget(_host(_StubService(_frame())));
     await _settle(tester);
 
     expect(find.text('Your next 7 days'), findsOneWidget);
@@ -376,7 +604,7 @@ void main() {
     _stubGeolocator(tester);
     await tester.pumpWidget(
       _host(
-        _StubService(_frame([])),
+        _StubService(_frame()),
         gaps: const GapAnalysis(
           gaps: [
             GapItem(
@@ -406,7 +634,7 @@ void main() {
   testWidgets('weather credit sits at the bottom, below the week strip', (
     tester,
   ) async {
-    final json = _frame([]).toJson()
+    final json = _frame().toJson()
       ..['weather'] = {'temp_c': 7.2, 'feels_like_c': 4.1, 'condition': 'rain'}
       ..['weather_attribution'] = {
         'service_name': 'Apple Weather',
@@ -450,7 +678,7 @@ void main() {
     _stubGeolocator(tester);
     await tester.pumpWidget(
       _host(
-        _StubService(_frame([])),
+        _StubService(_frame()),
         plans: [
           DayPlan(
             date: tomorrow,
@@ -472,10 +700,10 @@ void main() {
     _stubGeolocator(tester);
     await tester.pumpWidget(
       _host(
-        _StubService(_frame([])),
+        _StubService(_frame()),
         plans: [
           DayPlan(
-            date: DateTime.now(),
+            date: appToday(),
             occasion: DayOccasion.school,
             dress: DressLevel.smartCasual,
             note: "Parents' meeting",
@@ -496,7 +724,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     _stubGeolocator(tester);
-    final json = _frame([]).toJson()
+    final json = _frame().toJson()
       ..['user'] = {'name': 'Bartholomew Maximilian Featherstonehaugh'};
     await tester.pumpWidget(_host(_StubService(TodayDashboard.fromJson(json))));
     await _settle(tester);
@@ -524,7 +752,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     _stubGeolocator(tester);
-    final json = _frame([]).toJson()
+    final json = _frame().toJson()
       ..['weather'] = {
         'temp_c': -12.4,
         'feels_like_c': -21.0,
@@ -546,7 +774,7 @@ void main() {
     _stubGeolocator(tester);
     await tester.pumpWidget(
       _host(
-        _StubService(_frame([])),
+        _StubService(_frame()),
         notifications: sampleNotifications(DateTime.now()),
       ),
     );
@@ -560,7 +788,7 @@ void main() {
   testWidgets('no shop section without picks or gaps', (tester) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
-    await tester.pumpWidget(_host(_StubService(_frame([]))));
+    await tester.pumpWidget(_host(_StubService(_frame())));
     await _settle(tester);
 
     expect(find.text('Shop the look'), findsNothing);
@@ -571,7 +799,7 @@ void main() {
   ) async {
     _tallSurface(tester);
     _stubGeolocator(tester);
-    await tester.pumpWidget(_host(_StubService(_frame([]))));
+    await tester.pumpWidget(_host(_StubService(_frame())));
     await _settle(tester);
 
     expect(find.byType(ResumeBanner), findsOneWidget);
@@ -584,7 +812,7 @@ void main() {
     _stubGeolocator(tester);
     await tester.pumpWidget(
       _host(
-        _StubService(_frame([])),
+        _StubService(_frame()),
         status: _status(stepsDone: 4, next: 'shoulders'),
       ),
     );
@@ -602,7 +830,7 @@ void main() {
     // missing must NOT keep the nudge alive (steps_done 7 of 8).
     await tester.pumpWidget(
       _host(
-        _StubService(_frame([])),
+        _StubService(_frame()),
         status: _status(stepsDone: 7, next: null),
       ),
     );
@@ -627,7 +855,15 @@ void main() {
       await tester.pumpWidget(_host(_StubService(notReady)));
       await _settle(tester);
 
-      expect(find.byType(OutfitCardSkeleton), findsNothing);
+      // No loading card — only the add-items card's hidden sizing skeleton.
+      expect(
+        find.descendant(
+          of: find.byType(OutfitCardSized),
+          matching: find.byType(OutfitCardSkeleton),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(OutfitCardSkeleton), findsOneWidget);
       expect(
         find.text('Add a few wardrobe items to start getting daily outfits.'),
         findsOneWidget,

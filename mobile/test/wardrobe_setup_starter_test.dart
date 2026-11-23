@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/modules/onboarding/models/starter_wardrobe.dart';
 import 'package:mobile/modules/onboarding/onboarding_service.dart';
 import 'package:mobile/modules/onboarding/screens/wardrobe_setup_screen.dart';
-import 'package:mobile/modules/today/models/outfit.dart';
 import 'package:mobile/modules/today/models/today_dashboard.dart';
 import 'package:mobile/modules/today/models/usage.dart';
 import 'package:mobile/modules/today/screens/today_dashboard_screen.dart';
@@ -72,7 +71,7 @@ class _StubToday extends TodayService {
         'usage': {'outfits_generated_today': 0},
         'banners': <String, dynamic>{},
         'wardrobe_ready': true,
-        'pending_occasions': <String>[],
+        'pending_slots': <int>[],
       });
 
   @override
@@ -90,9 +89,8 @@ class _StubToday extends TodayService {
       });
 
   @override
-  Future<Outfit> generateOccasion(String occasion,
-          {double? lat, double? lon}) =>
-      Completer<Outfit>().future;
+  Future<TodayLooks> styleToday({double? lat, double? lon}) =>
+      Completer<TodayLooks>().future;
 }
 
 class _NullCache extends DashboardCache {

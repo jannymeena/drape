@@ -120,7 +120,8 @@ class NotificationsScreen extends ConsumerWidget {
     final week = <AppNotification>[];
     final older = <AppNotification>[];
     for (final n in sorted) {
-      final d = daysFromToday(n.at, now);
+      // Calendar days here (not the 5am app day): when it arrived.
+      final d = dayOnly(n.at).difference(dayOnly(now)).inDays;
       if (d == 0) {
         today.add(n);
       } else if (d >= -6) {

@@ -23,7 +23,7 @@ TodayDashboard _dashboard() => TodayDashboard.fromJson({
       'usage': {'outfits_generated_today': 1},
       'banners': {'starter_wardrobe': false, 'incomplete_profile': false},
       'wardrobe_ready': true,
-      'pending_occasions': ['casual', 'date_night'],
+      'needs_styling': true,
     });
 
 DashboardCache _cache({DateTime? now}) => DashboardCache(
@@ -47,7 +47,7 @@ void main() {
     expect(loaded.outfits, hasLength(1));
     expect(loaded.outfits.first.occasion, 'work');
     expect(loaded.wardrobeReady, isTrue);
-    expect(loaded.pendingOccasions, ['casual', 'date_night']);
+    expect(loaded.needsStyling, isTrue);
   });
 
   test('load returns null when nothing is cached', () async {

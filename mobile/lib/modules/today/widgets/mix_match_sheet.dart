@@ -299,7 +299,7 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
       children: [
         _ContextChip(
           label: _contextLabel(),
-          onEdit: () => PlanDaySheet.open(context, ref, DateTime.now()),
+          onEdit: () => PlanDaySheet.open(context, ref, appToday()),
         ),
         const SizedBox(height: 10),
         _Preview(picks: _picks),
@@ -328,7 +328,7 @@ class _MixMatchSheetState extends ConsumerState<MixMatchSheet> {
   /// "For: Parents' meeting · Smart casual · Rain" — today's plan when there
   /// is one, else the outfit's occasion + dress level; plus today's weather.
   String _contextLabel() {
-    final plan = ref.watch(dayPlansProvider)[dayOnly(DateTime.now())];
+    final plan = ref.watch(dayPlansProvider)[appToday()];
     final w =
         ref.watch(todayControllerProvider).dashboard?.weather ??
         widget.outfit.weatherContext;

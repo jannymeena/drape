@@ -59,6 +59,9 @@ class _FavouritesViewState extends ConsumerState<FavouritesView> {
           content: Text(message),
           backgroundColor: AppColors.espressoDeep,
           behavior: SnackBarBehavior.floating,
+          // With an action a snackbar stays up until dismissed unless told
+          // otherwise (Flutter ≥ 3.29); this one times out like the rest.
+          persist: false,
           action: SnackBarAction(
             label: 'Undo',
             textColor: AppColors.white,

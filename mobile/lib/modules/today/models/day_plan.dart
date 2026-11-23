@@ -154,6 +154,17 @@ const _monthsShort = [
 
 DateTime dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
+/// When the app day rolls over: it runs 5am-to-5am, like the backend's
+/// `DAY_ROLLOVER_HOUR` (`core/localtime.py`).
+const dayRolloverHour = 5;
+
+/// The app's "today": before 05:00 it's still yesterday — the same day the
+/// backend's `user_today` gives (the app reports its clock as
+/// `X-Timezone`), so a plan saved for today is the day Today styles.
+DateTime appToday([DateTime? now]) => dayOnly(
+  (now ?? DateTime.now()).subtract(const Duration(hours: dayRolloverHour)),
+);
+
 /// "Wed".
 String weekdayShort(DateTime d) => _weekdaysShort[d.weekday - 1];
 
@@ -163,18 +174,18 @@ String weekdayLong(DateTime d) => _weekdaysLong[d.weekday - 1];
 /// "Nov".
 String monthShort(DateTime d) => _monthsShort[d.month - 1];
 
-/// The next seven days, today first.
+/// The next seven days, today (the app day) first.
 List<DateTime> nextSevenDays([DateTime? now]) {
-  final today = dayOnly(now ?? DateTime.now());
+  final today = appToday(now);
   return [
     for (var i = 0; i < 7; i++)
       DateTime(today.year, today.month, today.day + i),
   ];
 }
 
-/// Days from today (0 = today, 1 = tomorrow).
+/// Days from today, the app day (0 = today, 1 = tomorrow).
 int daysFromToday(DateTime date, [DateTime? now]) =>
-    dayOnly(date).difference(dayOnly(now ?? DateTime.now())).inDays;
+    dayOnly(date).difference(appToday(now)).inDays;
 
 /// When the outfit for [date] will be ready — outfits are styled the evening
 /// before ("Ready now" / "Ready by 10 pm" / "Ready the night before").

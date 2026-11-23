@@ -58,29 +58,26 @@ class TodayService {
   Future<TodayDashboard> getDashboard({double? lat, double? lon}) =>
       getFrame(lat: lat, lon: lon);
 
-  /// `POST /today/outfits` — generate (or return the existing) outfit for ONE
-  /// occasion. The dashboard fires one per pending occasion so each card
-  /// resolves independently. Free daily-fill (not weekly-usage-limited) and
-  /// idempotent server-side for an occasion already generated today. Can 502
-  /// (`ai_call_failed`) if the AI provider hard-fails.
-  Future<Outfit> generateOccasion(String occasion,
-      {double? lat, double? lon}) async {
+  /// `POST /today/outfits` — styles today's plan in ONE call: 0-3 looks
+  /// (1 in starter mode), or none with what's missing. Free (not usage
+  /// limited) and idempotent server-side once styled. 400 without a plan
+  /// for today; can 502 (`ai_call_failed`) if the AI provider hard-fails.
+  Future<TodayLooks> styleToday({double? lat, double? lon}) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/today/outfits',
         data: {
-          'occasion': occasion,
           'lat': ?lat,
           'lon': ?lon,
         },
       );
-      return Outfit.fromJson(response.data!);
+      return TodayLooks.fromJson(response.data!);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     } catch (_) {
       throw const ApiException(
         code: 'parse_error',
-        message: 'Could not read the generated outfit. Please try again.',
+        message: 'Could not read today\'s outfits. Please try again.',
       );
     }
   }

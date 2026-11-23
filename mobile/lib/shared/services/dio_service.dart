@@ -29,6 +29,7 @@ Dio buildDio(StorageService storage) {
   );
 
   dio.interceptors.add(_RequestIdInterceptor());
+  dio.interceptors.add(_TimezoneInterceptor());
   dio.interceptors.add(_AuthInterceptor(storage));
   dio.interceptors.add(_RefreshInterceptor(storage: storage, client: dio));
   if (kDebugMode) {
@@ -50,6 +51,28 @@ class _RequestIdInterceptor extends Interceptor {
     options.headers['X-Request-ID'] = _uuid.v4();
     handler.next(options);
   }
+}
+
+/// Reports the device's clock on every request (`X-Timezone: +05:30`): the
+/// backend keeps the user's timezone on it, so its "today" (5am-to-5am
+/// local) is the app's — a plan saved for today is the day Today styles.
+/// The offset is read per request, so it follows DST and travel.
+class _TimezoneInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.headers['X-Timezone'] = utcOffsetHeader(
+      DateTime.now().timeZoneOffset,
+    );
+    handler.next(options);
+  }
+}
+
+/// `+05:30` / `-04:00` — a UTC offset as the backend parses it.
+String utcOffsetHeader(Duration offset) {
+  final sign = offset.isNegative ? '-' : '+';
+  final minutes = offset.inMinutes.abs();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '$sign${two(minutes ~/ 60)}:${two(minutes % 60)}';
 }
 
 class _AuthInterceptor extends Interceptor {

@@ -144,7 +144,10 @@ class PlanDaySheet extends StatefulWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          duration: const Duration(seconds: 5),
+          duration: const Duration(seconds: 3),
+          // A snackbar with an action stays up until dismissed unless told
+          // otherwise (Flutter ≥ 3.29); this one goes after 3 s, Undo or not.
+          persist: false,
           action: onUndo == null
               ? null
               : SnackBarAction(

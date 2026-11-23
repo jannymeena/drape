@@ -178,10 +178,14 @@ class Outfit {
     this.compatibilityScore,
     this.weatherContext,
     this.loggedAt,
+    this.slot,
   });
 
   final String id;
   final String occasion; // backend literal: work | casual | gym | date_night | other
+
+  /// Which of today's looks for the day's plan this is (0-2); null for
+  /// outfits made outside Today.
   final List<OutfitItem> items;
   final bool usingStarterWardrobe;
   final bool isLogged;
@@ -201,6 +205,7 @@ class Outfit {
   final int? compatibilityScore;
   final WeatherContext? weatherContext;
   final DateTime? loggedAt;
+  final int? slot;
 
   /// Up to four item images for the client-side 2×2 grid (nulls allowed).
   List<String?> get gridImageUrls => items.map((i) => i.primaryImageUrl).toList();
@@ -232,6 +237,7 @@ class Outfit {
       compatibilityScore: compatibilityScore ?? this.compatibilityScore,
       weatherContext: weatherContext,
       loggedAt: loggedAt ?? this.loggedAt,
+      slot: slot,
     );
   }
 
@@ -264,6 +270,7 @@ class Outfit {
       loggedAt: json['logged_at'] == null
           ? null
           : DateTime.parse(json['logged_at'] as String),
+      slot: json['slot'] as int?,
     );
   }
 
@@ -283,5 +290,6 @@ class Outfit {
         'compatibility_score': compatibilityScore,
         'weather_context': weatherContext?.toJson(),
         'logged_at': loggedAt?.toIso8601String(),
+        'slot': slot,
       };
 }

@@ -22,11 +22,11 @@ import 'today_service.dart';
 ///   1. [dashboard] is the read-only *frame* (greeting, weather, banners, plus
 ///      any outfits already generated today). [frameLoading]/[frameError] track
 ///      that fetch.
-///   2. Outfit cards are filled in per-occasion. [pendingOccasions] are the
-///      occasions still generating (each shows a skeleton + is in flight, so it
-///      doubles as the double-fire guard); [failedOccasions] map an occasion to
-///      the error that stopped it (each shows a retry chip). A filled occasion
-///      lands in [dashboard].outfits.
+///   2. Today's looks for the day's plan are styled in one call (0-3 looks;
+///      1 in starter mode). [styling] is true while it's in flight (a
+///      skeleton card shows, and it doubles as the double-fire guard);
+///      [stylingError] is what stopped it (a retry card shows). The looks
+///      land in [dashboard].outfits.
 ///
 /// [usage] backs the weekly-limit banner and is best-effort. [regeneratingIds]/
 /// [loggingIds] track per-card actions in flight (regenerate / log).
@@ -36,8 +36,8 @@ class TodayState {
     this.dashboard,
     this.usage,
     this.frameError,
-    this.pendingOccasions = const {},
-    this.failedOccasions = const {},
+    this.styling = false,
+    this.stylingError,
     this.regeneratingIds = const {},
     this.loggingIds = const {},
   });
@@ -46,22 +46,23 @@ class TodayState {
   final TodayDashboard? dashboard;
   final CurrentWeekUsage? usage;
   final ApiException? frameError;
-  final Set<String> pendingOccasions;
-  final Map<String, ApiException> failedOccasions;
+  final bool styling;
+  final ApiException? stylingError;
   final Set<String> regeneratingIds;
   final Set<String> loggingIds;
 
   bool get hasData => dashboard != null;
 
-  /// Whether any occasion is still being styled (drives the progress copy).
-  bool get isGenerating => pendingOccasions.isNotEmpty;
+  /// Whether the day's looks are still being styled (drives the progress
+  /// copy).
+  bool get isGenerating => styling;
 
   TodayState copyWith({
     bool? frameLoading,
     TodayDashboard? dashboard,
     CurrentWeekUsage? usage,
-    Set<String>? pendingOccasions,
-    Map<String, ApiException>? failedOccasions,
+    bool? styling,
+    ApiException? Function()? stylingError,
     Set<String>? regeneratingIds,
     Set<String>? loggingIds,
   }) {
@@ -70,8 +71,9 @@ class TodayState {
       dashboard: dashboard ?? this.dashboard,
       usage: usage ?? this.usage,
       frameError: frameError,
-      pendingOccasions: pendingOccasions ?? this.pendingOccasions,
-      failedOccasions: failedOccasions ?? this.failedOccasions,
+      styling: styling ?? this.styling,
+      stylingError:
+          stylingError != null ? stylingError() : this.stylingError,
       regeneratingIds: regeneratingIds ?? this.regeneratingIds,
       loggingIds: loggingIds ?? this.loggingIds,
     );
@@ -86,8 +88,8 @@ class TodayController extends StateNotifier<TodayState> {
   final DashboardCache _cache;
   final AnalyticsService _analytics;
 
-  /// Device coords from the most recent [loadFrame], reused so each per-occasion
-  /// fill personalizes weather the same way the frame did.
+  /// Device coords from the most recent [loadFrame], reused so the day's
+  /// styling personalizes weather the same way the frame did.
   DeviceCoords? _coords;
 
   /// When the last frame (and so the weather chip) was loaded successfully.
@@ -97,14 +99,14 @@ class TodayController extends StateNotifier<TodayState> {
   /// newer weather.
   static const frameStaleAfter = Duration(minutes: 15);
 
-  /// Loads the read-only frame (fast) and weekly usage (best-effort), then fans
-  /// out per-occasion generation in PARALLEL. Keeps any previously loaded
+  /// Loads the read-only frame (fast) and weekly usage (best-effort), then
+  /// asks for the day's looks if they aren't styled yet. Keeps any previously loaded
   /// dashboard visible while refreshing (stale-while-revalidate), and never
   /// leaves [frameLoading] stuck — every exit clears it.
   Future<void> loadFrame() async {
     // Stale-while-revalidate: paint last-known outfits instantly on cold start.
-    // Display-only — we never fan out from the cached pending set; the fresh
-    // frame below is authoritative for what still needs generating.
+    // Display-only — we never style from the cached frame; the fresh frame
+    // below is authoritative for what still needs styling.
     if (state.dashboard == null) {
       final cached = await _cache.load();
       if (cached != null && state.dashboard == null) {
@@ -116,8 +118,8 @@ class TodayController extends StateNotifier<TodayState> {
       frameLoading: true,
       dashboard: state.dashboard,
       usage: state.usage,
-      pendingOccasions: state.pendingOccasions,
-      failedOccasions: state.failedOccasions,
+      styling: state.styling,
+      stylingError: state.stylingError,
       regeneratingIds: state.regeneratingIds,
       loggingIds: state.loggingIds,
     );
@@ -150,39 +152,21 @@ class TodayController extends StateNotifier<TodayState> {
     }
 
     final usage = await usageFuture;
-    final framePending = frame.pendingOccasions.toSet();
-    // Fire only occasions not already in flight (guards rapid pull-to-refresh).
-    final toFire = framePending.difference(state.pendingOccasions);
-    // Drop stale failures the frame no longer reports as pending (e.g. filled
-    // on another device); keep failures still pending so their retry chip stays.
-    final failed = {
-      for (final entry in state.failedOccasions.entries)
-        if (framePending.contains(entry.key) && !toFire.contains(entry.key))
-          entry.key: entry.value,
-    };
+    // Ask unless already in flight (guards rapid pull-to-refresh). A
+    // previous failure is retried: the fresh frame still needs styling.
+    final fire = frame.needsStyling && !state.styling;
 
     _frameLoadedAt = DateTime.now();
     state = TodayState(
       dashboard: frame,
       usage: usage,
-      pendingOccasions: framePending.difference(failed.keys.toSet()),
-      failedOccasions: failed,
+      styling: frame.needsStyling,
       regeneratingIds: state.regeneratingIds,
       loggingIds: state.loggingIds,
     );
     _persist();
 
-    unawaited(_fillInTurn(toFire));
-  }
-
-  /// Fills [occasions] one after another — still one request per occasion,
-  /// each card updating as it lands. In turn rather than in parallel so each
-  /// later outfit's prompt knows what the earlier ones wear and can avoid
-  /// repeating their main pieces.
-  Future<void> _fillInTurn(Iterable<String> occasions) async {
-    for (final occasion in occasions) {
-      await _fill(occasion);
-    }
+    if (fire) unawaited(_style());
   }
 
   /// Called when the app returns to the foreground: reloads the frame if it's
@@ -207,69 +191,82 @@ class TodayController extends StateNotifier<TodayState> {
       frameError: error,
       dashboard: state.dashboard,
       usage: usage ?? state.usage,
-      pendingOccasions: state.pendingOccasions,
-      failedOccasions: state.failedOccasions,
+      styling: state.styling,
+      stylingError: state.stylingError,
       regeneratingIds: state.regeneratingIds,
       loggingIds: state.loggingIds,
     );
   }
 
-  /// Generates one occasion's outfit and folds it into the dashboard. A failure
-  /// is isolated to that occasion (its card flips to a retry chip); the rest of
-  /// the dashboard is untouched.
-  Future<void> _fill(String occasion) async {
+  /// Styles the day's looks (one call) and folds them into the dashboard. A
+  /// failure shows a retry card; the rest of the dashboard is untouched. A
+  /// result for an older plan (see [planChanged]) is dropped.
+  Future<void> _style() async {
+    final epoch = _planEpoch;
     try {
-      final outfit = await _service.generateOccasion(
-        occasion,
+      final looks = await _service.styleToday(
         lat: _coords?.lat,
         lon: _coords?.lon,
       );
+      if (epoch != _planEpoch) return;
       final dashboard = state.dashboard;
       if (dashboard == null) return;
-      // Replace any existing outfit for this occasion, else append.
-      final outfits = [
-        for (final o in dashboard.outfits)
-          if (o.occasion != occasion) o,
-        outfit,
-      ];
+      final outfits = [...looks.outfits]..sort(_bySlot);
       state = state.copyWith(
-        dashboard: dashboard.copyWith(outfits: outfits),
-        pendingOccasions: {...state.pendingOccasions}..remove(occasion),
-        failedOccasions: {...state.failedOccasions}..remove(occasion),
+        dashboard: dashboard.copyWith(
+          outfits: outfits,
+          needsStyling: false,
+          wardrobeReady: outfits.isNotEmpty,
+          missingRoles: looks.missingRoles,
+        ),
+        styling: false,
+        stylingError: () => null,
       );
       _persist();
     } on ApiException catch (e) {
-      _markOccasionFailed(occasion, e);
+      if (epoch == _planEpoch) _markStylingFailed(e);
     } catch (_) {
-      _markOccasionFailed(
-        occasion,
-        const ApiException(
-          code: 'error',
-          message: 'Could not style this look. Tap to try again.',
-        ),
-      );
+      if (epoch == _planEpoch) {
+        _markStylingFailed(
+          const ApiException(
+            code: 'error',
+            message: 'Could not style today\'s looks. Tap to try again.',
+          ),
+        );
+      }
     }
   }
 
-  void _markOccasionFailed(String occasion, ApiException error) {
-    state = state.copyWith(
-      pendingOccasions: {...state.pendingOccasions}..remove(occasion),
-      failedOccasions: {...state.failedOccasions, occasion: error},
-    );
+  static int _bySlot(Outfit a, Outfit b) =>
+      (a.slot ?? 99).compareTo(b.slot ?? 99);
+
+  void _markStylingFailed(ApiException error) {
+    state = state.copyWith(styling: false, stylingError: () => error);
   }
 
-  /// Generates one occasion on demand — the chip row's "Generate" CTA for an
-  /// occasion the frame didn't schedule, and the failed card's retry. No-op if
-  /// it's already generating. Refreshes usage afterwards (an on-demand
-  /// generation consumes an outfit credit).
-  Future<void> generateOccasion(String occasion) async {
-    if (state.pendingOccasions.contains(occasion)) return;
-    state = state.copyWith(
-      pendingOccasions: {...state.pendingOccasions, occasion},
-      failedOccasions: {...state.failedOccasions}..remove(occasion),
+  /// Asks again after a failure — the retry card. No-op while styling.
+  Future<void> retryStyling() async {
+    if (state.styling) return;
+    state = state.copyWith(styling: true, stylingError: () => null);
+    await _style();
+  }
+
+  /// Bumped when today's plan changes, so a styling still in flight for the
+  /// old plan doesn't land on the new one.
+  int _planEpoch = 0;
+
+  /// Today's plan was saved or cleared (Plan a day): the looks shown — and
+  /// any still styling or failed — were for the old plan. Forget them and
+  /// reload the frame, which styles the new plan.
+  Future<void> planChanged() {
+    _planEpoch++;
+    state = TodayState(
+      dashboard: state.dashboard,
+      usage: state.usage,
+      regeneratingIds: state.regeneratingIds,
+      loggingIds: state.loggingIds,
     );
-    await _fill(occasion);
-    unawaited(_refreshUsage());
+    return loadFrame();
   }
 
   /// Regenerates one outfit in place. The backend returns a *new* outfit row

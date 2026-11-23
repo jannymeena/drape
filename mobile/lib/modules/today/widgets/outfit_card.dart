@@ -5,6 +5,7 @@ import '../../../shared/theme/app_typography.dart';
 import '../../../shared/widgets/garment_placeholder.dart';
 import '../models/outfit.dart';
 import 'outfit_collage.dart';
+import 'outfit_garment_grid.dart';
 
 /// Ambient "espresso" shadow shared by every Today card (Stitch DESIGN.md §4:
 /// blur 24, spread -4, 6% dark brown — never a Material drop shadow).
@@ -92,6 +93,7 @@ class OutfitCardData {
       items: [
         for (final i in outfit.items)
           GarmentCell(
+            name: i.name,
             imageUrl: i.primaryImageUrl,
             cutoutUrl: i.cutoutUrl,
             cutoutBox: i.cutoutBox,
@@ -190,7 +192,12 @@ class OutfitCard extends StatelessWidget {
         children: [
           Stack(
             children: [
-              OutfitCollage(cells: outfit.items, seed: outfit.id),
+              // The flat-lay needs every piece cut out (and owned); starter
+              // looks and pieces still being cut out show as photos.
+              if (OutfitGarmentGrid.suits(outfit.items))
+                OutfitGarmentGrid(cells: outfit.items)
+              else
+                OutfitCollage(cells: outfit.items, seed: outfit.id),
               if (regenerating)
                 Positioned.fill(
                   child: ClipRRect(

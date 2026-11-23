@@ -98,7 +98,9 @@ class _PickTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final placeholder = GarmentPlaceholder(category: pick.category);
+    // A shop pick is a real product: its photo or a plain tile, never a
+    // drawn garment.
+    const placeholder = ShopPhotoPlaceholder();
     return Material(
       color: AppColors.white,
       borderRadius: BorderRadius.circular(12),

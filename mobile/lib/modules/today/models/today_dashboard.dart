@@ -2,9 +2,11 @@ import 'outfit.dart';
 
 /// Mirrors the backend `TodayDashboardResponse` (`GET /today/dashboard`).
 ///
-/// The dashboard is a read-only "frame": chrome data + any outfits already
-/// generated today + the occasions still pending. Outfit cards are filled in
-/// per-occasion via `POST /today/outfits`, so the shell can paint instantly.
+/// The dashboard is a read-only "frame": chrome data + today's looks if
+/// already styled. Today's outfits are styled for the day's plan (Plan a
+/// day) in one call (`POST /today/outfits`), so the shell can paint
+/// instantly: up to 3 looks from the user's own pieces, or one from the
+/// starter wardrobe while it's active ([wardrobeMode]) — never a mix.
 class TodayDashboard {
   const TodayDashboard({
     required this.user,
@@ -14,8 +16,12 @@ class TodayDashboard {
     this.weather,
     this.weatherAttribution,
     this.wardrobeReady = false,
-    this.pendingOccasions = const [],
+    this.needsPlan = false,
+    this.needsStyling = false,
+    this.wardrobeMode = WardrobeMode.wardrobe,
+    this.missingRoles = const [],
     this.occasions = const [],
+    this.planKey,
   });
 
   final TodayUser user;
@@ -29,12 +35,41 @@ class TodayDashboard {
   /// Weather mark + data-sources link); null when the source needs none.
   final WeatherAttribution? weatherAttribution;
 
-  /// Whether the user has enough wardrobe items to generate outfits at all.
-  /// Drives the "add items" empty state vs. the generating/skeleton state.
+  /// Whether the wardrobe has anything to style for today's plan (or, when
+  /// today isn't planned, enough pieces to style at all). False drives the
+  /// "add items" empty state.
   final bool wardrobeReady;
 
-  /// Occasions that still need a today-outfit — drives the skeleton cards.
-  final List<String> pendingOccasions;
+  /// Today isn't planned: the outfit card asks the user to pick what's on.
+  final bool needsPlan;
+
+  /// The plan's looks aren't styled yet: a skeleton card shows while the
+  /// controller asks for them.
+  final bool needsStyling;
+
+  /// Which pieces the looks are made of.
+  final WardrobeMode wardrobeMode;
+
+  /// Roles (`top`, `bottom`, `dress`, `shoes`…) that would complete a look,
+  /// when [wardrobeReady] is false.
+  final List<String> missingRoles;
+
+  /// The plan this frame's outfits were styled for — `occasion|dress_level`
+  /// wire values (see [planKeyOf]); null when today wasn't planned. Today
+  /// reloads when the day's plan no longer matches it.
+  final String? planKey;
+
+  /// `work_day|business` — the key a plan's occasion + dress level make.
+  static String planKeyOf(String occasion, String dressLevel) =>
+      '$occasion|$dressLevel';
+
+  /// Today's plan in the backend's `day_plans` (today first).
+  static String? _planKeyFrom(Object? dayPlans) {
+    if (dayPlans is! List || dayPlans.isEmpty) return null;
+    final plan = (dayPlans.first as Map<String, dynamic>)['plan'];
+    if (plan is! Map<String, dynamic>) return null;
+    return planKeyOf(plan['occasion'] as String, plan['dress_level'] as String);
+  }
 
   /// Every occasion the backend's rulebook defines, in display order — the
   /// occasion chips. Empty from an older cached frame.
@@ -55,13 +90,17 @@ class TodayDashboard {
           ? null
           : WeatherAttribution.fromJson(attribution),
       wardrobeReady: json['wardrobe_ready'] as bool? ?? false,
-      pendingOccasions:
-          (json['pending_occasions'] as List<dynamic>? ?? const [])
-              .map((e) => e as String)
-              .toList(),
+      needsPlan: json['needs_plan'] as bool? ?? false,
+      needsStyling: json['needs_styling'] as bool? ?? false,
+      wardrobeMode: WardrobeMode.fromWire(json['wardrobe_mode'] as String?),
+      missingRoles: (json['missing_roles'] as List<dynamic>? ?? const [])
+          .map((e) => e as String)
+          .toList(),
       occasions: (json['occasions'] as List<dynamic>? ?? const [])
           .map((e) => OccasionOption.fromJson(e as Map<String, dynamic>))
           .toList(),
+      // `plan_key` is the cached form (see toJson); the API sends day_plans.
+      planKey: json['plan_key'] as String? ?? _planKeyFrom(json['day_plans']),
     );
   }
 
@@ -75,16 +114,21 @@ class TodayDashboard {
         'weather': weather?.toJson(),
         'weather_attribution': weatherAttribution?.toJson(),
         'wardrobe_ready': wardrobeReady,
-        'pending_occasions': pendingOccasions,
+        'needs_plan': needsPlan,
+        'needs_styling': needsStyling,
+        'wardrobe_mode': wardrobeMode.wire,
+        'missing_roles': missingRoles,
         'occasions': occasions.map((o) => o.toJson()).toList(),
+        'plan_key': planKey,
       };
 
-  /// Swaps fields after a per-card action (regenerate / log / occasion fill)
-  /// without disturbing the rest of the dashboard.
+  /// Swaps fields after a per-card action (regenerate / log) or the day's
+  /// styling without disturbing the rest of the dashboard.
   TodayDashboard copyWith({
     List<Outfit>? outfits,
     bool? wardrobeReady,
-    List<String>? pendingOccasions,
+    bool? needsStyling,
+    List<String>? missingRoles,
   }) {
     return TodayDashboard(
       user: user,
@@ -94,10 +138,46 @@ class TodayDashboard {
       weather: weather,
       weatherAttribution: weatherAttribution,
       wardrobeReady: wardrobeReady ?? this.wardrobeReady,
-      pendingOccasions: pendingOccasions ?? this.pendingOccasions,
+      needsPlan: needsPlan,
+      needsStyling: needsStyling ?? this.needsStyling,
+      wardrobeMode: wardrobeMode,
+      missingRoles: missingRoles ?? this.missingRoles,
       occasions: occasions,
+      planKey: planKey,
     );
   }
+}
+
+/// Mirrors the backend `StyleTodayResponse` (`POST /today/outfits`): the
+/// day's looks in slot order, or none with the roles that would complete
+/// one.
+class TodayLooks {
+  const TodayLooks({required this.outfits, this.missingRoles = const []});
+
+  final List<Outfit> outfits;
+  final List<String> missingRoles;
+
+  factory TodayLooks.fromJson(Map<String, dynamic> json) => TodayLooks(
+        outfits: (json['outfits'] as List<dynamic>)
+            .map((e) => Outfit.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        missingRoles: (json['missing_roles'] as List<dynamic>? ?? const [])
+            .map((e) => e as String)
+            .toList(),
+      );
+}
+
+/// Which pieces Today's looks are made of: the starter wardrobe (catalog
+/// pieces to shop, one look) while it's active, else the user's own.
+enum WardrobeMode {
+  starter('starter'),
+  wardrobe('wardrobe');
+
+  const WardrobeMode(this.wire);
+  final String wire;
+
+  static WardrobeMode fromWire(String? wire) =>
+      wire == 'starter' ? starter : wardrobe;
 }
 
 /// Mirrors the backend `OccasionOption`: an occasion the stylist can dress

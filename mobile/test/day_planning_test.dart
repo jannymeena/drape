@@ -61,7 +61,7 @@ Future<ProviderContainer> _pumpSheetHost(
 }
 
 void main() {
-  final today = dayOnly(DateTime.now());
+  final today = appToday();
   final tomorrow = DateTime(today.year, today.month, today.day + 1);
 
   testWidgets('Plan the day: pick an occasion, its dress level, then save', (

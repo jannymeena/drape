@@ -16,8 +16,10 @@ import 'flat_lay/flat_lay_compose.dart';
 /// [GarmentPlaceholder] drawn from [category] + [color]. [category] sets
 /// its real-world size in the picture; [priority] (dress priority, 0–1000)
 /// the order it's laid in (the highest leads the top row). [buyUrl] is set for pieces the user doesn't own
-/// (AWIN products): the piece gets a "Buy" pill.
+/// (AWIN products): the piece gets a "Buy" pill. [name] labels it where a
+/// picture names pieces (the garment grid's lead tile).
 class GarmentCell {
+  final String? name;
   final String? imageUrl;
   final String? cutoutUrl;
   final List<double>? cutoutBox;
@@ -27,6 +29,7 @@ class GarmentCell {
   final String? buyUrl;
 
   const GarmentCell({
+    this.name,
     this.imageUrl,
     this.cutoutUrl,
     this.cutoutBox,
@@ -214,10 +217,9 @@ class _PlainPiece extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final placeholder = GarmentPlaceholder(
-      category: cell.category,
-      color: cell.color,
-    );
+    final Widget placeholder = cell.buyUrl != null
+        ? const ShopPhotoPlaceholder()
+        : GarmentPlaceholder(category: cell.category, color: cell.color);
     final url = cell.imageUrl;
     return _Buyable(
       cell,
