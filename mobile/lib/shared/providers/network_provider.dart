@@ -12,7 +12,7 @@ final storageServiceProvider = Provider<StorageService>((ref) {
 
 /// Stale-while-revalidate cache for the Today dashboard (shared_preferences).
 final dashboardCacheProvider = Provider<DashboardCache>((ref) {
-  return DashboardCache();
+  return DashboardCache(storage: ref.read(storageServiceProvider));
 });
 
 /// Single shared [Dio] instance with the auth + logging interceptors attached.

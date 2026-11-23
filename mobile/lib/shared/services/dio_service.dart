@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../config/api_config.dart';
+import 'dashboard_cache.dart';
 import 'session_store.dart';
 import 'storage_service.dart';
 
@@ -185,6 +186,9 @@ class _RefreshInterceptor extends QueuedInterceptor {
   Future<void> _onRefreshFailed() async {
     await storage.clearAll();
     await SessionStore.clear();
+    // Same as a manual sign-out: the next account on this device must not
+    // see this one's cached Today outfits.
+    await DashboardCache(storage: storage).clear();
   }
 }
 

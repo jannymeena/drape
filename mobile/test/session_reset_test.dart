@@ -145,4 +145,21 @@ void main() {
 
     expect(container.read(sessionEpochProvider), greaterThan(epochBefore));
   });
+
+  test('sign-in drops a cached dashboard a forced sign-out left behind',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'today_dashboard_cache_v1': '{"user": {"name": "Old"}, "outfits": []}',
+      'today_dashboard_cache_v2':
+          '{"user_id": "someone-else", "day": "x", "dashboard": {}}',
+    });
+
+    await container
+        .read(authControllerProvider.notifier)
+        .signupWithEmail(email: 'b@example.com', password: 'password1');
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('today_dashboard_cache_v1'), isNull);
+    expect(prefs.getString('today_dashboard_cache_v2'), isNull);
+  });
 }

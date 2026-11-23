@@ -206,6 +206,9 @@ class AuthController extends StateNotifier<AuthState> {
   }
 
   Future<void> _persistSession(AuthResponse response) async {
+    // A new session starts with no cached dashboard: a sign-out that skipped
+    // _clearSession (e.g. a failed token refresh) may have left one behind.
+    await DashboardCache(storage: _storage).clear();
     await _storage.saveTokens(
       accessToken: response.accessToken,
       refreshToken: response.refreshToken,
@@ -224,7 +227,7 @@ class AuthController extends StateNotifier<AuthState> {
     await SessionStore.clear();
     // Drop the cached dashboard so a different account on this device never
     // sees the previous user's outfits before the fresh frame loads.
-    await DashboardCache().clear();
+    await DashboardCache(storage: _storage).clear();
     state = const AuthState();
     _ref.read(analyticsProvider).reset();
     _ref.read(crashReporterProvider).clearUser();

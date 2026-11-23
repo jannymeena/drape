@@ -84,6 +84,9 @@ void main() {
       'access_token': 'expired-access',
       'refresh_token': 'expired-refresh',
     });
+    SharedPreferences.setMockInitialValues({
+      'today_dashboard_cache_v2': '{"user_id": "u1", "day": "x", "dashboard": {}}',
+    });
     SessionStore.state.value = true;
     final storage = StorageService();
     final dio = buildDio(storage);
@@ -110,6 +113,9 @@ void main() {
     expect(fake.refreshCalls, 1);
     expect(await storage.getAccessToken(), isNull); // tokens cleared
     expect(SessionStore.state.value, isFalse); // session flag cleared
+    // Cached Today outfits cleared, as on a manual sign-out.
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('today_dashboard_cache_v2'), isNull);
   });
 }
 
