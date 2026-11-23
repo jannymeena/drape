@@ -45,6 +45,9 @@ FORMALITIES = ("casual", "smart_casual", "formal")
 # Every occasion in the rulebook (less the catch-all `other`), so a starter
 # piece carries its product's occasions straight into outfit filtering.
 OCCASIONS = tuple(item_occasion_service.vocabulary())
+# The weather a piece is for — what Today's "Shop the look" matches the
+# forecast against (today_shop_service.weather_needs).
+WEATHERS = ("rain", "sun", "cold", "heat")
 
 # Shop category -> outfit role, and back (wardrobe categories are the shop's).
 ROLE_BY_CATEGORY = {
@@ -148,13 +151,19 @@ _TAG_SYSTEM = (
     '"warmth": "light|mid|heavy", '
     '"formality": "casual|smart_casual|formal", '
     '"occasions": ["work", "casual", ...], '
+    '"weather": ["rain", "cold"], '
     '"color_name": "one or two words"}\n'
     "role: dress also covers jumpsuits and playsuits. warmth: light = summer "
     "wear (linen, shorts, vests, sandals), heavy = winter wear (coats, puffers, "
     "knits, boots), else mid. occasions: EVERY one of these the piece could "
     "genuinely be worn to as part of a suitable outfit — at least one; honest "
     "(a slogan tee isn't for an interview) but not narrow (plain jeans suit "
-    f"casual, brunch, travel and many date nights): {', '.join(OCCASIONS)}."
+    f"casual, brunch, travel and many date nights): {', '.join(OCCASIONS)}. "
+    "weather: the weather the piece is specifically FOR — rain (raincoats, "
+    "waterproofs, umbrellas, wellies), sun (caps, sun hats, sunglasses, "
+    "sandals, linen), cold (coats, puffers, beanies, scarves, gloves, chunky "
+    "knits, boots), heat (shorts, vests, swimwear, light summer dresses); "
+    "[] for everyday pieces with no particular weather."
 )
 
 
@@ -217,6 +226,8 @@ def _apply_tags(row: Product, data: dict) -> None:
     )
     occasions = [o for o in (data.get("occasions") or []) if o in OCCASIONS]
     row.occasions = sorted(set(occasions)) or ["casual"]
+    weather = data.get("weather")
+    row.weather = sorted({w for w in weather if w in WEATHERS}) if isinstance(weather, list) else []
     color = data.get("color_name")
     row.color_name = color.strip()[:50] if isinstance(color, str) and color.strip() else None
     if row.gender is None:  # advertiser mapping wins when present

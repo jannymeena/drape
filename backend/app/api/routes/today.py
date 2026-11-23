@@ -4,6 +4,7 @@ Endpoints:
   - GET  /today/dashboard           composite payload for the home tab
   - POST /today/outfits             today's looks for the day's plan (one call)
   - POST /today/generate-outfits    force-generate per occasion (off-dashboard)
+  - GET  /today/shop                "Shop the look": 3 products for the day
 
 Today's outfits are styled for the day's plan (Plan a day): from the starter
 wardrobe only while it's active (one look), else from the user's own pieces
@@ -21,6 +22,7 @@ from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.providers import get_ai_provider, get_weather_provider
 from app.db.models import User
 from app.db.session import get_db
+from app.schemas.shop import ProductResponse, TodayShopResponse
 from app.schemas.outfit import (
     BannerDismissResponse,
     StyleTodayRequest,
@@ -46,6 +48,7 @@ from app.services import (
     day_plan_service,
     outfit_service,
     push_service,
+    today_shop_service,
     usage_service,
 )
 from app.services.outfit_service import (
@@ -262,6 +265,26 @@ async def generate_outfits(
     return GenerateOutfitsResponse(
         outfits=[_to_outfit_response(o) for o in outfits],
         using_starter_wardrobe=using_starter,
+    )
+
+
+@router.get("/shop", response_model=TodayShopResponse)
+async def shop(
+    lat: float | None = None,
+    lon: float | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    weather: WeatherProvider = Depends(get_weather_provider),
+) -> TodayShopResponse:
+    """Today's "Shop the look": the starter look's pieces, else what today's
+    plan or the wardrobe is missing, then pieces for today's weather or
+    occasion — up to 3, with the reason (`kind`) and a heading. No AI call."""
+    current = await outfit_service.current_weather(weather, lat=lat, lon=lon)
+    picks = today_shop_service.today_picks(db, user=user, weather=current)
+    return TodayShopResponse(
+        kind=picks.kind,  # type: ignore[arg-type]
+        title=picks.title,
+        products=[ProductResponse.model_validate(p) for p in picks.products],
     )
 
 

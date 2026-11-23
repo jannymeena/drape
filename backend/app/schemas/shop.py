@@ -22,6 +22,21 @@ class ProductResponse(BaseModel):
     retailer: str
 
 
+class TodayShopResponse(BaseModel):
+    """Today's "Shop the look" (GET /today/shop): up to 3 products and why.
+
+    `kind`: look (starter outfit's pieces) | missing (what today's plan needs)
+    | gap (wardrobe gaps) | rain | sun | cold | heat (today's weather) |
+    occasion (accessories for today's occasion) | picks (anything).
+    `title` is the heading for it, e.g. "For today's rain"."""
+
+    kind: Literal[
+        "look", "missing", "gap", "rain", "sun", "cold", "heat", "occasion", "picks"
+    ]
+    title: str
+    products: list[ProductResponse]
+
+
 class ShopFeedResponse(BaseModel):
     products: list[ProductResponse]
     measurements_complete: bool

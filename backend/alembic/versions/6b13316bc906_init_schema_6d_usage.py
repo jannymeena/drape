@@ -64,6 +64,7 @@ def upgrade() -> None:
     sa.Column('warmth', sa.String(length=10), nullable=True),
     sa.Column('formality', sa.String(length=20), nullable=True),
     sa.Column('occasions', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    sa.Column('weather', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('color_name', sa.String(length=50), nullable=True),
     sa.Column('tag_hash', sa.String(length=64), nullable=True),
     sa.Column('tagged_at', sa.DateTime(timezone=True), nullable=True),

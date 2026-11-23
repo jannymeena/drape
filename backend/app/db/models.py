@@ -246,6 +246,9 @@ class Product(Base, TimestampMixin):
     warmth: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     formality: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     occasions: Mapped[Optional[list[str]]] = mapped_column(JSONB, nullable=True)
+    # The weather it's for (catalog_service.WEATHERS: rain | sun | cold |
+    # heat); [] = no particular weather. Picks Today's "Shop the look".
+    weather: Mapped[Optional[list[str]]] = mapped_column(JSONB, nullable=True)
     color_name: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     tag_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     tagged_at: Mapped[Optional[datetime]] = mapped_column(
