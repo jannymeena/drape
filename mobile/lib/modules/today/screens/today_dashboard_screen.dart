@@ -277,8 +277,11 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
                 ..._resumeBanner(),
                 ..._starterBanner(dashboard),
                 const SizedBox(height: 20),
-                if (!dashboard.wardrobeReady)
+                if (!dashboard.wardrobeReady) ...[
                   _AddItemsEmptyState(missingRoles: dashboard.missingRoles),
+                  // The gap the carousel leaves under a card.
+                  const SizedBox(height: 20),
+                ],
               ]),
             ),
           ),
