@@ -86,10 +86,10 @@ class _Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Shop pieces show only their own photo (a plain tile without it);
-    // own pieces with no photo get the drawn garment.
+    // A photo that doesn't load shows as broken; a shop piece is only ever
+    // its own photo, and only an own piece with no photo gets the drawing.
     final Widget placeholder = cell.buyUrl != null
-        ? const ShopPhotoPlaceholder()
+        ? const BrokenImageTile()
         : Padding(
             padding: const EdgeInsets.all(16),
             child: GarmentPlaceholder(category: cell.category, color: cell.color),
@@ -104,7 +104,7 @@ class _Tile extends StatelessWidget {
             width: double.infinity,
             height: double.infinity,
             fadeInDuration: const Duration(milliseconds: 150),
-            errorWidget: (_, _, _) => placeholder,
+            errorWidget: (_, _, _) => const BrokenImageTile(),
           );
     final buyUrl = cell.buyUrl;
     final name = cell.name;

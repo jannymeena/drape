@@ -1,8 +1,8 @@
 /// DTOs for the starter-wardrobe endpoints.
 ///
 /// The onboarding flow assigns a starter wardrobe so a brand-new user has
-/// outfits before adding their own items; the backend picks a capsule of AWIN
-/// products for the user's shopping_style and materializes it into
+/// outfits before adding their own items; the backend materializes every AWIN
+/// product for the user's shopping_style (the whole catalog) into
 /// `/wardrobe` (each item links to its product for the "Buy" pill).
 library;
 

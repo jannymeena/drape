@@ -402,7 +402,8 @@ class _PieceTile extends StatelessWidget {
                           : CachedNetworkImage(
                               imageUrl: url,
                               fit: BoxFit.cover,
-                              errorWidget: (_, _, _) => placeholder,
+                              errorWidget: (_, _, _) =>
+                                  const BrokenImageTile(),
                             ),
                     ),
                     Positioned(

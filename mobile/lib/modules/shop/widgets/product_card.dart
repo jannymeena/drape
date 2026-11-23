@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
 import '../../../shared/widgets/buy_pill.dart';
+import '../../../shared/widgets/garment_placeholder.dart';
 
 class ProductData {
   final String id;
@@ -73,10 +74,8 @@ class ProductCard extends StatelessWidget {
                           : CachedNetworkImage(
                               imageUrl: product.imageUrl!,
                               fit: BoxFit.cover,
-                              errorWidget: (_, _, _) => const Center(
-                                child: Icon(Icons.checkroom_outlined,
-                                    color: AppColors.taupeSoft),
-                              ),
+                              errorWidget: (_, _, _) =>
+                                  const BrokenImageTile(),
                             ),
                     ),
                   ),

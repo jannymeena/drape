@@ -17,8 +17,8 @@ import '../onboarding_controller.dart';
 ///   * Upload Photos → onboarding-scoped batch upload (AI detect → bulk add)
 ///   * Scan New Item → onboarding-scoped single scan
 ///   * Add manually instead → onboarding-scoped manual entry
-///   * Start with a starter wardrobe → a capsule of shop (AWIN) products for
-///     the user's shopping style, auto-deactivates as the user adds real items
+///   * Start with a starter wardrobe → every shop (AWIN) product for the
+///     user's shopping style, auto-deactivates as the user adds real items
 /// The first three reuse the Wardrobe-module screens via onboarding-scoped
 /// routes so they pop back here instead of leaking into the main tab shell.
 class WardrobeSetupScreen extends ConsumerStatefulWidget {

@@ -577,7 +577,7 @@ class _ItemTile extends StatelessWidget {
             : CachedNetworkImage(
                 imageUrl: url,
                 fit: BoxFit.cover,
-                errorWidget: (_, _, _) => placeholder,
+                errorWidget: (_, _, _) => const BrokenImageTile(),
               ),
       ),
       title: item.name,

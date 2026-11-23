@@ -513,21 +513,45 @@ class _GarmentFlatPainter extends CustomPainter {
       old.category != category || old.color != color;
 }
 
-/// Where a shop product's photo goes while it can't be shown (still loading,
-/// offline, a broken feed link): a plain tile, never a drawn garment — a shop
-/// piece is a real product, so it's shown only by its own photo.
-class ShopPhotoPlaceholder extends StatelessWidget {
-  const ShopPhotoPlaceholder({super.key});
+/// A garment photo that didn't load (offline, a dead link): a broken-image
+/// mark on the card's surface, with a line saying so where the tile is big
+/// enough. Never a drawn garment — that's only for pieces with no photo at
+/// all ([GarmentPlaceholder]).
+class BrokenImageTile extends StatelessWidget {
+  const BrokenImageTile({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: AppColors.ivoryWarm,
-      child: Center(
-        child: Icon(
-          Icons.image_outlined,
-          size: 28,
-          color: AppColors.taupeSoft,
+    return Semantics(
+      label: "Photo didn't load",
+      child: ColoredBox(
+        color: AppColors.ivoryWarm,
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final roomy = box.maxHeight >= 96 && box.maxWidth >= 96;
+            final icon = Icon(
+              Icons.broken_image_outlined,
+              size: roomy ? 32 : 22,
+              color: AppColors.taupe,
+            );
+            return Center(
+              child: !roomy
+                  ? icon
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        icon,
+                        const SizedBox(height: 6),
+                        Text(
+                          "Photo didn't load",
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: AppColors.taupe),
+                        ),
+                      ],
+                    ),
+            );
+          },
         ),
       ),
     );

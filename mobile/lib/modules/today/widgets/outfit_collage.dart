@@ -218,7 +218,7 @@ class _PlainPiece extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Widget placeholder = cell.buyUrl != null
-        ? const ShopPhotoPlaceholder()
+        ? const BrokenImageTile()
         : GarmentPlaceholder(category: cell.category, color: cell.color);
     final url = cell.imageUrl;
     return _Buyable(
@@ -231,7 +231,7 @@ class _PlainPiece extends StatelessWidget {
               fit: BoxFit.contain,
               width: double.infinity,
               height: double.infinity,
-              errorWidget: (_, _, _) => placeholder,
+              errorWidget: (_, _, _) => const BrokenImageTile(),
             ),
     );
   }

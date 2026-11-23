@@ -464,8 +464,8 @@ class OnboardingController extends StateNotifier<OnboardingState> {
     _analytics.capture(AnalyticsEvents.allMeasurementsCompleted);
   }
 
-  /// Assigns a starter wardrobe (a capsule of AWIN products picked for the
-  /// user's shopping style) and materializes its items into the wardrobe. Returns the result so the screen
+  /// Assigns a starter wardrobe (every AWIN product for the user's shopping
+  /// style) and materializes its items into the wardrobe. Returns the result so the screen
   /// can confirm how many pieces were added. Throws [ApiException].
   Future<StarterWardrobeResult> assignStarterWardrobe() {
     return _service.assignStarterWardrobe();

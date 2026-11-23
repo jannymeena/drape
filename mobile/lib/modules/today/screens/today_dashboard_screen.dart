@@ -34,7 +34,6 @@ import '../today_controller.dart';
 import '../widgets/change_outfit_sheet.dart';
 import '../widgets/mix_match_sheet.dart';
 import '../widgets/outfit_card.dart';
-import '../widgets/outfit_card_sized.dart';
 import '../widgets/outfit_card_skeleton.dart';
 import '../widgets/outfit_carousel.dart';
 import '../widgets/plan_day_sheet.dart';
@@ -278,10 +277,13 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
                 ..._resumeBanner(),
                 ..._starterBanner(dashboard),
                 const SizedBox(height: 20),
+                if (!dashboard.wardrobeReady)
+                  _AddItemsEmptyState(missingRoles: dashboard.missingRoles),
               ]),
             ),
           ),
-          SliverToBoxAdapter(child: OutfitCarousel(children: cards)),
+          if (dashboard.wardrobeReady)
+            SliverToBoxAdapter(child: OutfitCarousel(children: cards)),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(_gutter, 0, _gutter, 16),
             sliver: SliverList(
@@ -327,18 +329,10 @@ class _TodayDashboardScreenState extends ConsumerState<TodayDashboardScreen>
         : TodayDashboard.planKeyOf(plan.occasion.wire, plan.dress.wire);
   });
 
-  /// The carousel: with nothing to style, the add-items card; with no plan
-  /// for today, the "What's on today?" card; otherwise today's looks in slot
-  /// order, a skeleton while they're being styled, or a retry card when that
-  /// failed. The stand-in cards are an outfit card's height.
+  /// The carousel: with no plan for today, the "What's on today?" card;
+  /// otherwise today's looks in slot order, a skeleton while they're being
+  /// styled, or a retry card when that failed.
   List<Widget> _carouselCards(TodayState state, TodayDashboard dashboard) {
-    if (!dashboard.wardrobeReady) {
-      return [
-        OutfitCardSized(
-          child: _AddItemsEmptyState(missingRoles: dashboard.missingRoles),
-        ),
-      ];
-    }
     if (dashboard.needsPlan) {
       return [PlanTodayCard(onPlan: () => _planDay(dashboard, appToday()))];
     }
@@ -826,7 +820,6 @@ class _AddItemsEmptyState extends StatelessWidget {
         boxShadow: todayCardShadow,
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(
             Icons.checkroom_outlined,

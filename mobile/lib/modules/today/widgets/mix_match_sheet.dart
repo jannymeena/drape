@@ -741,7 +741,7 @@ class _PieceImage extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: url,
       fit: BoxFit.cover,
-      errorWidget: (_, _, _) => placeholder,
+      errorWidget: (_, _, _) => const BrokenImageTile(),
     );
   }
 }

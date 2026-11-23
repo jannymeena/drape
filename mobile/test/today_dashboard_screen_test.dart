@@ -18,8 +18,6 @@ import 'package:mobile/modules/today/screens/today_dashboard_screen.dart';
 import 'package:mobile/modules/today/today_service.dart';
 import 'package:mobile/modules/shop/models/shop.dart';
 import 'package:mobile/modules/shop/shop_service.dart';
-import 'package:mobile/modules/today/widgets/outfit_card.dart';
-import 'package:mobile/modules/today/widgets/outfit_card_sized.dart';
 import 'package:mobile/modules/today/widgets/outfit_card_skeleton.dart';
 import 'package:mobile/modules/today/widgets/outfit_carousel.dart';
 import 'package:mobile/modules/today/widgets/outfit_collage.dart';
@@ -434,34 +432,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.byType(OutfitCard), findsNothing);
-    });
-
-    testWidgets('the add-items card is an outfit card\'s height', (
-      tester,
-    ) async {
-      _tallSurface(tester);
-      _stubGeolocator(tester);
-      await tester.pumpWidget(_host(_StubService(_frame(needsPlan: true))));
-      await _settle(tester);
-      final planCard = tester.getSize(find.byType(PlanTodayCard)).height;
-
-      await tester.pumpWidget(const SizedBox()); // a fresh ProviderScope next
-      await tester.pumpWidget(
-        _host(_StubService(_frame(wardrobeReady: false))),
-      );
-      await _settle(tester);
-      final empty = tester
-          .getSize(
-            find.ancestor(
-              of: find.text(
-                'Add a few wardrobe items to start getting daily outfits.',
-              ),
-              matching: find.byType(OutfitCardSized),
-            ),
-          )
-          .height;
-      expect(empty, closeTo(planCard, 0.5));
+      expect(find.byType(OutfitCarousel), findsNothing);
     });
 
     testWidgets('nothing to say what\'s missing: the generic empty state', (
@@ -855,15 +826,7 @@ void main() {
       await tester.pumpWidget(_host(_StubService(notReady)));
       await _settle(tester);
 
-      // No loading card — only the add-items card's hidden sizing skeleton.
-      expect(
-        find.descendant(
-          of: find.byType(OutfitCardSized),
-          matching: find.byType(OutfitCardSkeleton),
-        ),
-        findsOneWidget,
-      );
-      expect(find.byType(OutfitCardSkeleton), findsOneWidget);
+      expect(find.byType(OutfitCardSkeleton), findsNothing);
       expect(
         find.text('Add a few wardrobe items to start getting daily outfits.'),
         findsOneWidget,

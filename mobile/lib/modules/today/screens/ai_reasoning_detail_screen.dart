@@ -295,7 +295,7 @@ class _ItemRow extends StatelessWidget {
                   : CachedNetworkImage(
                       imageUrl: item.imageUrl!,
                       fit: BoxFit.cover,
-                      errorWidget: (_, _, _) => _placeholder,
+                      errorWidget: (_, _, _) => const BrokenImageTile(),
                     ),
             ),
           ),

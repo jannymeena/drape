@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/theme/app_colors.dart';
+import '../../../shared/widgets/garment_placeholder.dart';
 
 /// A wardrobe item's picture, as the card and the item screen show it.
 ///
@@ -10,6 +11,9 @@ import '../../../shared/theme/app_colors.dart';
 /// - The user's own photo fills the frame as it is: no background, no padding.
 /// - While the mannequin shot is still being made ([processing]), the photo is
 ///   shown with a loading indicator over it.
+/// - While a picture downloads, the card's own surface shows with a spinner
+///   in it ([WardrobePictureLoading]) — never an empty space. A photo that
+///   fails shows [BrokenImageTile]; [placeholder] is only for no photo.
 class WardrobePicture extends StatelessWidget {
   const WardrobePicture({
     super.key,
@@ -45,7 +49,11 @@ class WardrobePicture extends StatelessWidget {
             child: CachedNetworkImage(
               imageUrl: url,
               fit: BoxFit.contain,
-              errorWidget: (_, _, _) => placeholder,
+              // The background is already the card; just the spinner.
+              placeholder: (_, _) => const WardrobePictureLoading(
+                surface: Colors.transparent,
+              ),
+              errorWidget: (_, _, _) => const BrokenImageTile(),
             ),
           ),
         ],
@@ -54,13 +62,42 @@ class WardrobePicture extends StatelessWidget {
       picture = CachedNetworkImage(
         imageUrl: url,
         fit: BoxFit.cover,
-        errorWidget: (_, _, _) => placeholder,
+        placeholder: (_, _) => const WardrobePictureLoading(),
+        errorWidget: (_, _, _) => const BrokenImageTile(),
       );
     }
     if (!processing) return picture;
     return Stack(
       fit: StackFit.expand,
       children: [picture, const WardrobePictureProcessing()],
+    );
+  }
+}
+
+/// A picture still downloading: the card's surface, with a small spinner in
+/// it, so the grid shows where each photo goes before it arrives.
+class WardrobePictureLoading extends StatelessWidget {
+  const WardrobePictureLoading({super.key, this.surface = AppColors.ivoryWarm});
+
+  final Color surface;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Loading the picture',
+      child: ColoredBox(
+        color: surface,
+        child: const Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.taupe,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

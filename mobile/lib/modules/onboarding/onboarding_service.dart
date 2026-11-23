@@ -214,9 +214,9 @@ class OnboardingService {
     }
   }
 
-  /// `POST /starter-wardrobe/assign` — the server picks a capsule of AWIN
-  /// products for the user's shopping_style and materializes it into the
-  /// wardrobe. 503 while the catalog is still being tagged (fresh sync).
+  /// `POST /starter-wardrobe/assign` — the server materializes every AWIN
+  /// product for the user's shopping_style into the wardrobe (and keeps it in
+  /// step with the catalog). 503 while the catalog is still being tagged (fresh sync).
   Future<StarterWardrobeResult> assignStarterWardrobe() async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
